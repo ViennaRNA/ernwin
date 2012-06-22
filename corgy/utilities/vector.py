@@ -1,18 +1,166 @@
 #!/usr/bin/python
 
-from numpy import array, dot, pi, cos, sin, cross
-from math import sqrt, acos
+from numpy import array, dot, pi, cos, sin, cross, matrix
+from numpy.linalg import inv
+from numpy.testing import assert_allclose
+from math import sqrt, acos, atan2
 from random import random
+
+from sys import stderr
 
 tau = 2 * pi
 
 def get_non_colinear_unit_vector(vec): 
+    '''
+    Get a unit vector that does not lie on the line defined by vec.
+
+    This is done by creating a vector along the least represented axis in vec.
+
+    @param vec: The vector under consideration.
+    @return: A vector along an axis.
+    '''
     m = min(vec) 
     ind = list(vec).index(m) 
     unit = [0., 0., 0.] 
     unit[ind] = 1. 
            
     return array(unit)
+
+def create_orthonormal_basis(vec1, vec2=None, vec3=None):
+    '''
+    Create an orthonormal basis using the provided vectors.
+
+    If more than one is provided, it must be orthogonal to 
+    the others.
+    '''
+    if vec2 == None:
+        vec2 = get_non_colinear_unit_vector(vec1)
+    else:
+        assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
+
+
+    vec1 = normalize(array(vec1))
+    vec2 = normalize(array(vec2))
+
+    if vec3 == None:
+        vec3 = cross(vec1, vec2)
+
+    vec3 = normalize(vec3)
+
+    return array([vec1, vec2, vec3])
+
+def spherical_cartesian_to_polar(vec):
+    '''
+    Return a parameterization of a vector of 3 coordinates:
+
+    x = r sin u cos v
+    y = r sin u sin v
+    z = r cos u
+
+    0 <= u <= pi
+    -pi <= v <= pi
+
+    Where u is the polar angle and v is the azimuth angle.
+
+    @param vec: A vector of 3 cartesian coordinates.
+    @return: (r, u, v)
+    '''
+    r = magnitude(vec)
+    u = acos(vec[2] / r)
+    v = atan2(vec[1], vec[0])
+
+    assert_allclose(vec[0], r * sin(u) * cos(v), rtol=1e-7, atol=1e-7)
+    return (r, u, v)
+
+def spherical_polar_to_cartesian(vec):
+    '''
+    Convert spherical polar coordinates to cartesian coordinates:
+
+    See the definition of spherical_cartesian_to_polar.
+
+    @param vec: A vector of the 3 polar coordinates (r, u, v)
+    @return: (x, y, z)
+    '''
+    (r,u,v) = vec
+
+    x = r * sin(u) * cos(v)
+    y = r * sin(u) * sin(v)
+    z = r * cos(u)
+
+    return [x, y, z]
+
+def get_standard_basis(dim):
+    '''
+    Get a standard basis for the given dimension.
+
+    For 2D, this equals [[1.,0.],[0.,1.]]
+
+    @param dim: The dimension of the vector space.
+    @return: A vector of vectors that constitute the standard basis.
+    '''
+
+    standard_basis = [[0. for j in range(dim)] for i in range(dim)]
+    for i in range(dim):
+        standard_basis[i][i] = 1.
+    standard_basis = array(standard_basis)
+
+    return standard_basis
+
+def change_basis(coords, new_basis, old_basis):
+    '''
+    Change the basis of coordinates to a new basis. In a regular structure
+    we have the coordinates in the regular cartesian coordinate system. For helix-helix
+    orientations, however, we want to express the coordinates in a coordinate system
+    defined by the first helix.
+
+    The new basis will consist of the axis of the first helix, one of its twist elements
+    (the one closest to the second vector) and a third vector orthogonal to the previous
+    two.
+
+    @param coords: The coordinates to transform (array of n elements).
+    @param new_basis: The new basis vectors (n x n matrix)
+    @param old_basis: The old basis for the coordinates(n x n matrix)
+    @return: The new coordinates according to the new basis
+    '''
+    assert(len(coords) == len(new_basis))
+    assert(len(new_basis) == len(old_basis))
+
+    dim = len(coords)
+    #print >>stderr, "coords:", coords
+    standard_basis = get_standard_basis(dim)
+
+    # the transform of the old basis to the standard is simply
+    # equal to multiplying by the old basis
+
+    # the transform from the standard to the new basis is
+    # done by multiplying the coordinates in the standard
+    # basis to the coordinates in the new_basis
+
+    # A nice tutorial about this is located here:
+    # http://tutorial.math.lamar.edu/Classes/LinAlg/ChangeOfBasis.aspx
+    #print >>stderr, "old_basis:", old_basis
+    standard_coords = dot(old_basis.transpose(), coords)
+    #print >>stderr, "standard_coords:", standard_coords
+    standard_to_new = inv(new_basis.transpose())
+    #print >>stderr, "standard_to_new:", standard_to_new
+    new_coords = dot(standard_to_new, standard_coords)
+
+    return new_coords
+
+def vector_rejection(a, b):
+    '''
+    Return the vector rejection of a from b. In other words, return the orthogonal
+    projection of a onto the plane orthogonal to b.
+
+    @param a: The vector to be projected.
+    @param b: The vector defining the normal of the plane.
+    @return: The rejection of the vector a from b. (a - (dot(a, b) / dot(b, b)) * b)
+    '''
+
+    n = dot(a, b)
+    d = dot(b, b)
+    return a - (n / d) * b
+
 
 def rotation_matrix(axis,theta):
     '''
@@ -21,6 +169,11 @@ def rotation_matrix(axis,theta):
     Thanks to unutbu on StackOverflow 
 
     http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
+
+    @param axis: The axis around which to rotate
+    @param theta: The angle of rotation
+    @return: A matrix which can be used to perform the given rotation. The coordinates
+             need only be multiplied by the matrix.
     '''
     axis = axis/sqrt(dot(axis,axis))
     a = cos(theta/2)
@@ -50,31 +203,57 @@ def center_on_centroid(crds1):
     return array(crds)
 
 def magnitude(vec):
+    '''
+    Return the magnitude of a vector (|V|).
+
+    @param vec: The vector in question.
+    @return: The magnitude of the vector.
+    '''
+
     return sqrt(dot(vec, vec))
 
 def normalize(vec):
+    '''
+    Normalize a vector so that its magnitude becomes 1.0 while
+    its direction remains the same.
+
+    @param vec: The vector in question.
+    @return: A normalized version of the vector.
+    '''
+
     return vec / magnitude(vec)
 
 def vec_angle(vec1, vec2):
+    '''
+    Get the angle between two vectors using the identity:
+
+    A * B = |A||B| cos t
+
+    Where A and B are two vectors and t is the angle between them.
+
+    @param vec1: The first vector (A)
+    @param vec2: The second vector (B)
+    @return: The angle between the two vectors.
+    '''
+
     vec1n = normalize(vec1)
     vec2n = normalize(vec2)
-
-    #print >>sys.stderr, "vec1n:", vec1n
-    #print >>sys.stderr, "vec2n:", vec2n
-    #print >>sys.stderr, "dot(v1, v2):", dot(vec1n, vec2n)
 
     angle = acos(dot(vec1n, vec2n))
     return angle
 
-def dot(a, b):
+def vec_dot(a, b):
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
+'''
 def cross(a, b):
     c = [a[1]*b[2] - a[2]*b[1],
          a[2]*b[0] - a[0]*b[2],
          a[0]*b[1] - a[1]*b[0]]
 
     return c
+'''
+
 def vec_distance(vec1, vec2):
     return sqrt(dot(vec2 - vec1, vec2 - vec1))
 

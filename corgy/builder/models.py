@@ -12,6 +12,8 @@ from random import random, choice
 from math import pi, sin, cos, acos
 from numpy import array, cross, dot
 
+import sys
+
 
 avg_stem_bp_length = 2.24
 
@@ -51,11 +53,15 @@ def add_bulge(length, stem1, angle1):
     comp1 = cross(stem1_vec, stem1_ncl)
     comp2 = cross(stem1_vec, comp1)
 
+
     rot_mat1 = rotation_matrix(comp2, angle1)
     rot_mat2 = rotation_matrix(stem1_vec, random() * 2.0 * pi)
 
     new_vec1 = dot(rot_mat1, stem1_vec)
     new_vec2 = dot(rot_mat2, new_vec1)
+
+    print >> sys.stderr, "rot_mat1", rot_mat1
+    print >> sys.stderr, "stem1_vec", stem1_vec
 
     nv2 = normalize(new_vec2)
     return (start, start + length * nv2)

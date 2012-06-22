@@ -17,6 +17,7 @@ class BulgeGraph:
 
         # Look up tables
         self.coords = dict()
+        self.twists = dict()
         self.edges = dict()
         self.defines = dict()
         self.weights = dict()
@@ -244,15 +245,27 @@ class BulgeGraph:
     def rotate_coords(self, rotation):
         for key in self.coords.keys():
             coords = self.coords[key]
+
             new_coords = (dot(rotation, coords[0]), dot(rotation, coords[1]))
+
             self.coords[key] = new_coords
+            if key[0] == 's':
+                twists = self.twists[key]
+                new_twists = (dot(rotation, twists[0]), dot(rotation, twists[1]))
+                self.twists[key] = new_twists
 
     def translate_coords(self, translation):
         for key in self.coords.keys():
             coords = self.coords[key]
+
             new_coords = (coords[0] + translation, coords[1] + translation)
+
             self.coords[key] = new_coords
 
+            if key[0] == 's':
+                twists = self.twists[key]
+                new_twists = (twists[0] + translation, twists[1] + translation)
+                self.twists[key] = new_twists
 
     # Print the graph in the form
     # 
@@ -270,6 +283,14 @@ class BulgeGraph:
             out_str += '\n'
         return out_str
     
+    def get_twist_str(self):
+        out_str = ''
+        for key in self.twists.keys():
+            [p, n] = self.twists[key]
+            out_str += "twist %s %s %s" % (key, " ".join([str(pt) for pt in p]), " ".join([str(pt) for pt in n]))
+            out_str += '\n'
+        return out_str
+
     def get_long_range_str(self):
         out_str = ''
         for key1 in self.longrange.keys():
@@ -281,12 +302,16 @@ class BulgeGraph:
     def print_coords(self):
         print self.get_coord_str()
 
+    def print_twists(self):
+        print self.get_twist_str()
+
     def get_as_str(self):
         out_str = ''
         out_str += self.get_name_str()
         out_str += self.get_length_str()
         out_str += self.get_define_str()
         out_str += self.get_coord_str()
+        out_str += self.get_twist_str()
         out_str += self.get_connect_str()
         out_str += self.get_long_range_str()
 
@@ -647,6 +672,10 @@ class BulgeGraph:
             if line.strip().find('coord') == 0:
                 parts = line.strip().split(' ')
                 self.coords[parts[1]] = [array([float(parts[2]), float(parts[3]), float(parts[4])]), array([float(parts[5]), float(parts[6]), float(parts[7])])]
+
+            if line.strip().find('twist') == 0:
+                parts = line.strip().split(' ')
+                self.twists[parts[1]] = [array([float(parts[2]), float(parts[3]), float(parts[4])]), array([float(parts[5]), float(parts[6]), float(parts[7])])]
 
             if line.strip().find('length') == 0:
                 parts = line.strip().split(' ')
