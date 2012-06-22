@@ -6,7 +6,7 @@ from sys import stderr
 from random import random, uniform
 
 from numpy import array, matrix, allclose, cross
-from corgy.utilities.vector import change_basis, get_standard_basis, normalize
+from corgy.utilities.vector import change_basis, get_standard_basis, normalize, create_orthonormal_basis
 from corgy.utilities.vector import spherical_cartesian_to_polar, spherical_polar_to_cartesian
 from corgy.utilities.vector import rotation_matrix
 from corgy.utilities.vector import get_non_colinear_unit_vector
@@ -18,59 +18,88 @@ from corgy.graph.graph_pdb import get_mids, get_twists
 from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.graph.bulge_graph import BulgeGraph
 
+from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
+from corgy.graph.graph_pdb import get_stem_separation_parameters
+from corgy.graph.graph_pdb import stem2_orient_from_stem1, twist2_orient_from_stem1
 
 class TestGraphToAngles(unittest.TestCase):
     '''
     Tests for the gathering of angles statistics.
     '''
 
-    def orientation_test(self, stem1, twist1, stem2):
-        print "\n\n"
-        stem1 = normalize(array(stem1))
-        stem2 = normalize(array(stem2))
-        twist1 = normalize(array(twist1))
+    def orientation_test(self, stem1, twist1, stem2, twist2):
+        '''
+        To test the caculation of the twist angles, the second twist is converted
+        to the coordinate system defined by the first stem and its twist.
 
-        (r, u, v) = get_stem_orientation_parameters(stem1, twist1, stem2)
+        The the rotations required for stem2 to be placed on the x-axis are reversed
+        and the twist is placed on the x-y plane.
+        '''
 
-        print "stem1:", stem1
-        print "stem2:", stem2
-        print "twist1:", stem2
-        print "r:", r, "u:", u, "v:", v
+        (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
+        stem1_basis = create_orthonormal_basis(stem1, twist1)
 
-        # rotate around the z-axis to align with the x-axis
-        rot_mat1 = rotation_matrix(array([0., 0., 1.]), -v)
+        twist2_new_basis = change_basis(twist2, stem1_basis, get_standard_basis(3))
+        stem2_new_basis = change_basis(stem2, stem1_basis, get_standard_basis(3))
 
-        # rotate around the y-axis to get back to [0., 0. 0.]
+        rot_mat1 = rotation_matrix(array([0., 0., 1.]), v)
         rot_mat2 = rotation_matrix(array([0., 1., 0.]), u - pi/2) 
 
-        stem2_new = dot(rot_mat1, stem2)
-        print "stem2_new:", stem2_new
+        twist2_new = dot(rot_mat1, twist2_new_basis)
+        twist2_new = dot(rot_mat2, twist2_new)
+
+        stem2_new = dot(rot_mat1, stem2_new_basis)
         stem2_new = dot(rot_mat2, stem2_new)
-        print "stem2_new:", stem2_new
 
-        self.assertTrue(allclose(stem2_new, stem1))
-    
+        #print "stem2:", stem2
+        #print "stem2_new:", stem2_new
 
+        self.assertTrue(allclose(dot(stem2_new, array([0., 1., 0.])), 0.))
+        self.assertTrue(allclose(dot(stem2_new, array([0., 0., 1.])), 0.))
+
+        self.assertTrue(allclose(dot(twist2_new, array([1., 0., 0.])), 0.))
 
     def test_get_orientation_parameters(self):
-        #stem1 = array([1., 0., 0.])
-        #stem2 = array([1., 0., 0.])
-        #twist1 = array([0., 1., 0.])
-
-        #self.orientation_test(stem1, stem2, twist1)
-        self.orientation_test([1., 0., 0.], [0., -1., 0.], [1, 0, 0])
-        self.orientation_test([1., 0., 0.], [0., 1., 0.], [1, 0, 0])
-        self.orientation_test([1., 1., 0.], [1., -1., 0.], [1, 0, 0])
-        self.orientation_test([2., 1., 0.], [1., -1., 0.], [1, 0, 0])
-
-        return
-
         for i in range(1):
                 stem1 = [uniform(-1., 1.), uniform(-1., 1.), uniform(-1., 1.)]
                 stem2 = [uniform(-1., 1.), uniform(-1., 1.), uniform(-1., 1.)]
-                twist1 = cross(stem1, get_non_colinear_unit_vector(stem1))
 
-                self.orientation_test(stem1, twist1, stem2)
+                twist1 = cross(stem1, get_non_colinear_unit_vector(stem1))
+                twist2 = cross(stem2, get_non_colinear_unit_vector(stem2))
+
+                self.orientation_test(stem1, twist1, stem2, twist2)
+    
+    def test_helix_orientations_concrete(self):
+        bg = BulgeGraph('test/graph/1gid.comp')
+
+        for define in bg.defines.keys():
+            if define[0] != 's' and len(bg.edges[define]) == 2:
+                connections = list(bg.edges[define])
+
+                (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(bg, define, connections)
+
+                self.assertTrue(allclose(dot(stem1, twist1), 0.))
+                self.assertTrue(allclose(dot(stem2, twist2), 0.))
+
+    def test_reconstruct_helix(self):
+        '''
+        Test the reconstruction of a molecule based on the angles.
+        '''
+        bg = BulgeGraph('test/graph/1gid.comp')
+
+        for define in bg.defines.keys():
+            if define[0] != 's' and len(bg.edges[define]) == 2:
+                connections = list(bg.edges[define])
+
+                (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(bg, define, connections)
+                (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
+                (r1, u1, v1) = get_stem_separation_parameters(stem1, twist1, bulge)
+
+                stem2_new = stem2_orient_from_stem1(stem1, twist1, r, u, v)
+                self.assertTrue(allclose(stem2_new, stem2))
+
+                twist2_new = twist2_orient_from_stem1(stem1, twist1, u, v, t)
+                self.assertTrue(allclose(twist2_new, twist2))
 
 
 class TestGraphPDBFunctions(unittest.TestCase):
@@ -95,6 +124,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
                 stem_vec = (mids[1] - mids[0]).get_array()
 
+                # make sure the twists are perpendicular to the stem
                 self.assertTrue(allclose(0., dot(stem_vec, twists[0])))
                 self.assertTrue(allclose(0., dot(stem_vec, twists[1])))
 
@@ -174,13 +204,31 @@ class TestVectorFunctions(unittest.TestCase):
         '''
 
         for i in range(10):
-            cart = [uniform(-1., 1.), uniform(-1., 1.), uniform(-1., 1.)]
+            cart = normalize(array([uniform(-1., 1.), uniform(-1., 1.), uniform(-1., 1.)]))
 
             polar = spherical_cartesian_to_polar(cart)
             new_cart = spherical_polar_to_cartesian(polar)
             #print "polar:", polar
 
             self.assertTrue(allclose(cart, new_cart))
+
+    def test_spherical_rotation(self):
+        '''
+        Test if we can use the generated spherical coordinates to rotate our vector back to the x-axis.
+        '''
+        for i in range(10):
+            cart = normalize(array([uniform(-1., 1.), uniform(-1., 1.), uniform(-1., 1.)]))
+            (r, u, v) = spherical_cartesian_to_polar(cart)
+
+
+            rot_mat1 = rotation_matrix(array([0., 0., 1.]), v)
+            rot_mat2 = rotation_matrix(array([0., 1., 0.]), u - pi/2) 
+
+            new_cart = dot(rot_mat1, cart)
+            new_cart = dot(rot_mat2, new_cart)
+
+            self.assertTrue(allclose(new_cart, array([1., 0., 0.])))
+
 
 if __name__ == '__main__':
     unittest.main() 
