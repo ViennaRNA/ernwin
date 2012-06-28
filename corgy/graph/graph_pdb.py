@@ -5,27 +5,70 @@ from sys import argv
 
 from numpy import array
 from numpy.linalg import inv
+from numpy.testing import assert_allclose
 
 from corgy.utilities.vector import dot, cross, vector_rejection, magnitude, normalize
 from corgy.utilities.vector import change_basis, get_standard_basis, create_orthonormal_basis
 from corgy.utilities.vector import spherical_cartesian_to_polar, rotation_matrix
 from corgy.utilities.vector import spherical_polar_to_cartesian
+from corgy.utilities.vector import get_vector_centroid
 
 from math import pi, atan2, cos, sin
 
 catom_name = 'C1*'
 
+def get_stem_phys_length(coords):
+    '''
+    Return the physical length of a stem.
 
-def get_twist_parameter(twist1, twist2, stem2_rotation_params):
+    @param coords: The coordinates of the ends of the helix axis.
+    '''
+
+    return magnitude(coords[1] - coords[0])
+
+def get_twist_angle(coords, twists):
+    ''' 
+    Get the angle of the twists with respect to each other.
+
+    @param coords: The coordinates of the ends of the stem.
+    @param twists: The two twist vectors.
+    @return angle: The angle between the two twist vectors.
+    '''
+
+    stem_vec = coords[1] - coords[0]
+    basis = create_orthonormal_basis(stem_vec, twists[0])
+
+    twist2 = change_basis(twists[1], basis, get_standard_basis(3))
+    assert_allclose(twist2[0], 0., rtol=1e-7, atol=1e-7)
+
+    angle = atan2(twist2[2], twist2[1])
+    return angle
+
+def twist2_from_twist1(stem_vec, twist1, angle):
+    '''
+    Get an orientation for the second twist which will place it an
+    angle of angle from the first twist.
+
+    @param stem_vec: The vector of the stem.
+    @param twist1: The vector of the first twist.
+    @param angle: The angular difference between the two twists.
+    '''
+    basis = create_orthonormal_basis(stem_vec, twist1)
+
+    twist2_new = array([0., cos(angle), sin(angle)])
+    twist2 = change_basis(twist2_new, get_standard_basis(3), basis)
+
+    return twist2
+
+def get_twist_parameter(twist1, twist2, (u,v)):
     '''
     Calculate how much stem1 must be twisted for its twist vector
     to coincide with that of stem2.
 
     @param twist1: The twist notator of stem1
     @param twist2: The twist notator of stem2
-    @param stem2_rotation_params: The parameters for rotating stem2 onto stem1 (u, v)
+    @param (u,v): The parameters for rotating stem2 onto stem1
     '''
-    (u, v) = stem2_rotation_params
 
     rot_mat1 = rotation_matrix(array([0., 0., 1.]), v)
     rot_mat2 = rotation_matrix(array([0., 1., 0.]), u - pi/2)
@@ -33,7 +76,7 @@ def get_twist_parameter(twist1, twist2, stem2_rotation_params):
     twist2_new = dot(rot_mat1, twist2)
     twist2_new = dot(rot_mat2, twist2_new)
     
-    print "get_twist_parameter twist2:", twist2_new
+    #print "get_twist_parameter twist2:", twist2_new
 
     return atan2(twist2_new[2], twist2_new[1])
 
@@ -87,7 +130,7 @@ def get_stem_twist_and_bulge_vecs(bg, bulge, connections):
 
     The two vectors will be defined as follows:
 
-    s1 -> b -> s2
+    s1e -> s1b -> b -> s2b -> s2e
 
     The twists will be the two closest to the bulge.
 
@@ -167,39 +210,34 @@ def print_orientation_angles(bulge, connections):
 
     return (r, u, v, t)
 
-def stem2_pos_from_stem1(stem1, twist1, r, u, v):
+def stem2_pos_from_stem1(stem1, twist1, params):
     '''
     Get the starting point of a second stem, given the parameters
     about where it's located with respect to stem1
 
     @param stem1: The vector representing the axis of stem1's cylinder
     @param twist1: The twist parameter of stem1
-    @param r: The magnitude of stem2's position vector
-    @param u: The polar angle.
-    @param v: The azimuth.
+    @param params: The parameters describing the orientaiton of stem2 wrt stem1
     '''
-    stem2 = spherical_polar_to_cartesian(r, u, v)
+    (r, u, v) = params
+    stem2 = spherical_polar_to_cartesian((r, u, v))
 
     stem1_basis = create_orthonormal_basis(stem1, twist1)
     stem2_start = change_basis(stem2, get_standard_basis(3), stem1_basis)
 
     return stem2_start
 
-def twist2_orient_from_stem1(stem1, twist1, u, v, t):
+def twist2_orient_from_stem1(stem1, twist1, (u, v, t)):
     '''
     Calculate the position of the twist factor of the 2nd stem from its
     parameters and the first stem.
 
     @param stem1: The vector representing the axis of stem1's cylinder
     @param twist1: The twist factor of stem1.
-    @param u: The polar angle.
-    @param v: The azimuth.
-    @param t: The orientation of this twist with respect to the corresponding
-        twist of stem1
+    @param (u, v, t): The parameters describing how the twist of stem2 is oriented with respect to stem1
     '''
 
     twist2_new = array([0., cos(t), sin(t)])
-    print "twist2_orient_from_stem1:", twist2_new
 
     rot_mat1 = rotation_matrix(array([0., 0., 1.]), v)
     rot_mat2 = rotation_matrix(array([0., 1., 0.]), u - pi/2)
@@ -210,20 +248,16 @@ def twist2_orient_from_stem1(stem1, twist1, u, v, t):
     stem1_basis = create_orthonormal_basis(stem1, twist1)
     twist2_new_basis = change_basis(twist2_new, get_standard_basis(3), stem1_basis)
 
-    print "twist2_orient_from_stem1 twist2_new_basis:", twist2_new_basis
-
     return twist2_new_basis
 
-def stem2_orient_from_stem1(stem1, twist1, r, u, v):
+def stem2_orient_from_stem1(stem1, twist1, (r, u, v)):
     '''
     Calculate the orientation of the second stem, given its parameterization
     and the parameterization of stem1
 
     @param stem1: The vector representing the axis of stem1's cylinder
     @param twist1: The twist factor of stem1.
-    @param r: The magnitude of stem2's position vector
-    @param u: The polar angle.
-    @param v: The azimuth.
+    @param (r,u,v): The orientation of stem2 wrt stem1
     '''
     stem2 = spherical_polar_to_cartesian((r, u, v))
     stem1_basis = create_orthonormal_basis(stem1, twist1)
@@ -242,17 +276,9 @@ def get_centroid(chain, residue_num):
             # the C1* atom probably doesn't exist
             continue
 
-    vectors = [atom.get_vector() for atom in atoms]
+    vectors = [atom.get_vector().get_array() for atom in atoms]
 
-    sum_vec = Vector([0., 0., 0.])
-    for i in range(len(vectors)):
-        sum_vec += vectors[i]
-
-    sum_vec /= float(len(vectors))
-    for i in sum_vec:
-        if math.isnan(i):
-            raise Exception('nan encountered')
-    return sum_vec
+    return get_vector_centroid(vectors)
 
 def get_bulge_centroid(chain, define):
     i = 0
@@ -340,14 +366,19 @@ def get_twists_core(chain, start1, start2, end1, end2):
 
     mids = get_mids_core(chain, start1, start2, end1, end2)
 
+    '''
     start_vec1 = chain[start1][catom_name].get_vector() - chain[start2][catom_name].get_vector()
     end_vec1 = chain[end1][catom_name].get_vector() - chain[end2][catom_name].get_vector()
+
+    '''
+    start_vec1 = chain[start1][catom_name].get_vector() - mids[0]
+    end_vec1 = chain[end1][catom_name].get_vector() - mids[1]
 
     #print >>sys.stderr, "mag1:", magnitude(start_vec1)
     #print >>sys.stderr, "mag2:", magnitude(end_vec1)
 
-    notch1 = vector_rejection((start_vec1 - mids[0]).get_array(), (mids[0] - mids[1]).get_array())
-    notch2 = vector_rejection((end_vec1 - mids[1]).get_array(), (mids[1] - mids[0]).get_array())
+    notch1 = vector_rejection(start_vec1.get_array(), (mids[0] - mids[1]).get_array())
+    notch2 = vector_rejection(end_vec1.get_array(), (mids[1] - mids[0]).get_array())
 
     return (normalize(notch1), normalize(notch2))
 

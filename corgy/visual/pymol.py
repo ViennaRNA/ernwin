@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-from numpy import array, cross, dot
+from numpy import array, cross, dot, allclose
 from corgy.utilities.vector import normalize, get_non_colinear_unit_vector, magnitude
+from sys import stderr
 
 class PymolPrinter:
     def __init__(self):
@@ -23,6 +24,8 @@ class PymolPrinter:
             return [1.0, 1.0, 0.0]
         elif color == 'purple':
             return [1.0, 0.0, 1.0]
+        elif color == 'white':
+            return [1.0, 1.0, 1.0]
         else:
             return [0.0, 0.0, 0.0]
 
@@ -43,16 +46,14 @@ class PymolPrinter:
         self.new_spheres = []
 
     def add_segment(self, p, n, color='green', width=0.2, text=""):
-        #print >>sys.stderr, "p", p, "n", n, "text", text
         if self.override_color != None:
             color = self.override_color
 
+        #assert(not allclose(p, n))
+
         self.new_segments += [(array(p), array(n), color, width, text)]
-        #print >>sys.stderr, segments[-1]
-        #print >>sys.stderr, "segments", segments
 
     def transform_segments(self, translation, rotation):
-        #print >> sys.stderr, "transforming"
         for (p, n, color, width, text) in self.new_segments:
             p -= translation
             n -= translation
@@ -79,11 +80,8 @@ class PymolPrinter:
         self.segments += self.new_segments
 
         for seg  in self.segments:
-            #print >>sys.stderr, "seg:", seg
             (p,n,color,width, text) = seg
             color_vec = [str(c) for c in self.get_color_vec(color)]
-            #print >>sys.stderr, "p:", p
-            #print >>sys.stderr, "n:", n
             print " CYLINDER, %f, %f, %f, %f, %f, %f, %f, %s, %s," % (p[0], p[1], p[2], n[0], n[1], n[2], width, ", ".join(color_vec), ", ".join(color_vec))
 
 
@@ -91,10 +89,15 @@ class PymolPrinter:
         counter = 0
 
         for (p, n, color, width, text) in self.segments:
+            if len(text) == 0:
+                continue
+
             print "cgox_%d = []" % (counter)
+
             comp1 = normalize(n - p)
-            #print >>sys.stderr, "comp1:", comp1, "n:", n, "p:", p
+
             ncl = get_non_colinear_unit_vector(comp1)
+
             comp2 = normalize(cross(ncl, comp1))
             comp3 = normalize(cross(ncl, comp2))
 
@@ -141,6 +144,22 @@ class PymolPrinter:
         
             if key[0] == 's':
                 self.add_segment(p, n, 'green', 2.4, key)
+
+                twist1 = bg.twists[key][0]
+                twist2 = bg.twists[key][1]
+
+
+                mult = 5.
+                width = .3
+
+                self.add_segment(p, p + mult * twist1, "white", width, '')
+                self.add_segment(n, n + mult * twist2, "white", width, '')
+
+                '''
+                self.add_sphere(p + mult * twist1, "white", width, key)
+                self.add_sphere(n + mult * twist2, "white", width, key)
+                '''
+
             else:
                 if len(bg.edges[key]) == 1:
                     self.add_segment(p, n, "blue", 1.0, key)
@@ -152,10 +171,14 @@ class PymolPrinter:
 
         for key1 in bg.longrange.keys():
             for key2 in bg.longrange[key1]:
-                point1 = bg.get_point(key1)
-                point2 = bg.get_point(key2)
+                try:
+                    point1 = bg.get_point(key1)
+                    point2 = bg.get_point(key2)
 
-                self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                    #self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                    #self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                except:
+                    continue
 
 
     def load_flex_stats(self, flex_file):
@@ -168,7 +191,6 @@ class PymolPrinter:
 
             d[int(parts[0])][int(parts[1])] = float(parts[2])
 
-        print >>sys.stderr, "flexs:", d
         return d
 
     def flex_to_pymol(self, bg, flex_file):
@@ -189,9 +211,7 @@ class PymolPrinter:
                         dims = (abs(bd[1] - bd[0]) + 1, abs(bd[2] - bd[3]) + 1)
                         #out_str += "%d %d" % ( min(dims), max(dims))
 
-                    print >>sys.stderr, "dims:", dims
                     flex = flex_stats[min(dims)][max(dims)] * 10.
-                    print >>sys.stderr, "flex:", flex
 
                     if len(bg.edges[key]) == 2:
                         if bg.weights[key] == 1:
@@ -227,4 +247,3 @@ def print_angle_stats():
 
         angles += [vec_angle(s1, s2)]
 
-    #print >>sys.stderr, "vec_angle", " ".join([str(a) for a in angles])

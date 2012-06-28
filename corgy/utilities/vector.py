@@ -6,6 +6,8 @@ from numpy.testing import assert_allclose
 from math import sqrt, acos, atan2
 from random import random
 
+from math import isnan
+
 from sys import stderr
 
 tau = 2 * pi
@@ -19,8 +21,9 @@ def get_non_colinear_unit_vector(vec):
     @param vec: The vector under consideration.
     @return: A vector along an axis.
     '''
-    m = min(vec) 
-    ind = list(vec).index(m) 
+    absvec = [abs(v) for v in vec]
+    m = min(absvec)
+    ind = absvec.index(m) 
     unit = [0., 0., 0.] 
     unit[ind] = 1. 
            
@@ -190,6 +193,10 @@ def get_vector_centroid(crds1):
         centroid1 += crds1[i]
 
     centroid1 /= float(len(crds1))
+
+    for i in centroid1:
+        if isnan(i):
+            raise Exception('nan encountered')
 
     return centroid1
 

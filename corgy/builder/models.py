@@ -1,174 +1,154 @@
 #!/usr/bin/python
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.vector import normalize, magnitude, rotation_matrix, vec_angle, get_non_colinear_unit_vector
-from corgy.utilities.numeric import get_random_in_range
 from corgy.utilities.data_structures import DefaultDict
-from corgy.builder.rmsd import centered_rmsd, rmsd, optimal_superposition
-from corgy.builder.loops import get_random_spherical
 from corgy.visual.pymol import PymolPrinter
+from corgy.builder.stats import AngleStat, AngleStatsDict
+from corgy.builder.stats import StemStat, StemStatsDict
+from corgy.builder.stats import get_loop_length
+from corgy.graph.graph_pdb import stem2_pos_from_stem1
+from corgy.graph.graph_pdb import stem2_orient_from_stem1
+from corgy.graph.graph_pdb import twist2_orient_from_stem1
+from corgy.graph.graph_pdb import twist2_from_twist1
 
-from random import random, choice
-from math import pi, sin, cos, acos
-from numpy import array, cross, dot
-
-import sys
-
-
-avg_stem_bp_length = 2.24
-
-loop_lengths = [ 
-        (0., 0.),
-        ( 7.0 , 9.0 ), 
-        ( 7.459 , 9.33 ), 
-        ( 7.774 , 8.945 ), 
-        ( 8.102 , 8.985 ), 
-        ( 6.771 , 8.182 ), 
-        ( 6.465 , 7.533 ), 
-        ( 6.435 , 7.676 ), 
-        ( 6.605 , 8.987 ), 
-        ( 8.396 , 9.367 ), 
-        ( 12.13 , 18.68 ), 
-        ( 19.76 , 22.32 ), 
-        ( 11.57 , 14.59 ), 
-        ( 8.702 , 8.744 ), 
-        ( 15.46 , 15.46 ), 
-        ( 15.0 , 30.0 ), 
-        ( 15.0 , 30.0 ), 
-        ( 15.0 , 30.0 ), 
-        ( 15. , 30. ), 
-        ( 15. , 30. ), 
-        ( 15. , 30. ), 
-        ( 15. , 30. ), 
-        ( 15. , 30. ), 
-        ( 15. , 30. ), 
-        ( 33.02 , 33.02 ) ]
+from numpy import array
+from random import choice, uniform
+from sys import stderr
+from math import pi
 
 
-def add_bulge(length, stem1, angle1):
-    start = stem1[1]
-    stem1_vec = stem1[1] - stem1[0]
+class StemModel:
+    '''
+    A way of encapsulating the coarse grain 3D stem.
+    '''
 
-    stem1_ncl = get_non_colinear_unit_vector(stem1_vec)
-    comp1 = cross(stem1_vec, stem1_ncl)
-    comp2 = cross(stem1_vec, comp1)
+    def __init__(self, mids=None, twists=None):
+        if mids == None:
+            self.mids = (array([0., 0., 0.]), array([0., 0., 1.0]))
+        else:
+            self.mids = mids
+        if twists == None:
+            self.twists = (array([0., 1., 0.]), array([1., 0., 0.0]))
+        else:
+            self.twists = twists
 
+    def __str__(self):
+        return str(self.mids) + '\n' + str(self.twists)
 
-    rot_mat1 = rotation_matrix(comp2, angle1)
-    rot_mat2 = rotation_matrix(stem1_vec, random() * 2.0 * pi)
+    def reverse(self):
+        '''
+        Reverse this stem's orientation so that the order of the mids
+        is backwards. I.e. mids[1] = mids[0]...
+        '''
+        return StemModel((self.mids[1], self.mids[0]), (self.twists[1], self.twists[0]))
 
-    new_vec1 = dot(rot_mat1, stem1_vec)
-    new_vec2 = dot(rot_mat2, new_vec1)
+    def vec(self, (from_side, to_side) = (0, 1)):
+        return self.mids[to_side] - self.mids[from_side]
 
-    print >> sys.stderr, "rot_mat1", rot_mat1
-    print >> sys.stderr, "stem1_vec", stem1_vec
+class BulgeModel:
+    '''
+    A way of encapsulating a coarse grain 3D loop.
+    '''
 
-    nv2 = normalize(new_vec2)
-    return (start, start + length * nv2)
+    def __init__(self, mids=None):
+        if mids == None:
+            self.mids = (array([0., 0., 0.]), array([0., 0., 1.0]))
+        else:
+            self.mids = mids
 
-def add_stem2(length, stem1, bulge, angle1, angle2):
-    stem1_vec = stem1[1] - stem1[0]
-    bulge_vec = bulge[1] - bulge[0]
-    start = bulge[1]
-    
-    s1b_cross = cross(bulge_vec, stem1_vec)
-
-    #comp1 = cross(s1b_cross, stem1_vec)
-    #comp2 = cross(comp1, stem1_vec)
-
-    #print >>sys.stderr, "angle1: %f angle2: %f" % (angle1, angle2)
-    rot_mat1 = rotation_matrix(s1b_cross, angle1)
-    #rot_mat2 = rotation_matrix(bulge_vec, -angle2)
-    rot_mat2 = rotation_matrix(bulge_vec, pi - angle2)
-
-    new_vec1 = dot(rot_mat1, bulge_vec)
-    new_vec2 = dot(rot_mat2, new_vec1)
-    #new_vec2 = new_vec1
-   
-    nv2 = normalize(new_vec2)
-    return (start, start + length * nv2)
-
-def get_bulge_dimensions(bg, key):
-    bd = bg.defines[key]
-    if len(bd) == 2:
-        return (0, abs(bd[0] - bd[1]) + 1)
-    else:
-        dim1 = abs(bd[0] - bd[1]) + 1
-        dim2 = abs(bd[2] - bd[3]) + 1
-        return (min(dim1, dim2), max(dim1, dim2))
-
-def get_bulge_length(bg, key, length_stats):
-    dimensions = get_bulge_dimensions(bg, key)
-    bulge_length = dimensions[0]
-
-    #print >>sys.stderr, "dimensions:", dimensions
-    found = False
-    
-    dim1 = dimensions[1]
-    dim0 = dimensions[0]
-    while not found:
-        try:
-            length = choice(length_stats['bulge_mid'][dim0][dim1])
-            found = True
-        except IndexError:
-            found = False
-            dim1 -= 1
-
-    return length
-
-
-def get_loop_length(bg, key):
-    if int(bg.defines[key][0]) > int(bg.defines[key][1]):
-        loop_length = 1. 
-    else:
-        loop_length = int(bg.defines[key][1]) - int(bg.defines[key][0])
-    #print >>sys.stderr, "loop_length:", loop_length
-
-    return loop_lengths[loop_length][0] + random() * (loop_lengths[loop_length][1] - loop_lengths[loop_length][0])
-
-
-def add_close_segment(length, prev_stem):
-    start = prev_stem[1]
-    direction = prev_stem[1] - prev_stem[0]
-
-    #print >>sys.stderr, "direction:", direction
-    comp1 = get_non_colinear_unit_vector(direction)
-    #print >>sys.stderr, "comp1:", comp1
-    comp2 = cross(comp1, direction)
-
-    rm1 = rotation_matrix(comp2, random() * pi / 2)
-    rm2 = rotation_matrix(direction, random() * 2 * pi)
-
-    nv1 = dot(rm1, direction)
-    nv2 = dot(rm2, nv1)
-
-    nv = normalize(nv2)
-
-    return (start, start + length * nv)
+    def __str__(self):
+        return str(self.mids)
+            
 
 class SpatialModel:
-    def __init__(self, bg, length_stats, angle_stats):
-        self.length_stats = length_stats
+    '''
+    A way of building RNA structures given angle statistics as well
+    as length statistics.
+    '''
+
+    def __init__(self, bg, angle_stats, stem_stats):
+        '''
+        Initialize the structure.
+
+        @param bg: The BulgeGraph containing information about the coarse grained
+                   elements and how they are connected.
+        @param angle_stats: The statistics about the inter-helical angles.
+        '''
         self.angle_stats = angle_stats
+        self.stem_stats = stem_stats
+
         self.bg = bg
-        self.segments = DefaultDict(DefaultDict(0))
+
         self.pymol_printer = PymolPrinter()
 
         pass
 
+    def add_loop(self, name, prev_stem_node, params=None):
+        '''
+        Connect a loop to the previous stem.
+        '''
+        prev_stem = self.stems[prev_stem_node]
+        (s1b, s1e) = self.bg.get_sides(prev_stem_node, name)
+
+        if params == None:
+            length = get_loop_length(self.bg, name)
+            u = uniform(0, pi)
+            v = uniform(-pi/2, pi/2)
+
+            params = (length, u, v)
+
+        start_mid = prev_stem.mids[s1b]
+        (r, u, v) = params
+
+        direction = stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
+        end_mid = start_mid + direction
+        self.bulges[name] = BulgeModel((start_mid, end_mid))
+
 
     def find_start_node(self):
-        #print >>sys.stderr, "bg.edges", bg.edges
+        '''
+        Find a node from which to begin building. This should ideally be a loop
+        region as from there we can just randomly orient the first stem.
+        '''
         for define in self.bg.defines.keys():
             if define[0] != 's' and self.bg.weights[define] == 1 and len(self.bg.edges[define]) == 1:
-                self.to_visit += [(define, 'start', 1)]
+
+                length = get_loop_length(self.bg, define)
+                params = (length, 0., 0.)
+
+                prev_stem = StemModel()
+
+                #self.add_loop(define, StemModel(), params)
+
+                ang_stats = AngleStat()
+                ang_stats.pdb_name = 'start'
+                ang_stats.r1 = length
+
+                for edge in self.bg.edges[define]:
+                    self.to_visit += [(edge, define, StemModel(), ang_stats)] 
+
                 break
 
+
     def get_transform(self, edge):
+        '''
+        Get the location of one end of a stem.
+
+        Used in aligning a group of models around a single edge.
+
+        @param edge: The name of the edge.
+        '''
         segment = self.vectors[edge]
         return segment[0]
 
     def get_rotation(self, edge):
+        '''
+        Get a rotation matrix that will align a point in the direction of a particular
+        edge.
+
+        Used in aligning a group of models around a single edge.
+        
+        @param edge: The name of the target edge.
+        '''
         segment = self.vectors[edge]
 
         desired_orientation = array([1., 0., 0.])
@@ -178,166 +158,165 @@ class SpatialModel:
         angle = vec_angle(desired_orientation, vec)
         return rotation_matrix(norm, angle)
 
-    def add_stem_segment(self, edge, other_edge, segment):
-        self.bg.coords[edge] = segment
-        """
-        if edge == self.rot_segment:
-            self.pymol_printer.add_segment(segment[0], segment[1], 'purple', 5.0, edge)
-        else:
-            self.pymol_printer.add_segment(segment[0], segment[1], 'green', 3.0, edge)
-        """
+    def get_random_stem_stats(self, name):
+        '''
+        Return a random set of parameters with which to create a stem.
+        '''
+        # get the stem's length
 
-        if self.first_segment:
-            self.first_translation = self.get_transform(edge)
-            self.first_rotation = self.get_rotation(edge)
+        d = self.bg.defines[name]
+        length = abs(d[1] - d[0])
 
-            self.first_segment = False
+        # retrieve a random entry from the StemStatsDict collection
+        ss = choice(self.stem_stats[length])
 
-    def add_loop_segment(self, edge, other_edge, segment):
-        self.bg.coords[edge] = segment
+        return ss
 
-    def add_interior_bulge(self, edge, other_edge, segment):
-        self.bg.coords[edge] = segment
+    def get_random_bulge_stats(self, name):
+        '''
+        Return a random set of parameters with which to create a bulge.
+        '''
 
-    def add_single_bulge(self, edge, other_edge, segment):
-        self.bg.coords[edge] = segment
+        # get the bulge's size
+        size = self.bg.get_bulge_dimensions(name)
 
-    def add_loop(self, prev_node, curr_node, side):
-            ## Loop
-            ## Must be connected to a stem
-            ## Add a vector for this loop
-            length = get_loop_length(self.bg, curr_node)
+        # retrieve a random entry from the AngleStatsDict collection
+        stats = choice(self.angle_stats[size[0]][size[1]])
+        return stats
 
-            prev_end =  self.vectors[prev_node][side]
-            prev_stem = (self.vectors[prev_node][(side+1)%2],self.vectors[prev_node][side])
+    def add_stem(self, stem_params, prev_stem, bulge_params, (s1b, s1e)):
+        '''
+        Add a stem after a bulge. 
 
-            #print >>sys.stderr, "length:", length, "prev_stem:", prev_stem
-            new_vec = add_close_segment(length, prev_stem)
-            #print >>sys.stderr, "new_vec:", new_vec
-            self.add_loop_segment(curr_node, prev_node, new_vec)
+        The bulge parameters will determine where to place the stem in relation
+        to the one before it (prev_stem). This one's length and twist are
+        defined by the parameters stem_params.
 
-            self.vectors[curr_node] = new_vec
-            self.sides[curr_node] = side
+        @param stem_params: The parameters describing the length and twist of the stem.
+        @param prev_stem: The location of the previous stem
+        @param bulge_params: The parameters of the bulge.
+        @param side: The side of this stem that is away from the bulge
+        '''
+        start_location = stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
+        stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
+        twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
+    
+        stem = StemModel()
 
-            #edge = list(bg.edges[curr_node])[0]
+        mid1 = prev_stem.mids[s1e] + start_location
+        mid2 = mid1 + stem_orientation
 
-            for edge in self.bg.edges[curr_node]:
-                if edge not in self.visited and edge != curr_node:
-                    length = self.bg.get_stem_length(edge) * avg_stem_bp_length
-                    #print >>sys.stderr, "length:", length
-                    #print >>sys.stderr, "self.vectors:", self.vectors
-                    segment = add_close_segment(length, new_vec)
-                    self.vectors[edge] = segment
-                    self.sides[edge] = side
+        stem.mids = (mid1, mid2)
 
-                    self.add_stem_segment(edge, curr_node, segment)
-                    self.visited.add(edge)
+        twist2 = twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
 
-                    for edge1 in self.bg.edges[edge]:
-                        if edge1 != edge:
-                            self.to_visit.append((edge1, edge, side))
+        stem.twists = (twist1, twist2)
 
-    def add_interior_loop(self, prev_node, curr_node, side):
-        stem1 = self.vectors[prev_node]
-        #print >>sys.stderr, "prev_node:", prev_node, "stem1:", stem1
+        return stem
 
-        length = get_bulge_length(self.bg, curr_node, self.length_stats)
-        bulge_dimensions = get_bulge_dimensions(self.bg, curr_node)
+    def fill_in_bulges_and_loops(self):
+        for d in self.bg.defines.keys():
+            if d[0] != 's':
+                if len(self.bg.edges[d]) == 1:
+                    self.add_loop(d, list(self.bg.edges[d])[0])
+                    # add loop
+                    pass
+                else:
+                    connections = list(self.bg.edges[d])
 
-        #print >>sys.stderr, "bulge_dimensions:", bulge_dimensions
-        dim0 = bulge_dimensions[0]
-        dim1 = bulge_dimensions[1]
+                    # Should be a bulge connecting two stems
+                    assert(len(connections) == 2)
+                    for conn in connections:
+                        assert(conn[0] == 's')
 
-        found = False
-        while not found:
-            try:
-                stats = choice(self.angle_stats[dim0][dim1])
-                found = True
-            except IndexError:
-                dim1 -= 1
+                    (s1b, s1e) = self.bg.get_sides(connections[0], d)
+                    (s2b, s2e) = self.bg.get_sides(connections[1], d)
 
-        angle1 = stats['angle_stem1_bulge']
-        angle2 = stats['angle_stem2_bulge']
-        angle3 = stats['angle_stem2_rotation']
+                    s1mid = self.stems[connections[0]].mids[s1b]
+                    s2mid = self.stems[connections[1]].mids[s2b]
 
-        #print >>sys.stderr, "curr_node:", curr_node, "bulge_dimension[0]:", bulge_dimensions[0], "bulge_dimension[1]:", bulge_dimensions[1]
-        #print >>sys.stderr, "angle1: %f, angle2: %f, angle3: %f" % (angle1, angle2, angle3)
+                    self.bulges[d] = BulgeModel((s1mid, s2mid))
 
-        bulge = add_bulge(length, stem1, angle1)
+    def elements_to_coords(self):
+        '''
+        Add all of the stem and bulge coordinates to the BulgeGraph data structure.
+        '''
 
-        for edge in self.bg.edges[curr_node]:
-            if edge != curr_node and edge not in self.visited:
-                # the second stem
-                l = self.bg.get_stem_length(edge) * avg_stem_bp_length
-                stem2 = add_stem2(l, stem1, bulge, angle2, angle3)
-                #print >>sys.stderr, "angle1: %f angle2: %f" % ( angle1, angle2 )
-                self.vectors[edge] = stem2
-                self.sides[edge] = side
-                self.add_stem_segment(edge, curr_node, stem2)
-                self.visited.add(edge)
+        for stem in self.stems.keys():
+            sm = self.stems[stem]
 
-                if self.bg.weights[curr_node] == 1:
-                    self.add_single_bulge(curr_node, prev_node, bulge)
+            self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
+            self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
 
-                if self.bg.weights[curr_node] == 2:
-                    self.add_interior_bulge(curr_node, prev_node, bulge)
+        for bulge in self.bulges.keys():
+            bm = self.bulges[bulge]
 
-                self.vectors[curr_node] = bulge
-
-                for edge1 in self.bg.edges[edge]:
-                    # bulge
-                    if edge1 != curr_node:
-                        (sb1, se1) = self.bg.get_sides(edge, curr_node)
-                        (sb2, se2) = self.bg.get_sides(edge, edge1)
-
-                        if se1 == se2:
-                            side = 0
-                        else:
-                            side = 1
-
-                        self.to_visit.append((edge1, edge, side))
-                        for edge2 in self.bg.edges[edge1]:
-                            #stem
-                            if edge2 in self.visited:
-                                if list(stem2[0]) != list(self.vectors[edge2][0]):
-
-                                    self.add_single_bulge(edge1, edge, (stem2[0], self.vectors[edge2][0]))
+            self.bg.coords[bulge] = (bm.mids[0], bm.mids[1])
 
     def traverse_and_build(self):
-        self.visited = set()
-        self.vectors = dict()
-        self.sides = dict()
-        self.to_visit = []
-        self.first_segment = True
+        '''
+        Build a 3D structure from the graph in self.bg.
 
+        This is done by doing a breadth-first search through the graph
+        and adding stems. 
+
+        Once all of the stems have been added, the bulges and loops
+        are added.
+        '''
+
+        self.visited = set()
+        self.to_visit = []
+        self.stems = dict()
+        self.bulges = dict()
+
+        # the start node should be a loop region
         self.find_start_node()
-        self.vectors['start'] = (array([0., 0., 0.]), array([0.,0.,1.]))
 
         counter = 0
         self.bg.coords = dict()
 
         while len(self.to_visit) > 0:
-            (curr_node, prev_node, side) = self.to_visit.pop(0)
+            (curr_node, prev_node, prev_stem, prev_params) = self.to_visit.pop(0)
 
             while curr_node in self.visited:
                 if len(self.to_visit) > 0:
-                    (curr_node, prev_node, side) = self.to_visit.pop(0)
+                    (curr_node, prev_node, prev_stem, prev_params) = self.to_visit.pop(0)
                 else:
                     return
                     
-            #print >>sys.stderr, "curr_node:", curr_node, "visited:", self.visited
             self.visited.add(curr_node)
+            stem = prev_stem
 
-            if curr_node[0] != 's':
-                if len(self.bg.edges[curr_node]) == 1:
-                    self.add_loop(prev_node, curr_node, side)
+            if curr_node[0] == 's':
+                params = self.get_random_stem_stats(curr_node)
+                (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 
-                if len(self.bg.edges[curr_node]) == 2:
-                    self.add_interior_loop(prev_node, curr_node, side)
+                # the previous stem should always be in the direction(0, 1) 
+                stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
 
-                elif self.bg.weights[curr_node] > 2:
-                    self.add_something_else(prev_node, curr_node, side)
+                # the following is done to maintain the invariant that mids[s1b] is
+                # always in the direction of the bulge from which s1b was obtained
+                # i.e. s1e -> s1b -> bulge -> s2b -> s2e
+                if s1b == 1:
+                    self.stems[curr_node] = stem.reverse()
+                else:
+                    self.stems[curr_node] = stem
 
+            else:
+                if len(self.bg.edges[curr_node]) > 1:
+                    params = self.get_random_bulge_stats(curr_node)
 
-            #self.bg.output('building_%d.coords' % (counter))
+            for edge in self.bg.edges[curr_node]:
+                if edge in self.visited and edge != prev_node and edge[0] == 's':
+                    next_stem = self.stems[edge]
+
+                if edge not in self.visited:
+                    self.to_visit.append((edge, curr_node, stem, params))
+
             counter += 1
+
+        self.fill_in_bulges_and_loops()
+        
+        self.elements_to_coords()
+
+

@@ -54,7 +54,7 @@ class BulgeGraph:
     def get_stem_length(self, key):
         d = self.defines[key]
         return (d[1] - d[0]) + 1
-    
+
     def get_node_from_residue_num(self, base_num):
         """
         Iterate over the defines and see which one encompasses this base.
@@ -76,6 +76,25 @@ class BulgeGraph:
                     return key
 
         raise Exception("Base number %d not found in the defines." % (base_num))
+
+    def get_bulge_dimensions(self, bulge):
+        '''
+        Return the dimensions of the bulge.
+
+        If it is single stranded it will be (0, x). Otherwise it will be (x, y).
+
+        @param bulge: The name of the bulge.
+        @return: A pair containing its dimensions
+        '''
+
+        bd = self.defines[bulge]
+
+        if len(bd) == 2:
+            dims = (0, abs(bd[1] - bd[0]))
+        else:
+            dims = (abs(bd[1] - bd[0]), abs(bd[3] - bd[2]))
+
+        return (min(dims), max(dims))
 
 
     # internal function for creating the forward
@@ -164,6 +183,16 @@ class BulgeGraph:
 
 
     def get_sides(self, s1, b):
+        '''
+        Get the side of s1 that is next to b.
+
+        s1e -> s1b -> b
+
+        @param s1: The stem.
+        @param b: The bulge.
+        @return: A tuple indicating which side is the one next to the bulge
+                 and which is away from the bulge.
+        '''
         s1d = self.defines[s1]
         bd = self.defines[b]
 
