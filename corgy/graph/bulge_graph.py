@@ -2,7 +2,7 @@
 
 import sys
 from numpy import array, dot
-from data_structures import DefaultDict
+from corgy.utilities.data_structures import DefaultDict
 
 def error_exit(message):
     print >>sys.stderr, message
