@@ -12,34 +12,6 @@ from corgy.utilities.vector import get_vector_centroid, center_on_centroid
 import copy
 import sys
 
-def load_length_stats(filename):
-    f = open(filename, 'r')
-
-    stats = DefaultDict(DefaultDict(DefaultDict([])))
-    for line in f:
-        parts = line.strip().split()
-        stats[parts[0]][int(parts[1])][int(parts[2])] += [float(parts[3])]
-
-    return stats
-
-def load_angle_stats(filename):
-    f = open(filename, 'r')
-    stats = DefaultDict(DefaultDict(DefaultDict([])))
-    stats = DefaultDict(DefaultDict([]))
-
-    for line in f:
-        parts = line.strip().split()
-        astats = stats[int(parts[2])][int(parts[3])]  
-        
-        these_stats = dict()
-        these_stats['angle_stem1_bulge'] = float(parts[4])
-        these_stats['angle_stem2_bulge'] = float(parts[5])
-        these_stats['angle_stem2_rotation'] = float(parts[6])
-         
-        astats += [these_stats]
-
-    return stats
-
 def main():
     if len(sys.argv) < 2:
         print >>sys.stderr, "Usage: ./construct.py temp.graph [constraint_file]"
@@ -61,13 +33,13 @@ def main():
 
     (options, args) = parser.parse_args()
 
-    angle_stats = load_angle_stats(options.angle_stats_fn)
-    length_stats = load_length_stats(ConstructionConfig.distance_stats_file)
+    angle_stats = AngleStatsDict(options.angle_stats_fn)
+    stem_stats = StemStatsDict(options.angle_stats_fn)
 
     bg = BulgeGraph(args[0])
     orig_bg = copy.deepcopy(bg)
 
-    sm = SpatialModel(bg, length_stats, angle_stats)
+    sm = SpatialModel(bg, angle_stats, stem_stats)
     sm.rot_segment = options.rot_segment
 
     best_rmsd = 100000.0
