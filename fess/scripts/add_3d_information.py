@@ -79,7 +79,7 @@ def output_loops(bg, chain):
 
                 mids = get_mids(chain, s1d)
                 centroid = get_bulge_centroid(chain, bd)
-                bg.coords[d] = (mids[s1b].get_array(), centroid.get_array())
+                bg.coords[d] = (mids[s1b].get_array(), centroid)
 
 def newest_output_graph(bg, chain):
     output_stems(bg, chain)

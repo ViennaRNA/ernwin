@@ -74,6 +74,7 @@ def main():
     color_stems(bg)
     hide_stems(bg)
     print "run %s" % (sys.argv[2])
+    print "show cartoon, temp"
 
 if __name__=="__main__":
     main()

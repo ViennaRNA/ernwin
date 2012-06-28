@@ -10,6 +10,9 @@ from corgy.utilities.vector import change_basis, get_standard_basis, normalize, 
 from corgy.utilities.vector import spherical_cartesian_to_polar, spherical_polar_to_cartesian
 from corgy.utilities.vector import rotation_matrix
 from corgy.utilities.vector import get_non_colinear_unit_vector
+from corgy.utilities.vector import get_vector_centroid
+from corgy.utilities.vector import vec_angle
+
 from math import pi, sqrt, asin
 
 from Bio.PDB import PDBParser
@@ -21,6 +24,7 @@ from corgy.graph.bulge_graph import BulgeGraph
 from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
 from corgy.graph.graph_pdb import get_stem_separation_parameters
 from corgy.graph.graph_pdb import stem2_orient_from_stem1, twist2_orient_from_stem1
+from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
 
 class TestGraphToAngles(unittest.TestCase):
     '''
@@ -81,7 +85,30 @@ class TestGraphToAngles(unittest.TestCase):
                 self.assertTrue(allclose(dot(stem1, twist1), 0.))
                 self.assertTrue(allclose(dot(stem2, twist2), 0.))
 
-    def test_reconstruct_helix(self):
+    def test_get_helix_parameters(self):
+        bg = BulgeGraph('test/graph/1gid.comp')
+
+        for d in bg.defines.keys():
+            if d[0] == 's':
+                twist_angle = get_twist_angle(bg.coords[d], bg.twists[d])
+
+                self.assertTrue(twist_angle <= pi)
+                self.assertTrue(twist_angle >= -pi)
+
+                stem1 = bg.coords[d][1] - bg.coords[d][0]
+                twist1 = bg.twists[d][0]
+
+                twist2 = twist2_from_twist1(stem1, twist1, twist_angle)
+
+                self.assertTrue(allclose(dot(stem1, twist2), 0.))
+                self.assertTrue(allclose(dot(stem1, twist1), 0.))
+
+                if twist_angle < 0.:
+                    twist_angle = -twist_angle
+
+                self.assertTrue(allclose(vec_angle(twist1, twist2), twist_angle))
+
+    def test_reconstruct_helix_orientation(self):
         '''
         Test the reconstruction of a molecule based on the angles.
         '''
@@ -95,10 +122,10 @@ class TestGraphToAngles(unittest.TestCase):
                 (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
                 (r1, u1, v1) = get_stem_separation_parameters(stem1, twist1, bulge)
 
-                stem2_new = stem2_orient_from_stem1(stem1, twist1, r, u, v)
+                stem2_new = stem2_orient_from_stem1(stem1, twist1, (r, u, v))
                 self.assertTrue(allclose(stem2_new, stem2))
 
-                twist2_new = twist2_orient_from_stem1(stem1, twist1, u, v, t)
+                twist2_new = twist2_orient_from_stem1(stem1, twist1, (u, v, t))
                 self.assertTrue(allclose(twist2_new, twist2))
 
 
@@ -128,11 +155,40 @@ class TestGraphPDBFunctions(unittest.TestCase):
                 self.assertTrue(allclose(0., dot(stem_vec, twists[0])))
                 self.assertTrue(allclose(0., dot(stem_vec, twists[1])))
 
+    def test_get_centroid(self):
+        '''
+        Test the function for getting a centroid.
+        '''
+
+        vectors = array([[1,0,0],[2,0,0],[3,0,0]])
+        centroid = get_vector_centroid(vectors)
+
+        self.assertTrue(allclose(centroid, array([2, 0, 0])))
+
 
 class TestVectorFunctions(unittest.TestCase):
     '''
     Tests for some of the vector functions in corgy.utilities.vector.
     '''
+
+    def check_non_colinear_unit_vector(self, vec1):
+        ncl = get_non_colinear_unit_vector(vec1)
+
+        comp = cross(vec1, ncl)
+
+        self.assertTrue(not allclose(comp, array([0., 0., 0.])))
+        #print "vec:", vec1, "ncl:", ncl, "comp:", comp
+
+        self.assertTrue(allclose(dot(comp, vec1), 0.))
+        self.assertTrue(allclose(dot(comp, ncl), 0.))
+
+    def test_get_non_colinear_unit_vector(self):
+        vec1 = array([0., -1., 0.])
+        self.check_non_colinear_unit_vector(vec1)
+
+        for i in range(10):
+            vec1 = array([uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)])
+            self.check_non_colinear_unit_vector(vec1)
 
     def test_change_basis1(self):
         vec1 = array([1,1])
