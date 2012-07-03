@@ -82,30 +82,37 @@ class BulgeGraph:
         Do a breadth-first traversal of the graph.
 
         @param start: The starting node.
-        @return: The path of nodes visited in the bfs traversal.
+        @return: The path of nodes visited in the bfs traversal. Returned as a list of triples (stem, bulge, stem).
         '''
         visited = set()
         to_visit = []
         path = []
 
-        for define in self.defines.keys():
-            if define[0] != 's' and self.weights[define] == 1 and len(self.edges[define]) == 1:
-                to_visit.append(define)
+        if start == None:
+            for define in self.defines.keys():
+                if define[0] != 's' and self.weights[define] == 1 and len(self.edges[define]) == 1:
+                    to_visit.append(('start', 'start', list(self.edges[define])[0]))
+        else:
+            to_visit.append(('start', 'start', start))
 
         while len(to_visit) > 0:
-            curr = to_visit.pop()
+            (prev_stem, prev_node, curr_node) = to_visit.pop()
 
-            if curr in visited:
+            if curr_node in visited:
                 continue
-            
-            path += [curr]
-            visited.add(curr)
 
-            for edge in self.edges[curr]:
-                to_visit.append(edge)
+            visited.add(curr_node)
+
+            if curr_node[0] == 's': 
+                path += [(prev_stem, prev_node, curr_node)]
+                for edge in self.edges[curr_node]:
+                    to_visit.append((curr_node, curr_node, edge))
+            else:
+                if len(self.edges[curr_node]) == 2:
+                    for edge in self.edges[curr_node]:
+                        to_visit.append((prev_stem, curr_node, edge))
 
         return path
-
 
     def get_bulge_dimensions(self, bulge):
         '''
