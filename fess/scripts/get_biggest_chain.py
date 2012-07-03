@@ -2,6 +2,7 @@
 
 from Bio.PDB import *
 
+import pdb
 import sys
 
 def main():

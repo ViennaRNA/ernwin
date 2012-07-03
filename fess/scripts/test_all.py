@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import unittest
+import pdb
 from sys import stderr
 
 from random import random, uniform
@@ -11,7 +12,9 @@ from corgy.utilities.vector import spherical_cartesian_to_polar, spherical_polar
 from corgy.utilities.vector import rotation_matrix
 from corgy.utilities.vector import get_non_colinear_unit_vector
 from corgy.utilities.vector import get_vector_centroid
-from corgy.utilities.vector import vec_angle
+from corgy.utilities.vector import vec_angle, get_alignment_matrix
+from corgy.utilities.vector import get_double_alignment_matrix
+from corgy.utilities.vector import vec_distance
 
 from math import pi, sqrt, asin
 
@@ -25,6 +28,21 @@ from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
 from corgy.graph.graph_pdb import get_stem_separation_parameters
 from corgy.graph.graph_pdb import stem2_orient_from_stem1, twist2_orient_from_stem1
 from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
+
+from corgy.builder.rmsd import rmsd, centered_rmsd
+from corgy.builder.rmsd import optimal_superposition
+
+def get_inter_distances(vecs):
+    '''
+    Calculate all of the distances between the points of vecs.
+    '''
+    distances = []
+    for i in range(len(vecs)):
+        for j in range(i+1, len(vecs)):
+            distances += [vec_distance(vecs[i], vecs[j])]
+
+    return distances
+
 
 class TestGraphToAngles(unittest.TestCase):
     '''
@@ -55,8 +73,6 @@ class TestGraphToAngles(unittest.TestCase):
         stem2_new = dot(rot_mat1, stem2_new_basis)
         stem2_new = dot(rot_mat2, stem2_new)
 
-        #print "stem2:", stem2
-        #print "stem2_new:", stem2_new
 
         self.assertTrue(allclose(dot(stem2_new, array([0., 1., 0.])), 0.))
         self.assertTrue(allclose(dot(stem2_new, array([0., 0., 1.])), 0.))
@@ -165,11 +181,68 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
         self.assertTrue(allclose(centroid, array([2, 0, 0])))
 
+def get_random_vector(mult=1.):
+    return array([mult * uniform(-1, 1), mult * uniform(-1, 1), mult * uniform(-1,1)])
+
+def get_random_vector_pair(angle=uniform(0, pi)):
+    vec1 = get_random_vector()
+    vec2 = get_non_colinear_unit_vector(vec1)
+    rot_vec = cross(vec1, vec2)
+    rotmat = rotation_matrix(rot_vec, angle)
+    vec2 = dot(rotmat, vec1)
+    return (vec1, vec2)
 
 class TestVectorFunctions(unittest.TestCase):
     '''
     Tests for some of the vector functions in corgy.utilities.vector.
     '''
+
+
+    def test_get_random_vector_pair(self):
+        for i in range(10):
+            angle = uniform(0, pi)
+            vp = get_random_vector_pair(angle)
+
+            self.assertTrue(allclose(angle, vec_angle(vp[0], vp[1])))
+
+    def test_single_alignment(self):
+        '''
+        Test the alignment of one vector onto another.
+        '''
+        for i in range(10):
+            vec1 = get_random_vector()
+            vec2 = get_random_vector()
+
+            mat = get_alignment_matrix(vec1, vec2)
+
+            new_vec = normalize(dot(mat, vec2))
+            
+            self.assertTrue(allclose(normalize(new_vec), normalize(vec1)))
+
+
+    def test_double_alignment_rotation(self):
+        '''
+        Check the function for aligning two sets of vectors.
+        '''
+        for i in range(10):
+            angle = uniform(0, pi)
+            #angle = pi / 2
+
+            vp1 = get_random_vector_pair(angle)
+            vp2 = get_random_vector_pair(angle)
+
+            mat = get_double_alignment_matrix(vp1, vp2)
+
+            nvp = [0,0]
+
+            nvp[0] = dot(mat, vp2[0])
+            nvp[1] = dot(mat, vp2[1])
+
+            self.assertTrue(allclose(normalize(vp1[0]), normalize(nvp[0])))
+            self.assertTrue(allclose(normalize(vp1[1]), normalize(nvp[1])))
+
+            pass
+
 
     def check_non_colinear_unit_vector(self, vec1):
         ncl = get_non_colinear_unit_vector(vec1)
@@ -177,7 +250,6 @@ class TestVectorFunctions(unittest.TestCase):
         comp = cross(vec1, ncl)
 
         self.assertTrue(not allclose(comp, array([0., 0., 0.])))
-        #print "vec:", vec1, "ncl:", ncl, "comp:", comp
 
         self.assertTrue(allclose(dot(comp, vec1), 0.))
         self.assertTrue(allclose(dot(comp, ncl), 0.))
@@ -227,7 +299,6 @@ class TestVectorFunctions(unittest.TestCase):
 
         new_vec = change_basis(array([-6,7,2]), C, B)
         self.assertTrue(allclose(new_vec, array([-21/5., 14/5., -3/5.])))
-        #print >>sys.stderr, "new_vec:", new_vec
 
     def test_spherical_coordinates(self):
         '''
@@ -251,7 +322,6 @@ class TestVectorFunctions(unittest.TestCase):
             cartesian = spherical_polar_to_cartesian(case[1])
 
             self.assertTrue(allclose(polar, case[1]))
-            #print "case[0]:", case[0], "cartesian:", cartesian, "case[1]", case[1]
             self.assertTrue(allclose(case[0], cartesian))
 
     def test_random_spherical_coordinates(self):
@@ -264,7 +334,6 @@ class TestVectorFunctions(unittest.TestCase):
 
             polar = spherical_cartesian_to_polar(cart)
             new_cart = spherical_polar_to_cartesian(polar)
-            #print "polar:", polar
 
             self.assertTrue(allclose(cart, new_cart))
 
@@ -284,6 +353,90 @@ class TestVectorFunctions(unittest.TestCase):
             new_cart = dot(rot_mat2, new_cart)
 
             self.assertTrue(allclose(new_cart, array([1., 0., 0.])))
+
+    def test_rmsd1(self):
+        '''
+        Test the rmsd function.
+        '''
+        crds1 = array([array([1., 0., 0.]), array([0., 1., 0]), array([0., 0., 1.])])
+        crds2 = array([array([1., 0., 0.]), array([0., 1., 0]), array([0., 0., 1.])])
+
+        r = centered_rmsd(crds1, crds2)
+
+        self.assertTrue(allclose(r, 0.))
+
+        crds2 = array([array([1., 0., 0.]), array([0., 1., 0]), array([0., 0., 2.])])
+        r = centered_rmsd(crds1, crds2)
+
+        self.assertFalse(allclose(r, 0.))
+    
+    def test_rmsd2(self):
+        '''
+        Test the optimal superposition function.
+        '''
+
+        crds1 = array([array([1., 0., 0.]), array([0., 1., 0]), array([0., 0., 1.])])
+
+        for i in range(10):
+            rot = rotation_matrix(get_random_vector(), uniform(0, 2 * pi))
+            crds2 = dot( rot, crds1 )
+
+            r = centered_rmsd(crds1, crds2)
+            self.assertTrue(allclose(r, 0., atol=1e-7))
+
+        #sup = optimal_superposition(crds1, crds2)
+        #crds3 = dot(sup, crds2)
+
+    def test_rmsd3(self):
+        '''
+        Test the optimal superposition function.
+        '''
+
+        crds1 = array([array([1., 0., 0.]), array([0., 1., 0]), array([0., 0., 1.])])
+        dists1 = get_inter_distances(crds1)
+
+
+        for i in range(10):
+            translation = get_random_vector(10)
+            rot = rotation_matrix(get_random_vector(), uniform(0, 2 * pi))
+
+            crds2_t = crds1 + translation
+            crds2_r = array([dot(rot, c) for c in crds2_t])
+
+            dists2 = get_inter_distances(crds2_r)
+
+
+            r = centered_rmsd(crds1, crds2_r)
+
+            self.assertTrue(allclose(r, 0., atol=1e-7))
+
+class TestBulgeGraph(unittest.TestCase):
+    def test_loop_centroid(self):
+        '''
+        The centroid of a loop should always be the second coordinate.
+        '''
+
+        bg = BulgeGraph('test/graph/1gid.comp')
+
+        for d in bg.defines.keys():
+            if d[0] != 's' and len(bg.edges[d]) == 1:
+                connect = list(bg.edges[d])[0]
+
+                (sb, se) = bg.get_sides(connect, d)
+                self.assertTrue(allclose(bg.coords[d][0], bg.coords[connect][sb]))
+    def test_breadth_fist_traversal(self):
+        '''
+        Test the breadth-first traversal of a graph.
+        '''
+        bg = BulgeGraph('test/graph/1gid.comp')
+        path = bg.breadth_first_traversal()
+
+        # the length of the path should be equal to the number of defines 
+        self.assertEqual(len(bg.defines.keys()), len(path))
+
+        # there should be no duplicates in the path
+        path_set = set(path)
+        self.assertEqual(len(path), len(path_set))
 
 
 if __name__ == '__main__':

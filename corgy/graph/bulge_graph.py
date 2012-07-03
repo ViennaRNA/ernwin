@@ -77,6 +77,36 @@ class BulgeGraph:
 
         raise Exception("Base number %d not found in the defines." % (base_num))
 
+    def breadth_first_traversal(self, start=None):
+        '''
+        Do a breadth-first traversal of the graph.
+
+        @param start: The starting node.
+        @return: The path of nodes visited in the bfs traversal.
+        '''
+        visited = set()
+        to_visit = []
+        path = []
+
+        for define in self.defines.keys():
+            if define[0] != 's' and self.weights[define] == 1 and len(self.edges[define]) == 1:
+                to_visit.append(define)
+
+        while len(to_visit) > 0:
+            curr = to_visit.pop()
+
+            if curr in visited:
+                continue
+            
+            path += [curr]
+            visited.add(curr)
+
+            for edge in self.edges[curr]:
+                to_visit.append(edge)
+
+        return path
+
+
     def get_bulge_dimensions(self, bulge):
         '''
         Return the dimensions of the bulge.
@@ -284,17 +314,20 @@ class BulgeGraph:
                 self.twists[key] = new_twists
 
     def translate_coords(self, translation):
+        '''
+        Translate all of the coordinates a certain distance.
+
+        The twists are always relative to the stems, so they do not need to be
+        translated.
+
+        @param translation. The translation vector.
+        '''
         for key in self.coords.keys():
             coords = self.coords[key]
 
             new_coords = (coords[0] + translation, coords[1] + translation)
 
             self.coords[key] = new_coords
-
-            if key[0] == 's':
-                twists = self.twists[key]
-                new_twists = (twists[0] + translation, twists[1] + translation)
-                self.twists[key] = new_twists
 
     # Print the graph in the form
     # 

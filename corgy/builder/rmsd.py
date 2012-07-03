@@ -3,10 +3,10 @@
 import numpy, sys
 from numpy import array
 from corgy.graph.bulge_graph import BulgeGraph
+from corgy.utilities.vector import center_on_centroid
 
 # Shamelessly stolen from:
 # http://boscoh.com/protein/rmsd-root-mean-square-deviation
-
 
 def rmsd(crds1, crds2):
   """Returns RMSD between 2 sets of [nx3] numpy array"""
@@ -23,6 +23,17 @@ def rmsd(crds1, crds2):
   rmsd_sq = (E0 - 2.0*sum(s)) / float(n_vec)
   rmsd_sq = max([rmsd_sq, 0.0])
   return numpy.sqrt(rmsd_sq)
+
+def centered_rmsd(crds1, crds2):
+    '''
+    Center the coordinate vectors on their centroid
+    and then calculate the rmsd.
+    '''
+    crds1 = center_on_centroid(crds1)
+    crds2 = center_on_centroid(crds2)
+
+    return rmsd(crds1, crds2)
+
 
 
 def centered_rmsd(crds1, crds2):

@@ -5,7 +5,7 @@
 ROSETTA_TOOLS_DIR=/scr/plastilin/pkerp/apps/rosetta_TRUNK/rosetta_tools/
 MCANNOTATE_BIN=/scr/plastilin/pkerp/apps/mcannotate/MC-Annotate
 MCANNOTATE_TO_DOTPLOT=../assembly-tests/scripts/mcannotate-to-dot-plot.py
-SCRIPT_DIR=../assembly-tests/scripts
+SCRIPT_DIR=../../assembly-tests/scripts
 LOCAL_SCRIPT_DIR=scripts
 K2N_PATH=/scr/plastilin/pkerp/apps/k2n_standalone/knotted2nested.py
 

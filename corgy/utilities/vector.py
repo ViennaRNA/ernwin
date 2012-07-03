@@ -12,6 +12,53 @@ from sys import stderr
 
 tau = 2 * pi
 
+def get_double_alignment_matrix(vp1, vp2):
+    '''
+    Align two sets of two vectors onto each other.
+
+    @param vp1: A pair of two vectors.
+    @param vp2: Another pair of two vectors.
+    '''
+    angle1 = vec_angle(vp1[0], vp1[1])
+    angle2 = vec_angle(vp2[0], vp2[1])
+
+    assert_allclose(angle1, angle2, rtol=1e-7, atol=1e-7)
+
+    # Align the first two segments
+    mat1 = get_alignment_matrix(vp1[0], vp2[0])
+
+    # See where the second segment of the second set ends up
+    # after the first alignment
+    new_vp2_1 = dot(mat1, vp2[1])
+
+    comp1 = cross(vp1[1], vp1[0])
+    #comp1 = cross(vp1[0], vp1[1])
+    comp2 = cross(vp1[0], comp1) # should be along the plane of vp1[0] and vp1[1]
+
+    basis1 = create_orthonormal_basis(normalize(vp1[0]), normalize(comp2))
+    rej2 = change_basis(new_vp2_1, basis1, get_standard_basis(3))
+
+    angle = atan2(rej2[2], rej2[1])
+
+    mat2 = rotation_matrix(vp1[0], angle)
+
+    #return dot(mat1, mat2)
+    return dot(mat2, mat1)
+
+def get_alignment_matrix(vec1, vec2):
+    '''
+    Return a rotation matrix that will align vec1 along vec2.
+
+    @param vec1: The target vector.
+    @param vec2: The vector to be aligned.
+    '''
+
+    comp = cross(vec1, vec2)
+    angle = vec_angle(vec1, vec2)
+
+    return rotation_matrix(comp, angle)
+
+
 def get_non_colinear_unit_vector(vec): 
     '''
     Get a unit vector that does not lie on the line defined by vec.

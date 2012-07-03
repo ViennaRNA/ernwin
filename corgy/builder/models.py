@@ -9,6 +9,7 @@ from corgy.graph.graph_pdb import stem2_pos_from_stem1
 from corgy.graph.graph_pdb import stem2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_from_twist1
+from corgy.utilities.vector import get_double_alignment_matrix
 
 from numpy import array
 from random import choice, uniform
@@ -137,8 +138,9 @@ class SpatialModel:
 
         @param edge: The name of the edge.
         '''
-        segment = self.vectors[edge]
-        return segment[0]
+        assert(edge[0] == 's')
+        
+        return self.stems[edge].mids[0]
 
     def get_rotation(self, edge):
         '''
@@ -149,14 +151,17 @@ class SpatialModel:
         
         @param edge: The name of the target edge.
         '''
-        segment = self.vectors[edge]
+        assert(edge[0] == 's')
 
-        desired_orientation = array([1., 0., 0.])
-        vec = normalize(segment[1] - segment[0])
-        norm = cross(desired_orientation, vec)
+        target = [array([1., 0., 0.]), array([0., 1., 0.])]
 
-        angle = vec_angle(desired_orientation, vec)
-        return rotation_matrix(norm, angle)
+
+        vec1 = self.stems[edge].vec()
+        twist1 = self.stems[edge].twists[1]
+
+        mat = get_double_alignment_matrix(target, [vec1, twist1])
+
+        return mat
 
     def get_random_stem_stats(self, name):
         '''

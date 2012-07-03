@@ -1,1 +1,1 @@
-run ss.py
+run ss.pym

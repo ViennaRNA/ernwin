@@ -7,11 +7,14 @@ from corgy.builder.models import AngleStatsDict, AngleStat
 from corgy.builder.models import StemStatsDict
 from corgy.builder.models import SpatialModel
 
+from corgy.builder.energy import LongRangeDistanceEnergy
+
 from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
 from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.graph.graph_pdb import get_stem_separation_parameters
 
 from corgy.graph.bulge_graph import BulgeGraph
+
 
 from math import pi
 
@@ -158,6 +161,19 @@ class TestSpatialModel(unittest.TestCase):
         #self.check_side_integrity(sm.bg)
 
         sm.bg.output('this.coords')
+
+    def test_long_range_energy_function(self):
+        bg = BulgeGraph('../fess/test/graph/1gid.comp')
+
+        lre = LongRangeDistanceEnergy()
+        lre.calibrate(bg, steps=10)
+        energy = lre.eval_energy(bg)
+
+        #print "energy:", energy
+
+        self.assertTrue(isinstance(energy, float))
+        self.assertTrue(energy < 0.)
+
 
 if __name__ == '__main__':
     unittest.main()
