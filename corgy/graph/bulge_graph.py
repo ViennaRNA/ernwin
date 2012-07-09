@@ -4,6 +4,14 @@ import sys
 from numpy import array, dot
 from corgy.utilities.data_structures import DefaultDict
 
+from corgy.graph.graph_pdb import get_stem_orientation_parameters
+from corgy.graph.graph_pdb import get_stem_separation_parameters
+from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
+
+from corgy.builder.stats import AngleStat
+
+from random import choice
+
 def error_exit(message):
     print >>sys.stderr, message
     sys.exit(1)
@@ -76,6 +84,62 @@ class BulgeGraph:
                     return key
 
         raise Exception("Base number %d not found in the defines." % (base_num))
+
+    def get_bulge_angle_stats_core(self, define, connections):
+        '''
+        Return the angle stats for a particular bulge. These stats describe the
+        relative orientation of the two stems that it connects.
+
+        @param define: The name of the bulge.
+        @param connections: The two stems that are connected by it.
+        @return: AngleStat object
+        '''
+        (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(self, define, connections)
+
+        # Get the orientations for orienting these two stems
+        (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
+        (r1, u1, v1) = get_stem_separation_parameters(stem1, twist1, bulge)
+
+        dims =self.get_bulge_dimensions(define)
+
+        angle_stat = AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1)
+
+        return angle_stat
+
+    def get_bulge_angle_stats(self, bulge):
+        '''
+        Return the angle stats for a particular bulge. These stats describe the
+        relative orientation of the two stems that it connects.
+
+        @param bulge: The name of the bulge.
+        @param connections: The two stems that are connected by it.
+        @return: The angle statistics in one direction and angle statistics in the other direction
+        '''
+
+        if bulge == 'start':
+            return (AngleStat(), AngleStat())
+
+        connections = list(self.edges[bulge])
+
+        angle_stat1 = self.get_bulge_angle_stats_core(bulge, connections)
+        angle_stat2 = self.get_bulge_angle_stats_core(bulge, list(reversed(connections)))
+
+        return (angle_stat1, angle_stat2)
+
+    def get_random_bulge(self):
+        '''
+        Return the name of a random bulge.
+
+        @return: The name of a bulge.
+        '''
+
+        bulges = []
+
+        for d in self.defines.keys():
+            if d[0] != 's' and len(self.edges[d]) == 2:
+                bulges += [d]
+
+        return choice(bulges)
 
     def breadth_first_traversal(self, start=None):
         '''

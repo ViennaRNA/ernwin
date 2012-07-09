@@ -8,14 +8,16 @@ from numpy.linalg import inv
 from numpy.testing import assert_allclose
 
 from corgy.utilities.vector import dot, cross, vector_rejection, magnitude, normalize
-from corgy.utilities.vector import change_basis, get_standard_basis, create_orthonormal_basis
+from corgy.utilities.vector import change_basis, create_orthonormal_basis
 from corgy.utilities.vector import spherical_cartesian_to_polar, rotation_matrix
 from corgy.utilities.vector import spherical_polar_to_cartesian
 from corgy.utilities.vector import get_vector_centroid
+from corgy.utilities.vector import standard_basis
 
 from math import pi, atan2, cos, sin
 
 catom_name = 'C1*'
+
 
 def get_stem_phys_length(coords):
     '''
@@ -38,8 +40,8 @@ def get_twist_angle(coords, twists):
     stem_vec = coords[1] - coords[0]
     basis = create_orthonormal_basis(stem_vec, twists[0])
 
-    twist2 = change_basis(twists[1], basis, get_standard_basis(3))
-    assert_allclose(twist2[0], 0., rtol=1e-7, atol=1e-7)
+    twist2 = change_basis(twists[1], basis, standard_basis)
+    #assert_allclose(twist2[0], 0., rtol=1e-7, atol=1e-7)
 
     angle = atan2(twist2[2], twist2[1])
     return angle
@@ -56,7 +58,7 @@ def twist2_from_twist1(stem_vec, twist1, angle):
     basis = create_orthonormal_basis(stem_vec, twist1)
 
     twist2_new = array([0., cos(angle), sin(angle)])
-    twist2 = change_basis(twist2_new, get_standard_basis(3), basis)
+    twist2 = change_basis(twist2_new, standard_basis, basis)
 
     return twist2
 
@@ -70,8 +72,8 @@ def get_twist_parameter(twist1, twist2, (u,v)):
     @param (u,v): The parameters for rotating stem2 onto stem1
     '''
 
-    rot_mat1 = rotation_matrix(array([0., 0., 1.]), v)
-    rot_mat2 = rotation_matrix(array([0., 1., 0.]), u - pi/2)
+    rot_mat1 = rotation_matrix(standard_basis[2], v)
+    rot_mat2 = rotation_matrix(standard_basis[1], u - pi/2)
 
     twist2_new = dot(rot_mat1, twist2)
     twist2_new = dot(rot_mat2, twist2_new)
@@ -99,8 +101,8 @@ def get_stem_orientation_parameters(stem1_vec, twist1, stem2_vec, twist2):
     stem1_basis = create_orthonormal_basis(stem1_vec, twist1)
 
     # Transform the vector of stem2 to the new coordinate system
-    stem2_new_basis = change_basis(stem2_vec, stem1_basis, get_standard_basis(3)) 
-    twist2_new_basis = change_basis(twist2, stem1_basis, get_standard_basis(3))
+    stem2_new_basis = change_basis(stem2_vec, stem1_basis, standard_basis) 
+    twist2_new_basis = change_basis(twist2, stem1_basis, standard_basis)
 
     # Convert the cartesian coordinates to polar coordinates
     (r, u, v) = spherical_cartesian_to_polar(stem2_new_basis)
@@ -118,7 +120,7 @@ def get_stem_separation_parameters(stem, twist, bulge):
     '''
 
     stem_basis = create_orthonormal_basis(stem, twist)
-    bulge_new_basis = change_basis(bulge, stem_basis, get_standard_basis(3))
+    bulge_new_basis = change_basis(bulge, stem_basis, standard_basis)
 
     return spherical_cartesian_to_polar(bulge_new_basis)
 
@@ -223,7 +225,7 @@ def stem2_pos_from_stem1(stem1, twist1, params):
     stem2 = spherical_polar_to_cartesian((r, u, v))
 
     stem1_basis = create_orthonormal_basis(stem1, twist1)
-    stem2_start = change_basis(stem2, get_standard_basis(3), stem1_basis)
+    stem2_start = change_basis(stem2, standard_basis, stem1_basis)
 
     return stem2_start
 
@@ -239,14 +241,19 @@ def twist2_orient_from_stem1(stem1, twist1, (u, v, t)):
 
     twist2_new = array([0., cos(t), sin(t)])
 
-    rot_mat1 = rotation_matrix(array([0., 0., 1.]), v)
-    rot_mat2 = rotation_matrix(array([0., 1., 0.]), u - pi/2)
+    rot_mat1 = rotation_matrix(standard_basis[2], v)
+    rot_mat2 = rotation_matrix(standard_basis[1], u - pi/2)
 
+    rot_mat = dot(rot_mat2, rot_mat1)
+    twist2_new = dot(inv(rot_mat), twist2_new)
+    
+    '''
     twist2_new = dot(inv(rot_mat2), twist2_new)
     twist2_new = dot(inv(rot_mat1), twist2_new)
+    '''
 
     stem1_basis = create_orthonormal_basis(stem1, twist1)
-    twist2_new_basis = change_basis(twist2_new, get_standard_basis(3), stem1_basis)
+    twist2_new_basis = change_basis(twist2_new, standard_basis, stem1_basis)
 
     return twist2_new_basis
 
@@ -261,7 +268,7 @@ def stem2_orient_from_stem1(stem1, twist1, (r, u, v)):
     '''
     stem2 = spherical_polar_to_cartesian((r, u, v))
     stem1_basis = create_orthonormal_basis(stem1, twist1)
-    stem2 = change_basis(stem2, get_standard_basis(3), stem1_basis)
+    stem2 = change_basis(stem2, standard_basis, stem1_basis)
 
     return stem2
 

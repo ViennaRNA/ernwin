@@ -2,10 +2,12 @@
 
 
 import unittest
+import copy
 
 from corgy.builder.models import AngleStatsDict, AngleStat
-from corgy.builder.models import StemStatsDict
 from corgy.builder.models import SpatialModel
+
+from corgy.builder.stats import StemStatsDict, LoopStatsDict
 
 from corgy.builder.energy import LongRangeDistanceEnergy
 
@@ -25,6 +27,15 @@ class TestStastics(unittest.TestCase):
     '''
     Tests for the statistics loader.
     '''
+    def test_loop_stats_loading(self):
+        stats_file = '../fess/stats/temp.stats'
+
+        loop_stats = LoopStatsDict(stats_file)
+
+        for dim1 in loop_stats.keys():
+            for stat in loop_stats[dim1]:
+                self.assertTrue(isinstance(stat.bp_length, ( int, long )))
+                self.assertTrue(isinstance(stat.phys_length,  ( float )))
 
     def test_angle_stats_loading(self):
         stats_file = '../fess/stats/temp.stats'
@@ -97,6 +108,16 @@ class TestSpatialModel(unittest.TestCase):
 
                     self.assertTrue(allclose(stem_mid, bulge_mids[0]) or allclose(stem_mid, bulge_mids[1]))
 
+    def check_angle_integrity(self, sm):
+        '''
+        Test to make sure that the angles match up with the ones
+        in the defs.
+        '''
+        for b in sm.sampled_bulges:
+            angle_stat = sm.bg.get_bulge_angle_stats(b)
+
+            self.assertTrue((angle_stat[0] == sm.angle_defs[b]) or (angle_stat[1] == sm.angle_defs[b]))
+
     def check_angle_composition(self, bg, angle_stats):
         for define in bg.defines.keys():
             if define[0] != 's' and len(bg.edges[define]) == 2:
@@ -146,21 +167,48 @@ class TestSpatialModel(unittest.TestCase):
 
             self.assertTrue(not (a_s1 == a_s3))
 
+
+    def compare_models(self, bg1, bg2):
+        for d in bg1.defines.keys():
+            if d[0] == 's':
+                self.assertTrue(allclose(bg1.coords[d], bg2.coords[d]))
+                self.assertTrue(allclose(bg1.twists[d][0], bg2.twists[d][0]))
+                self.assertTrue(allclose(bg1.twists[d][1], bg2.twists[d][1]))
+
     def test_spatial_model_construction(self):
         angle_stats = AngleStatsDict('../fess/stats/temp.stats')
         stem_stats = StemStatsDict('../fess/stats/temp.stats')
+        loop_stats = LoopStatsDict('../fess/stats/temp.stats')
+
+        bg = BulgeGraph('../fess/test/graph/1gid.comp')
+
+        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm.traverse_and_build()
+        sm.bg.output('this.coords')
+
+        self.check_side_integrity(sm.bg)
+        self.check_angle_integrity(sm)
+
+    def test_identical_spatial_model_construction(self):
+        angle_stats = AngleStatsDict('../fess/stats/temp.stats')
+        stem_stats = StemStatsDict('../fess/stats/temp.stats')
+        loop_stats = LoopStatsDict('../fess/stats/temp.stats')
+
         bg = BulgeGraph('../fess/test/graph/1gid.comp')
 
         #self.check_angle_composition(bg, angle_stats)
 
-        sm = SpatialModel(bg, angle_stats, stem_stats)
-
+        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
         sm.traverse_and_build()
-        #self.check_angle_composition(sm.bg, angle_stats)
 
-        #self.check_side_integrity(sm.bg)
+        bg1 = copy.deepcopy(sm.bg)
+        angle_defs = sm.angle_defs
+        stem_defs = sm.stem_defs
 
-        sm.bg.output('this.coords')
+        sm1 = SpatialModel(bg, angle_stats, stem_stats, loop_stats, angle_defs, stem_defs)
+        sm1.traverse_and_build()
+        self.compare_models(bg1, sm1.bg)
+
 
     def test_long_range_energy_function(self):
         bg = BulgeGraph('../fess/test/graph/1gid.comp')

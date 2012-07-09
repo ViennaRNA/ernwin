@@ -424,6 +424,7 @@ class TestBulgeGraph(unittest.TestCase):
 
                 (sb, se) = bg.get_sides(connect, d)
                 self.assertTrue(allclose(bg.coords[d][0], bg.coords[connect][sb]))
+
     def test_breadth_fist_traversal(self):
         '''
         Test the breadth-first traversal of a graph.
@@ -437,8 +438,4 @@ class TestBulgeGraph(unittest.TestCase):
         # there should be no duplicates in the path
         path_set = set(path)
         self.assertEqual(len(path), len(path_set))
-
-
-if __name__ == '__main__':
-    unittest.main() 
 

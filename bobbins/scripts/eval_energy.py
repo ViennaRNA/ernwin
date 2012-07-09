@@ -2,8 +2,10 @@
 
 import sys
 
+import pickle
+
 from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.energy import LongRangeInteractionCount
+from corgy.builder.energy import LongRangeInteractionCount, CombinedEnergy
 from corgy.builder.energy import DistanceIterator
 
 def main():
@@ -16,7 +18,15 @@ def main():
     lric_bounded = LongRangeInteractionCount()
     lric_naive = LongRangeInteractionCount(DistanceIterator())
 
+    '''
+    ef1 = pickle.load(open('energies/lric.energy', 'r'))
+    ef2 = pickle.load(open('energies/lrde.energy', 'r'))
+
+    energy_function = CombinedEnergy([ef1, ef2])
+    '''
+
     print lric_bounded.eval_energy(bg), lric_naive.eval_energy(bg)
+    #print energy_function.eval_energy(bg)
 
 
 if __name__ == '__main__':

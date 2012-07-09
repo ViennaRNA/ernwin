@@ -6,12 +6,18 @@ from corgy.utilities.vector import vec_distance
 from bobbins_config import ConstructionConfig
 
 from corgy.builder.models import SpatialModel
-from corgy.builder.stats import AngleStatsDict, StemStatsDict
+from corgy.builder.stats import AngleStatsDict, StemStatsDict, LoopStatsDict
 
 from corgy.utilities.data_structures import DefaultDict
+from corgy.utilities.statistics import fit_skew, skew
+
+from pylab import plot,show, hist
+
+from scipy.stats import norm
+from math import log
 
 from time import sleep
-from sys import float_info
+from sys import float_info, stderr
 
 class DistanceIterator:
     '''
@@ -54,26 +60,71 @@ class DistanceIterator:
 
 lri_iter = DistanceIterator(6., 25.)
 
+class CombinedEnergy:
+    def __init__(self, energies=[]):
+        self.energies = energies
+
+    def eval_energy(self, bg):
+        total_energy = 0.
+
+        for energy in self.energies:
+            total_energy += energy.eval_energy(bg)
+
+        return total_energy
+
 class LongRangeInteractionCount:
     def __init__(self, di = lri_iter):
         self.distance_iterator = di
-        pass
+        self.name = 'lric'
+        self.skew_fit = None
 
-    def eval_energy(self, bg):
+    def calibrate(self, bg, steps = 40):
+        angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
+        stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
+        loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
+
+        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        energies = []
+
+        for i in range(steps):
+            sm.sample_stems()
+            sm.sample_angles()
+            sm.traverse_and_build()
+
+            energies += [self.eval_energy(sm.bg)]
+
+        fit = fit_skew(energies)
+
+        #hist(energies, bins=len(set(energies))-1)
+        #plot(energies, len(energies) * skew(energies, fit[0], fit[1], fit[2]), 'o')
+        #show()
+
+        print stderr, "fit:", fit
+        self.skew_fit = fit
+            
+    def count_interactions(self, bg):
         '''
         Count the number of long range interactions that occur in the structure.
         '''
+
         count = 0
 
         for inter in self.distance_iterator.iterate_over_interactions(bg):
             count += 1
 
         return count
+
+    def eval_energy(self, bg):
+        count = self.count_interactions(bg)
+
+        #return float(count)
+        return -log(norm.pdf(float(count), 89., 8.))
         
 
 class LongRangeDistanceEnergy:
     def __init__(self):
         self.calibration_size = 1000
+        self.name = 'lrde'
 
         pass
 
@@ -87,12 +138,15 @@ class LongRangeDistanceEnergy:
             steps = self.calibration_size
 
         angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
-        stem_stats = StemStatsDict(ConstructionConfig.distance_stats_file)
+        stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
+        loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
 
-        sm = SpatialModel(bg, angle_stats, stem_stats)
+        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
         interactions = DefaultDict(0)
 
         for i in range(steps):
+            sm.sample_stems()
+            sm.sample_angles()
             sm.traverse_and_build()
 
             bg = sm.bg
@@ -116,11 +170,13 @@ class LongRangeDistanceEnergy:
 
         for interaction in lri_iter.iterate_over_interactions(bg):
             try:
+                #print >>stderr, "here", self.energies[interaction]
                 energy += self.energies[interaction]
             except KeyError:
-                energy += 1 / self.calibration_size
+                #print >>stderr, "not here", 1 / self.calibration_size
+                energy += 1 / float(self.calibration_size)
 
-        return -energy
+        return -log(energy)
 
     def naive_energy(self, bg):
         keys = bg.defines.keys()

@@ -37,11 +37,12 @@ def main():
 
     angle_stats = AngleStatsDict(options.angle_stats_fn)
     stem_stats = StemStatsDict(options.angle_stats_fn)
+    loop_stats = LoopStatsDict(options.angle_stats_fn)
 
     bg = BulgeGraph(args[0])
     orig_bg = copy.deepcopy(bg)
 
-    sm = SpatialModel(bg, angle_stats, stem_stats)
+    sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
     sm.rot_segment = options.rot_segment
 
     best_rmsd = 100000.0

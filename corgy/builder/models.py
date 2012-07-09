@@ -4,7 +4,6 @@ from corgy.utilities.data_structures import DefaultDict
 from corgy.visual.pymol import PymolPrinter
 from corgy.builder.stats import AngleStat, AngleStatsDict
 from corgy.builder.stats import StemStat, StemStatsDict
-from corgy.builder.stats import get_loop_length
 from corgy.graph.graph_pdb import stem2_pos_from_stem1
 from corgy.graph.graph_pdb import stem2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_orient_from_stem1
@@ -66,22 +65,96 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, angle_stats, stem_stats):
+    def __init__(self, bg, angle_stats, stem_stats, loop_stats, angle_defs = None, stem_defs = None, loop_defs = None):
         '''
         Initialize the structure.
 
         @param bg: The BulgeGraph containing information about the coarse grained
                    elements and how they are connected.
         @param angle_stats: The statistics about the inter-helical angles.
+        @param angle_defs: Pre-determined statistics for each bulge
         '''
+
         self.angle_stats = angle_stats
         self.stem_stats = stem_stats
+        self.loop_stats = loop_stats
 
         self.bg = bg
-
         self.pymol_printer = PymolPrinter()
 
+        if angle_defs == None:
+            self.sample_angles()
+        else:
+            self.angle_defs = angle_defs
+
+        if stem_defs == None:
+            self.sample_stems()
+        else:
+            self.stem_defs = stem_defs
+
+        if loop_defs == None:
+            self.sample_loops()
+        else:
+            self.loop_defs = loop_defs
+
         pass
+
+    def sample_angles(self):
+        '''
+        Sample statistics for each bulge region. In this case they'll be random.
+
+        @return: A dictionary where the key is the name of a bulge and the value is a 
+            statistic for the angles of that bulge.
+        '''
+        angle_defs = dict()
+        angle_defs['start'] = AngleStat()
+
+        for d in self.bg.defines.keys():
+            if d[0] != 's' and len(self.bg.edges[d]) == 2:
+                size = self.bg.get_bulge_dimensions(d)
+                stats = choice(self.angle_stats[size[0]][size[1]])
+
+                angle_defs[d] = stats
+
+        self.angle_defs = angle_defs
+
+    def sample_stems(self):
+        '''
+        Sample statistics for each stem region.
+
+        @return: A dictionary containing statistics about the stems in the structure.
+        '''
+        stem_defs = dict()
+
+        for d in self.bg.defines.keys():
+            if d[0] == 's':
+                define = self.bg.defines[d]
+                length = abs(define[1] - define[0])
+
+                # retrieve a random entry from the StemStatsDict collection
+                ss = choice(self.stem_stats[length])
+                stem_defs[d] = ss
+
+        self.stem_defs = stem_defs
+
+    def sample_loops(self):
+        '''
+        Sample statistics for each loop region.
+
+        @return: A dictionary containing statistics about the loops in the structure.
+        '''
+        loop_defs = dict()
+
+        for d in self.bg.defines.keys():
+            if d[0] != 's' and len(self.bg.edges[d]) == 1:
+                define = self.bg.defines[d]
+                length = abs(define[1] - define[0])
+
+                # retrieve a random entry from the StemStatsDict collection
+                ls = choice(self.loop_stats[length])
+                loop_defs[d] = ls
+
+        self.loop_defs = loop_defs
 
     def add_loop(self, name, prev_stem_node, params=None):
         '''
@@ -91,7 +164,7 @@ class SpatialModel:
         (s1b, s1e) = self.bg.get_sides(prev_stem_node, name)
 
         if params == None:
-            length = get_loop_length(self.bg, name)
+            length = self.loop_defs[name].phys_length
             u = uniform(0, pi)
             v = uniform(-pi/2, pi/2)
 
@@ -112,20 +185,8 @@ class SpatialModel:
         '''
         for define in self.bg.defines.keys():
             if define[0] != 's' and self.bg.weights[define] == 1 and len(self.bg.edges[define]) == 1:
-
-                length = get_loop_length(self.bg, define)
-                params = (length, 0., 0.)
-
-                prev_stem = StemModel()
-
-                #self.add_loop(define, StemModel(), params)
-
-                ang_stats = AngleStat()
-                ang_stats.pdb_name = 'start'
-                ang_stats.r1 = length
-
                 for edge in self.bg.edges[define]:
-                    self.to_visit += [(edge, define, StemModel(), ang_stats)] 
+                    self.to_visit += [(edge, 'start', StemModel())] 
 
                 break
 
@@ -167,27 +228,15 @@ class SpatialModel:
         '''
         Return a random set of parameters with which to create a stem.
         '''
-        # get the stem's length
 
-        d = self.bg.defines[name]
-        length = abs(d[1] - d[0])
-
-        # retrieve a random entry from the StemStatsDict collection
-        ss = choice(self.stem_stats[length])
-
-        return ss
+        return self.stem_defs[name]
 
     def get_random_bulge_stats(self, name):
         '''
         Return a random set of parameters with which to create a bulge.
         '''
 
-        # get the bulge's size
-        size = self.bg.get_bulge_dimensions(name)
-
-        # retrieve a random entry from the AngleStatsDict collection
-        stats = choice(self.angle_stats[size[0]][size[1]])
-        return stats
+        return self.angle_defs[name]
 
     def add_stem(self, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
@@ -273,6 +322,7 @@ class SpatialModel:
         self.to_visit = []
         self.stems = dict()
         self.bulges = dict()
+        self.sampled_bulges = []
 
         # the start node should be a loop region
         self.find_start_node()
@@ -281,11 +331,11 @@ class SpatialModel:
         self.bg.coords = dict()
 
         while len(self.to_visit) > 0:
-            (curr_node, prev_node, prev_stem, prev_params) = self.to_visit.pop(0)
+            (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
 
             while curr_node in self.visited:
                 if len(self.to_visit) > 0:
-                    (curr_node, prev_node, prev_stem, prev_params) = self.to_visit.pop(0)
+                    (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
                 else:
                     return
                     
@@ -294,10 +344,20 @@ class SpatialModel:
 
             if curr_node[0] == 's':
                 params = self.get_random_stem_stats(curr_node)
-                (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
+                if prev_node == 'start':
+                    (s1b, s1e) = (1,0)
+                else:
+                    (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
+
+                # get some parameters for the previous bulge
+                prev_params = self.get_random_bulge_stats(prev_node)
+                self.sampled_bulges += [prev_node]
 
                 # the previous stem should always be in the direction(0, 1) 
-                stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
+                if prev_node == 'bg':
+                    stem = self.add_stem(params, prev_stem, prev_params, (1, 0))
+                else:
+                    stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
 
                 # the following is done to maintain the invariant that mids[s1b] is
                 # always in the direction of the bulge from which s1b was obtained
@@ -307,16 +367,11 @@ class SpatialModel:
                 else:
                     self.stems[curr_node] = stem
 
-            else:
-                if len(self.bg.edges[curr_node]) > 1:
-                    params = self.get_random_bulge_stats(curr_node)
+                #self.stems[curr_node] = stem
 
             for edge in self.bg.edges[curr_node]:
-                if edge in self.visited and edge != prev_node and edge[0] == 's':
-                    next_stem = self.stems[edge]
-
                 if edge not in self.visited:
-                    self.to_visit.append((edge, curr_node, stem, params))
+                    self.to_visit.append((edge, curr_node, stem))
 
             counter += 1
 

@@ -10,6 +10,7 @@ from math import isnan
 
 from sys import stderr
 
+standard_basis = array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
 tau = 2 * pi
 
 def get_double_alignment_matrix(vp1, vp2):
@@ -36,7 +37,7 @@ def get_double_alignment_matrix(vp1, vp2):
     comp2 = cross(vp1[0], comp1) # should be along the plane of vp1[0] and vp1[1]
 
     basis1 = create_orthonormal_basis(normalize(vp1[0]), normalize(comp2))
-    rej2 = change_basis(new_vp2_1, basis1, get_standard_basis(3))
+    rej2 = change_basis(new_vp2_1, basis1, standard_basis)
 
     angle = atan2(rej2[2], rej2[1])
 
@@ -85,8 +86,8 @@ def create_orthonormal_basis(vec1, vec2=None, vec3=None):
     '''
     if vec2 == None:
         vec2 = get_non_colinear_unit_vector(vec1)
-    else:
-        assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
+    #else:
+    #    assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
 
 
     vec1 = normalize(array(vec1))
@@ -172,12 +173,12 @@ def change_basis(coords, new_basis, old_basis):
     @param old_basis: The old basis for the coordinates(n x n matrix)
     @return: The new coordinates according to the new basis
     '''
-    assert(len(coords) == len(new_basis))
-    assert(len(new_basis) == len(old_basis))
+    #assert(len(coords) == len(new_basis))
+    #assert(len(new_basis) == len(old_basis))
 
     dim = len(coords)
     #print >>stderr, "coords:", coords
-    standard_basis = get_standard_basis(dim)
+    #standard_basis = get_standard_basis(dim)
 
     # the transform of the old basis to the standard is simply
     # equal to multiplying by the old basis

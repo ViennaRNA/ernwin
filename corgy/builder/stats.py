@@ -42,6 +42,72 @@ def get_loop_length(bg, key):
 
     return uniform(loop_lengths[loop_length][0], loop_lengths[loop_length][1])
 
+
+class LoopStat:
+    '''
+    Class for storing the individual statistics about loops.
+
+    phys_length: The length between the start and the centroid of the loop.
+    '''
+    def __init__(self, line=''):
+        self.pdb_name = ''
+        
+        self.bp_length = 0
+        self.phys_length = 0.
+
+        if len(line) > 0:
+            self.parse_line(line)
+
+    def parse_line(self, line):
+        '''
+        Parse a line containing statistics about the shape of a stem.
+
+        @param line: The line from the statistics file.
+        '''
+
+        parts =  line.strip().split()
+
+        self.pdb_name = parts[1]
+
+        self.bp_length = int(parts[2])
+        self.phys_length = float(parts[3])
+
+    def __str__(self):
+        return "pdb_name: %s bp: %d phys_length: %f" % (self.pdb_name, self.bp_length, self.phys_length)
+
+class LoopStatsDict(DefaultDict):
+    '''
+    Store information about loop lengths.
+    
+    '''
+    def __init__(self, filename):
+        '''
+        @param filename: The location of the file containing the stats.
+        '''
+        self.default = []
+        self.filename = filename
+
+        self.load_stats(filename)
+
+    def load_stats(self, filename):
+        '''
+        Load the statistics from the file.
+
+        format:
+
+        loop pdb_name bp_length phys_length
+
+        @param filename: The name of the file.
+        '''
+        f = open(filename, 'r')
+
+        for line in f:
+            if line.strip().find('loop') == 0:
+                loop_stat = LoopStat(line)
+                self[loop_stat.bp_length] += [loop_stat]
+
+        f.close()
+
 class StemStat:
     '''
     Class for storing the individual statistics about helices.
@@ -131,6 +197,9 @@ class AngleStat:
         self.r1 = r1
         self.u1 = u1
         self.v1 = v1
+
+    def __hash__(self):
+        return id(self)
 
     def __eq__(self, a_s):
         '''
