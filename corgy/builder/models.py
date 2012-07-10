@@ -290,6 +290,7 @@ class SpatialModel:
                     s2mid = self.stems[connections[1]].mids[s2b]
 
                     self.bulges[d] = BulgeModel((s1mid, s2mid))
+                    self.closed_bulges += [d]
 
     def elements_to_coords(self):
         '''
@@ -323,6 +324,7 @@ class SpatialModel:
         self.stems = dict()
         self.bulges = dict()
         self.sampled_bulges = []
+        self.closed_bulges = []
 
         # the start node should be a loop region
         self.find_start_node()

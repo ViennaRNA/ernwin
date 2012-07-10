@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from numpy import array, cross, dot, allclose
+from numpy import array, cross, dot, allclose, exp
 from corgy.utilities.vector import normalize, get_non_colinear_unit_vector, magnitude
 from sys import stderr
 
@@ -12,6 +12,7 @@ class PymolPrinter:
         self.new_spheres = []
         self.override_color = None
         self.print_text = True
+        self.energy_function = None
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -180,6 +181,12 @@ class PymolPrinter:
                 except:
                     continue
 
+        # print the contributions of the energy function, if one is specified
+        if self.energy_function != None:
+            for (interaction, energy) in self.energy_function.iterate_over_interactions(bg, background=False):
+                print >>stderr, interaction, energy
+                (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+                self.add_segment(p, n, 'purple', exp(energy) * 10)
 
     def load_flex_stats(self, flex_file):
         f = open(flex_file, 'r')

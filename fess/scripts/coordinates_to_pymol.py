@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from optparse import OptionParser
-import sys
+import sys, pickle
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.visual.pymol import PymolPrinter
 
@@ -15,6 +15,7 @@ def main():
     parser.add_option('-c', '--centers', dest='centers', default=0, help='Display the centers of each segment.', type='int') 
     parser.add_option('-f', '--flexibility', dest='flex', default=None, help='Location of the flexibility statistics file.', type='string') 
     parser.add_option('-x', '--text', dest='print_text', default=False, action='store_true', help='Print the names of the segments in the pymol output')
+    parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
 
     (options, args) = parser.parse_args()
     
@@ -24,6 +25,9 @@ def main():
 
     pymol_printer = PymolPrinter()
     pymol_printer.print_text = options.print_text
+
+    if len(options.energy) > 0:
+        pymol_printer.energy_function = pickle.load(open(options.energy, 'r'))
 
     for i in range(len(bgs)):
         if len(bgs) > 1 and i == 0:
