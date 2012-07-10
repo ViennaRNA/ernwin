@@ -141,6 +141,89 @@ class BulgeGraph:
 
         return choice(bulges)
 
+    def get_length(self, vertex):
+        '''
+        Get the minimum length of a vertex.
+
+        If it's a stem, then the result is its length (in base pairs).
+
+        If it's a bulge, then the length is the smaller of it's dimensions.
+
+        @param vertex: The name of the vertex.
+        '''
+        if vertex[0] == 's':
+            return abs(self.defines[vertex][1] - self.defines[vertex][0]) + 1
+        else:
+            dims = self.get_bulge_dimensions(vertex)
+
+            if dims[0] == 0:
+                return dims[1]
+            else:
+                return dims[0]
+
+    def calc_bp_distances(self):
+        '''
+        Calculate the least number of bases that separate two elements.
+
+        If they are connected, the result is 0. If they are separated by a
+        stem, then the result is the length of the stem. If separated by a bulge
+        the distance is min(dims(bulge))
+
+        The values are calculated using a slight variation of the Floyd Warshall Algorithm.
+
+        The result is stored in the double dict self.bp_distances. 
+        '''
+
+        dist = DefaultDict(DefaultDict(0))
+        sides = DefaultDict(DefaultDict((0,1)))
+
+        defs = self.defines.keys()
+
+        for i in defs:
+            for j in defs:
+                dist[i][j] = 10000000
+                if i == j:
+                    dist[i][j] = 0
+                if j in self.edges[i]:
+                    dist[i][j] = 0
+
+        for k in defs:
+            for i in defs:
+                for j in defs:
+
+                    # I don't even understand what's going on in here...
+                    # but it seems to work
+
+                    # essentially we want to make sure not to count
+                    # the lengths of stems used as intermediate nodes
+                    # when the two other nodes being connected
+                    # are on the same side of the given stem
+                    inter_distance = self.get_length(k)
+                    (s1b, s1e) = sides[i][j]
+                    (s2b, s2e) = sides[j][k]
+
+                    if k[0] == 's':
+                        # There's a bulge so we can assign a side to the stem
+                        if k in self.edges[i]:
+                            (s1b, s1e) = self.get_sides(k, i)
+                        if k in self.edges[j]:
+                            (s2b, s2e) = self.get_sides(k, j)
+
+                        # both paths are on the same side of the intermediate stem
+                        # so we don't count its length in the distance calculation
+                        if s1b == s2b:
+                            inter_distance = 0
+                    
+                    if dist[i][j] > dist[i][k] + inter_distance + dist[k][j]:
+                        dist[i][j] = dist[i][k] + inter_distance + dist[k][j]
+                        sides[i][j] = (s1b, s2b)
+
+                    if i == 'b5' and j == 's6':
+                        #print "i,k dist[%s][%s]: %d + %d + %d dist[%s][%s]: %d" % (i, k, dist[i][k], inter_distance, dist[k][j], k, j, dist[i][j])
+                        pass
+
+        self.bp_distances = dist
+
     def breadth_first_traversal(self, start=None):
         '''
         Do a breadth-first traversal of the graph.

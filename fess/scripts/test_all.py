@@ -2,7 +2,7 @@
 
 import unittest
 import pdb
-from sys import stderr
+from sys import stderr, exit
 
 from random import random, uniform
 
@@ -439,3 +439,18 @@ class TestBulgeGraph(unittest.TestCase):
         path_set = set(path)
         self.assertEqual(len(path), len(path_set))
 
+    def test_bp_distance(self):
+        bg = BulgeGraph('test/graph/1gid.comp')
+        bg.calc_bp_distances()
+
+        for d1 in bg.defines.keys():
+            self.assertTrue(bg.bp_distances[d1][d1] == 0)
+
+        self.assertTrue(bg.bp_distances['b5']['b0'] == 0)
+        self.assertTrue(bg.bp_distances['b5']['s6'] == 4)
+        self.assertTrue(bg.bp_distances['b5']['x5'] == 3)
+        
+        self.assertTrue(bg.bp_distances['s5']['s4'] == 2)
+
+if __name__ == '__main__':
+    unittest.main() 

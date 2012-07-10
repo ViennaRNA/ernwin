@@ -176,8 +176,8 @@ class PymolPrinter:
                     point1 = bg.get_point(key1)
                     point2 = bg.get_point(key2)
 
-                    #self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
-                    #self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                    self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                    self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
                 except:
                     continue
 
