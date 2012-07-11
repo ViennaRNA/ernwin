@@ -13,6 +13,8 @@ class PymolPrinter:
         self.override_color = None
         self.print_text = True
         self.energy_function = None
+        self.add_twists = True
+        self.add_longrange = False
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -146,15 +148,16 @@ class PymolPrinter:
             if key[0] == 's':
                 self.add_segment(p, n, 'green', 2.4, key)
 
-                twist1 = bg.twists[key][0]
-                twist2 = bg.twists[key][1]
+                if self.add_twists:
+                    twist1 = bg.twists[key][0]
+                    twist2 = bg.twists[key][1]
 
 
-                mult = 5.
-                width = .3
+                    mult = 5.
+                    width = .3
 
-                self.add_segment(p, p + mult * twist1, "white", width, '')
-                self.add_segment(n, n + mult * twist2, "white", width, '')
+                    self.add_segment(p, p + mult * twist1, "white", width, '')
+                    self.add_segment(n, n + mult * twist2, "white", width, '')
 
                 '''
                 self.add_sphere(p + mult * twist1, "white", width, key)
@@ -170,16 +173,17 @@ class PymolPrinter:
                     else:
                         self.add_segment(p, n, "yellow", 1.0, key)
 
-        for key1 in bg.longrange.keys():
-            for key2 in bg.longrange[key1]:
-                try:
-                    point1 = bg.get_point(key1)
-                    point2 = bg.get_point(key2)
+        if self.add_longrange:
+            for key1 in bg.longrange.keys():
+                for key2 in bg.longrange[key1]:
+                    try:
+                        point1 = bg.get_point(key1)
+                        point2 = bg.get_point(key2)
 
-                    self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
-                    self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
-                except:
-                    continue
+                        self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                        self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                    except:
+                        continue
 
         # print the contributions of the energy function, if one is specified
         if self.energy_function != None:

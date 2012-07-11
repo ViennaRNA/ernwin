@@ -15,8 +15,8 @@ from pylab import plot,show, hist, savefig, clf
 
 from numpy import mean
 
-from scipy.stats import norm
-from numpy import log, array
+from scipy.stats import norm, linregress
+from numpy import log, array, sqrt
 
 from time import sleep
 from sys import float_info, stderr
@@ -191,6 +191,11 @@ class SkewNormalInteractionEnergy:
         for j in range(len(defines)):
             for k in range(j+1, len(defines)):
                 if defines[j] not in bg.edges[defines[k]]:
+
+                    # Ignore interactions between extremely close elements
+                    if  bg.bp_distances[defines[j]][defines[k]] < 10:
+                        continue
+
                     interaction = (defines[j], defines[k])
 
                     energy = self.get_energy_contribution(bg, interaction, background)
@@ -261,8 +266,7 @@ class JunctionClosureEnergy:
                 bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
                 distance = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
                 distances[bulge] += [distance]
-                print "bulge", bulge, bl, distance
-
+                #print "bulge", bulge, bl, distance
         
         
         for bulge in closed_bulges:
@@ -282,7 +286,7 @@ class JunctionClosureEnergy:
             plot(ds, fg, 'bo')
             plot(ds, bg, 'ro')
             plot(ds, fg - bg, 'go')
-            show()
+            #show()
 
     def eval_energy(self, bg, background=True):
         bulge = 'b5' 
@@ -307,7 +311,48 @@ class LongRangeInteractionCount:
         self.name = 'lric'
         self.skew_fit = None
 
+    def get_target_interactions(self, bg, filename):
+        '''
+        Calculate the linear regression of interaction counts.
+
+        @param bg: The BulgeGraph of the target structure
+        @param filename: The filename of the statistics file
+        '''
+
+        f = open(filename, 'r')
+        long_range = []
+        all_range = []
+        for line in f:
+            parts = line.strip().split(' ')
+
+            if float(parts[1]) < 400:
+                long_range += [float(parts[0])]
+                all_range += [sqrt(float(parts[1]))]
+
+        gradient, intercept, r_value, p_value, std_err = linregress(all_range, long_range)
+        print "gradient:", gradient
+        print "intercept:", intercept
+        print "r_value:", r_value
+        print "p_value:", p_value
+        print "std_err:", std_err
+
+        di = self.distance_iterator
+        self.distance_iterator = DistanceIterator()
+        total_interactions = self.count_interactions(bg)
+        target_interactions = gradient * sqrt(total_interactions) + intercept
+        self.distance_iterator = di
+        
+        print "total_interactions:", total_interactions
+        print "target_interactions:", target_interactions
+
+        return target_interactions
+
     def calibrate(self, bg, steps = 40):
+        filename = '../fess/stats/temp.energy'
+
+        self.target_interactions = self.get_target_interactions(bg, filename)
+
+        '''
         angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
         stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
         loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
@@ -330,6 +375,7 @@ class LongRangeInteractionCount:
 
         print stderr, "fit:", fit
         self.skew_fit = fit
+        '''
             
     def count_interactions(self, bg):
         '''
@@ -344,10 +390,15 @@ class LongRangeInteractionCount:
         return count
 
     def eval_energy(self, bg, background=True):
+        self.distance_iterator = lri_iter
         count = self.count_interactions(bg)
 
         #return float(count)
-        return -log(norm.pdf(float(count), 89., 8.))
+        contrib = -log(norm.pdf(float(count), self.target_interactions, 8.))
+        
+        #print "target_interactions:", self.target_interactions, count, contrib
+
+        return contrib
         #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
         
 
@@ -375,6 +426,7 @@ class LongRangeDistanceEnergy:
         interactions = DefaultDict(0)
 
         for i in range(steps):
+            print >>stderr, "step:", i
             sm.sample_stems()
             sm.sample_angles()
             sm.traverse_and_build()

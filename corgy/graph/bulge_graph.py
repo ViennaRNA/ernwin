@@ -42,6 +42,8 @@ class BulgeGraph:
         if filename != None:
             self.parse_graph(filename)
 
+        #self.calc_bp_distances()
+
     # get an internal index for a named vertex
     # this applies to both stems and edges
     def get_vertex(self, name = None):

@@ -28,6 +28,7 @@ def main():
 
     energy_function = CombinedEnergy([ef1, ef4, ef3])
 
+
     print energy_function.eval_energy(bg, True)
 
 

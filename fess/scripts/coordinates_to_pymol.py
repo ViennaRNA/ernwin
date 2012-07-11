@@ -15,6 +15,8 @@ def main():
     parser.add_option('-c', '--centers', dest='centers', default=0, help='Display the centers of each segment.', type='int') 
     parser.add_option('-f', '--flexibility', dest='flex', default=None, help='Location of the flexibility statistics file.', type='string') 
     parser.add_option('-x', '--text', dest='print_text', default=False, action='store_true', help='Print the names of the segments in the pymol output')
+    parser.add_option('-t', '--twists', dest='add_twists', default=True, action='store_false', help='Hide the twist indicators')
+    parser.add_option('-l', '--longrange', dest='add_longrange', default=False, action='store_true', help='Display the longrange interactions')
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
 
     (options, args) = parser.parse_args()
@@ -25,8 +27,12 @@ def main():
 
     pymol_printer = PymolPrinter()
     pymol_printer.print_text = options.print_text
+    pymol_printer.add_twists = options.add_twists
+    pymol_printer.add_longrange = options.add_longrange
 
     if len(options.energy) > 0:
+        for bg in bgs:
+            bg.calc_bp_distances()
         pymol_printer.energy_function = pickle.load(open(options.energy, 'r'))
 
     for i in range(len(bgs)):
