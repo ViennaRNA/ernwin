@@ -186,7 +186,7 @@ class SpatialModel:
         for define in self.bg.defines.keys():
             if define[0] != 's' and self.bg.weights[define] == 1 and len(self.bg.edges[define]) == 1:
                 for edge in self.bg.edges[define]:
-                    self.to_visit += [(edge, 'start', StemModel())] 
+                    return (edge, 'start', StemModel()) 
 
                 break
 
@@ -308,6 +308,33 @@ class SpatialModel:
 
             self.bg.coords[bulge] = (bm.mids[0], bm.mids[1])
 
+    def get_sampled_bulges(self):
+        '''
+        Do a breadth first traversal and return the bulges which are
+        sampled. This will be used to determine which ones are closed.
+        '''
+        visited = []
+        first_node = self.find_start_node()[0]
+
+        to_visit = [first_node]
+        while len(to_visit) > 0:
+            curr_node = to_visit.pop()
+
+            while curr_node in visited:
+                if len(to_visit) > 0:
+                    curr_node = to_visit.pop()
+                else:
+                    self.sampled_bulges = visited
+                    return 
+
+            visited.append(curr_node)
+
+            for edge in self.bg.edges[curr_node]:
+                if edge not in visited:
+                    to_visit.append(edge)
+
+        self.sampled_bulges = visited
+
     def traverse_and_build(self):
         '''
         Build a 3D structure from the graph in self.bg.
@@ -327,7 +354,7 @@ class SpatialModel:
         self.closed_bulges = []
 
         # the start node should be a loop region
-        self.find_start_node()
+        self.to_visit = [self.find_start_node()]
 
         counter = 0
         self.bg.coords = dict()

@@ -66,12 +66,12 @@ class CombinedEnergy:
     def __init__(self, energies=[]):
         self.energies = energies
 
-    def eval_energy(self, bg, verbose=False, background=True):
+    def eval_energy(self, sm, verbose=False, background=True):
         total_energy = 0.
 
     
         for energy in self.energies:
-            contrib = energy.eval_energy(bg, background)
+            contrib = energy.eval_energy(sm, background)
 
             #print "name", energy.__class__.__name__, "contrib:", contrib
             total_energy += contrib
@@ -203,9 +203,10 @@ class SkewNormalInteractionEnergy:
 
                     yield (interaction, energy)
         
-    def eval_energy(self, bg, background=True):
+    def eval_energy(self, sm, background=True):
         energy_total = 0.
         interactions = 1.
+        bg = sm.bg
 
         for (interaction, energy) in self.iterate_over_interactions(bg, background):
             energy_total += energy
@@ -250,10 +251,10 @@ class JunctionClosureEnergy:
         #self.get_target_distributions(angle_stats)
 
         sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
-        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         distances = DefaultDict([])
         
         sm.traverse_and_build()
+        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
         for i in range(steps):
@@ -270,6 +271,7 @@ class JunctionClosureEnergy:
         
         
         for bulge in closed_bulges:
+            print "closed_bulges:", closed_bulges
             bg_fit = fit_skew(distances[bulge])
             fg_fit = self.get_target_distributions(angle_stats, abs(bg.defines[bulge][1] - bg.defines[bulge][0]))
 
@@ -288,22 +290,28 @@ class JunctionClosureEnergy:
             plot(ds, fg - bg, 'go')
             #show()
 
-    def eval_energy(self, bg, background=True):
-        bulge = 'b5' 
-        bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
+    def eval_energy(self, sm, background=True):
+        #bulge = 'b5' 
+        bg = sm.bg
+        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
+        closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
-        fgd = self.fgs[bl]
-        bgd = self.bgs[bl]
+        energy = 0
 
-        dist = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+        for bulge in closed_bulges:
+            bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
 
-        if background:
-            return -(log(skew(dist, fgd[0], fgd[1], fgd[2])) - log(skew(dist, bgd[0], bgd[1], bgd[2])))
-        else:
-            return -(log(skew(dist, fgd[0], fgd[1], fgd[2])))
+            fgd = self.fgs[bl]
+            bgd = self.bgs[bl]
 
+            dist = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
 
-
+            if background:
+                energy += -(log(skew(dist, fgd[0], fgd[1], fgd[2])) - log(skew(dist, bgd[0], bgd[1], bgd[2])))
+            else:
+                energy += -(log(skew(dist, fgd[0], fgd[1], fgd[2])))
+        
+        return energy
 
 class LongRangeInteractionCount:
     def __init__(self, di = lri_iter):
@@ -389,7 +397,8 @@ class LongRangeInteractionCount:
 
         return count
 
-    def eval_energy(self, bg, background=True):
+    def eval_energy(self, sm, background=True):
+        bg = sm.bg
         self.distance_iterator = lri_iter
         count = self.count_interactions(bg)
 
@@ -442,12 +451,13 @@ class LongRangeDistanceEnergy:
             self.energies[key] = 1 / float(interactions[key])
 
 
-    def eval_energy(self, bg, background=True):
+    def eval_energy(self, sm, background=True):
         '''
         Evaluate the energy of a coarse-grained structure.
 
         @param bg: The representation of the coarse-grained RNA molecule.
         '''
+        bg = sm.bg
         energy = 0.
 
         for interaction in lri_iter.iterate_over_interactions(bg):

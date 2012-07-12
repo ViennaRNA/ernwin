@@ -27,9 +27,10 @@ def main():
     ef4 = pickle.load(open('energies/SkewNormalInteractionEnergy.energy', 'r'))
 
     energy_function = CombinedEnergy([ef1, ef4, ef3])
+    sm = SpatialModel(bg)
+    sm.get_sampled_bulges()
 
-
-    print energy_function.eval_energy(bg, True)
+    print energy_function.eval_energy(sm, True)
 
 
 if __name__ == '__main__':
