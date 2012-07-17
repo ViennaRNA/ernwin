@@ -9,13 +9,15 @@ from corgy.builder.models import SpatialModel
 
 from corgy.builder.stats import StemStatsDict, LoopStatsDict
 
-from corgy.builder.energy import LongRangeDistanceEnergy
+from corgy.builder.energy import LongRangeDistanceEnergy, RandomEnergy
 
 from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
 from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.graph.graph_pdb import get_stem_separation_parameters
 
 from corgy.graph.bulge_graph import BulgeGraph
+
+from corgy.builder.sampling import GibbsBGSampler, StatisticsPlotter, SamplingStatistics
 
 
 from math import pi
@@ -36,6 +38,14 @@ class TestStastics(unittest.TestCase):
             for stat in loop_stats[dim1]:
                 self.assertTrue(isinstance(stat.bp_length, ( int, long )))
                 self.assertTrue(isinstance(stat.phys_length,  ( float )))
+
+    def test_angle_stats_singleton(self):
+        stats_file = '../fess/stats/temp.stats'
+
+        angle_stats1 = AngleStatsDict(stats_file)
+        angle_stats2 = AngleStatsDict(stats_file)
+
+        #self.assertEqual(id(angle_stats1), id(angle_stats2))
 
     def test_angle_stats_loading(self):
         stats_file = '../fess/stats/temp.stats'
@@ -176,13 +186,9 @@ class TestSpatialModel(unittest.TestCase):
                 self.assertTrue(allclose(bg1.twists[d][1], bg2.twists[d][1]))
 
     def test_spatial_model_construction(self):
-        angle_stats = AngleStatsDict('../fess/stats/temp.stats')
-        stem_stats = StemStatsDict('../fess/stats/temp.stats')
-        loop_stats = LoopStatsDict('../fess/stats/temp.stats')
-
         bg = BulgeGraph('../fess/test/graph/1gid.comp')
 
-        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm = SpatialModel(bg)
         sm.traverse_and_build()
         sm.bg.output('this.coords')
 
@@ -190,22 +196,18 @@ class TestSpatialModel(unittest.TestCase):
         self.check_angle_integrity(sm)
 
     def test_identical_spatial_model_construction(self):
-        angle_stats = AngleStatsDict('../fess/stats/temp.stats')
-        stem_stats = StemStatsDict('../fess/stats/temp.stats')
-        loop_stats = LoopStatsDict('../fess/stats/temp.stats')
-
         bg = BulgeGraph('../fess/test/graph/1gid.comp')
 
         #self.check_angle_composition(bg, angle_stats)
 
-        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm = SpatialModel(bg)
         sm.traverse_and_build()
 
         bg1 = copy.deepcopy(sm.bg)
         angle_defs = sm.angle_defs
         stem_defs = sm.stem_defs
 
-        sm1 = SpatialModel(bg, angle_stats, stem_stats, loop_stats, angle_defs, stem_defs)
+        sm1 = SpatialModel(bg, angle_defs = angle_defs, stem_defs = stem_defs)
         sm1.traverse_and_build()
         self.compare_models(bg1, sm1.bg)
 
@@ -215,12 +217,27 @@ class TestSpatialModel(unittest.TestCase):
 
         lre = LongRangeDistanceEnergy()
         lre.calibrate(bg, steps=10)
-        energy = lre.eval_energy(bg)
+        energy = lre.eval_energy(SpatialModel(bg))
 
         #print "energy:", energy
 
         self.assertTrue(isinstance(energy, float))
         self.assertTrue(energy < 0.)
+
+
+class TestGibbsSampler(unittest.TestCase):
+
+    def test_initiation(self):
+        bg = BulgeGraph('../fess/test/graph/1gid.comp')
+        bg.calc_bp_distances()
+        sm = SpatialModel(bg)
+
+        re = RandomEnergy()
+
+        plotter = StatisticsPlotter()
+        random_stats = SamplingStatistics(sm, plotter, 'r', silent=True)
+        gs = GibbsBGSampler(sm, re, random_stats)
+        gs.step()
 
 
 if __name__ == '__main__':

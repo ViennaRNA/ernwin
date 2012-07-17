@@ -1,7 +1,10 @@
 #!/usr/bin/python
 
 import pdb
+import scipy.stats as ss
+import pickle
 
+from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import vec_distance
 from bobbins_config import ConstructionConfig
 
@@ -11,15 +14,20 @@ from corgy.builder.stats import AngleStatsDict, StemStatsDict, LoopStatsDict
 from corgy.utilities.data_structures import DefaultDict
 from corgy.utilities.statistics import fit_skew, skew
 
-from pylab import plot,show, hist, savefig, clf
+from pylab import plot,show, hist, savefig, clf, ylim
 
 from numpy import mean
 
 from scipy.stats import norm, linregress
-from numpy import log, array, sqrt
+from numpy import log, array, sqrt, linspace
+from random import random, shuffle
+from scipy.stats import norm, gaussian_kde
 
 from time import sleep
 from sys import float_info, stderr
+
+def my_log(x):
+    return log(x + 1e-200)
 
 class DistanceIterator:
     '''
@@ -58,7 +66,7 @@ class DistanceIterator:
 
                 #if dist > 6.0 and dist < 25.0:
                 if dist > self.min_distance and dist < self.max_distance:
-                    yield (d1, d2)
+                    yield tuple(sorted([d1, d2]))
 
 lri_iter = DistanceIterator(6., 25.)
 
@@ -73,7 +81,6 @@ class CombinedEnergy:
         for energy in self.energies:
             contrib = energy.eval_energy(sm, background)
 
-            #print "name", energy.__class__.__name__, "contrib:", contrib
             total_energy += contrib
 
             if verbose:
@@ -103,57 +110,65 @@ class SkewNormalInteractionEnergy:
         f = open(long_range_stats_fn, 'r')
         lengths = []
 
+
+        length = list(linspace(0, 200, 200))
+
         for line in f:
             parts = line.strip().split(' ')
             lengths += [float(parts[2])]
 
-        self.fg = fit_skew(lengths)
+        #self.fg = fit_skew(lengths)
+        print "len(lengths):", len(lengths)
+        lengths = lengths[::len(lengths)/100]
+        self.fg = gaussian_kde(lengths)
 
     def calibrate(self, bg, steps=40):
         '''
         Run a number of simulations and get the background distribution
         for each interaction pair.
         '''
-        angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
-        stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
-        loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
-
         interaction_distances = DefaultDict([])
 
         self.get_target_distribution()
         #self.get_target_distributions(angle_stats)
 
-        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm = SpatialModel(bg)
         sm.traverse_and_build()
         for i in range(steps):
-            print >>stderr, "step:", i
             sm.sample_angles()
             sm.sample_stems()
             sm.sample_loops()
             sm.traverse_and_build()
 
             defines = list(bg.defines.keys())
+        
             for j in range(len(defines)):
                 for k in range(j+1, len(defines)):
                     if defines[j] not in bg.edges[defines[k]]:
-                        interaction = (defines[j], defines[k])
+                        interaction = tuple(sorted([defines[j], defines[k]]))
 
                         distance = vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
                         interaction_distances[interaction] += [distance]
 
         for interaction in interaction_distances.keys():
-            self.bgs[interaction] = fit_skew(interaction_distances[interaction])
-            if self.bgs[interaction][1] < 6.:
-                print >>stderr, "low standard deviation... changing to 6."
-                self.bgs[interaction][1] = 6.
+            interaction_distances[interaction] += list(linspace(0, 200, 100))
+            interactions = interaction_distances[interaction][::len(interaction_distances[interaction])/100]
+            #print >>stderr, "interactions:", len(interactions)
+            self.bgs[interaction] = gaussian_kde(interactions)
+            bg = self.bgs[interaction]
+            fg = self.fg
 
-            print >>stderr, "self.bgs[interaction]:", self.bgs[interaction]
-            '''
             clf()
-            hist(interaction_distances[interaction])
-            savefig('figs/%s.png' % ("-".join(interaction)), bbox_inches=0)
-            '''
+            distance_range = linspace(0, 100., 300)
 
+            ylim((-20, 10))
+            plot(distance_range, log(fg(distance_range)), 'ro')
+            plot(distance_range, log(fg(distance_range)) - log(bg(distance_range)), 'go')
+            plot(distance_range, log(bg(distance_range)), 'bo')
+            figname = 'figs/%s.png' % ("-".join(interaction))
+            print >>stderr, "saving: %s..." % (figname)
+
+            savefig(figname, bbox_inches=0)
 
     def get_energy_contribution(self, bg, interaction, background=True):
         '''
@@ -166,27 +181,24 @@ class SkewNormalInteractionEnergy:
         bgf = self.bgs[interaction]
         bgp = 1.
 
-        if distance < 30.:
-            if background:
-                fgp = skew(distance, fg[0], fg[1], fg[2]) 
-                bgp = skew(distance, bgf[0], bgf[1], bgf[2])
-            else:
-                fgp = skew(distance, fg[0], fg[1], fg[2])
+        if background:
+            #print >>stderr, "distance;", distance, "fg:", fg, "interaction:", interaction
+
+
+            try:
+                fgp = fg(distance)
+            except FloatingPointError as fpe:
+                fgp = 1e-200
+            bgp = bgf(distance)
         else:
-            distance = 30
-            fgp = skew(30, fg[0], fg[1], fg[2])
-
-        if bgp == 0.:
-            #print >>stderr, "abnormally low bgp... changing to slightly higher"
-            bgp = .0000000000000000000000001
-
-        energy = log(fgp) - log(bgp)
+            fgp = fg(distance)
+        
+        energy = my_log(fgp) - my_log(bgp)
 
         return energy
 
     def iterate_over_interactions(self, bg, background=True):
         defines = list(bg.defines.keys())
-        #skew30 = skew(30, fg[0], fg[1], fg[2])
 
         for j in range(len(defines)):
             for k in range(j+1, len(defines)):
@@ -195,26 +207,76 @@ class SkewNormalInteractionEnergy:
                     # Ignore interactions between extremely close elements
                     if  bg.bp_distances[defines[j]][defines[k]] < 10:
                         continue
-
-                    interaction = (defines[j], defines[k])
+                    
+                    interaction = tuple(sorted([defines[j], defines[k]]))
 
                     energy = self.get_energy_contribution(bg, interaction, background)
-                    #print >>stderr, "interaction:", interaction, "energy:", energy
 
                     yield (interaction, energy)
+
+    def prune_energies(self, energies):
+        '''
+        Take only the three most favorable energy contributions for any
+        element.
+
+        if s1 has four interactions ('s3':5, 'b3':4, 'x3':7, 'x4':8) then
+        its total energy would be 8 + 7 + 5 = 20.
+
+        @param energies: A dictionary with the interactions (e1, e2) as the key and an
+            energy as the value.
+        '''
+        sorted_interactions_falling = sorted(energies, key=lambda key: -energies[key])
+        sorted_interactions_rising = sorted(energies, key=lambda key: energies[key])
+
+        energy_counts = DefaultDict(0)
+        new_energies = dict()
+
+        num_best = 1
+        num_worst = 0
+
+        for interaction in sorted_interactions_falling:
+            if energy_counts[interaction[0]] < num_best and energy_counts[interaction[1]] < num_best:
+                energy_counts[interaction[0]] += 1 
+                energy_counts[interaction[1]] += 1
+                new_energies[interaction] = energies[interaction]
+
+        energy_counts = DefaultDict(0)
+        for interaction in sorted_interactions_rising:
+            if energy_counts[interaction[0]] < num_worst and energy_counts[interaction[1]] < num_worst:
+                energy_counts[interaction[0]] += 1 
+                energy_counts[interaction[1]] += 1
+                new_energies[interaction] = energies[interaction]
+
+        new_energies
+
+        return new_energies
+
+    def iterate_over_interaction_energies(self, bg, background):
+        sm = SpatialModel(bg)
+
+        self.eval_energy(sm, background)
+        for key in self.interaction_energies.keys():
+            yield (key, self.interaction_energies[key])
         
     def eval_energy(self, sm, background=True):
         energy_total = 0.
         interactions = 1.
         bg = sm.bg
 
-        for (interaction, energy) in self.iterate_over_interactions(bg, background):
-            energy_total += energy
-            interactions += 1.
+        energies = dict()
 
-        #print "energy_total:", energy_total, "interactions:", interactions, "et / int:", energy_total / interactions
-        #return -(energy_total / interactions)
-        return -(energy_total / interactions)
+        for (interaction, energy) in self.iterate_over_interactions(bg, background):
+            energies[interaction] = energy
+
+        new_energies = self.prune_energies(energies)
+        self.interaction_energies = new_energies
+
+        for energy in new_energies.values():
+            energy_total += energy
+            interactions += 1
+
+        #return -(energy_total / (2. * interactions))
+        return -energy_total[0]
 
 class JunctionClosureEnergy:
     def __init__(self):
@@ -239,18 +301,12 @@ class JunctionClosureEnergy:
         if len(stats) < 4:
             fit = [mean(stats), 1.0, 0.0]
         else:
-            fit = fit_skew(stats)
+            fit = gaussian_kde(stats)
 
         return fit
 
     def calibrate(self, bg, steps = 40):
-        angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
-        stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
-        loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
-
-        #self.get_target_distributions(angle_stats)
-
-        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm = SpatialModel(bg)
         distances = DefaultDict([])
         
         sm.traverse_and_build()
@@ -258,32 +314,35 @@ class JunctionClosureEnergy:
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
         for i in range(steps):
+            '''
             sm.sample_stems()
             sm.sample_angles()
+            sm.sample_loops()
             sm.traverse_and_build()
+            '''
+            print "step:", i
 
+            filename = "training/best%d.coord" % (i)
+            bg = BulgeGraph(filename)
 
             for bulge in closed_bulges:
                 bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
                 distance = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
                 distances[bulge] += [distance]
-                #print "bulge", bulge, bl, distance
         
         
         for bulge in closed_bulges:
-            print "closed_bulges:", closed_bulges
-            bg_fit = fit_skew(distances[bulge])
-            fg_fit = self.get_target_distributions(angle_stats, abs(bg.defines[bulge][1] - bg.defines[bulge][0]))
+            bg_fit = gaussian_kde(distances[bulge])
+            fg_fit = self.get_target_distributions(sm.angle_stats, abs(bg.defines[bulge][1] - bg.defines[bulge][0]))
 
             self.fgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = fg_fit
             self.bgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = bg_fit
 
             ds = array(distances[bulge])
 
-            fg = log(skew(ds, fg_fit[0], fg_fit[1], fg_fit[2]))
-            bg = log(skew(ds, bg_fit[0], bg_fit[1], bg_fit[2]))
+            fg = my_log(fg_fit(ds))
+            bg = my_log(bg_fit(ds))
 
-            print "bulge", bulge, "bg_fit", bg_fit, "fg_fit", fg_fit
 
             plot(ds, fg, 'bo')
             plot(ds, bg, 'ro')
@@ -296,7 +355,7 @@ class JunctionClosureEnergy:
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
-        energy = 0
+        energy = array([0.])
 
         for bulge in closed_bulges:
             bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
@@ -307,17 +366,20 @@ class JunctionClosureEnergy:
             dist = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
 
             if background:
-                energy += -(log(skew(dist, fgd[0], fgd[1], fgd[2])) - log(skew(dist, bgd[0], bgd[1], bgd[2])))
+                energy += -(my_log(fgd(dist)) - my_log(bgd(dist)))
             else:
-                energy += -(log(skew(dist, fgd[0], fgd[1], fgd[2])))
+                energy += -my_log(fgd(dist))
         
-        return energy
+        #print "energy:", energy
+        #print "energy[0]:", energy[0]
+
+        return energy[0]
 
 class LongRangeInteractionCount:
     def __init__(self, di = lri_iter):
         self.distance_iterator = di
         self.name = 'lric'
-        self.skew_fit = None
+        self.gamma_fit = None
 
     def get_target_interactions(self, bg, filename):
         '''
@@ -338,11 +400,6 @@ class LongRangeInteractionCount:
                 all_range += [sqrt(float(parts[1]))]
 
         gradient, intercept, r_value, p_value, std_err = linregress(all_range, long_range)
-        print "gradient:", gradient
-        print "intercept:", intercept
-        print "r_value:", r_value
-        print "p_value:", p_value
-        print "std_err:", std_err
 
         di = self.distance_iterator
         self.distance_iterator = DistanceIterator()
@@ -350,40 +407,78 @@ class LongRangeInteractionCount:
         target_interactions = gradient * sqrt(total_interactions) + intercept
         self.distance_iterator = di
         
-        print "total_interactions:", total_interactions
-        print "target_interactions:", target_interactions
-
         return target_interactions
 
     def calibrate(self, bg, steps = 40):
         filename = '../fess/stats/temp.energy'
+        ef4 = pickle.load(open('energies/%s/SkewNormalInteractionEnergy' % (bg.name), 'r'))
 
         self.target_interactions = self.get_target_interactions(bg, filename)
 
-        '''
-        angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
-        stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
-        loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
-
-        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm = SpatialModel(bg)
         energies = []
 
+        ld = len(bg.defines.keys())
+        '''
+        
+        for i in range(ld, ld * ld / 2):
+            energies += [i]
+        '''
+
         for i in range(steps):
+            '''
             sm.sample_stems()
             sm.sample_angles()
+            sm.sample_loops()
             sm.traverse_and_build()
+            '''
+            filename = "training/best%d.coord" % (i)
+            bg = BulgeGraph(filename)
 
-            energies += [self.eval_energy(sm.bg)]
+            #energies += [self.count_interactions(sm.bg)]
+            energies += [self.count_interactions(bg)]
 
-        fit = fit_skew(energies)
+        #energies += range(10, 250)
+        #fit = ss.gamma.fit(energies)
+        #fit = ss.gamma.fit(energies)
 
-        #hist(energies, bins=len(set(energies))-1)
-        #plot(energies, len(energies) * skew(energies, fit[0], fit[1], fit[2]), 'o')
+        #fit = distrib.fit(energies)
+        #fit = fit_skew(energies)
+        shuffle(energies)
+        kde = gaussian_kde([float(energy) for energy in energies[::len(energies)/1000]])
+        fit = kde
+
+
+        #hist(energies, normed=True)
+        #plot(energies, ss.gamma.pdf(energies, fit[0], fit[1], fit[2]), 'go')
+        #plot(energies, distrib.pdf(energies, fit[0], fit[1], fit[2]), 'go')
+        #plot(energies, skew(energies, fit[0], fit[1], fit[2]), 'go')
+        #hist(kde(energies), normed=True)
+        #plot(energies, kde(energies), 'go')
+        #plot(energies, kde(energies), 'go')
+
+        
+        print("fit:", fit)
         #show()
 
-        print stderr, "fit:", fit
-        self.skew_fit = fit
-        '''
+        
+        energy_range = linspace(min(energies), 250, 1000)
+
+        ylim((-40, 20))
+
+        #plot(energies, log(norm.pdf(energy_range, self.target_interactions, 8.)) - log(kde(energy_range)), 'go')
+        plot(energy_range, log(norm.pdf(energy_range, self.target_interactions, 8.)) , 'ro')
+        plot(energy_range, log(norm.pdf(energy_range, self.target_interactions, 8.)) - log(kde(energy_range)) , 'go')
+
+        print >>stderr, energies
+        print >>stderr, fit, min(energies)
+
+        self.bgf = fit
+
+        for count in range(50, 220,5):
+            print "fg - bg:", count, my_log(norm.pdf(float(count), self.target_interactions, 5.)), my_log(self.bgf(float(count))), (my_log(norm.pdf(float(count), self.target_interactions, 5.)) - my_log(self.bgf(float(count))))
+
+        #show()
             
     def count_interactions(self, bg):
         '''
@@ -403,11 +498,9 @@ class LongRangeInteractionCount:
         count = self.count_interactions(bg)
 
         #return float(count)
-        contrib = -log(norm.pdf(float(count), self.target_interactions, 8.))
-        
-        #print "target_interactions:", self.target_interactions, count, contrib
+        contrib = -(my_log(norm.pdf(float(count), self.target_interactions, 8.)) - my_log(self.bgf(float(count))))
 
-        return contrib
+        return contrib[0]
         #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
         
 
@@ -427,15 +520,10 @@ class LongRangeDistanceEnergy:
         if steps == None:
             steps = self.calibration_size
 
-        angle_stats = AngleStatsDict(ConstructionConfig.angle_stats_file)
-        stem_stats = StemStatsDict(ConstructionConfig.angle_stats_file)
-        loop_stats = LoopStatsDict(ConstructionConfig.angle_stats_file)
-
-        sm = SpatialModel(bg, angle_stats, stem_stats, loop_stats)
+        sm = SpatialModel(bg)
         interactions = DefaultDict(0)
 
         for i in range(steps):
-            print >>stderr, "step:", i
             sm.sample_stems()
             sm.sample_angles()
             sm.traverse_and_build()
@@ -462,13 +550,11 @@ class LongRangeDistanceEnergy:
 
         for interaction in lri_iter.iterate_over_interactions(bg):
             try:
-                #print >>stderr, "here", self.energies[interaction]
                 energy += self.energies[interaction]
             except KeyError:
-                #print >>stderr, "not here", 1 / self.calibration_size
                 energy += 1 / float(self.calibration_size)
 
-        return -log(energy)
+        return -my_log(energy)
 
     def naive_energy(self, bg):
         keys = bg.defines.keys()
@@ -479,3 +565,13 @@ class LongRangeDistanceEnergy:
                 energy += 1
 
         return -energy
+
+class RandomEnergy():
+    '''
+    An energy function that always just returns a random value.
+    '''
+    def __init__(self):
+        pass
+
+    def eval_energy(self, sm, background=True):
+        return random()

@@ -187,8 +187,9 @@ class PymolPrinter:
 
         # print the contributions of the energy function, if one is specified
         if self.energy_function != None:
-            for (interaction, energy) in self.energy_function.iterate_over_interactions(bg, background=False):
-                print >>stderr, interaction, energy
+            for (interaction, energy) in self.energy_function.iterate_over_interaction_energies(bg, background=False):
+            #for (interaction, energy) in self.energy_function.iterate_over_interactions(bg, background=False):
+                #print >>stderr, interaction, energy
                 (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
                 self.add_segment(p, n, 'purple', exp(energy) * 10)
 

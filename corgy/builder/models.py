@@ -3,7 +3,7 @@
 from corgy.utilities.data_structures import DefaultDict
 from corgy.visual.pymol import PymolPrinter
 from corgy.builder.stats import AngleStat, AngleStatsDict
-from corgy.builder.stats import StemStat, StemStatsDict
+from corgy.builder.stats import StemStat, StemStatsDict, LoopStatsDict, LoopStat
 from corgy.graph.graph_pdb import stem2_pos_from_stem1
 from corgy.graph.graph_pdb import stem2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_orient_from_stem1
@@ -14,7 +14,6 @@ from numpy import array
 from random import choice, uniform
 from sys import stderr
 from math import pi
-
 
 class StemModel:
     '''
@@ -65,7 +64,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, angle_stats, stem_stats, loop_stats, angle_defs = None, stem_defs = None, loop_defs = None):
+    def __init__(self, bg, stats_file='../fess/stats/temp.stats', angle_defs = None, stem_defs = None, loop_defs = None):
         '''
         Initialize the structure.
 
@@ -75,12 +74,15 @@ class SpatialModel:
         @param angle_defs: Pre-determined statistics for each bulge
         '''
 
-        self.angle_stats = angle_stats
-        self.stem_stats = stem_stats
-        self.loop_stats = loop_stats
+        self.angle_stats = AngleStatsDict(stats_file)
+        self.stem_stats = StemStatsDict(stats_file)
+        self.loop_stats = LoopStatsDict(stats_file)
 
         self.bg = bg
         self.pymol_printer = PymolPrinter()
+
+        if self.angle_stats == None:
+            return
 
         if angle_defs == None:
             self.sample_angles()
