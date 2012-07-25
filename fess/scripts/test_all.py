@@ -3,6 +3,7 @@
 import unittest
 import pdb
 from sys import stderr, exit
+from optparse import OptionParser
 
 from random import random, uniform
 
@@ -31,6 +32,9 @@ from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
 
 from corgy.builder.rmsd import rmsd, centered_rmsd
 from corgy.builder.rmsd import optimal_superposition
+
+from corgy.utilities.statistics import InterpolatedKde
+import numpy as np
 
 def get_inter_distances(vecs):
     '''
@@ -452,5 +456,48 @@ class TestBulgeGraph(unittest.TestCase):
         
         self.assertTrue(bg.bp_distances['s5']['s4'] == 2)
 
+
+class TestInterpolatedKde(unittest.TestCase):
+
+    def test_estimate(self):
+        from scipy.stats import norm
+        from scipy.stats import gaussian_kde
+        import matplotlib.pylab as pl
+        
+        samples = norm.rvs(size=100)
+        bsamples = np.linspace(-4, 4)
+
+        kde = gaussian_kde(samples)
+        ik = InterpolatedKde(samples)
+
+        kdata = kde(samples)
+        idata =ik.eval(samples)
+
+        self.assertTrue(allclose(kdata, idata))
+
+        pl.hist(samples, normed=True)
+        #pl.plot(samples, kde(samples), 'o')
+        pl.plot(bsamples, kde(bsamples), 'o')
+
+        pl.plot(bsamples, ik.eval(bsamples))
+        pl.plot(bsamples, norm.pdf(bsamples))
+        '''
+        pl.plot(sorted(samples), ik.eval(sorted(samples)))
+        pl.plot(sorted(samples), norm.pdf(sorted(samples)))
+        '''
+
+        pl.show()
+
 if __name__ == '__main__':
-    unittest.main() 
+    parser = OptionParser()
+
+    parser.add_option('-c', '--current', dest='current', default=False, action='store_true', help='Run only the current test being worked on')
+
+    (options, args) = parser.parse_args()
+
+    if options.current:
+        current = unittest.TestLoader().loadTestsFromTestCase( TestInterpolatedKde )
+
+        unittest.TextTestRunner().run(current)
+    else:
+        unittest.main() 

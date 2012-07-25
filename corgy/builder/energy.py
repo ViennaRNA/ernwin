@@ -20,7 +20,7 @@ from numpy import mean
 
 from scipy.stats import norm, linregress
 from numpy import log, array, sqrt, linspace
-from random import random, shuffle
+from random import random, shuffle, uniform
 from scipy.stats import norm, gaussian_kde
 
 from time import sleep
@@ -574,4 +574,4 @@ class RandomEnergy():
         pass
 
     def eval_energy(self, sm, background=True):
-        return random()
+        return uniform(-5, 3)
