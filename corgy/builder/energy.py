@@ -23,6 +23,8 @@ from numpy import log, array, sqrt, linspace
 from random import random, shuffle, uniform
 from scipy.stats import norm, gaussian_kde
 
+from corgy.utilities.statistics import InterpolatedKde
+
 from time import sleep
 from sys import float_info, stderr
 

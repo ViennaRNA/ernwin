@@ -33,7 +33,7 @@ from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
 from corgy.builder.rmsd import rmsd, centered_rmsd
 from corgy.builder.rmsd import optimal_superposition
 
-from corgy.utilities.statistics import InterpolatedKde
+from corgy.utilities.statistics import InterpolatedKde, interpolated_kde
 import numpy as np
 
 def get_inter_distances(vecs):
@@ -468,10 +468,10 @@ class TestInterpolatedKde(unittest.TestCase):
         bsamples = np.linspace(-4, 4)
 
         kde = gaussian_kde(samples)
-        ik = InterpolatedKde(samples)
+        ik = interpolated_kde(samples, (min(bsamples), max(bsamples)))
 
         kdata = kde(samples)
-        idata =ik.eval(samples)
+        idata = ik(samples)
 
         self.assertTrue(allclose(kdata, idata))
 
@@ -479,7 +479,7 @@ class TestInterpolatedKde(unittest.TestCase):
         #pl.plot(samples, kde(samples), 'o')
         pl.plot(bsamples, kde(bsamples), 'o')
 
-        pl.plot(bsamples, ik.eval(bsamples))
+        pl.plot(bsamples, ik(bsamples))
         pl.plot(bsamples, norm.pdf(bsamples))
         '''
         pl.plot(sorted(samples), ik.eval(sorted(samples)))
