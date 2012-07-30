@@ -23,13 +23,14 @@ from numpy import log, array, sqrt, linspace
 from random import random, shuffle, uniform
 from scipy.stats import norm, gaussian_kde
 
-from corgy.utilities.statistics import InterpolatedKde
+from corgy.utilities.statistics import interpolated_kde
 
 from time import sleep
 from sys import float_info, stderr
 
 def my_log(x):
     return log(x + 1e-200)
+
 
 class DistanceIterator:
     '''
@@ -122,7 +123,7 @@ class SkewNormalInteractionEnergy:
         #self.fg = fit_skew(lengths)
         print "len(lengths):", len(lengths)
         lengths = lengths[::len(lengths)/100]
-        self.fg = gaussian_kde(lengths)
+        self.fg = interpolated_kde(lengths)
 
     def calibrate(self, bg, steps=40):
         '''
@@ -156,7 +157,7 @@ class SkewNormalInteractionEnergy:
             interaction_distances[interaction] += list(linspace(0, 200, 100))
             interactions = interaction_distances[interaction][::len(interaction_distances[interaction])/100]
             #print >>stderr, "interactions:", len(interactions)
-            self.bgs[interaction] = gaussian_kde(interactions)
+            self.bgs[interaction] = interpolated_kde(interactions)
             bg = self.bgs[interaction]
             fg = self.fg
 
@@ -189,13 +190,15 @@ class SkewNormalInteractionEnergy:
 
             try:
                 fgp = fg(distance)
+                #print "distance: ", distance, "fgp:", fgp, "interaction:", interaction
             except FloatingPointError as fpe:
                 fgp = 1e-200
             bgp = bgf(distance)
         else:
             fgp = fg(distance)
         
-        energy = my_log(fgp) - my_log(bgp)
+        #energy = my_log(fgp) - my_log(bgp)
+        energy = fgp - bgp
 
         return energy
 
@@ -278,7 +281,7 @@ class SkewNormalInteractionEnergy:
             interactions += 1
 
         #return -(energy_total / (2. * interactions))
-        return -energy_total[0]
+        return -energy_total
 
 class JunctionClosureEnergy:
     def __init__(self):
@@ -303,7 +306,7 @@ class JunctionClosureEnergy:
         if len(stats) < 4:
             fit = [mean(stats), 1.0, 0.0]
         else:
-            fit = gaussian_kde(stats)
+            fit = interpolated_kde(stats)
 
         return fit
 
@@ -334,7 +337,7 @@ class JunctionClosureEnergy:
         
         
         for bulge in closed_bulges:
-            bg_fit = gaussian_kde(distances[bulge])
+            bg_fit = interpolated_kde(distances[bulge])
             fg_fit = self.get_target_distributions(sm.angle_stats, abs(bg.defines[bulge][1] - bg.defines[bulge][0]))
 
             self.fgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = fg_fit
@@ -342,8 +345,8 @@ class JunctionClosureEnergy:
 
             ds = array(distances[bulge])
 
-            fg = my_log(fg_fit(ds))
-            bg = my_log(bg_fit(ds))
+            fg = fg_fit(ds)
+            bg = bg_fit(ds)
 
 
             plot(ds, fg, 'bo')
@@ -368,9 +371,9 @@ class JunctionClosureEnergy:
             dist = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
 
             if background:
-                energy += -(my_log(fgd(dist)) - my_log(bgd(dist)))
+                energy += -(fgd(dist) - bgd(dist))
             else:
-                energy += -my_log(fgd(dist))
+                energy += -fgd(dist)
         
         #print "energy:", energy
         #print "energy[0]:", energy[0]
@@ -447,7 +450,7 @@ class LongRangeInteractionCount:
         #fit = distrib.fit(energies)
         #fit = fit_skew(energies)
         shuffle(energies)
-        kde = gaussian_kde([float(energy) for energy in energies[::len(energies)/1000]])
+        kde = interpolated_kde([float(energy) for energy in energies[::len(energies)/1000]])
         fit = kde
 
 
@@ -500,9 +503,9 @@ class LongRangeInteractionCount:
         count = self.count_interactions(bg)
 
         #return float(count)
-        contrib = -(my_log(norm.pdf(float(count), self.target_interactions, 8.)) - my_log(self.bgf(float(count))))
+        contrib = -(my_log(norm.pdf(float(count), self.target_interactions, 8.)) - self.bgf(float(count)))
 
-        return contrib[0]
+        return contrib
         #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
         
 
