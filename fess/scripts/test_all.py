@@ -33,6 +33,8 @@ from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
 from corgy.builder.rmsd import rmsd, centered_rmsd
 from corgy.builder.rmsd import optimal_superposition
 
+from numpy import log
+
 from corgy.utilities.statistics import interpolated_kde
 import numpy as np
 
@@ -470,7 +472,7 @@ class TestInterpolatedKde(unittest.TestCase):
         kde = gaussian_kde(samples)
         ik = interpolated_kde(samples, (min(bsamples), max(bsamples)))
 
-        kdata = kde(samples)
+        kdata = log(kde(samples))
         idata = ik(samples)
 
         self.assertTrue(allclose(kdata, idata))
