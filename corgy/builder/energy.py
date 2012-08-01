@@ -6,7 +6,6 @@ import pickle
 
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import vec_distance
-from bobbins_config import ConstructionConfig
 
 from corgy.builder.models import SpatialModel
 from corgy.builder.stats import AngleStatsDict, StemStatsDict, LoopStatsDict
@@ -22,15 +21,91 @@ from scipy.stats import norm, linregress
 from numpy import log, array, sqrt, linspace
 from random import random, shuffle, uniform
 from scipy.stats import norm, gaussian_kde
+from corgy.builder.sampling import GibbsBGSampler, SamplingStatistics
 
 from corgy.utilities.statistics import interpolated_kde
 
 from time import sleep
 from sys import float_info, stderr
 
+from copy import deepcopy
+
+from random import random
+
 def my_log(x):
     return log(x + 1e-200)
 
+class MissingTargetException(Exception):
+    def __init__(self, message):
+        Exception.__init__(self, message)
+
+class EnergyFunction:
+    '''
+    The base class for energy functions.
+    '''
+
+    def __init__(self):
+        pass
+
+    def eval_energy(self):
+        '''
+        The base energy function simply returns a random number.
+        '''
+        return random()
+
+    def calc_fg_parameters(self):
+        '''
+        Found out the parameters for the target distribution.
+
+        In many cases these will be derived from the list of statistics.
+        '''
+        pass
+
+    def calc_bg_parameters(self, energy_structs):
+        '''
+        Adjust the parameters based on the sampling statistics from
+        a previous run.
+
+        @param energy_structs: A list of tuples of the form (energy, bg)
+        '''
+        pass
+
+    def calibrate(self, sm, iterations = 4, bg_energy = None):
+        '''
+        Calibrate this energy function.
+
+        This is done by sampling structures given a background energy function.
+        The sampled structures are used to normalize the energy of this
+        function.
+        '''
+        self.calc_fg_parameters()
+
+        stats = SamplingStatistics(sm)
+        stats.silent = True
+
+        # if not background energy function is provided, then the background
+        # distribution is simply the proposal distribution implicit in 
+        # GibbsBGSampler
+
+        if bg_energy == None:
+            bg_energy = self
+        
+        gs = GibbsBGSampler(deepcopy(sm), bg_energy, stats)
+        for i in range(iterations):
+            gs.step()
+
+        self.calc_bg_parameters(stats)
+             
+        
+class RandomEnergy(EnergyFunction):
+    '''
+    An energy function that always just returns a random value.
+    '''
+    def __init__(self):
+        pass
+
+    def eval_energy(self, sm, background=True):
+        return uniform(-5, 3)
 
 class DistanceIterator:
     '''
@@ -76,6 +151,13 @@ lri_iter = DistanceIterator(6., 25.)
 class CombinedEnergy:
     def __init__(self, energies=[]):
         self.energies = energies
+
+    def calibrate(self, bg, steps=40):
+        '''
+        Calibrate each of the energies by taking into account the
+        background distribution induced by non-energy directed 
+        sampling.
+        '''
 
     def eval_energy(self, sm, verbose=False, background=True):
         total_energy = 0.
@@ -380,10 +462,15 @@ class JunctionClosureEnergy:
         return energy[0]
 
 class LongRangeInteractionCount:
+    '''
+    Blah blah.
+    '''
+
     def __init__(self, di = lri_iter):
         self.distance_iterator = di
         self.name = 'lric'
         self.gamma_fit = None
+        self.target_interactions = None
 
     def get_target_interactions(self, bg, filename):
         '''
@@ -499,81 +586,11 @@ class LongRangeInteractionCount:
         self.distance_iterator = lri_iter
         count = self.count_interactions(bg)
 
+        if self.target_interactions == None:
+            raise MissingTargetException("LongRangeInteractionEnergy target_interaction is not defined. This energy probably hasn't been calibrated")
+
         #return float(count)
         contrib = -(my_log(norm.pdf(float(count), self.target_interactions, 8.)) - self.bgf(float(count)))
 
         return contrib
         #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
-        
-
-class LongRangeDistanceEnergy:
-    def __init__(self):
-        self.calibration_size = 1000
-        self.name = 'lrde'
-
-        pass
-
-    def calibrate(self, bg, steps = None ):
-        '''
-        Sample a bunch of structure and see which elements tend to be
-        near each by virtue of the sampling technique.
-        '''
-
-        if steps == None:
-            steps = self.calibration_size
-
-        sm = SpatialModel(bg)
-        interactions = DefaultDict(0)
-
-        for i in range(steps):
-            sm.sample_stems()
-            sm.sample_angles()
-            sm.traverse_and_build()
-
-            bg = sm.bg
-
-            for i in lri_iter.iterate_over_interactions(bg):
-                interactions[i] += 1
-        
-        self.energies = dict()
-
-        for key in interactions.keys():
-            self.energies[key] = 1 / float(interactions[key])
-
-
-    def eval_energy(self, sm, background=True):
-        '''
-        Evaluate the energy of a coarse-grained structure.
-
-        @param bg: The representation of the coarse-grained RNA molecule.
-        '''
-        bg = sm.bg
-        energy = 0.
-
-        for interaction in lri_iter.iterate_over_interactions(bg):
-            try:
-                energy += self.energies[interaction]
-            except KeyError:
-                energy += 1 / float(self.calibration_size)
-
-        return -my_log(energy)
-
-    def naive_energy(self, bg):
-        keys = bg.defines.keys()
-        energy = 0.
-
-        for i in range(len(keys)):
-            for j in range(i+1, len(keys)):
-                energy += 1
-
-        return -energy
-
-class RandomEnergy():
-    '''
-    An energy function that always just returns a random value.
-    '''
-    def __init__(self):
-        pass
-
-    def eval_energy(self, sm, background=True):
-        return uniform(-5, 3)

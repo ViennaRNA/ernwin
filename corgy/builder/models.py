@@ -10,6 +10,8 @@ from corgy.graph.graph_pdb import twist2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_from_twist1
 from corgy.utilities.vector import get_double_alignment_matrix
 
+from corgy.builder.config import Configuration
+
 from numpy import array
 from random import choice, uniform
 from sys import stderr
@@ -64,7 +66,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file='../fess/stats/temp.stats', angle_defs = None, stem_defs = None, loop_defs = None):
+    def __init__(self, bg, stats_file=Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None):
         '''
         Initialize the structure.
 
