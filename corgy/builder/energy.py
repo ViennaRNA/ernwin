@@ -131,7 +131,6 @@ class SkewNormalInteractionEnergy:
         for each interaction pair.
         '''
         interaction_distances = DefaultDict([])
-
         self.get_target_distribution()
         #self.get_target_distributions(angle_stats)
 
@@ -416,8 +415,6 @@ class LongRangeInteractionCount:
 
     def calibrate(self, bg, steps = 40):
         filename = '../fess/stats/temp.energy'
-        ef4 = pickle.load(open('energies/%s/SkewNormalInteractionEnergy' % (bg.name), 'r'))
-
         self.target_interactions = self.get_target_interactions(bg, filename)
 
         sm = SpatialModel(bg)

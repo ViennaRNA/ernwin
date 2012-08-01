@@ -4,15 +4,6 @@ from random import uniform
 from numpy import allclose
 from corgy.utilities.data_structures import DefaultDict
 
-
-class Singleton(object):
-    _instance = None
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(Singleton, cls).__new__(
-                                cls, *args, **kwargs)
-            return cls._instance
-
 avg_stem_bp_length = 2.24
 avg_twist_rotation_per_bp = 360 / 11.
 

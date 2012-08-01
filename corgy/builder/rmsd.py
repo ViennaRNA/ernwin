@@ -34,14 +34,6 @@ def centered_rmsd(crds1, crds2):
 
     return rmsd(crds1, crds2)
 
-
-
-def centered_rmsd(crds1, crds2):
-    crds1 = center_on_centroid(crds1)
-    crds2 = center_on_centroid(crds2)
-   
-    return rmsd(crds1, crds2)
-
 def optimal_superposition(crds1, crds2):
   """Returns best-fit rotation matrix as [3x3] numpy matrix"""
   assert(crds1.shape[1] == 3)

@@ -55,7 +55,7 @@ class TestGraphToAngles(unittest.TestCase):
     Tests for the gathering of angles statistics.
     '''
 
-    def orientation_test(self, stem1, twist1, stem2, twist2):
+    def orientation_subtest(self, stem1, twist1, stem2, twist2):
         '''
         To test the caculation of the twist angles, the second twist is converted
         to the coordinate system defined by the first stem and its twist.
@@ -93,7 +93,7 @@ class TestGraphToAngles(unittest.TestCase):
                 twist1 = cross(stem1, get_non_colinear_unit_vector(stem1))
                 twist2 = cross(stem2, get_non_colinear_unit_vector(stem2))
 
-                self.orientation_test(stem1, twist1, stem2, twist2)
+                self.orientation_subtest(stem1, twist1, stem2, twist2)
     
     def test_helix_orientations_concrete(self):
         bg = BulgeGraph('test/graph/1gid.comp')
