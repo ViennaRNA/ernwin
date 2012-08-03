@@ -2,7 +2,7 @@
 
 import pdb
 import scipy.stats as ss
-import pickle
+import pickle, os
 
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import vec_distance
@@ -24,6 +24,7 @@ from scipy.stats import norm, gaussian_kde
 from corgy.builder.sampling import GibbsBGSampler, SamplingStatistics
 
 from corgy.utilities.statistics import interpolated_kde
+from corgy.builder.config import Configuration
 
 from time import sleep
 from sys import float_info, stderr
@@ -47,13 +48,13 @@ class EnergyFunction:
     def __init__(self):
         pass
 
-    def eval_energy(self):
+    def eval_energy(self, sm, background=True):
         '''
         The base energy function simply returns a random number.
         '''
         return random()
 
-    def calc_fg_parameters(self):
+    def calc_fg_parameters(self, bg):
         '''
         Found out the parameters for the target distribution.
 
@@ -70,7 +71,7 @@ class EnergyFunction:
         '''
         pass
 
-    def calibrate(self, sm, iterations = 4, bg_energy = None):
+    def calibrate(self, sm, iterations = 10, bg_energy = None):
         '''
         Calibrate this energy function.
 
@@ -78,7 +79,7 @@ class EnergyFunction:
         The sampled structures are used to normalize the energy of this
         function.
         '''
-        self.calc_fg_parameters()
+        self.calc_fg_parameters(sm.bg)
 
         stats = SamplingStatistics(sm)
         stats.silent = True
@@ -88,13 +89,20 @@ class EnergyFunction:
         # GibbsBGSampler
 
         if bg_energy == None:
-            bg_energy = self
+            bg_energy = EnergyFunction()
         
         gs = GibbsBGSampler(deepcopy(sm), bg_energy, stats)
         for i in range(iterations):
             gs.step()
 
-        self.calc_bg_parameters(stats)
+        # Get the set of sampled structures
+        ser_structs = sorted(stats.energy_rmsd_structs, key=lambda x: x[0])
+
+        # I only want the top 2/3 of the sampled structures
+        selected = ser_structs[:2 * (len(ser_structs) / 3)]
+        selected_structs = [s[2] for s in selected]
+
+        self.calc_bg_parameters(selected_structs)
              
         
 class RandomEnergy(EnergyFunction):
@@ -152,12 +160,35 @@ class CombinedEnergy:
     def __init__(self, energies=[]):
         self.energies = energies
 
-    def calibrate(self, bg, steps=40):
+    def save_energy(self, energy, directory):
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        filename = os.path.join(directory, energy.__class__.__name__ + ".energy")
+        print "filename:", filename
+        pickle.dump(energy, open(filename, 'w'))
+
+    def calibrate(self, sm, iterations=40, bg_energy=None):
         '''
         Calibrate each of the energies by taking into account the
         background distribution induced by non-energy directed 
         sampling.
         '''
+        self.energies[0].calibrate(sm, iterations)
+        filename = '/home/mescalin/pkerp/projects/ernwin/energies/ce'
+        filename = os.path.join(filename, str(iterations))
+
+        self.save_energy(self.energies[0], filename)
+        filename = os.path.join(filename, self.energies[0].__class__.__name__)
+
+        for i in range(1, len(self.energies)):
+            ce = CombinedEnergy(self.energies[:i])
+            self.energies[i].calibrate(sm, iterations, ce)
+
+            self.save_energy(self.energies[i], filename)
+            filename = os.path.join(filename, self.energies[i].__class__.__name__)
+
+        self.save_energy(self, filename)
 
     def eval_energy(self, sm, verbose=False, background=True):
         total_energy = 0.
@@ -173,7 +204,7 @@ class CombinedEnergy:
 
         return total_energy
 
-class SkewNormalInteractionEnergy:
+class SkewNormalInteractionEnergy(EnergyFunction):
     '''
     This energy will assume that all elements need to be a certain
     distance from each other to interact.
@@ -207,22 +238,22 @@ class SkewNormalInteractionEnergy:
         lengths = lengths[::len(lengths)/100]
         self.fg = interpolated_kde(lengths)
 
-    def calibrate(self, bg, steps=40):
+    def calc_fg_parameters(self, bg):
+        self.get_target_distribution(Configuration.longrange_contact_stats_fn)
+
+    def calc_bg_parameters(self, structs):
         '''
-        Run a number of simulations and get the background distribution
-        for each interaction pair.
+        Calculate the energy parameters of a given distribution.
+
+        In this case, the structs parameter contains a list of structures. These structures
+        will have a particular distribution of this energy function. The distribution of 
+        energies of these structures will be the background distribution.
+        
+        @param structs: The structures to used to define the background energy distribution.
         '''
         interaction_distances = DefaultDict([])
-        self.get_target_distribution()
-        #self.get_target_distributions(angle_stats)
 
-        sm = SpatialModel(bg)
-        sm.traverse_and_build()
-        for i in range(steps):
-            sm.sample_angles()
-            sm.sample_stems()
-            sm.sample_loops()
-            sm.traverse_and_build()
+        for bg in structs:
 
             defines = list(bg.defines.keys())
         
@@ -237,8 +268,15 @@ class SkewNormalInteractionEnergy:
         for interaction in interaction_distances.keys():
             interaction_distances[interaction] += list(linspace(0, 200, 100))
             interactions = interaction_distances[interaction][::len(interaction_distances[interaction])/100]
-            #print >>stderr, "interactions:", len(interactions)
             self.bgs[interaction] = interpolated_kde(interactions)
+
+        #self.plot_energies()
+
+    def plot_energies(self):
+        '''
+        Make plots of the foreground and background energies.
+        '''
+        for interaction in self.bgs.keys():
             bg = self.bgs[interaction]
             fg = self.fg
 
@@ -246,9 +284,9 @@ class SkewNormalInteractionEnergy:
             distance_range = linspace(0, 100., 300)
 
             ylim((-20, 10))
-            plot(distance_range, log(fg(distance_range)), 'ro')
-            plot(distance_range, log(fg(distance_range)) - log(bg(distance_range)), 'go')
-            plot(distance_range, log(bg(distance_range)), 'bo')
+            plot(distance_range, fg(distance_range), 'ro')
+            plot(distance_range, fg(distance_range) - bg(distance_range), 'go')
+            plot(distance_range, bg(distance_range), 'bo')
             figname = 'figs/%s.png' % ("-".join(interaction))
             print >>stderr, "saving: %s..." % (figname)
 
@@ -461,15 +499,14 @@ class JunctionClosureEnergy:
 
         return energy[0]
 
-class LongRangeInteractionCount:
+class LongRangeInteractionCount(EnergyFunction):
     '''
-    Blah blah.
+    An energy function to keep track of how many elements are within
+    a certain distance of each other.
     '''
 
     def __init__(self, di = lri_iter):
         self.distance_iterator = di
-        self.name = 'lric'
-        self.gamma_fit = None
         self.target_interactions = None
 
     def get_target_interactions(self, bg, filename):
@@ -500,74 +537,22 @@ class LongRangeInteractionCount:
         
         return target_interactions
 
-    def calibrate(self, bg, steps = 40):
-        filename = '../fess/stats/temp.energy'
-        self.target_interactions = self.get_target_interactions(bg, filename)
+    def calc_fg_parameters(self, bg):
+        self.target_interactions = self.get_target_interactions(bg, Configuration.lric_stats_fn)
 
-        sm = SpatialModel(bg)
-        energies = []
-
-        ld = len(bg.defines.keys())
+    def calc_bg_parameters(self, structs):
         '''
+        Calculate the energy parameters of a given distribution.
+
+        In this case, the structs parameter contains a list of structures. These structures
+        will have a particular distribution of this energy function. The distribution of 
+        energies of these structures will be the background distribution.
         
-        for i in range(ld, ld * ld / 2):
-            energies += [i]
+        @param structs: The structures to used to define the background energy distribution.
         '''
-
-        for i in range(steps):
-            '''
-            sm.sample_stems()
-            sm.sample_angles()
-            sm.sample_loops()
-            sm.traverse_and_build()
-            '''
-            filename = "training/best%d.coord" % (i)
-            bg = BulgeGraph(filename)
-
-            #energies += [self.count_interactions(sm.bg)]
-            energies += [self.count_interactions(bg)]
-
-        #energies += range(10, 250)
-        #fit = ss.gamma.fit(energies)
-        #fit = ss.gamma.fit(energies)
-
-        #fit = distrib.fit(energies)
-        #fit = fit_skew(energies)
-        shuffle(energies)
-        kde = interpolated_kde([float(energy) for energy in energies[::len(energies)/1000]])
-        fit = kde
-
-
-        #hist(energies, normed=True)
-        #plot(energies, ss.gamma.pdf(energies, fit[0], fit[1], fit[2]), 'go')
-        #plot(energies, distrib.pdf(energies, fit[0], fit[1], fit[2]), 'go')
-        #plot(energies, skew(energies, fit[0], fit[1], fit[2]), 'go')
-        #hist(kde(energies), normed=True)
-        #plot(energies, kde(energies), 'go')
-        #plot(energies, kde(energies), 'go')
-
-        
-        print("fit:", fit)
-        #show()
-
-        
-        energy_range = linspace(min(energies), 250, 1000)
-
-        ylim((-40, 20))
-
-        #plot(energies, log(norm.pdf(energy_range, self.target_interactions, 8.)) - log(kde(energy_range)), 'go')
-        plot(energy_range, log(norm.pdf(energy_range, self.target_interactions, 8.)) , 'ro')
-        plot(energy_range, log(norm.pdf(energy_range, self.target_interactions, 8.)) - log(kde(energy_range)) , 'go')
-
-        print >>stderr, energies
-        print >>stderr, fit, min(energies)
-
-        self.bgf = fit
-
-        for count in range(50, 220,5):
-            print "fg - bg:", count, my_log(norm.pdf(float(count), self.target_interactions, 5.)), my_log(self.bgf(float(count))), (my_log(norm.pdf(float(count), self.target_interactions, 5.)) - my_log(self.bgf(float(count))))
-
-        #show()
+        interactions = [self.count_interactions(struct) for struct in structs]
+        shuffle(interactions)
+        self.bgf = interpolated_kde([float(interaction) for interaction in interactions])
             
     def count_interactions(self, bg):
         '''
