@@ -17,12 +17,18 @@ class TestCombinedEnergy(unittest.TestCase):
         self.sm = SpatialModel(self.bg)
 
     def test_calibrate(self):
-        re1 = RandomEnergy()
-        re2 = RandomEnergy()
+        snie = SkewNormalInteractionEnergy()
+        lric = LongRangeInteractionCount()
 
-        ce = CombinedEnergy([re1, re2])
+        ce = CombinedEnergy([snie, lric])
 
         ce.calibrate(self.sm)
+
+        lric1 = LongRangeInteractionCount()
+        lric1.calibrate(self.sm)
+
+        print "uncalibrated lric:", lric.eval_energy(self.sm)
+        print "calibrated lric:", lric1.eval_energy(self.sm)
         
 class TestRandomEnergy(unittest.TestCase):
     def setUp(self):
@@ -60,6 +66,8 @@ class TestLongRangeInteractionCount(unittest.TestCase):
         lric.calibrate(self.sm)
         self.assertTrue(lric.target_interactions != None)
         self.assertTrue(lric.bgf != None)
+
+        print lric.eval_energy(self.sm)
 
         pass
 

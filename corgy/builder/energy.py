@@ -329,8 +329,11 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                 if defines[j] not in bg.edges[defines[k]]:
 
                     # Ignore interactions between extremely close elements
-                    if  bg.bp_distances[defines[j]][defines[k]] < 10:
-                        continue
+                    try:
+                        if  bg.bp_distances[defines[j]][defines[k]] < 10:
+                            continue
+                    except AttributeError:
+                        bg.calc_bp_distances()
                     
                     interaction = tuple(sorted([defines[j], defines[k]]))
 
