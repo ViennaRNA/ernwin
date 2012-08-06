@@ -2,8 +2,13 @@
 
 from corgy.utilities.data_structures import DefaultDict
 from corgy.visual.pymol import PymolPrinter
-from corgy.builder.stats import AngleStat, AngleStatsDict
-from corgy.builder.stats import StemStat, StemStatsDict, LoopStatsDict, LoopStat
+from corgy.builder.stats import AngleStat
+from corgy.builder.stats import StemStat, LoopStat
+
+from corgy.builder.stats import get_stem_stats
+from corgy.builder.stats import get_loop_stats
+from corgy.builder.stats import get_angle_stats
+
 from corgy.graph.graph_pdb import stem2_pos_from_stem1
 from corgy.graph.graph_pdb import stem2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_orient_from_stem1
@@ -76,9 +81,9 @@ class SpatialModel:
         @param angle_defs: Pre-determined statistics for each bulge
         '''
 
-        self.angle_stats = AngleStatsDict(stats_file)
-        self.stem_stats = StemStatsDict(stats_file)
-        self.loop_stats = LoopStatsDict(stats_file)
+        self.angle_stats = get_angle_stats()
+        self.stem_stats = get_stem_stats()
+        self.loop_stats = get_loop_stats()
 
         self.bg = bg
         self.pymol_printer = PymolPrinter()

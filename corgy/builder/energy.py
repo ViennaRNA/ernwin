@@ -4,11 +4,12 @@ import pdb
 import scipy.stats as ss
 import pickle, os
 
+from copy import deepcopy
+
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import vec_distance
 
 from corgy.builder.models import SpatialModel
-from corgy.builder.stats import AngleStatsDict, StemStatsDict, LoopStatsDict
 
 from corgy.utilities.data_structures import DefaultDict
 from corgy.utilities.statistics import fit_skew, skew
@@ -165,17 +166,17 @@ class CombinedEnergy:
             os.makedirs(directory)
 
         filename = os.path.join(directory, energy.__class__.__name__ + ".energy")
-        print "filename:", filename
+        print "saving filename:", filename
         pickle.dump(energy, open(filename, 'w'))
 
-    def calibrate(self, sm, iterations=40, bg_energy=None):
+    def calibrate(self, sm, iterations=40, bg_energy=None, output_dir='/home/mescalin/pkerp/projects/ernwin/energies'):
         '''
         Calibrate each of the energies by taking into account the
         background distribution induced by non-energy directed 
         sampling.
         '''
         self.energies[0].calibrate(sm, iterations)
-        filename = '/home/mescalin/pkerp/projects/ernwin/energies/ce'
+        filename = os.path.join(output_dir, str(sm.bg.name))
         filename = os.path.join(filename, str(iterations))
 
         self.save_energy(self.energies[0], filename)
@@ -405,7 +406,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         #return -(energy_total / (2. * interactions))
         return -energy_total
 
-class JunctionClosureEnergy:
+class JunctionClosureEnergy(EnergyFunction):
     def __init__(self):
         self.name = 'jce'
         self.fgs = dict()
@@ -432,39 +433,50 @@ class JunctionClosureEnergy:
 
         return fit
 
-    def calibrate(self, bg, steps = 40):
+    def calc_fg_parameters(self, bg):
+        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         sm = SpatialModel(bg)
-        distances = DefaultDict([])
-        
+
+        # build the structure to see if there are any closed bulges
         sm.traverse_and_build()
+        closed_bulges = all_bulges.difference(sm.sampled_bulges)
+
+        for bulge in closed_bulges:
+            fg_fit = self.get_target_distributions(sm.angle_stats, abs(bg.defines[bulge][1] - bg.defines[bulge][0]))
+            self.fgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = fg_fit
+
+    def calc_bg_parameters(self, structs):
+        '''
+        Calculate the energy parameters of a given distribution.
+
+        In this case, the structs parameter contains a list of structures. These structures
+        will have a particular distribution of this energy function. The distribution of 
+        energies of these structures will be the background distribution.
+        
+        @param structs: The structures used to define the background energy distribution.
+        '''
+        bg = structs[0]
+        sm = SpatialModel(deepcopy(bg))
+
+        sm.traverse_and_build()
+
+        distances = DefaultDict([])
+
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
-        for i in range(steps):
-            '''
-            sm.sample_stems()
-            sm.sample_angles()
-            sm.sample_loops()
-            sm.traverse_and_build()
-            '''
-            print "step:", i
-
-            filename = "training/best%d.coord" % (i)
-            bg = BulgeGraph(filename)
-
+        for bg in structs:
             for bulge in closed_bulges:
                 bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
                 distance = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
                 distances[bulge] += [distance]
-        
-        
+
         for bulge in closed_bulges:
             bg_fit = interpolated_kde(distances[bulge])
-            fg_fit = self.get_target_distributions(sm.angle_stats, abs(bg.defines[bulge][1] - bg.defines[bulge][0]))
 
-            self.fgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = fg_fit
             self.bgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = bg_fit
 
+            '''
             ds = array(distances[bulge])
 
             fg = fg_fit(ds)
@@ -475,6 +487,7 @@ class JunctionClosureEnergy:
             plot(ds, bg, 'ro')
             plot(ds, fg - bg, 'go')
             #show()
+            '''
 
     def eval_energy(self, sm, background=True):
         #bulge = 'b5' 

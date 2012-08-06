@@ -5,30 +5,13 @@ from corgy.builder.energy import LongRangeInteractionCount
 from corgy.builder.energy import RandomEnergy
 from corgy.builder.energy import SkewNormalInteractionEnergy
 from corgy.builder.energy import CombinedEnergy
+from corgy.builder.energy import JunctionClosureEnergy
 
 from corgy.builder.models import SpatialModel
 
-import sys
+import sys, shutil, os
 import unittest
-
-class TestCombinedEnergy(unittest.TestCase):
-    def setUp(self):
-        self.bg = BulgeGraph('test/files/1gid.comp')
-        self.sm = SpatialModel(self.bg)
-
-    def test_calibrate(self):
-        snie = SkewNormalInteractionEnergy()
-        lric = LongRangeInteractionCount()
-
-        ce = CombinedEnergy([snie, lric])
-
-        ce.calibrate(self.sm)
-
-        lric1 = LongRangeInteractionCount()
-        lric1.calibrate(self.sm)
-
-        print "uncalibrated lric:", lric.eval_energy(self.sm)
-        print "calibrated lric:", lric1.eval_energy(self.sm)
+import numpy as np
         
 class TestRandomEnergy(unittest.TestCase):
     def setUp(self):
@@ -82,3 +65,45 @@ class TestSkewNormalInteractionEnergy(unittest.TestCase):
 
         pass
 
+class TestJunctionClosureEnergy(unittest.TestCase):
+    def setUp(self):
+        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.sm = SpatialModel(self.bg)
+
+    def test_calibrate(self):
+        jce = JunctionClosureEnergy()
+        jce.calibrate(self.sm, iterations=10)
+
+
+class TestCombinedEnergy(unittest.TestCase):
+    def setUp(self):
+        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.sm = SpatialModel(self.bg)
+
+    def test_calibrate(self):
+        snie = SkewNormalInteractionEnergy()
+        lric = LongRangeInteractionCount()
+        jce = JunctionClosureEnergy()
+
+        output_dir='/home/mescalin/pkerp/projects/ernwin/test_output/energies'
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+
+        ce = CombinedEnergy([snie, lric, jce])
+        ce.calibrate(self.sm, iterations=20, bg_energy = None, output_dir=output_dir)
+
+        lric1 = LongRangeInteractionCount()
+        lric1.calibrate(self.sm)
+
+        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy.energy'))
+        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy/LongRangeInteractionCount.energy'))
+        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy.energy'))
+        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy'))
+
+        energy1 = lric.eval_energy(self.sm)
+        energy2 = lric1.eval_energy(self.sm)
+
+        print "uncalibrated lric:", energy1
+        print "calibrated lric:", energy2
+
+        self.assertFalse(np.allclose(energy1, energy2, atol=0.1))

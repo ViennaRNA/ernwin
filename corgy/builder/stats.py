@@ -3,6 +3,7 @@
 from random import uniform
 from numpy import allclose
 from corgy.utilities.data_structures import DefaultDict
+from corgy.builder.config import Configuration
 
 avg_stem_bp_length = 2.24
 avg_twist_rotation_per_bp = 360 / 11.
@@ -75,39 +76,6 @@ class LoopStat:
     def __str__(self):
         return "pdb_name: %s bp: %d phys_length: %f" % (self.pdb_name, self.bp_length, self.phys_length)
 
-class LoopStatsDict(DefaultDict):
-    '''
-    Store information about loop lengths.
-    
-    '''
-    def __init__(self, filename):
-        '''
-        @param filename: The location of the file containing the stats.
-        '''
-        self.default = []
-        self.filename = filename
-
-        self.load_stats(filename)
-
-    def load_stats(self, filename):
-        '''
-        Load the statistics from the file.
-
-        format:
-
-        loop pdb_name bp_length phys_length
-
-        @param filename: The name of the file.
-        '''
-        f = open(filename, 'r')
-
-        for line in f:
-            if line.strip().find('loop') == 0:
-                loop_stat = LoopStat(line)
-                self[loop_stat.bp_length] += [loop_stat]
-
-        f.close()
-
 class StemStat:
     '''
     Class for storing the individual statistics about helices.
@@ -146,39 +114,6 @@ class StemStat:
 
     def __str__(self):
         return "pdb_name: %s bp: %d phys_length: %f twist_angle: %f" % (self.pdb_name, self.bp_length, self.phys_length, self.twist_angle)
-
-class StemStatsDict(DefaultDict):
-    '''
-    Store information about stem lengths and twists.
-    
-    '''
-    def __init__(self, filename):
-        '''
-        @param filename: The location of the file containing the stats.
-        '''
-        self.default = []
-        self.filename = filename
-
-        self.load_stats(filename)
-
-    def load_stats(self, filename):
-        '''
-        Load the statistics from the file.
-
-        format:
-
-        stem pdb_name bp_length phys_length twist_angle
-
-        @param filename: The name of the file.
-        '''
-        f = open(filename, 'r')
-
-        for line in f:
-            if line.strip().find('stem') == 0:
-                stem_stat = StemStat(line)
-                self[stem_stat.bp_length] += [stem_stat]
-
-        f.close()
 
 class AngleStat:
     '''
@@ -274,61 +209,107 @@ class AngleStat:
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
         return str0 + str1 + str2
 
+class ConstructionStats:
+    angle_stats = None
+    stem_stats = None
+    loop_stats = None
 
-class AngleStatsDict(DefaultDict):
+def get_angle_stats(filename=Configuration.stats_file):
     '''
-    A class for storing the information about the orientation
-    of adjacent helices with respect to each other.
+    Load the statistics about inter the helix-helix orientations from a file.
 
-    Currently this class works with tabulated statistics, but it
-    would not be a stretch to include a mixture model to sample
-    angles from.
+    The file format should be as follows:
+
+    angle pdb_name dim1 dim2 r u v t r1 u1 v1
+
+    Where the parameters are as follows:
+
+    angle: identifier for a type of statistics... should always just be 'angle'
+    pdb_name: the name of the pdb file these statistics came from
+    dim1: the smaller dimension of the bulge
+    dim2: the larger dimension of the bulge
+    r: the length of the second stem
+    u: the polar angle of the orientation of the 2nd stem
+    v: the azimuth of the orientation of the 2nd stem
+    t: the orientation of the twist of the second stem
+    
+    r1: the distance of the start of the 2nd stem helix from the end of the 1st
+        stem helix
+    u1: the polar angle of the separation vector of the two helices
+    v1: the azimuth of the separation vector of the two helices
+
+    The azimuth is always defined with respect to the coordinate system defined
+    by the stem1 helix axis vector and it's twist vector (the one adjacent to the
+    bulge element).
+    '''
+    if ConstructionStats.angle_stats != None:
+        return ConstructionStats.angle_stats
+
+    ConstructionStats.angle_stats = DefaultDict(DefaultDict([]))
+
+    f = open(filename, 'r')
+
+    for line in f:
+        if line.strip().find('angle') == 0:
+            angle_stat = AngleStat()
+            angle_stat.parse_line(line)
+            ConstructionStats.angle_stats[angle_stat.dim1][angle_stat.dim2] += [angle_stat]
+
+    f.close()
+
+    return ConstructionStats.angle_stats
+
+
+def get_stem_stats(filename=Configuration.stats_file):
+    '''
+    Load the statistics from the file.
+
+    format:
+
+    stem pdb_name bp_length phys_length twist_angle
+
+    @param filename: The name of the file.
     '''
 
-    def __init__(self, filename):
-        '''
-        @param filename: The location of the file containing the stats.
-        '''
-        self.default = DefaultDict([])
-        self.filename = filename
+    if ConstructionStats.stem_stats != None:
+        return ConstructionStats.stem_stats
 
-        self.load_stats(filename)
+    ConstructionStats.stem_stats = DefaultDict([])
 
-    def load_stats(self, filename):
-        '''
-        Load the statistics about inter the helix-helix orientations from a file.
+    f = open(filename, 'r')
 
-        The file format should be as follows:
+    for line in f:
+        if line.strip().find('stem') == 0:
+            stem_stat = StemStat(line)
+            ConstructionStats.stem_stats[stem_stat.bp_length] += [stem_stat]
 
-        angle pdb_name dim1 dim2 r u v t r1 u1 v1
+    f.close()
 
-        Where the parameters are as follows:
+    return ConstructionStats.stem_stats
 
-        angle: identifier for a type of statistics... should always just be 'angle'
-        pdb_name: the name of the pdb file these statistics came from
-        dim1: the smaller dimension of the bulge
-        dim2: the larger dimension of the bulge
-        r: the length of the second stem
-        u: the polar angle of the orientation of the 2nd stem
-        v: the azimuth of the orientation of the 2nd stem
-        t: the orientation of the twist of the second stem
-        
-        r1: the distance of the start of the 2nd stem helix from the end of the 1st
-            stem helix
-        u1: the polar angle of the separation vector of the two helices
-        v1: the azimuth of the separation vector of the two helices
 
-        The azimuth is always defined with respect to the coordinate system defined
-        by the stem1 helix axis vector and it's twist vector (the one adjacent to the
-        bulge element).
-        '''
-        f = open(filename, 'r')
+def get_loop_stats(filename=Configuration.stats_file):
+    '''
+    Load the statistics from the file.
 
-        for line in f:
-            if line.strip().find('angle') == 0:
-                angle_stat = AngleStat()
-                angle_stat.parse_line(line)
-                self[angle_stat.dim1][angle_stat.dim2] += [angle_stat]
+    format:
 
-        f.close()
+    loop pdb_name bp_length phys_length
 
+    @param filename: The name of the file.
+    '''
+    if ConstructionStats.loop_stats != None:
+        return ConstructionStats.loop_stats
+
+    ConstructionStats.loop_stats = DefaultDict([])
+
+    f = open(filename, 'r')
+
+    for line in f:
+        if line.strip().find('loop') == 0:
+            loop_stat = LoopStat(line)
+            ConstructionStats.loop_stats[loop_stat.bp_length] += [loop_stat]
+
+    f.close()
+
+    return ConstructionStats.loop_stats
