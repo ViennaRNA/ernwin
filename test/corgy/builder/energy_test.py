@@ -82,6 +82,8 @@ class TestCombinedEnergy(unittest.TestCase):
         self.sm = SpatialModel(self.bg)
 
     def test_calibrate(self):
+        iterations = 12
+
         snie = SkewNormalInteractionEnergy()
         lric = LongRangeInteractionCount()
         jce = JunctionClosureEnergy()
@@ -91,15 +93,15 @@ class TestCombinedEnergy(unittest.TestCase):
             shutil.rmtree(output_dir)
 
         ce = CombinedEnergy([snie, lric, jce])
-        ce.calibrate(self.sm, iterations=20, bg_energy = None, output_dir=output_dir)
+        ce.calibrate(self.sm, iterations=12, bg_energy = None, output_dir=output_dir)
 
         lric1 = LongRangeInteractionCount()
         lric1.calibrate(self.sm)
 
-        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy.energy' % (self.bg.name))))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy/LongRangeInteractionCount.energy' % (self.bg.name))))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy.energy' % (self.bg.name))))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (self.bg.name))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/%d/SkewNormalInteractionEnergy.energy' % (self.bg.name, iterations))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/%d/SkewNormalInteractionEnergy/LongRangeInteractionCount.energy' % (self.bg.name, iterations))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/%d/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy.energy' % (self.bg.name, iterations))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/%d/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (self.bg.name, iterations))))
 
         energy1 = lric.eval_energy(self.sm)
         energy2 = lric1.eval_energy(self.sm)
