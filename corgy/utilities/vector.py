@@ -4,7 +4,7 @@ from numpy import array, dot, pi, cos, sin, cross, matrix
 from numpy.linalg import inv
 from numpy.testing import assert_allclose
 from math import sqrt, acos, atan2
-from random import random
+from random import random, uniform
 
 from math import isnan
 
@@ -21,6 +21,28 @@ identity_matrix = array([x_array, y_array, z_array])
 
 standard_basis = array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
 tau = 2 * pi
+
+def get_inter_distances(vecs):
+    '''
+    Calculate all of the distances between the points of vecs.
+    '''
+    distances = []
+    for i in range(len(vecs)):
+        for j in range(i+1, len(vecs)):
+            distances += [vec_distance(vecs[i], vecs[j])]
+
+    return distances
+
+def get_random_vector(mult=1.):
+    return array([mult * uniform(-1, 1), mult * uniform(-1, 1), mult * uniform(-1,1)])
+
+def get_random_vector_pair(angle=uniform(0, pi)):
+    vec1 = get_random_vector()
+    vec2 = get_non_colinear_unit_vector(vec1)
+    rot_vec = cross(vec1, vec2)
+    rotmat = rotation_matrix(rot_vec, angle)
+    vec2 = dot(rotmat, vec1)
+    return (vec1, vec2)
 
 def get_double_alignment_matrix(vp1, vp2):
     '''

@@ -1,5 +1,6 @@
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.builder.energy import MissingTargetException 
+from corgy.builder.config import Configuration
 
 from corgy.builder.energy import LongRangeInteractionCount
 from corgy.builder.energy import RandomEnergy
@@ -15,7 +16,7 @@ import numpy as np
         
 class TestRandomEnergy(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         self.sm = SpatialModel(self.bg)
         self.energy_function = RandomEnergy()
 
@@ -33,7 +34,7 @@ class TestRandomEnergy(unittest.TestCase):
 
 class TestLongRangeInteractionCount(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         self.sm = SpatialModel(self.bg)
 
     def test_eval_energy(self):
@@ -56,7 +57,7 @@ class TestLongRangeInteractionCount(unittest.TestCase):
 
 class TestSkewNormalInteractionEnergy(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         self.sm = SpatialModel(self.bg)
 
     def test_calibrate(self):
@@ -67,7 +68,7 @@ class TestSkewNormalInteractionEnergy(unittest.TestCase):
 
 class TestJunctionClosureEnergy(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         self.sm = SpatialModel(self.bg)
 
     def test_calibrate(self):
@@ -77,7 +78,7 @@ class TestJunctionClosureEnergy(unittest.TestCase):
 
 class TestCombinedEnergy(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph('test/files/1gid.comp')
+        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         self.sm = SpatialModel(self.bg)
 
     def test_calibrate(self):
@@ -85,7 +86,7 @@ class TestCombinedEnergy(unittest.TestCase):
         lric = LongRangeInteractionCount()
         jce = JunctionClosureEnergy()
 
-        output_dir='/home/mescalin/pkerp/projects/ernwin/test_output/energies'
+        output_dir = os.path.join(Configuration.test_output_dir, 'energies')
         if os.path.exists(output_dir):
             shutil.rmtree(output_dir)
 
@@ -95,10 +96,10 @@ class TestCombinedEnergy(unittest.TestCase):
         lric1 = LongRangeInteractionCount()
         lric1.calibrate(self.sm)
 
-        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy.energy'))
-        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy/LongRangeInteractionCount.energy'))
-        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy.energy'))
-        self.assertTrue(os.path.exists('/home/mescalin/pkerp/projects/ernwin/test_output/energies/1gid/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy'))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy.energy' % (self.bg.name))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy/LongRangeInteractionCount.energy' % (self.bg.name))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy.energy' % (self.bg.name))))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, '%s/20/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (self.bg.name))))
 
         energy1 = lric.eval_energy(self.sm)
         energy2 = lric1.eval_energy(self.sm)

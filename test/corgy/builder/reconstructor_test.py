@@ -153,8 +153,8 @@ def align_chain_to_stem(chain, define, stem2):
 
 class TestReconstructor(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "graph", "2b3j.comp"))
-        s = PDBParser().get_structure('temp', os.path.join(Configuration.test_input_dir, "pdb", "2b3j.pdb"))
+        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "2b3j/graph", "temp.comp"))
+        s = PDBParser().get_structure('temp', os.path.join(Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
 
         self.chain = list(s.get_chains())[0]
         self.stem = define_to_stem_model(self.chain, self.bg.defines['s0'])
