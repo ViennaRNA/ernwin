@@ -67,7 +67,7 @@ def main():
     #energy_function = CombinedEnergy([ef4])
     #energy_function = ef3
 
-    energy_function = pickle.load(open('/home/mescalin/pkerp/projects/ernwin/bobbins/energy/1gid/4000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy', 'r'))
+    energy_function = pickle.load(open('/home/mescalin/pkerp/projects/ernwin/bobbins/energy/%s/4000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name), 'r'))
 
     if options.plot:
         plotter = StatisticsPlotter()

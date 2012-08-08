@@ -10,6 +10,12 @@ from math import isnan
 
 from sys import stderr
 
+null_array = array([0., 0., 0.])
+
+x_array = array([1., 0., 0.])
+y_array = array([0., 1., 0.])
+z_array = array([0., 0., 1.])
+
 standard_basis = array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
 tau = 2 * pi
 

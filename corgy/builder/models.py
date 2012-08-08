@@ -13,11 +13,13 @@ from corgy.graph.graph_pdb import stem2_pos_from_stem1
 from corgy.graph.graph_pdb import stem2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_from_twist1
-from corgy.utilities.vector import get_double_alignment_matrix
+from corgy.utilities.vector import get_double_alignment_matrix, magnitude
+
+from corgy.utilities.vector import null_array, x_array, y_array, z_array
 
 from corgy.builder.config import Configuration
 
-from numpy import array
+from numpy import array, dot
 from random import choice, uniform
 from sys import stderr
 from math import pi
@@ -49,6 +51,28 @@ class StemModel:
 
     def vec(self, (from_side, to_side) = (0, 1)):
         return self.mids[to_side] - self.mids[from_side]
+
+    def rotate(self, rot_mat, offset=array([0., 0., 0.])):
+        '''
+        Rotate the stem and its twists according to the definition
+        of rot_mat.
+
+        @param rot_mat: A rotation matrix.
+        '''
+        self.mids = (dot(rot_mat, self.mids[0] - offset) + offset, dot(rot_mat, self.mids[1] - offset) + offset)
+        self.twists = (dot(rot_mat, self.twists[0]), dot(rot_mat, self.twists[1]))
+
+    def translate(self, translation):
+        '''
+        Translate the stem.
+        '''
+        self.mids = (self.mids[0] + translation, self.mids[1] + translation)
+
+    def length(self):
+        '''
+        Get the length of this stem.
+        '''
+        return magnitude(self.mids[1] - self.mids[0])
 
 class BulgeModel:
     '''

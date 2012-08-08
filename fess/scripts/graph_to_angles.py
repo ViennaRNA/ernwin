@@ -35,7 +35,7 @@ def print_stem_stats(bg):
             phys_length = magnitude(bg.coords[d][1] - bg.coords[d][0])
             twist_angle = get_twist_angle(bg.coords[d], bg.twists[d])
 
-            print "stem", bg.name, base_pair_length, phys_length, twist_angle
+            print "stem", bg.name, base_pair_length, phys_length, twist_angle, " ".join(map(str, bg.defines[d]))
 
 def print_loop_stats(bg):
     for d in bg.defines.keys():
