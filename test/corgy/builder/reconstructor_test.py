@@ -13,6 +13,8 @@ from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.utilities.vector import rotation_matrix, magnitude
 from corgy.utilities.vector import x_array, null_array, identity_matrix
 
+from corgy.builder.models import SpatialModel
+
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
 from copy import deepcopy
@@ -283,3 +285,9 @@ class TestReconstructor(unittest.TestCase):
         stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
+
+    def test_complete_reconstruct(self):
+        sm = SpatialModel(self.bg)
+        sm.traverse_and_build()
+
+        print sm.stem_defs

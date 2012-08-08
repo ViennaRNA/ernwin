@@ -13,7 +13,7 @@ from corgy.builder.stats import AngleStat
 from random import choice
 
 def error_exit(message):
-    print >>sys.stderr, message
+    print >> sys.stderr, message
     sys.exit(1)
 
 class BulgeGraph:
@@ -38,6 +38,8 @@ class BulgeGraph:
         self.merge_defs = dict()
         self.length = 0
         self.longrange = DefaultDict(set())
+        
+        self.bp_distances = None
 
         if filename != None:
             self.parse_graph(filename)
@@ -606,7 +608,7 @@ class BulgeGraph:
                         #print >>sys.stderr, "j: %d f1: %d, t1: %d, f2: %d, t2: %d" % (j, f1, t1, f2, t2)
 
                         if t2 + 1 != f1 and t1 + 1 != f2:
-                           continue
+                            continue
 
                         #print >>sys.stderr, "pre self.defines[key]:", self.defines[key]
 

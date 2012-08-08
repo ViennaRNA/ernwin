@@ -1,38 +1,27 @@
 #!/usr/bin/python
 
-import pdb
-import scipy.stats as ss
 import pickle, os
-
 from copy import deepcopy
 
-from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import vec_distance
-
 from corgy.builder.models import SpatialModel
 
 from corgy.utilities.data_structures import DefaultDict
-from corgy.utilities.statistics import fit_skew, skew
 
-from pylab import plot,show, hist, savefig, clf, ylim
+from pylab import plot, savefig, clf, ylim
 
 from numpy import mean
 
 from scipy.stats import norm, linregress
 from numpy import log, array, sqrt, linspace
 from random import random, shuffle, uniform
-from scipy.stats import norm, gaussian_kde
 from corgy.builder.sampling import GibbsBGSampler, SamplingStatistics
 
 from corgy.utilities.statistics import interpolated_kde
 from corgy.builder.config import Configuration
 
-from time import sleep
 from sys import float_info, stderr
 
-from copy import deepcopy
-
-from random import random
 
 def my_log(x):
     return log(x + 1e-200)
@@ -127,7 +116,6 @@ class DistanceIterator:
         @param min_distance: The minimum distance for an interaction.
         @param max_distance: The maximum distance for an interaction.
         '''
-
         self.min_distance = min_distance
         self.max_distance = max_distance
 
@@ -234,7 +222,6 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             parts = line.strip().split(' ')
             lengths += [float(parts[2])]
 
-        #self.fg = fit_skew(lengths)
         print "len(lengths):", len(lengths)
         lengths = lengths[::len(lengths)/100]
         self.fg = interpolated_kde(lengths)
@@ -330,12 +317,11 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                 if defines[j] not in bg.edges[defines[k]]:
 
                     # Ignore interactions between extremely close elements
-                    try:
-                        if  bg.bp_distances[defines[j]][defines[k]] < 10:
-                            continue
-                    except AttributeError:
+                    if bg.bp_distances == None:
                         bg.calc_bp_distances()
-                    
+                    if  bg.bp_distances[defines[j]][defines[k]] < 10:
+                        continue
+                
                     interaction = tuple(sorted([defines[j], defines[k]]))
 
                     energy = self.get_energy_contribution(bg, interaction, background)

@@ -62,7 +62,7 @@ def twist2_from_twist1(stem_vec, twist1, angle):
 
     return twist2
 
-def get_twist_parameter(twist1, twist2, (u,v)):
+def get_twist_parameter(twist1, twist2, (u, v)):
     '''
     Calculate how much stem1 must be twisted for its twist vector
     to coincide with that of stem2.
@@ -144,9 +144,8 @@ def get_stem_twist_and_bulge_vecs(bg, bulge, connections):
     s1 = connections[0]
     s2 = connections[1]
 
-    s1d = bg.defines[s1]
-    s2d = bg.defines[s2]
-    bd = bg.defines[bulge]
+    #s1d = bg.defines[s1]
+    #s2d = bg.defines[s2]
 
     mids1 = bg.coords[s1]
     twists1 = bg.twists[s1]
@@ -164,53 +163,10 @@ def get_stem_twist_and_bulge_vecs(bg, bulge, connections):
     bulge_vec = mids2[s2b] - mids1[s1b]
     stem2_vec = mids2[s2e] - mids2[s2b]
 
-    twists1_vec = [twists1[s1b], twists1[s1e]]
-    twists2_vec = [twists2[s2e], twists2[s2b]]
+    #twists1_vec = [twists1[s1b], twists1[s1e]]
+    #twists2_vec = [twists2[s2e], twists2[s2b]]
 
     return (stem1_vec, twists1[s1b], stem2_vec, twists2[s2b], bulge_vec)
-
-def print_orientation_angles(bulge, connections):
-    '''
-    Print all of the angles that relate one stem to another.
-    The angles needed are enumerated below:
-
-    The vector actors are as follows:
-
-    vec1[0] -> vec1[1] -> (bulge) -> vec2[0] -> vec2[1]
-    twist1[0] -> twist1[1] -> (bulge) twist2[0] -> twist2[1]
-
-    vec1_axis = vec1[1] - vec1[0]
-    vec2_axis = vec2[1] - vec2[0]
-
-    Angle 1: The angle to orient stem2 along the plane defined by the axis
-        of stem1 and its near twist (twist[1])
-        
-        rotation around: mids1[1] - mids1[0]
-        angle to be rotated: angle between twist1 and the rejection of vec2_axis
-                             onto vec1_axis
-
-    Angle 2: The angle to orient stem2 from position 1 to the same orientation
-        as vector1
-
-        rotation around: cross(vec1_axis, twist[1])
-        angle: vec_angle(vec1_axis, transformed vec2_axis)
-
-    Angle 3: The rotation needed to align twist1[1] with twist2[0]
-
-        axis: vec1_axis
-        angle: ?????
-
-    @param bulge: The name of the bule region.
-    @param connections: The names of the two stems that are connected by this bulge.
-    '''
-
-    (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(bg, bulge, connections)
-
-    # Get the orientations for orienting these two stems
-    (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2)
-    (r1, u1, v1) = get_stem_separation_parameters(stem1, twist1, bulge)
-
-    return (r, u, v, t)
 
 def stem2_pos_from_stem1(stem1, twist1, params):
     '''

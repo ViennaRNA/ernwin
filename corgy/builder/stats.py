@@ -93,9 +93,11 @@ class StemStat:
         self.phys_length = 0.
 
         self.twist_angle = 0.
+        self.define = []
 
         if len(line) > 0:
             self.parse_line(line)
+
 
     def parse_line(self, line):
         '''
@@ -111,6 +113,7 @@ class StemStat:
         self.bp_length = int(parts[2])
         self.phys_length = float(parts[3])
         self.twist_angle = float(parts[4])
+        self.define = [int(parts[5]), int(parts[6]), int(parts[7]), int(parts[8])]
 
     def __str__(self):
         return "pdb_name: %s bp: %d phys_length: %f twist_angle: %f" % (self.pdb_name, self.bp_length, self.phys_length, self.twist_angle)

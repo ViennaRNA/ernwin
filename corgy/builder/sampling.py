@@ -19,10 +19,10 @@ class StatisticsPlotter:
     Plot a histogram of the rmsd as well as a plot of the energy vs. the rmsd.
     '''
     def __init__(self):
-        self.fig = plt.figure(figsize=(9,9))
+        self.fig = plt.figure(figsize=(9, 9))
 
-        self.ax_hist = self.fig.add_subplot(2,1,1)
-        self.ax_plot = self.fig.add_subplot(2,1,2)
+        self.ax_hist = self.fig.add_subplot(2, 1, 1)
+        self.ax_plot = self.fig.add_subplot(2, 1, 2)
 
         self.energies = DefaultDict([])
         self.rmsds = DefaultDict([])
@@ -33,38 +33,6 @@ class StatisticsPlotter:
         
         plt.ion()
 
-    def create_contour_plot1(self, m1, m2, ax, xlim, ylim, color):
-        new_m1 = []
-        new_m2 = []
-
-        for i in range(len(m1)):
-            if m1[i] > xlim[0] and m1[i] < xlim[1] and m2[i] > ylim[0] and m2[i] < ylim[1]:
-                new_m1 += [m1[i]]
-                new_m2 += [m2[i]]
-
-        xmin = max(xlim[0], min(new_m1))
-        xmax = min(xlim[1], max(new_m1))
-
-        ymin = max(ylim[0], min(new_m2))
-        ymax = min(ylim[1], max(new_m2))
-
-        X, Y = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
-        positions = np.vstack([X.ravel(), Y.ravel()])
-        values = np.vstack([m1, m2])
-        #print "values:", values
-        kernel = gaussian_kde(values)
-        Z = np.reshape(kernel(positions).T, X.shape)
-
-
-        if color == 'b':
-            ax.imshow(np.rot90(Z), cmap=plt.cm.Blues, extent=[xmin, xmax, ymin, ymax], alpha=0.5, aspect='auto')
-        elif color == 'r':
-            ax.imshow(np.rot90(Z), cmap=plt.cm.Reds, extent=[xmin, xmax, ymin, ymax], alpha=0.5, aspect='auto')
-
-        #ax.plot(m1, m2, 'k.', markersize=2)
-        #ax.set_xlim([xmin, xmax])
-        #ax.set_ylim([ymin, ymax])
-
     def create_contour_plot(self, m1, m2, ax, xlim, ylim, color):
         new_m1 = []
         new_m2 = []
@@ -74,14 +42,8 @@ class StatisticsPlotter:
                 new_m1 += [m1[i]]
                 new_m2 += [m2[i]]
 
-        xmin = max(xlim[0], min(new_m1))
-        xmax = min(xlim[1], max(new_m1))
-
-        ymin = max(ylim[0], min(new_m2))
-        ymax = min(ylim[1], max(new_m2))
-
         #positions = np.vstack([X.ravel(), Y.ravel()])
-        X, Y = np.mgrid[xlim[0]:xlim[1]:complex(0,len(new_m1)), ylim[0]:ylim[1]:complex(0,len(new_m2))]
+        X, Y = np.mgrid[xlim[0]:xlim[1]:complex(0,len(new_m1)), ylim[0]:ylim[1]:complex(0, len(new_m2))]
         #X,Y = np.meshgrid(new_m1, new_m2)
         positions = np.vstack([X.ravel(), Y.ravel()])
         values = np.vstack([m1, m2])

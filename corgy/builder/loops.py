@@ -26,10 +26,10 @@ def connect_to_start(prev_x, prev_y, prev_z, lengths):
     d = sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
 
     if d > r0 + r1:
-        print >>sys.stderr, "Last two segments are not long enough to make the connection between the two points."
+        print >> sys.stderr, "Last two segments are not long enough to make the connection between the two points."
         sys.exit(1)
     if d < abs(r0 - r1):
-        print >>sys.stderr, "Concentric circles."
+        print >> sys.stderr, "Concentric circles."
         sys.exit(1)
 
     a = (r0 ** 2 - r1 ** 2 + d ** 2) / (2 * d)
@@ -106,7 +106,7 @@ def IntersectSpheres(o1, r1, o2, r2):
 
 	elif ( d==abs(r1 + r2) ):
 		point = [0,0,0]
-		for i in range(3):
+	    for i in range(3):
 			point[i] = o1[i] + r1 * (o2[i] - o1[i]) / d
 		return [0, point]  # exterior tangent spheres
 	

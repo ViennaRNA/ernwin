@@ -1,5 +1,5 @@
 from scipy import linspace
-from scipy import pi,sqrt,exp, mean, std
+from scipy import pi, sqrt, exp, mean, std
 from scipy.special import erf
 from scipy.stats import norm, gaussian_kde
 from scipy import interpolate
@@ -7,24 +7,21 @@ from scipy.interpolate import interp1d
 
 from scipy.optimize import leastsq
 
-from pylab import plot,show, hist
-from numpy import array, log
-
-from sys import exit
+from numpy import log
 
 def my_log(x):
     return log(x + 1e-200)
 
 
 def pdf(x):
-    return 1/sqrt(2*pi) * exp(-x**2/2)
+    return 1/sqrt(2 * pi) * exp(-x ** 2 / 2)
 
 def cdf(x):
-    return (1 + erf(x/sqrt(2))) / 2
+    return (1 + erf(x / sqrt(2))) / 2
 
 def skew(x,e=0,w=1,a=0):
-    t = (x-e) / w
-    return 2 / w * pdf(t) * cdf(a*t)
+    t = (x - e) / w
+    return 2 / w * pdf(t) * cdf(a * t)
     # You can of course use the scipy.stats.norm versions
     # return 2 * norm.pdf(t) * norm.cdf(a*t)
 
@@ -74,28 +71,6 @@ def test_fit_skew():
     fit_skew(dataset)
 
 #test_fit_skew()
-
-'''
-def interpolated_kde(data, limits=None):
-    Create a kde from the data and then fit a cubic spline to it.
-
-    if limits == None:
-        limits = (min(data), max(data))
-    n = 1000
-    
-
-    x = linspace(limits[0], limits[1], n)
-    y = gaussian_kde(data)(x)
-
-    # the data needs to be sorted for the interpolation to succeed
-    d = zip(x, y)
-    d.sort()
-    x,y = zip(*d)
-    
-    inter = interpolate.splrep(x, y)
-
-    return lambda l: interpolate.splev(l, inter)
-'''
 
 class interpolated_kde:
     '''

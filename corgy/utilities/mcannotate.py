@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import sys
+
 def parse_chain_base(chain_base):
     """
     Parse the string identifying a chain and a base in an MC-Annotate generated
@@ -17,13 +19,13 @@ def parse_chain_base(chain_base):
     else:
         # quoted string (i.e. ''33'')
         if chain_base[0] == '\'':
-            end_quote_idx = chain_base.find('\'',1)
-            chain=chain_base[1:end_quote_idx]
-            base=int(chain_base[end_quote_idx+1:])
+            end_quote_idx = chain_base.find('\'', 1)
+            chain = chain_base[1:end_quote_idx]
+            base = int(chain_base[end_quote_idx+1:])
         else:
             # no chain identifier
-            chain=''
-            base=int(chain_base)
+            chain = ''
+            base = int(chain_base)
 
     return (chain, base)
 
@@ -90,8 +92,8 @@ def iterate_over_interactions(mcannotate_lines):
             try:
                 (from_chain, from_base, to_chain, to_base) =  get_interacting_base_pairs(line)
             except ValueError as ve:
-                print >>sys.stderr, "ValueError:", ve
-                print >>sys.stderr, "line:", line
+                print >> sys.stderr, "ValueError:", ve
+                print >> sys.stderr, "line:", line
                 continue
 
             yield line.strip()

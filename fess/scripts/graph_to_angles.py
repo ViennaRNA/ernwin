@@ -10,7 +10,6 @@ from corgy.utilities.vector import vec_distance, vec_angle, magnitude, vector_re
 from corgy.utilities.vector import change_basis, get_standard_basis
 from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.graph.graph_pdb import get_stem_separation_parameters
-from corgy.graph.graph_pdb import print_orientation_angles
 
 from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
 from corgy.graph.graph_pdb import get_twist_angle

@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
-from corgy.utilities.data_structures import DefaultDict
 from corgy.visual.pymol import PymolPrinter
-from corgy.builder.stats import AngleStat
-from corgy.builder.stats import StemStat, LoopStat
+from corgy.builder.stats import AngleStat, LoopStat
 
 from corgy.builder.stats import get_stem_stats
 from corgy.builder.stats import get_loop_stats
@@ -15,13 +13,10 @@ from corgy.graph.graph_pdb import twist2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_from_twist1
 from corgy.utilities.vector import get_double_alignment_matrix, magnitude
 
-from corgy.utilities.vector import null_array, x_array, y_array, z_array
-
 from corgy.builder.config import Configuration
 
 from numpy import array, dot, allclose
 from random import choice, uniform
-from sys import stderr
 from math import pi
 
 class StemModel:
@@ -48,11 +43,6 @@ class StemModel:
         twists0_close = allclose(self.twists[0], other.twists[0])
         twists1_close = allclose(self.twists[1], other.twists[1])
         return mids0_close and mids1_close and twists0_close and twists1_close
-
-        '''
-        return (allclose(self.mids[0], other.mids[0]) and allclose(self.mids[1], other.mids[1]) and
-                allclose(self.twists[0], other.twists[0]) and allclose(self.twists[1], other.twists[1]))
-        '''
 
     def reverse(self):
         '''
@@ -141,8 +131,6 @@ class SpatialModel:
             self.sample_loops()
         else:
             self.loop_defs = loop_defs
-
-        pass
 
     def sample_angles(self):
         '''
@@ -319,7 +307,6 @@ class SpatialModel:
                 if len(self.bg.edges[d]) == 1:
                     self.add_loop(d, list(self.bg.edges[d])[0])
                     # add loop
-                    pass
                 else:
                     connections = list(self.bg.edges[d])
 
@@ -419,7 +406,7 @@ class SpatialModel:
             if curr_node[0] == 's':
                 params = self.get_random_stem_stats(curr_node)
                 if prev_node == 'start':
-                    (s1b, s1e) = (1,0)
+                    (s1b, s1e) = (1, 0)
                 else:
                     (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 

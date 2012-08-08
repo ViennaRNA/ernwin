@@ -1,14 +1,12 @@
 #!/usr/bin/python
 
-from numpy import array, dot, pi, cos, sin, cross, matrix
+from numpy import array, dot, pi, cos, sin, cross
 from numpy.linalg import inv
 from numpy.testing import assert_allclose
 from math import sqrt, acos, atan2
-from random import random, uniform
+from random import uniform
 
 from math import isnan
-
-from sys import stderr
 
 null_array = array([0., 0., 0.])
 
@@ -34,7 +32,7 @@ def get_inter_distances(vecs):
     return distances
 
 def get_random_vector(mult=1.):
-    return array([mult * uniform(-1, 1), mult * uniform(-1, 1), mult * uniform(-1,1)])
+    return array([mult * uniform(-1, 1), mult * uniform(-1, 1), mult * uniform(-1, 1)])
 
 def get_random_vector_pair(angle=uniform(0, pi)):
     vec1 = get_random_vector()
@@ -163,7 +161,7 @@ def spherical_polar_to_cartesian(vec):
     @param vec: A vector of the 3 polar coordinates (r, u, v)
     @return: (x, y, z)
     '''
-    (r,u,v) = vec
+    (r, u, v) = vec
 
     x = r * sin(u) * cos(v)
     y = r * sin(u) * sin(v)
@@ -244,7 +242,7 @@ def vector_rejection(a, b):
     return a - (n / d) * b
 
 
-def rotation_matrix(axis,theta):
+def rotation_matrix(axis, theta):
     '''
     Calculate the rotation matrix for a rotation of theta degress around axis.
 
@@ -257,9 +255,9 @@ def rotation_matrix(axis,theta):
     @return: A matrix which can be used to perform the given rotation. The coordinates
              need only be multiplied by the matrix.
     '''
-    axis = axis/sqrt(dot(axis,axis))
+    axis = axis/sqrt(dot(axis, axis))
     a = cos(theta/2)
-    b,c,d = -axis*sin(theta/2)
+    b, c, d = -axis*sin(theta/2)
     return array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
                   [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])

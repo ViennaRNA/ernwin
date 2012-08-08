@@ -23,7 +23,7 @@ def main():
                 else:
                     return 0
 
-        io=PDBIO()
+        io = PDBIO()
         io.set_structure(s)
         io.save(sys.argv[1]+"."+str(counter), FirstChainSelect())
 
