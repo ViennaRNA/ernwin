@@ -19,7 +19,7 @@ from corgy.utilities.vector import null_array, x_array, y_array, z_array
 
 from corgy.builder.config import Configuration
 
-from numpy import array, dot
+from numpy import array, dot, allclose
 from random import choice, uniform
 from sys import stderr
 from math import pi
@@ -41,6 +41,18 @@ class StemModel:
 
     def __str__(self):
         return str(self.mids) + '\n' + str(self.twists)
+
+    def __eq__(self, other):
+        mids0_close = allclose(self.mids[0], other.mids[0])
+        mids1_close = allclose(self.mids[1], other.mids[1])
+        twists0_close = allclose(self.twists[0], other.twists[0])
+        twists1_close = allclose(self.twists[1], other.twists[1])
+        return mids0_close and mids1_close and twists0_close and twists1_close
+
+        '''
+        return (allclose(self.mids[0], other.mids[0]) and allclose(self.mids[1], other.mids[1]) and
+                allclose(self.twists[0], other.twists[0]) and allclose(self.twists[1], other.twists[1]))
+        '''
 
     def reverse(self):
         '''

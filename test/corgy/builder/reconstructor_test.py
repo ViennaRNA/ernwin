@@ -11,7 +11,7 @@ from corgy.builder.models import StemModel
 from corgy.graph.graph_pdb import get_mids, get_twists
 from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.utilities.vector import rotation_matrix, magnitude
-from corgy.utilities.vector import x_array, null_array
+from corgy.utilities.vector import x_array, null_array, identity_matrix
 
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
@@ -113,12 +113,18 @@ def rotate_stem(stem, (u, v, t)):
 
 def rotate_chain(chain, rot_mat, offset):
     atoms = Selection.unfold_entities(chain, 'A')
-    no_rot = rotation_matrix(x_array, 0.)
 
     for atom in atoms:
-        atom.transform(no_rot, -offset)
+        atom.transform(identity_matrix, -offset)
         atom.transform(rot_mat, null_array)
-        atom.transform(no_rot, offset)
+        atom.transform(identity_matrix, offset)
+
+def translate_chain(chain, translation):
+    atoms = Selection.unfold_entities(chain, 'A')
+
+    for atom in atoms:
+        atom.transform(identity_matrix, translation)
+
 
 def get_random_orientation():
     '''
@@ -128,6 +134,22 @@ def get_random_orientation():
     -pi <= t <= pi
     '''
     return (uniform(0, pi), uniform(-pi, pi), uniform(-pi, pi))
+
+def get_random_translation():
+    '''
+    Return a random translation.
+    '''
+
+    return array([uniform(-10, 10), uniform(-10, 10), uniform(-10, 10)])
+
+def align_chain_to_stem(chain, define, stem2):
+    stem1 = define_to_stem_model(chain, define)
+
+    (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
+    rot_mat = get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
+    rotate_chain(chain, inv(rot_mat), stem1.mids[0])
+    translate_chain(chain, stem2.mids[0] - stem1.mids[0])
+
 
 class TestReconstructor(unittest.TestCase):
     def setUp(self):
@@ -158,11 +180,7 @@ class TestReconstructor(unittest.TestCase):
 
         stem2 = define_to_stem_model(self.chain, self.bg.defines['s0'])
 
-        self.assertTrue(allclose(stem1.mids[0], stem2.mids[0]))
-        self.assertTrue(allclose(stem1.mids[1], stem2.mids[1]))
-
-        self.assertTrue(allclose(stem1.twists[0], stem2.twists[0]))
-        self.assertTrue(allclose(stem1.twists[1], stem2.twists[1]))
+        self.assertTrue(stem1 == stem2)
 
     def test_rerotate_stem(self):
         stem1 = deepcopy(self.stem)
@@ -224,14 +242,44 @@ class TestReconstructor(unittest.TestCase):
         orientation = get_random_orientation()
         stem2 = rotate_stem(stem1, orientation)
 
+        self.assertFalse(stem1 == stem2)
+
         (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
         rot_mat = get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
         rotate_chain(chain, inv(rot_mat), stem1.mids[0])
 
         stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
 
-        self.assertTrue(allclose(stem2.mids[0], stem3.mids[0]))
-        self.assertTrue(allclose(stem2.mids[1], stem3.mids[1]))
+        self.assertTrue(stem2 == stem3)
 
-        self.assertTrue(allclose(stem2.twists[0], stem3.twists[0]))
-        self.assertTrue(allclose(stem2.twists[1], stem3.twists[1]))
+    def test_align_chain_to_stem(self):
+        chain = splice_stem(self.chain, self.bg.defines['s0'])
+
+        stem1 = define_to_stem_model(chain, self.bg.defines['s0'])
+        orientation = get_random_orientation()
+        translation = get_random_translation()
+
+        stem2 = rotate_stem(stem1, orientation)
+        #stem2.translate(translation)
+
+        self.assertFalse(stem1 == stem2)
+        align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
+        stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
+
+        self.assertTrue(stem2 == stem3)
+
+    def test_align_chain_to_stem1(self):
+        chain = splice_stem(self.chain, self.bg.defines['s0'])
+
+        stem1 = define_to_stem_model(chain, self.bg.defines['s0'])
+        orientation = get_random_orientation()
+        translation = get_random_translation()
+
+        stem2 = rotate_stem(stem1, orientation)
+        stem2.translate(translation)
+
+        self.assertFalse(stem1 == stem2)
+        align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
+        stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
+
+        self.assertTrue(stem2 == stem3)

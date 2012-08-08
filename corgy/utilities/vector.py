@@ -16,6 +16,9 @@ x_array = array([1., 0., 0.])
 y_array = array([0., 1., 0.])
 z_array = array([0., 0., 1.])
 
+# identity matrix
+identity_matrix = array([x_array, y_array, z_array])
+
 standard_basis = array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
 tau = 2 * pi
 
