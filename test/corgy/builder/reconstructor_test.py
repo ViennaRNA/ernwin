@@ -1,6 +1,7 @@
 import unittest
 
 import corgy.builder.reconstructor as rc
+from operator import attrgetter
 
 from pprint import pprint
 from corgy.builder.config import Configuration
@@ -27,6 +28,44 @@ from Bio.PDB.Model import Model
 from Bio.PDB.Structure import Structure
 
 import os
+
+def reconstruct_stems(sm):
+    '''
+    Reconstruct the stems around a Spatial Model.
+
+    @param sm: Spatial Model
+    '''
+    #sm.traverse_and_build()
+    new_chain = Chain(' ')
+
+    for stem_name in sm.stem_defs.keys():
+        stem_def = sm.stem_defs[stem_name]
+        stem = sm.stems[stem_name]
+
+        filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+        #print "stem_name:", stem_name, "stem_def:", stem_def
+        pdb_file = os.path.join(Configuration.stem_fragment_dir, filename)
+
+        chain = list(PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        align_chain_to_stem(chain, stem_def.define, stem)
+
+        #print "stem_def.define:", stem_def.define
+        #print "sm.bg.defines[stem_name]:", sm.bg.defines[stem_name]
+
+        #for e in chain.get_list():
+        for i in range(stem_def.bp_length+1):
+            #print "i:", i
+            e = chain[stem_def.define[0] + i]
+            e.id = (e.id[0], sm.bg.defines[stem_name][0] + i, e.id[2])
+            #print "adding:", e.id
+            new_chain.add(e)
+
+            e = chain[stem_def.define[2] + i]
+            e.id = (e.id[0], sm.bg.defines[stem_name][2] + i, e.id[2])
+            #print "adding:", e.id
+            new_chain.add(e)
+
+    return new_chain
 
 def define_to_stem_model(chain, define):
     '''
@@ -128,6 +167,15 @@ def translate_chain(chain, translation):
         atom.transform(identity_matrix, translation)
 
 
+def align_chain_to_stem(chain, define, stem2):
+    stem1 = define_to_stem_model(chain, define)
+
+    (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
+    rot_mat = get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
+    rotate_chain(chain, inv(rot_mat), stem1.mids[0])
+    translate_chain(chain, stem2.mids[0] - stem1.mids[0])
+
+
 def get_random_orientation():
     '''
     Return a random tuple (u, v, t) such that
@@ -143,15 +191,6 @@ def get_random_translation():
     '''
 
     return array([uniform(-10, 10), uniform(-10, 10), uniform(-10, 10)])
-
-def align_chain_to_stem(chain, define, stem2):
-    stem1 = define_to_stem_model(chain, define)
-
-    (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
-    rot_mat = get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
-    rotate_chain(chain, inv(rot_mat), stem1.mids[0])
-    translate_chain(chain, stem2.mids[0] - stem1.mids[0])
-
 
 class TestReconstructor(unittest.TestCase):
     def setUp(self):
@@ -196,12 +235,6 @@ class TestReconstructor(unittest.TestCase):
 
         (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
 
-        '''
-        print "orientation:", orientation
-        print "(u, v, t):", (u, v, t)
-        print orientation + array([u,v,t])
-        '''
-
         # Figure out why exactly this works!!!
         orientation1 = (pi-u, -v, -t)
         rot_mat = get_stem_rotation_matrix(stem1, orientation1)
@@ -211,7 +244,6 @@ class TestReconstructor(unittest.TestCase):
 
         (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem3.vec(), stem3.twists[0])
         self.assertTrue(allclose((u,v,t),(pi/2, 0., 0.)))
-        #print "(u, v, t):", (u, v, t)
 
     def test_splice_stem(self):
         define = self.bg.defines['s0']
@@ -286,8 +318,70 @@ class TestReconstructor(unittest.TestCase):
 
         self.assertTrue(stem2 == stem3)
 
-    def test_complete_reconstruct(self):
+    def check_reconstructed_stems(self, sm, chain, stem_names):
+        for stem_name in stem_names:
+            stem_def = sm.stem_defs[stem_name]
+            bg_stem_def = sm.bg.defines[stem_name]
+        
+            stem = define_to_stem_model(chain, bg_stem_def)
+
+            print "stem_def:", stem_def
+            print stem
+            print sm.stems[stem_name]
+            print
+
+            self.assertEqual(stem, sm.stems[stem_name])
+
+    '''
+    def test_reconstruct_one_stem(self):
         sm = SpatialModel(self.bg)
         sm.traverse_and_build()
+        stem_def = sm.stem_defs['s0']
 
-        print sm.stem_defs
+        filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+        pdb_file = os.path.join(Configuration.stem_fragment_dir, filename)
+
+        chain = list(PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        align_chain_to_stem(chain, stem_def.define, sm.stems['s0'])
+        stem = define_to_stem_model(chain, sm.stem_defs['s0'].define)
+
+        #self.assertTrue(stem == sm.stems['s0'])
+
+        self.check_reconstructed_stems(sm, chain, ['s0'])
+    '''
+
+    def test_reconstruct_whole_model(self):
+        '''
+        Test the reconstruction of the stems of the SpatialModel.
+        '''
+        bgs = []
+        #bgs += [self.bg]
+        bgs += [BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))]
+
+        for bg in bgs:
+            sm = SpatialModel(bg)
+            sm.traverse_and_build()
+            chain = reconstruct_stems(sm)
+
+            self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+    
+    def test_twice_defined_stem(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+
+        sm.traverse_and_build()
+        sm.stem_defs['s2'].pdb_name = '1s72'
+        sm.stem_defs['s2'].bp_length = 1
+        sm.stem_defs['s2'].phys_length = 3.78678002926
+        sm.stem_defs['s2'].twist_angle = 0.457289932542
+        sm.stem_defs['s2'].define = [678, 679, 684, 685]
+
+        sm.stem_defs['s1'].pdb_name = '1yjn'
+        sm.stem_defs['s1'].bp_length = 1
+        sm.stem_defs['s1'].phys_length = 3.77964149852
+        sm.stem_defs['s1'].twist_angle = 0.455189553351
+        sm.stem_defs['s1'].define = [678, 679, 684, 685]
+        sm.traverse_and_build()
+
+        chain = reconstruct_stems(sm)
+        self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
