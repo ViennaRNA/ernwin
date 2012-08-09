@@ -118,6 +118,16 @@ class PymolPrinter:
             print "cmd.load_cgo(cgox_%d, \'cgox%d\')" % (i, i)
         print "cmd.zoom(\"all\", 2.0)"
 
+    def dump_pymol_file(self, filename):
+        '''
+        Output the structure to file.
+
+        @param filename: The location of the output file.
+        '''
+        output_str = ''
+
+        self.pymol_intro_to_string()
+
     def output_pymol_file(self):
         self.print_pymol_intro()
         self.print_pymol_segments()

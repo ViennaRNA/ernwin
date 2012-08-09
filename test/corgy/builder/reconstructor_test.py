@@ -1,7 +1,9 @@
 import unittest
 
 import corgy.builder.reconstructor as rc
+
 from operator import attrgetter
+from corgy.visual.pymol import PymolPrinter
 
 from pprint import pprint
 from corgy.builder.config import Configuration
@@ -28,6 +30,23 @@ from Bio.PDB.Model import Model
 from Bio.PDB.Structure import Structure
 
 import os
+
+def output_chain(chain, filename):
+    '''
+    Dump a chain to an output file.
+
+    @param chain: The Bio.PDB.Chain to dump.
+    @param filename: The place to dump it.
+    '''
+    m = Model(' ')
+    s = Structure(' ')
+
+    m.add(chain)
+    s.add(m)
+
+    io = PDBIO()
+    io.set_structure(s)
+    io.save(filename)
 
 def reconstruct_stems(sm):
     '''
@@ -332,24 +351,6 @@ class TestReconstructor(unittest.TestCase):
 
             self.assertEqual(stem, sm.stems[stem_name])
 
-    '''
-    def test_reconstruct_one_stem(self):
-        sm = SpatialModel(self.bg)
-        sm.traverse_and_build()
-        stem_def = sm.stem_defs['s0']
-
-        filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-        pdb_file = os.path.join(Configuration.stem_fragment_dir, filename)
-
-        chain = list(PDBParser().get_structure('temp', pdb_file).get_chains())[0]
-        align_chain_to_stem(chain, stem_def.define, sm.stems['s0'])
-        stem = define_to_stem_model(chain, sm.stem_defs['s0'].define)
-
-        #self.assertTrue(stem == sm.stems['s0'])
-
-        self.check_reconstructed_stems(sm, chain, ['s0'])
-    '''
-
     def test_reconstruct_whole_model(self):
         '''
         Test the reconstruction of the stems of the SpatialModel.
@@ -385,3 +386,24 @@ class TestReconstructor(unittest.TestCase):
 
         chain = reconstruct_stems(sm)
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+
+    def test_output_chain(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+
+        sm.traverse_and_build()
+        chain = reconstruct_stems(sm)
+
+        output_file = os.path.join(Configuration.test_output_dir, "output_chain.pdb") 
+        output_chain(chain, output_file)
+
+        s = PDBParser().get_structure('t', output_file)
+        chain = list(s.get_chains())[0]
+
+        pymol_printer = PymolPrinter()
+        pymol_printer.print_text = False
+        pymol_printer.add_twists = True
+        pymol_printer.add_longrange = False
+
+        pymol_printer.coordinates_to_pymol(sm.bg)
+        pymol_printer.output_pymol_file()
