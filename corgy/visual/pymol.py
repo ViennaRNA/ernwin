@@ -68,34 +68,40 @@ class PymolPrinter:
 
         self.new_segments = []
 
-    def print_pymol_spheres(self):
+    def pymol_spheres_string(self):
         self.spheres += self.new_spheres
+        s = ''
 
         for (p, color, width, text) in self.new_spheres:
             color_vec = self.get_color_vec(color)
-            print "COLOR, %s," % (",  ".join([str(c) for c in color_vec]))
-            print "SPHERE, %s, %f," % (", ".join([str(pi) for pi in p]), width)
+            s += "COLOR, %s," % (",  ".join([str(c) for c in color_vec])) + '\n'
+            s += "SPHERE, %s, %f," % (", ".join([str(pi) for pi in p]), width) + '\n'
 
-    def print_pymol_segments(self):
+        return s
+
+    def pymol_segments_string(self):
         color = 'green'
         width = 0.2
+        s = ''
 
         self.segments += self.new_segments
 
         for seg  in self.segments:
             (p,n,color,width, text) = seg
             color_vec = [str(c) for c in self.get_color_vec(color)]
-            print " CYLINDER, %f, %f, %f, %f, %f, %f, %f, %s, %s," % (p[0], p[1], p[2], n[0], n[1], n[2], width, ", ".join(color_vec), ", ".join(color_vec))
+            s += " CYLINDER, %f, %f, %f, %f, %f, %f, %f, %s, %s," % (p[0], p[1], p[2], n[0], n[1], n[2], width, ", ".join(color_vec), ", ".join(color_vec)) + '\n'
 
+        return s
 
-    def print_pymol_text(self):
+    def pymol_text_string(self):
         counter = 0
+        s = ''
 
         for (p, n, color, width, text) in self.segments:
             if len(text) == 0:
                 continue
 
-            print "cgox_%d = []" % (counter)
+            s +=  "cgox_%d = []" % (counter) + '\n'
 
             comp1 = normalize(n - p)
 
@@ -110,13 +116,31 @@ class PymolPrinter:
 
             text = "%s: %.1f" % (text, magnitude(n-p))
 
-            print "cyl_text(cgox_%d, plain, %s, \"%s\", 0.20, axes=%s)" % (counter, str(list(pos)), text, str(axes))
+            s += "cyl_text(cgox_%d, plain, %s, \"%s\", 0.20, axes=%s)" % (counter, str(list(pos)), text, str(axes)) + '\n'
             counter += 1
 
-        print "cmd.set(\"cgo_line_radius\",0.03)"
+        s +=  "cmd.set(\"cgo_line_radius\",0.03)" + '\n'
         for i in range(counter):
-            print "cmd.load_cgo(cgox_%d, \'cgox%d\')" % (i, i)
-        print "cmd.zoom(\"all\", 2.0)"
+            s += "cmd.load_cgo(cgox_%d, \'cgox%d\')" % (i, i) + '\n'
+        s += "cmd.zoom(\"all\", 2.0)" + '\n'
+        return s
+
+
+    def pymol_string(self):
+        '''
+        Output the contents of this structure into a file that can be passed
+        in as a pymol script.
+        '''
+
+        s = self.pymol_intro_string()
+        s += self.pymol_segments_string()
+        s += self.pymol_spheres_string()
+        s += self.pymol_outro_string()
+
+        if self.print_text:
+            s += self.pymol_text_string()
+
+        return s
 
     def dump_pymol_file(self, filename):
         '''
@@ -124,32 +148,28 @@ class PymolPrinter:
 
         @param filename: The location of the output file.
         '''
-        output_str = ''
-
-        self.pymol_intro_to_string()
+        f = open(filename, 'w')
+        f.write(self.pymol_string())
+        f.close()
 
     def output_pymol_file(self):
-        self.print_pymol_intro()
-        self.print_pymol_segments()
-        self.print_pymol_spheres()
-        self.print_pymol_outro()
-
-        if self.print_text:
-            self.print_pymol_text()
+        print self.pymol_string()
 
     def reset(self):
         self.segments = []
         self.new_segments = []
 
-    def print_pymol_intro(self):
-        print "from pymol.cgo import *"
-        print "from pymol import cmd"
-        print "from pymol.vfont import plain"
-        print "obj = ["
+    def pymol_intro_string(self):
+        s  = "from pymol.cgo import *" + '\n'
+        s += "from pymol import cmd" + '\n'
+        s += "from pymol.vfont import plain" + '\n'
+        s += "obj = [" + '\n'
+        return s
 
-    def print_pymol_outro(self):
-        print "]"
-        print "cmd.load_cgo(obj, 'ss')"
+    def pymol_outro_string(self):
+        s =  "]" + '\n'
+        s += "cmd.load_cgo(obj, 'ss')" + '\n'
+        return s
 
     def coordinates_to_pymol(self, bg):
         for key in bg.coords.keys():

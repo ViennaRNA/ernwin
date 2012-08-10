@@ -1,7 +1,10 @@
 #!/usr/bin/python
 
+import timeit
+
 from numpy import array, dot, pi, cos, sin, cross
-from numpy.linalg import inv
+from numpy.linalg import inv, solve
+
 from numpy.testing import assert_allclose
 from math import sqrt, acos, atan2
 from random import uniform
@@ -106,7 +109,7 @@ def get_non_colinear_unit_vector(vec):
            
     return array(unit)
 
-def create_orthonormal_basis(vec1, vec2=None, vec3=None):
+def create_orthonormal_basis1(vec1, vec2=None, vec3=None):
     '''
     Create an orthonormal basis using the provided vectors.
 
@@ -129,6 +132,29 @@ def create_orthonormal_basis(vec1, vec2=None, vec3=None):
 
     return array([vec1, vec2, vec3])
 
+
+def create_orthonormal_basis(vec1, vec2=None, vec3=None):
+    '''
+    Create an orthonormal basis using the provided vectors.
+
+    If more than one is provided, it must be orthogonal to 
+    the others.
+    '''
+    if vec2 == None:
+        vec2 = get_non_colinear_unit_vector(vec1)
+    #else:
+    #    assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
+
+
+    vec1 /= magnitude(vec1)
+    vec2 /= magnitude(vec2)
+
+    if vec3 == None:
+        vec3 = cross(vec1, vec2)
+
+    vec3 /= magnitude(vec3)
+
+    return array([vec1, vec2, vec3])
 def spherical_cartesian_to_polar(vec):
     '''
     Return a parameterization of a vector of 3 coordinates:
@@ -197,6 +223,8 @@ def change_basis(coords, new_basis, old_basis):
     (the one closest to the second vector) and a third vector orthogonal to the previous
     two.
 
+    # http://tutorial.math.lamar.edu/Classes/LinAlg/ChangeOfBasis.aspx
+
     @param coords: The coordinates to transform (array of n elements).
     @param new_basis: The new basis vectors (n x n matrix)
     @param old_basis: The old basis for the coordinates(n x n matrix)
@@ -206,26 +234,65 @@ def change_basis(coords, new_basis, old_basis):
     #assert(len(new_basis) == len(old_basis))
 
     dim = len(coords)
-    #print >>stderr, "coords:", coords
-    #standard_basis = get_standard_basis(dim)
-
-    # the transform of the old basis to the standard is simply
-    # equal to multiplying by the old basis
-
-    # the transform from the standard to the new basis is
-    # done by multiplying the coordinates in the standard
-    # basis to the coordinates in the new_basis
-
-    # A nice tutorial about this is located here:
-    # http://tutorial.math.lamar.edu/Classes/LinAlg/ChangeOfBasis.aspx
-    #print >>stderr, "old_basis:", old_basis
+    #print "coords:", coords
     standard_coords = dot(old_basis.transpose(), coords)
-    #print >>stderr, "standard_coords:", standard_coords
+    '''
+    #print "standard_coords:", standard_coords
     standard_to_new = inv(new_basis.transpose())
-    #print >>stderr, "standard_to_new:", standard_to_new
+    #print "standard_to_new:", standard_to_new
+    new_coords = dot(standard_to_new, standard_coords)
+    print "new_coords:", new_coords
+    '''
+
+    new_coords = solve(new_basis.transpose(), standard_coords)
+    #print "new_coords1:", new_coords1
+
+    return new_coords
+
+
+def change_basis1(coords, new_basis, old_basis):
+    '''
+    '''
+
+    dim = len(coords)
+    standard_coords = dot(old_basis.transpose(), coords)
+    standard_to_new = inv(new_basis.transpose())
     new_coords = dot(standard_to_new, standard_coords)
 
     return new_coords
+
+
+def change_basis2(coords, new_basis, old_basis):
+    '''
+    '''
+
+    dim = len(coords)
+    standard_coords = dot(old_basis.T, coords)
+    new_coords = solve(new_basis.T, standard_coords)
+
+    return new_coords
+
+def change_basis1_benchmark():
+    coords = get_random_vector(10.)
+    basis1 = array([get_random_vector(10.) for i in range(3)])
+    basis2 = array([get_random_vector(10.) for i in range(3)])
+
+    nc = change_basis1(coords, basis1, basis2)
+
+def change_basis2_benchmark():
+    coords = get_random_vector(10.)
+    basis1 = array([get_random_vector(10.) for i in range(3)])
+    basis2 = array([get_random_vector(10.) for i in range(3)])
+
+    nc = change_basis2(coords, basis1, basis2)
+
+def time_basis1():
+    t1 = timeit.Timer("change_basis1_benchmark()","from corgy.utilities.vector import change_basis1_benchmark")
+    print t1.repeat(number=10000)
+
+def time_basis2():
+    t2 = timeit.Timer("change_basis2_benchmark()","from corgy.utilities.vector import change_basis2_benchmark")
+    print t2.repeat(number=10000)
 
 def vector_rejection(a, b):
     '''
