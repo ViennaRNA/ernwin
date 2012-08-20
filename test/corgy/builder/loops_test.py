@@ -59,7 +59,47 @@ def get_new_direction(prev_vec, length, angle):
 
     return new_vec
 
-    
+def dp(expr):
+    return "print \"%s\", %s" % (expr, expr)
+
+def is_reachable(p, c, lengths, angles):
+    '''
+    Is the vector from (0,0,0) to c reachable from the point p
+    using a certain number of finite length segments, given angles. 
+
+    The first length will be the length of the first segment (i.e.
+    the one that will be touching c) and the first angle is the 
+    angle separating the first segment from c.
+
+    The next segment (lengths[1]) will touch lengths[0] with an angle
+    of angles[1]. And so on.
+
+    @param p: The destination point.
+    @param c: The starting point and segment
+    @param lengths: The lengths of the segments that may be used to connect
+                    p to c
+    @param angles: The angles between the segments.
+    '''
+    if len(lengths) == 1:
+        d = dot(p-c, c)
+
+        exec(dp("p"))
+        exec(dp("c"))
+        exec(dp("d"))
+
+        exec dp("magnitude(c)")
+        exec dp("lengths[0]")
+        exec dp("cos(angles[0])")
+        
+        e = magnitude(c) * lengths[0] * cos(angles[0])
+        exec dp("e")
+
+        if allclose(dot(p-c, c), magnitude(c) * lengths[0] * cos(angles[0])):
+            return True
+        else:
+            return False
+    else:
+        return False
 
 class TestLoops(unittest.TestCase):
     def test_a(self):
@@ -81,9 +121,21 @@ class TestLoops(unittest.TestCase):
 
         pp.add_sphere(prev_loc, color=color, width=0.1)
 
+    def test_is_reachable(self):
+        prev_loc = array([2., 0., 0.])
+        lengths = [2.]
+        angles = [pi/2]
+
+        prev_dir = prev_loc
+        new_dir = get_new_direction(prev_dir, lengths[0], angles[0])
+
+        self.assertEquals(is_reachable(prev_loc + new_dir, prev_loc, lengths, angles), True)
+        self.assertEquals(is_reachable(prev_loc + new_dir + array([1., 0., 0.]), prev_loc, lengths, angles), False)
+
+
     def test_reachable(self):
         levels = 7
-        n = 1000
+        n = 100
 
         all_colors = ['white', 'red', 'blue', 'green', 'yellow', 'purple']
 
@@ -98,7 +150,8 @@ class TestLoops(unittest.TestCase):
 
         self.create_path(lengths, angles, 1, pp, 'red')
 
-        for i in range(2, levels+1):
+        #for i in range(2, levels+1):
+        for i in range(6, 7):
             for k in range(n):
                 self.create_path(lengths, angles, i, pp, colors[i])
 
