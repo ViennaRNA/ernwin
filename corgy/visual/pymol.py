@@ -3,6 +3,11 @@
 from numpy import array, cross, dot, allclose, exp
 from corgy.utilities.vector import normalize, get_non_colinear_unit_vector, magnitude
 from sys import stderr
+from Bio.PDB.Model import Model
+from Bio.PDB.Chain import Chain
+from Bio.PDB.Structure import Structure
+from Bio.PDB import PDBIO
+
 
 class PymolPrinter:
     def __init__(self):
@@ -15,6 +20,7 @@ class PymolPrinter:
         self.energy_function = None
         self.add_twists = True
         self.add_longrange = False
+        self.chain = None
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -142,14 +148,43 @@ class PymolPrinter:
 
         return s
 
+    def dump_pdb(self, filename):
+        '''
+        If the BulgeGraph has a chain created for it, dump that as well.
+
+        @param filename: The filename of the pdb file to which the chain coordinates will be written.
+        '''
+        if self.chain == None:
+            return
+
+        m = Model(' ')
+        s = Structure(' ')
+
+        m.add(self.chain)
+        s.add(m)
+
+        io = PDBIO()
+        io.set_structure(s)
+        io.save(filename)
+
+
     def dump_pymol_file(self, filename):
         '''
         Output the structure to file.
 
         @param filename: The location of the output file.
         '''
-        f = open(filename, 'w')
+        # Output the script for showing the coarse-grained elements
+        f = open(filename + ".pym", 'w')
         f.write(self.pymol_string())
+        f.close()
+
+        # Output the pdb structure
+        self.dump_pdb(filename + ".pdb")
+
+        # Output the script file for loading the pdb and coarse grained structure
+        f = open(filename + ".pml", 'w')
+        f.write("run %s" % (filename + ".pym"))
         f.close()
 
     def output_pymol_file(self):
@@ -222,6 +257,12 @@ class PymolPrinter:
                 #print >>stderr, interaction, energy
                 (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
                 self.add_segment(p, n, 'purple', exp(energy) * 10)
+
+    def chain_to_pymol(self, chain):
+        '''
+        Add a Bio.PDB.Chain to the structure, so that it can later be printed.
+        '''
+        self.chain = chain
 
     def load_flex_stats(self, flex_file):
         f = open(flex_file, 'r')

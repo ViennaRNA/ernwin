@@ -22,6 +22,7 @@ class BulgeGraph:
     """
     def __init__(self, filename=None):
         self.name = 'unnamed'
+        self.seq = ''
 
         # Look up tables
         self.coords = dict()
@@ -348,6 +349,9 @@ class BulgeGraph:
     def get_name_str(self):
         return "name " + self.name + '\n'
 
+    def get_seq_str(self):
+        return "seq " + self.seq + "\n"
+
     def get_length_str(self):
         return "length " + str(self.length) + '\n'
 
@@ -528,6 +532,7 @@ class BulgeGraph:
     def get_as_str(self):
         out_str = ''
         out_str += self.get_name_str()
+        out_str += self.get_seq_str()
         out_str += self.get_length_str()
         out_str += self.get_define_str()
         out_str += self.get_coord_str()
@@ -544,6 +549,70 @@ class BulgeGraph:
         f.write(out_str)
 
         f.close()
+
+    def get_flanking_region(self, bulge_name, side=0):
+        '''
+        If a bulge is flanked by stems, return the lowest residue number
+        of the previous stem and the highest residue number of the next
+        stem.
+
+        @param bulge_name: The name of the bulge
+        @param side: The side of the bulge (indicating the strand)
+        '''
+        d = (self.defines[bulge_name][2*side], self.defines[bulge_name][2*side+1])
+        m1 = d[0]
+        m2 = d[1]
+
+        for edge in self.edges[bulge_name]:
+            # should always be a stem...
+            d1 = self.defines[edge]
+
+            if d[0] == d1[1]:
+                m1 = d1[0]
+
+            if d[0] == d1[3]:
+                m1 = d1[2]
+
+            if d[1] == d1[0]:
+                m2 = d1[1]
+
+            if d[1] == d1[2]:
+                m2 = d1[3]
+
+        if m1 == 0:
+            m1 = 1
+
+        return (m1, m2)
+        
+
+    def get_flanking_sequence(self, bulge_name, side=0):
+        (m1, m2) = self.get_flanking_region(bulge_name, side)
+
+        return self.seq[m1-1:m2]
+
+    def get_flanking_handles(self, bulge_name, side=0):
+        '''
+        Get the indices of the residues for fitting bulge regions.
+        
+        So if there is a loop like so (between residues 7 and 16):
+
+        (((...))))
+        7890123456
+          ^   ^  
+
+        Then residues 9 and 13 will be used as the handles against which
+        to align the fitted region.
+
+        In the fitted region, the residues (2,6) will be the ones that will
+        be aligned to the handles.
+
+        @return: (orig_chain_res1, orig_chain_res1, flanking_res1, flanking_res2)
+        '''
+        def1 = self.defines[bulge_name]
+        f1 = self.get_flanking_region(bulge_name, side)
+
+        return (def1[side*2], def1[side*2+1], def1[side*2] - f1[0], def1[side*2 + 1] - f1[0])
+
 
     def dump(self):
         print self.get_as_str()
@@ -888,6 +957,13 @@ class BulgeGraph:
             if line.strip().find('name') == 0:
                 parts = line.strip().split(' ')
                 self.name = parts[1]
+
+            if line.strip().find('seq') == 0:
+                parts = line.strip().split(' ')
+                if len(parts) == 1:
+                    self.seq = ''
+                else:
+                    self.seq = parts[1]
 
             if line.strip().find('coord') == 0:
                 parts = line.strip().split(' ')

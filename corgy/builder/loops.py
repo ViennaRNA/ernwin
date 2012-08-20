@@ -2,11 +2,15 @@
 
 from corgy.utilities.data_structures import DefaultDict
 from corgy.utilities.vector import vec_distance, normalize, rotation_matrix, vec_angle, magnitude
+from corgy.utilities.vector import get_non_colinear_unit_vector
 
 import sys
 from random import random, normalvariate, seed
-from math import cos, sin, pi, sqrt, acos
+from math import cos, sin, pi, sqrt, acos, pi
 from numpy import array, dot, cross
+
+def print_segment(*karg, **kwargs):
+    pass
 
 def connect_to_start(prev_x, prev_y, prev_z, lengths):
     """
@@ -105,10 +109,10 @@ def IntersectSpheres(o1, r1, o2, r2):
 		return [1, point, n, r]  # intersection is a circle
 
 	elif ( d==abs(r1 + r2) ):
-		point = [0,0,0]
+	    point = [0,0,0]
 	    for i in range(3):
 			point[i] = o1[i] + r1 * (o2[i] - o1[i]) / d
-		return [0, point]  # exterior tangent spheres
+	    return [0, point]  # exterior tangent spheres
 	
 	elif ( d>abs(r1 + r2) ): return  # none secant spheres
 	
@@ -284,6 +288,7 @@ def generate_loop(lengths):
     prev_z = 0.
 
     origin = array([0., 0., 0,])
+    print "lengths:", lengths
 
     while (i < len(lengths) - 2):
         trd = sum(lengths[i+1:])
@@ -293,17 +298,18 @@ def generate_loop(lengths):
         curr_distance = vec_distance(curr_pos, origin)
         cd = curr_distance
         
-        if lrd - trd > 0:
-            mind = lrd - trd
+        if lrd - (trd - lrd) > 0:
+            mind = lrd - (trd - lrd)
         else:
             mind = 0
 
         maxd = trd
         
-        print >>sys.stderr, "cd: %f lrd: %f trd: %f mind: %f maxd: %f" % (cd, lrd, trd, mind, maxd)
+        print >>sys.stderr, "i: %d cd: %f lrd: %f trd: %f mind: %f maxd: %f" % (i, cd, lrd, trd, mind, maxd)
+        print >>sys.stderr, "lengths[i]: %d, cd: %f, mind: %f" % (lengths[i], cd, mind)
 
         if mind > abs(lengths[i] - cd):
-            max_angle = math.pi - get_triangle_angle(lengths[i], cd, mind)
+            max_angle = pi - get_triangle_angle(lengths[i], cd, mind)
         else:
             max_angle = pi 
 
@@ -333,6 +339,8 @@ def generate_loop(lengths):
         i += 1
 
     #connect_to_start(prev_x, prev_y, prev_z, lengths[-2:])
+    curr_distance = vec_distance((prev_x, prev_y, prev_z), origin)
+    print >>sys.stderr, "curr_distance:", curr_distance
     connect_in_3d((prev_x, prev_y, prev_z), origin, lengths[-2:])
 
 def main():
@@ -344,12 +352,13 @@ def main():
         lengths += [float(sys.argv[i])]
 
     segments = []
-    print_pymol_intro()
+    #print_pymol_intro()
     generate_loop(lengths)
-    print_pymol_segments()
-    print_pymol_outro()
-    print_text()
-    print_angle_stats()
+
+    #print_pymol_segments()
+    #print_pymol_outro()
+    #print_text()
+    #print_angle_stats()
 
 if __name__ == "__main__":
     main()

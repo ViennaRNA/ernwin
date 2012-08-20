@@ -38,10 +38,10 @@ class StemModel:
         return str(self.mids) + '\n' + str(self.twists)
 
     def __eq__(self, other):
-        mids0_close = allclose(self.mids[0], other.mids[0])
-        mids1_close = allclose(self.mids[1], other.mids[1])
-        twists0_close = allclose(self.twists[0], other.twists[0])
-        twists1_close = allclose(self.twists[1], other.twists[1])
+        mids0_close = allclose(self.mids[0], other.mids[0], atol=0.1)
+        mids1_close = allclose(self.mids[1], other.mids[1], atol=0.1)
+        twists0_close = allclose(self.twists[0], other.twists[0], atol=0.1)
+        twists1_close = allclose(self.twists[1], other.twists[1], atol=0.1)
         return mids0_close and mids1_close and twists0_close and twists1_close
 
     def reverse(self):

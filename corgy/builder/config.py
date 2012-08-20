@@ -10,3 +10,4 @@ class Configuration:
 
     test_input_dir = os.path.join(base_dir, "test_input")
     test_output_dir = os.path.join(base_dir, "test_output")
+    barnacle_dir = '/scr/plastilin/pkerp/apps/Barnacle'

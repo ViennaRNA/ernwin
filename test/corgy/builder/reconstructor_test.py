@@ -1,6 +1,7 @@
 import unittest
 
 import corgy.builder.reconstructor as rc
+import pdb, sys
 
 from operator import attrgetter
 from corgy.visual.pymol import PymolPrinter
@@ -15,13 +16,16 @@ from corgy.graph.graph_pdb import get_mids, get_twists
 from corgy.graph.graph_pdb import get_stem_orientation_parameters
 from corgy.utilities.vector import rotation_matrix, magnitude
 from corgy.utilities.vector import x_array, null_array, identity_matrix
+from corgy.utilities.vector import get_vector_centroid
 
 from corgy.builder.models import SpatialModel
+from corgy.builder.rmsd import centered_rmsd, optimal_superposition
 
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
 from copy import deepcopy
-from random import uniform
+from random import uniform, randint, random
+from scipy.stats import norm, poisson
 
 
 from Bio.PDB import PDBParser, PDBIO, Selection
@@ -30,6 +34,84 @@ from Bio.PDB.Model import Model
 from Bio.PDB.Structure import Structure
 
 import os
+
+'''
+def get_alignment_vectors_barnacle1(ress, r1, r2):
+        return( ress[r1]['P'].get_vector().get_array(),
+                ress[r1]['O5\''].get_vector().get_array(),
+                ress[r2]['P'].get_vector().get_array(),
+                ress[r2]['O5\''].get_vector().get_array() )
+
+def get_alignment_vectors_rosetta1(ress, r1, r2):
+        return( ress[r1]['P'].get_vector().get_array(),
+                ress[r1]['O5*'].get_vector().get_array(),
+                ress[r2]['P'].get_vector().get_array(),
+                ress[r2]['O5*'].get_vector().get_array() )
+
+def get_alignment_vectors_rosetta(ress, r1, r2):
+    return( ress[r1]['O3*'].get_vector().get_array(),
+            ress[r1]['C3*'].get_vector().get_array(),
+            ress[r2]['P'].get_vector().get_array(),
+            ress[r2]['O5*'].get_vector().get_array() )
+
+def get_alignment_vectors_barnacle(ress, r1, r2):
+    return( ress[r1]['O3\''].get_vector().get_array(),
+            ress[r1]['C3\''].get_vector().get_array(),
+            ress[r2]['P'].get_vector().get_array(),
+            ress[r2]['O5\''].get_vector().get_array() )
+
+'''
+
+def get_alignment_vectors_rosetta(ress, r1, r2):
+    return( ress[r1]['O3*'].get_vector().get_array(),
+            ress[r1]['C3*'].get_vector().get_array(),
+            #ress[r1]['C1*'].get_vector().get_array(),
+
+            ress[r1-1]['O3*'].get_vector().get_array(),
+            ress[r1-1]['C3*'].get_vector().get_array(),
+            #ress[r1-1]['C1*'].get_vector().get_array(),
+
+            ress[r1-2]['O3*'].get_vector().get_array(),
+            ress[r1-2]['C3*'].get_vector().get_array(),
+            #ress[r1-2]['C1*'].get_vector().get_array(),
+
+            ress[r2]['P'].get_vector().get_array(),
+            ress[r2]['O5*'].get_vector().get_array(),
+            #ress[r2]['C1*'].get_vector().get_array(),
+
+            ress[r2+1]['P'].get_vector().get_array(),
+            ress[r2+1]['O5*'].get_vector().get_array(),
+            #ress[r2+1]['C1*'].get_vector().get_array(),
+
+            ress[r2+2]['P'].get_vector().get_array(),
+            ress[r2+2]['O5*'].get_vector().get_array())
+            #ress[r2+2]['C1*'].get_vector().get_array() )
+
+
+def get_alignment_vectors_barnacle(ress, r1, r2):
+    return( ress[r1]['O3\''].get_vector().get_array(),
+            ress[r1]['C3\''].get_vector().get_array(),
+            #ress[r1]['C1\''].get_vector().get_array(),
+
+            ress[r1-1]['O3\''].get_vector().get_array(),
+            ress[r1-1]['C3\''].get_vector().get_array(),
+            #ress[r1-1]['C1\''].get_vector().get_array(),
+
+            ress[r1-2]['O3\''].get_vector().get_array(),
+            ress[r1-2]['C3\''].get_vector().get_array(),
+            #ress[r1-2]['C1\''].get_vector().get_array(),
+
+            ress[r2]['P'].get_vector().get_array(),
+            ress[r2]['O5\''].get_vector().get_array(),
+            #ress[r2]['C1\''].get_vector().get_array(),
+
+            ress[r2+1]['P'].get_vector().get_array(),
+            ress[r2+1]['O5\''].get_vector().get_array(),
+            #ress[r2+1]['C1\''].get_vector().get_array(),
+
+            ress[r2+2]['P'].get_vector().get_array(),
+            ress[r2+2]['O5\''].get_vector().get_array())
+            #ress[r2+2]['C1\''].get_vector().get_array() )
 
 def output_chain(chain, filename):
     '''
@@ -344,12 +426,49 @@ class TestReconstructor(unittest.TestCase):
         
             stem = define_to_stem_model(chain, bg_stem_def)
 
-            print "stem_def:", stem_def
-            print stem
-            print sm.stems[stem_name]
-            print
+            #print "stem.mids:", stem.mids
+            #print "bg.coords:", sm.bg.coords[stem_name]
+            #print
 
             self.assertEqual(stem, sm.stems[stem_name])
+    
+    def check_pymol_stems(self, bg, coarse_filename, pdb_filename):
+        '''
+        Check whether the file output by pymol_printer is consistent
+        with the output pdb file.
+        '''
+        found = 0
+        num_stems = 0
+
+        chain = list(PDBParser().get_structure('t', pdb_filename).get_chains())[0]
+        stems = []
+        for d in bg.defines.keys():
+            if d[0] == 's':
+                stem = define_to_stem_model(chain, bg.defines[d])
+                stems += [stem]
+
+                num_stems += 1
+
+        f = open(coarse_filename, 'r')
+        cylinders = []
+
+        for line in f:
+            if line.find('CYLINDER') >= 0:
+                parts = line.strip().split(', ')
+                start = array(map(float, parts[1:4]))
+                end = array(map(float, parts[4:7]))
+
+                for stem in stems:
+                    #print start, end
+                    #print stem.mids
+                    #print
+                    if ((allclose(stem.mids[0], start, atol=0.1) and allclose(stem.mids[1], end, atol=0.1)) or 
+                        (allclose(stem.mids[1], start, atol=0.1) and allclose(stem.mids[0], end, atol=0.1))):
+                            found += 1
+                            break
+
+        #print "FOUND:", found, "num_stems:", num_stems
+        self.assertEquals(found, num_stems)
 
     def test_reconstruct_whole_model(self):
         '''
@@ -394,11 +513,9 @@ class TestReconstructor(unittest.TestCase):
         sm.traverse_and_build()
         chain = reconstruct_stems(sm)
 
-        output_file = os.path.join(Configuration.test_output_dir, "output_chain.pdb") 
-        output_chain(chain, output_file)
+        self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
 
-        s = PDBParser().get_structure('t', output_file)
-        chain = list(s.get_chains())[0]
+        output_file = os.path.join(Configuration.test_output_dir, "output_chain")
 
         pymol_printer = PymolPrinter()
         pymol_printer.print_text = False
@@ -406,4 +523,177 @@ class TestReconstructor(unittest.TestCase):
         pymol_printer.add_longrange = False
 
         pymol_printer.coordinates_to_pymol(sm.bg)
-        pymol_printer.output_pymol_file()
+        pymol_printer.chain_to_pymol(chain)
+        pymol_printer.dump_pymol_file(output_file)
+
+        chain = list(PDBParser().get_structure('t', output_file + ".pdb").get_chains())[0]
+
+        self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+        self.check_pymol_stems(bg, output_file + ".pym", output_file + ".pdb")
+
+    def test_barnacle(self):
+        sys.path.append('/scr/plastilin/pkerp/apps/Barnacle')
+        from Barnacle import Barnacle
+
+        model = Barnacle('ACGU')
+        model.sample()
+
+    def test_get_handles(self): 
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+
+        sm.traverse_and_build()
+        chain = reconstruct_stems(sm)
+
+        #fr = bg.get_flanking_region('b15', 0)
+        (a,b,i1,i2) = bg.get_flanking_handles('b15')
+
+        get_alignment_vectors_rosetta(chain, a, b)
+
+    def test_barnacle_handles(self):
+        sys.path.append('/scr/plastilin/pkerp/apps/Barnacle')
+        from Barnacle import Barnacle
+
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        seq = bg.get_flanking_sequence('b15')
+        (a,b,i1,i2) = bg.get_flanking_handles('b15')
+
+        model = Barnacle(seq)
+        model.sample()
+        s = model.structure
+
+        ress = list(s.get_residues())
+        get_alignment_vectors_barnacle(ress, i1, i2)
+
+    def test_handle_rmsd(self):
+        sys.path.append('/scr/plastilin/pkerp/apps/Barnacle')
+        from Barnacle import Barnacle
+
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        seq = bg.get_flanking_sequence('b15')
+        (a,b,i1,i2) = bg.get_flanking_handles('b15')
+
+        print "seq:", seq
+        model = Barnacle(seq)
+        model.sample()
+        s = model.structure
+
+        ress = list(s.get_residues())
+        v1 = get_alignment_vectors_barnacle(ress, i1, i2)
+
+        sm = SpatialModel(bg)
+        sm.traverse_and_build()
+        chain = reconstruct_stems(sm)
+
+        print "a:", a, "b:", b
+        v2 = get_alignment_vectors_rosetta(chain, a, b)
+        prev_r = 1000.
+
+        for i in range(2000):
+            sample_len = poisson.rvs(2)
+            #print "sample_len:", sample_len
+
+            if sample_len == 0:
+                sample_len = 1
+
+            j = randint(0, len(seq)-sample_len)
+            #j = randint(i1, i2)
+            #k = randint(0, len(seq)-1)
+
+            #m1 = min(j, k)
+            #m2 = max(j,k)+1
+
+            #m1 = j
+            #m2 = j+1
+            m1 = j
+            m2 = m1 + sample_len
+
+            model.sample(start=m1, end=m2)
+
+            ress = list(model.structure.get_residues())
+            v1 = get_alignment_vectors_barnacle(ress, i1, i2)
+            r = centered_rmsd(v1, v2)
+
+            p = norm.pdf(r, loc=0., scale=3.)
+            prev_p = norm.pdf(prev_r, loc=0, scale=3.)
+
+            if prev_p > p:
+                transition_p = p  / prev_p
+                #print "transition_p:", transition_p
+                if random() < transition_p:
+                    model.undo()
+                    continue
+                model.undo()
+                continue
+
+            print "r:", r, model.get_log_likelihood()
+            prev_r = r
+
+            self.align_stems_and_barnacle(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
+
+            self.assertGreater(centered_rmsd, 0)
+            model.save_structure(os.path.join(Configuration.test_output_dir, 'best.pdb'))
+
+
+    def align_stems_and_barnacle(self, chain_stems, chain_barnacle, handles):
+        v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
+        v2 = get_alignment_vectors_barnacle(chain_barnacle, handles[2], handles[3])
+
+        v1_centroid = get_vector_centroid(v1)
+        v2_centroid = get_vector_centroid(v2)
+
+        v1_t = v1 - v1_centroid
+        v2_t = v2 - v2_centroid
+
+        sup = optimal_superposition(v1_t, v2_t)
+
+        chain1 = Chain(' ')
+        chain2 = Chain(' ')
+
+        '''
+        for res in chain_stems:
+            chain1.add(res)
+        '''
+
+        chain1.add(chain_stems[handles[0]])
+        chain1.add(chain_stems[handles[1]])
+        
+        chain1.add(chain_stems[handles[0]-1])
+        chain1.add(chain_stems[handles[1]+1])
+
+        chain1.add(chain_stems[handles[0]-2])
+        chain1.add(chain_stems[handles[1]+2])
+
+        for i in range(handles[2]-2, handles[3]+3):
+            chain2.add(chain_barnacle[i])
+
+        #print "chain1_stems[handles[0]]", chain_stems[handles[0]]
+        #print "chain1_stems[handles[1]]", chain_stems[handles[1]]
+
+        #print "chain_barnacle[handles[2]]", chain_barnacle[handles[2]]
+        #print "chain_barnacle[handles[3]]", chain_barnacle[handles[3]]
+
+        for atom in Selection.unfold_entities(chain1, 'A'):
+            atom.transform(identity_matrix, -v1_centroid)
+            atom.transform(sup, null_array)
+
+        for atom in Selection.unfold_entities(chain2, 'A'):
+            atom.transform(identity_matrix, -v2_centroid)
+
+        s1 = Structure(' ')
+        m1 = Model(' ')
+        m1.add(chain1)
+        s1.add(m1)
+
+        s2 = Structure(' ')
+        m2 = Model(' ')
+        m2.add(chain2)
+        s2.add(m2)
+
+        io = PDBIO()
+        io.set_structure(s1)
+        io.save(os.path.join(Configuration.test_output_dir, "s1.pdb"))
+
+        io.set_structure(s2)
+        io.save(os.path.join(Configuration.test_output_dir, 's2.pdb'))
+

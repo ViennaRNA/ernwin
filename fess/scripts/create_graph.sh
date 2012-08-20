@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 base=${1##*/}
 pdb=${base%\.*}
 
@@ -20,9 +22,8 @@ OUTPUT_NEATO_DIR=${OUTPUT_DIR}/neato
 ./scripts/check_bulge_integrity.py $OUTPUT_GRAPH_DIR/temp.graph
 
 ./scripts/graph_to_neato.py $OUTPUT_GRAPH_DIR/temp.graph > $OUTPUT_NEATO_DIR/temp_graph.neato
-#neato -Tpng $OUTPUT_NEATO_DIR/temp_graph.neato -o $OUTPUT_REPORT_DIR/temp_graph.png
-
-./scripts/add_3d_information.py $OUTPUT_GRAPH_DIR/temp.graph $OUTPUT_PREPARE_DIR/temp.pdb > $OUTPUT_GRAPH_DIR/temp.graph.coord
+./scripts/add_sequence.py $OUTPUT_GRAPH_DIR/temp.graph $OUTPUT_PREPARE_DIR/temp.seq > $OUTPUT_GRAPH_DIR/temp.graph.seq
+./scripts/add_3d_information.py $OUTPUT_GRAPH_DIR/temp.graph.seq $OUTPUT_PREPARE_DIR/temp.pdb > $OUTPUT_GRAPH_DIR/temp.graph.coord
 ./scripts/get_long_range_interactions.py $OUTPUT_GRAPH_DIR/temp.graph.coord $OUTPUT_PREPARE_DIR/temp.mcannotate > $OUTPUT_GRAPH_DIR/temp.comp
 
 ./scripts/graph_to_neato.py $OUTPUT_GRAPH_DIR/temp.comp > $OUTPUT_NEATO_DIR/temp_comp.neato

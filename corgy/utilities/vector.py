@@ -6,7 +6,7 @@ from numpy import array, dot, pi, cos, sin, cross
 from numpy.linalg import inv, solve
 
 from numpy.testing import assert_allclose
-from math import sqrt, acos, atan2
+from math import acos, atan2, sqrt
 from random import uniform
 
 from math import isnan
@@ -145,16 +145,34 @@ def create_orthonormal_basis(vec1, vec2=None, vec3=None):
     #else:
     #    assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
 
-
-    vec1 /= magnitude(vec1)
-    vec2 /= magnitude(vec2)
-
     if vec3 == None:
         vec3 = cross(vec1, vec2)
 
+    vec1 /= magnitude(vec1)
+    vec2 /= magnitude(vec2)
     vec3 /= magnitude(vec3)
 
     return array([vec1, vec2, vec3])
+
+def time_cob1():
+    vec1 = get_random_vector()
+    vec2 = get_random_vector()
+
+    basis = create_orthonormal_basis1(vec1, vec2)
+
+def time_cob2():
+    vec1 = get_random_vector()
+    vec2 = get_random_vector()
+
+    basis = create_orthonormal_basis(vec1, vec2)
+
+def time_cob():
+    t1 = timeit.Timer("time_cob1()", "from corgy.utilities.vector import time_cob1")
+    t2 = timeit.Timer("time_cob2()", "from corgy.utilities.vector import time_cob2")
+
+    print t1.repeat(number=10000)
+    print t2.repeat(number=10000)
+
 def spherical_cartesian_to_polar(vec):
     '''
     Return a parameterization of a vector of 3 coordinates:
@@ -362,6 +380,24 @@ def magnitude(vec):
     '''
 
     return sqrt(dot(vec, vec))
+
+def time_mag1():
+    vec1 = get_random_vector()
+
+    return sqrt(dot(vec1, vec1))
+
+def time_mag2():
+    vec1 = get_random_vector()
+
+    return sqrt(dot(vec1, vec1))
+
+def time_mag():
+    t1 = timeit.Timer("time_mag1()", "from corgy.utilities.vector import time_mag1")
+    t2 = timeit.Timer("time_mag2()", "from corgy.utilities.vector import time_mag2")
+
+    print t1.repeat(number=10000)
+    print t2.repeat(number=10000)
+
 
 def normalize(vec):
     '''
