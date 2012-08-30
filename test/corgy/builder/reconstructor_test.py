@@ -35,33 +35,22 @@ from Bio.PDB.Structure import Structure
 
 import os
 
-'''
-def get_alignment_vectors_barnacle1(ress, r1, r2):
-        return( ress[r1]['P'].get_vector().get_array(),
-                ress[r1]['O5\''].get_vector().get_array(),
-                ress[r2]['P'].get_vector().get_array(),
-                ress[r2]['O5\''].get_vector().get_array() )
-
-def get_alignment_vectors_rosetta1(ress, r1, r2):
-        return( ress[r1]['P'].get_vector().get_array(),
-                ress[r1]['O5*'].get_vector().get_array(),
-                ress[r2]['P'].get_vector().get_array(),
-                ress[r2]['O5*'].get_vector().get_array() )
 
 def get_alignment_vectors_rosetta(ress, r1, r2):
+    print "rosetta r1, r2:", r1, r2
     return( ress[r1]['O3*'].get_vector().get_array(),
             ress[r1]['C3*'].get_vector().get_array(),
             ress[r2]['P'].get_vector().get_array(),
             ress[r2]['O5*'].get_vector().get_array() )
 
 def get_alignment_vectors_barnacle(ress, r1, r2):
+    print "barnacle r1, r2:", r1, r2
     return( ress[r1]['O3\''].get_vector().get_array(),
             ress[r1]['C3\''].get_vector().get_array(),
             ress[r2]['P'].get_vector().get_array(),
             ress[r2]['O5\''].get_vector().get_array() )
 
 '''
-
 def get_alignment_vectors_rosetta(ress, r1, r2):
     return( ress[r1]['O3*'].get_vector().get_array(),
             ress[r1]['C3*'].get_vector().get_array(),
@@ -112,6 +101,7 @@ def get_alignment_vectors_barnacle(ress, r1, r2):
             ress[r2+2]['P'].get_vector().get_array(),
             ress[r2+2]['O5\''].get_vector().get_array())
             #ress[r2+2]['C1\''].get_vector().get_array() )
+'''
 
 def output_chain(chain, filename):
     '''
@@ -589,7 +579,7 @@ class TestReconstructor(unittest.TestCase):
         v2 = get_alignment_vectors_rosetta(chain, a, b)
         prev_r = 1000.
 
-        for i in range(2000):
+        for i in range(200):
             sample_len = poisson.rvs(2)
             #print "sample_len:", sample_len
 
@@ -597,14 +587,6 @@ class TestReconstructor(unittest.TestCase):
                 sample_len = 1
 
             j = randint(0, len(seq)-sample_len)
-            #j = randint(i1, i2)
-            #k = randint(0, len(seq)-1)
-
-            #m1 = min(j, k)
-            #m2 = max(j,k)+1
-
-            #m1 = j
-            #m2 = j+1
             m1 = j
             m2 = m1 + sample_len
 
@@ -635,7 +617,7 @@ class TestReconstructor(unittest.TestCase):
             model.save_structure(os.path.join(Configuration.test_output_dir, 'best.pdb'))
 
 
-    def align_stems_and_barnacle(self, chain_stems, chain_barnacle, handles):
+    def align_stems_and_barnacle1(self, chain_stems, chain_barnacle, handles):
         v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2 = get_alignment_vectors_barnacle(chain_barnacle, handles[2], handles[3])
 
