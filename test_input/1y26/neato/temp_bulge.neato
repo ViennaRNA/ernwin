@@ -1,0 +1,33 @@
+graph G {
+	graph [overlap=scale];
+	node [shape=box];
+	{node [style=filled,fillcolor=green,label="s3\n(6)"] s3};
+	{node [style=filled,fillcolor=green,label="s2\n(2)"] s2};
+	{node [style=filled,fillcolor=green,label="s1\n(3)"] s1};
+	{node [style=filled,fillcolor=green,label="s0\n(7)"] s0};
+	{node [style=filled,shape=circle,fillcolor=red,fontsize=12,label="b4 \n(10)"] b4};
+	{node [style=filled,shape=circle,fillcolor=blue,fontsize=12,label="b5 \n(9)"] b5};
+	{node [style=filled,shape=circle,fillcolor=blue,fontsize=12,label="b6 \n(4)"] b6};
+	{node [style=filled,shape=circle,fillcolor=red,fontsize=12,label="b7 \n(4)"] b7};
+	{node [style=filled,shape=circle,fillcolor=red,fontsize=12,label="b0 \n(3)"] b0};
+	{node [style=filled,shape=circle,fillcolor=blue,fontsize=12,label="b1 \n(11)"] b1};
+	{node [style=filled,shape=circle,fillcolor=red,fontsize=12,label="b2 \n(5)"] b2};
+	{node [style=filled,shape=circle,fillcolor=red,fontsize=12,label="b3 \n(3)"] b3};
+	{node [style=filled,shape=circle,fillcolor=blue,fontsize=12,label="b8 \n(3)"] b8};
+
+	s3 -- b4;
+	s3 -- b5;
+	s3 -- b7;
+	s2 -- b0;
+	s2 -- b1;
+	s2 -- b3;
+	s1 -- b4;
+	s1 -- b0;
+	s1 -- b2;
+	s1 -- b3;
+	s0 -- b6;
+	s0 -- b7;
+	s0 -- b8;
+	s0 -- b2;
+
+}

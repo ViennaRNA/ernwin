@@ -1,0 +1,36 @@
+Residue conformations -------------------------------------------
+H1 : U C3p_endo syn
+H2 : U C3p_endo anti
+H3 : U C3p_endo anti
+H4 : G C3p_endo anti
+H5 : A C3p_endo anti
+H6 : C C3p_endo anti
+H7 : U C2p_endo anti
+H8 : C C2p_endo anti
+H9 : G C3p_exo syn
+H10 : G C3p_exo anti
+H11 : A C3p_endo anti
+H12 : U C3p_endo anti
+H13 : C C3p_endo anti
+H14 : A C3p_endo anti
+H15 : A C3p_endo anti
+Adjacent stackings ----------------------------------------------
+H2-H3 : adjacent_5p upward 
+H3-H4 : adjacent_5p upward 
+H4-H5 : adjacent_5p upward 
+H5-H6 : adjacent_5p upward 
+H11-H12 : adjacent_5p upward 
+H12-H13 : adjacent_5p upward 
+H13-H14 : adjacent_5p upward 
+H14-H15 : adjacent_5p upward 
+Non-Adjacent stackings ------------------------------------------
+H4-H14 : outward 
+Number of stackings = 9
+Number of adjacent stackings = 8
+Number of non adjacent stackings = 1
+Base-pairs ------------------------------------------------------
+H2-H15 : U-A Ww/Ww pairing antiparallel cis XX 
+H3-H14 : U-A Ww/Ww pairing antiparallel cis XX 
+H4-H13 : G-C Ww/Ww pairing antiparallel cis XIX 
+H5-H12 : A-U Ww/Ww pairing antiparallel cis XX 
+H6-H11 : C-A Ws/Wh pairing antiparallel trans one_hbond 78 

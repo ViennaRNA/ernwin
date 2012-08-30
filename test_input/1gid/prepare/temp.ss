@@ -1,0 +1,3 @@
+> Nested structure
+GAAUUGCGGGAAAGGGGUCAACAGCCGUUCAGUACCAAGUCUCAGGGGAAACUUUGAGAUGGCCUUGCAAAGGGUAUGGUAAUAAGCUGACGGACAUGGUCCUAACCACGCAGCCAAGUCCUAAGUCAACAGAUCUUCUGUUGAUAUGGAUGCAGUUC
+(.(.((((((....((..(....((((.((((.(((...(((((..(....)..)))))...((.......))....)))......))))))))...)..))...)).))))).)...(((..(.((((((((...))))))))..))))........

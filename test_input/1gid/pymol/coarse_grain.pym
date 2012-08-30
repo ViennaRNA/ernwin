@@ -1,0 +1,9 @@
+from pymol.cgo import *
+from pymol import cmd
+from pymol.vfont import plain
+obj = [
+]
+cmd.load_cgo(obj, 'ss')
+cmd.set("cgo_line_radius",0.03)
+cmd.zoom("all", 2.0)
+
