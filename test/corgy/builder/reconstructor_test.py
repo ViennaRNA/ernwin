@@ -5,7 +5,7 @@ import pdb, sys
 
 from operator import attrgetter
 from corgy.visual.pymol import PymolPrinter
-from math import sqrt
+from math import sqrt, exp
 
 from pprint import pprint
 from corgy.builder.config import Configuration
@@ -39,87 +39,23 @@ import os
 
 def get_alignment_vectors_rosetta(ress, r1, r2):
     #print "rosetta r1, r2:", r1, r2
-    return( ress[r1]['C3*'].get_vector().get_array(),
-            ress[r1]['O3*'].get_vector().get_array())
+    return( ress[r1]['P'].get_vector().get_array(),
+            ress[r1]['O5*'].get_vector().get_array(),
+            ress[r1]['C5*'].get_vector().get_array())
 
 def get_alignment_vectors_barnacle(ress, r1, r2):
     #print "barnacle r1, r2:", r1, r2
-    return( ress[r1]['C3\''].get_vector().get_array(),
-            ress[r1]['O3\''].get_vector().get_array())
+    return( ress[r1]['P'].get_vector().get_array(),
+            ress[r1]['O5\''].get_vector().get_array(),
+            ress[r1]['C5\''].get_vector().get_array())
 
 def get_measurement_vectors_rosetta(ress, r1, r2):
-    return( ress[r2]['P'].get_vector().get_array(),
-            ress[r2]['O5*'].get_vector().get_array())
+    return( ress[r2]['C3*'].get_vector().get_array(),
+            ress[r2]['O3*'].get_vector().get_array())
 
 def get_measurement_vectors_barnacle(ress, r1, r2):
-    return( ress[r2]['P'].get_vector().get_array(),
-            ress[r2]['O5\''].get_vector().get_array() )
-'''
-def get_alignment_vectors_rosetta(ress, r1, r2):
-    #print "rosetta r1, r2:", r1, r2
-    return( ress[r1]['C3*'].get_vector().get_array(),
-            ress[r1]['O3*'].get_vector().get_array(),
-            ress[r2]['P'].get_vector().get_array(),
-            ress[r2]['O5*'].get_vector().get_array() )
-
-def get_alignment_vectors_barnacle(ress, r1, r2):
-    #print "barnacle r1, r2:", r1, r2
-    return( ress[r1]['C3\''].get_vector().get_array(),
-            ress[r1]['O3\''].get_vector().get_array(),
-            ress[r2]['P'].get_vector().get_array(),
-            ress[r2]['O5\''].get_vector().get_array() )
-
-def get_alignment_vectors_rosetta(ress, r1, r2):
-    return( ress[r1]['O3*'].get_vector().get_array(),
-            ress[r1]['C3*'].get_vector().get_array(),
-            #ress[r1]['C1*'].get_vector().get_array(),
-
-            ress[r1-1]['O3*'].get_vector().get_array(),
-            ress[r1-1]['C3*'].get_vector().get_array(),
-            #ress[r1-1]['C1*'].get_vector().get_array(),
-
-            ress[r1-2]['O3*'].get_vector().get_array(),
-            ress[r1-2]['C3*'].get_vector().get_array(),
-            #ress[r1-2]['C1*'].get_vector().get_array(),
-
-            ress[r2]['P'].get_vector().get_array(),
-            ress[r2]['O5*'].get_vector().get_array(),
-            #ress[r2]['C1*'].get_vector().get_array(),
-
-            ress[r2+1]['P'].get_vector().get_array(),
-            ress[r2+1]['O5*'].get_vector().get_array(),
-            #ress[r2+1]['C1*'].get_vector().get_array(),
-
-            ress[r2+2]['P'].get_vector().get_array(),
-            ress[r2+2]['O5*'].get_vector().get_array())
-            #ress[r2+2]['C1*'].get_vector().get_array() )
-
-
-def get_alignment_vectors_barnacle(ress, r1, r2):
-    return( ress[r1]['O3\''].get_vector().get_array(),
-            ress[r1]['C3\''].get_vector().get_array(),
-            #ress[r1]['C1\''].get_vector().get_array(),
-
-            ress[r1-1]['O3\''].get_vector().get_array(),
-            ress[r1-1]['C3\''].get_vector().get_array(),
-            #ress[r1-1]['C1\''].get_vector().get_array(),
-
-            ress[r1-2]['O3\''].get_vector().get_array(),
-            ress[r1-2]['C3\''].get_vector().get_array(),
-            #ress[r1-2]['C1\''].get_vector().get_array(),
-
-            ress[r2]['P'].get_vector().get_array(),
-            ress[r2]['O5\''].get_vector().get_array(),
-            #ress[r2]['C1\''].get_vector().get_array(),
-
-            ress[r2+1]['P'].get_vector().get_array(),
-            ress[r2+1]['O5\''].get_vector().get_array(),
-            #ress[r2+1]['C1\''].get_vector().get_array(),
-
-            ress[r2+2]['P'].get_vector().get_array(),
-            ress[r2+2]['O5\''].get_vector().get_array())
-            #ress[r2+2]['C1\''].get_vector().get_array() )
-'''
+    return( ress[r2]['C3\''].get_vector().get_array(),
+            ress[r2]['O3\''].get_vector().get_array() )
 
 def output_chain(chain, filename):
     '''
@@ -596,8 +532,10 @@ class TestReconstructor(unittest.TestCase):
         print "a:", a, "b:", b
         v2 = get_alignment_vectors_rosetta(chain, a, b)
         prev_r = 1000.
+        min_r = 1000.
+        iterations = 100
 
-        for i in range(200):
+        for i in range(iterations):
             sample_len = poisson.rvs(2)
             #print "sample_len:", sample_len
 
@@ -615,21 +553,28 @@ class TestReconstructor(unittest.TestCase):
             #r = centered_rmsd(v1, v2)
             r = self.quality_measurement(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
 
-            p = norm.pdf(r, loc=0., scale=12.)
-            prev_p = norm.pdf(prev_r, loc=0, scale=12.)
+            #print "p:", p, "prev_p:", prev_p, "transition_p:", transition_p
+            multiplier = .001 ** (1 / float(iterations))
+            #print "multiplier:", multiplier
+            temperature = 1. * (multiplier) ** i
 
-            if prev_p > p:
-                transition_p = p  / prev_p
-                if random() < transition_p:
+            if r > prev_r:
+                factor = -(r - prev_r) / ( temperature)
+                
+                p = exp (factor)
+                #print "r-prev_r:", r-prev_r, "temperature:", temperature, "factor:", factor, "p:", p
+                
+                if random() > p:
                     model.undo()
                     continue
-                model.undo()
-                continue
 
             print "r:", r, model.get_log_likelihood()
             prev_r = r
 
-            self.align_stems_and_barnacle(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
+            if r < min_r:
+                self.align_stems_and_barnacle(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
+                min_r = r
+            #sys.exit(1)
 
             self.assertGreater(centered_rmsd, 0)
             model.save_structure(os.path.join(Configuration.test_output_dir, 'best.pdb'))
@@ -640,6 +585,14 @@ class TestReconstructor(unittest.TestCase):
 
         v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
+
+        '''
+        print "quality v1:", v1
+        print "quality v2:", v2
+
+        print "quality v1_m:", v1_m
+        print "quality v2_m:", v2_m
+        '''
 
         v1_centroid = get_vector_centroid(v1)
         v2_centroid = get_vector_centroid(v2)
@@ -656,7 +609,10 @@ class TestReconstructor(unittest.TestCase):
         '''
 
         v1_mt = v1_m - v1_centroid
-        v1_rmt = dot(sup, v1_mt.transpose()).transpose()
+        v1_rmt = dot(sup.transpose(), v1_mt.transpose()).transpose()
+
+        v1_rt = dot(sup.transpose(), v1_t.transpose()).transpose()
+        v2_rt = dot(sup.transpose(), v1_t.transpose()).transpose()
 
         v2_rmt = v2_m - v2_centroid
 
@@ -668,6 +624,15 @@ class TestReconstructor(unittest.TestCase):
 
         rmsd /= float(count)
         rmsd = sqrt(rmsd)
+
+        #print "quality v1_t:", v1_t
+        #print "quality v2_t:", v2_t
+
+        #print "quality v1_rmt:", v1_rmt
+        #print "quality v2_rmt:", v2_rmt
+
+        #print "quality v1_rt:", v1_rt
+        #print "quality v2_rt:", v1_rt
 
         return rmsd
 
@@ -691,14 +656,23 @@ class TestReconstructor(unittest.TestCase):
         v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2 = get_alignment_vectors_barnacle(chain_barnacle, handles[2], handles[3])
 
+        v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
+        v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
+
         #print "v1:", v1
         #print "v2:", v2
+
+        #print "v1_m:", v1_m
+        #print "v2_m:", v2_m
 
         v1_centroid = get_vector_centroid(v1)
         v2_centroid = get_vector_centroid(v2)
 
         v1_t = v1 - v1_centroid
         v2_t = v2 - v2_centroid
+
+        #print "v1_t:", v1_t
+        #print "v2_t:", v2_t
 
         sup = optimal_superposition(v1_t, v2_t)
 
@@ -735,8 +709,14 @@ class TestReconstructor(unittest.TestCase):
         for atom in Selection.unfold_entities(chain2, 'A'):
             atom.transform(identity_matrix, -v2_centroid)
 
-        print "quality:", self.quality_measurement(chain1, chain2, handles)
-        print "difference:", self.quality_difference(chain1, chain2, handles)
+        #v1 = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
+        #v2 = get_measurement_vectors_barnacle(chain2, handles[2], handles[3])
+
+        #print "v1_rmt:", v1
+        #print "v2_rmt:", v2
+
+        #print "quality:\n", self.quality_measurement(chain1, chain2, handles)
+        #print "difference:", self.quality_difference(chain1, chain2, handles)
     #def quality_measurement(self, chain_stems, chain_barnacle, handles):
 
         s1 = Structure(' ')
