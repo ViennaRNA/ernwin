@@ -117,10 +117,12 @@ def ccd(moving, fixed):
             #assert(allclose(array(angles2), array(angles1)))
             #assert(allclose(array(distances1), array(distances2)))
         rmsd = calc_rmsd(moving[-3:], fixed)
+        '''
         if rmsd < 0.08:
             break
+        '''
 
-    print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
+        #print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
     return moving
 
 def main():
@@ -134,11 +136,11 @@ def main():
     angles1 = [vec_angle(moving[i-1] - moving[i-2], moving[i] - moving[i-1]) for i in range(2, len(moving))]
     distances1 = [magnitude(moving[i] - moving[i-1]) for i in range(1, len(moving))]
 
-    print "moving:", moving
+    #print "moving:", moving
 
     moving = ccd(moving, fixed)
 
-    print "moving:", moving
+    #print "moving:", moving
 
     angles2 = [vec_angle(moving[i-1] - moving[i-2], moving[i] - moving[i-1]) for i in range(2, len(moving))]
     distances2 = [magnitude(moving[i] - moving[i-1]) for i in range(1, len(moving))]
@@ -146,8 +148,8 @@ def main():
     assert(allclose(angles1, angles2))
     assert(allclose(distances1, distances2))
 
-    print "angles1:", angles1
-    print "angles2:", angles2
+    #print "angles1:", angles1
+    #print "angles2:", angles2
 
 
 if __name__ == '__main__':

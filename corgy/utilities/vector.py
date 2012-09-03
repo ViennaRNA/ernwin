@@ -1,15 +1,20 @@
 #!/usr/bin/python
 
-import timeit
+import timeit, sys
 
-from numpy import array, dot, pi, cos, sin, cross
+from numpy import array, dot, pi, cross, eye
+from math import cos, sin
 from numpy.linalg import inv, solve
+
+import numpy as np
 
 from numpy.testing import assert_allclose
 from math import acos, atan2, sqrt
 from random import uniform
 
 from math import isnan
+
+from scipy import weave
 
 null_array = array([0., 0., 0.])
 
@@ -329,7 +334,7 @@ def vector_rejection(a, b):
 
 def rotation_matrix(axis, theta):
     '''
-    Calculate the rotation matrix for a rotation of theta degress around axis.
+    Calculate the rotation matrix for a rotation of theta degrees around axis.
 
     Thanks to unutbu on StackOverflow 
 
@@ -343,10 +348,45 @@ def rotation_matrix(axis, theta):
     axis = axis/sqrt(dot(axis, axis))
     a = cos(theta/2)
     b, c, d = -axis*sin(theta/2)
+    mat = eye(3,3)
+
+    xs = np.tile(array([a,b,c,d]), (4, 1))
+    #ys = np.tile(array([a,b,c,d])[:,np.newaxis], (1, 4))
+    ys = np.tile(array([a,b,c,d])[:,np.newaxis], (1, 4))
+    #print xs
+    #print ys
+
+    xys = xs * ys
+
+
+    #mat[0][0] = a*a + b*b - c*c - d*d
+    #mat[0][1] = 2 * (b*c - a*d)
+    #mat[0][2] = 2 * (b*d + a*c)
+    mat[0][0] = xys[0][0] + xys[1][1] - xys[2][2] - xys[3][3]
+    mat[0][1] = 2 * (xys[1][2] - xys[0][3])
+    mat[0][2] = 2 * (xys[1][3] + xys[0][2])
+
+    #mat[1][0] = 2*(b*c+a*d)
+    mat[1][0] = 2*(xys[1][2] + xys[0][3])
+    #mat[1][1] = a*a+c*c-b*b-d*d 
+    mat[1][1] = xys[0][0] +xys[2][2] -xys[1][1] -xys[3][3]
+    #mat[1][2] = 2*(c*d-a*b)
+    mat[1][2] = 2*(xys[2][3] - xys[0][1])
+
+    #mat[2][0] = 2*(b*d-a*c)
+    mat[2][0] = 2*(xys[1][3] - xys[0][2])
+    #mat[2][1] = 2*(c*d+a*b)
+    mat[2][1] = 2*(xys[2][3] + xys[0][1])
+    #mat[2][2] = a*a+d*d-b*b-c*c
+    mat[2][2] = xys[0][0] + xys[3][3] - xys[1][1] - xys[2][2]
+
+    return mat
+
+    '''
     return array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
                   [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
-
+    '''
 
 def get_vector_centroid(crds1):
     centroid1 = array([0., 0., 0.])
