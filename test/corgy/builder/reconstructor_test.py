@@ -533,7 +533,7 @@ class TestReconstructor(unittest.TestCase):
         v2 = get_alignment_vectors_rosetta(chain, a, b)
         prev_r = 1000.
         min_r = 1000.
-        iterations = 100
+        iterations = 10
 
         for i in range(iterations):
             sample_len = poisson.rvs(2)

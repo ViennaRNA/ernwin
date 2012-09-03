@@ -10,7 +10,7 @@ from numpy.random import random
 from numpy import array, dot
 from numpy.linalg import det, svd
 
-from corgy.utilities.vector import vec_angle
+from corgy.utilities.vector import vec_angle, magnitude
 #from LinearAlgebra import singular_value_decomposition, determinant
 #from RandomArray import random, normal
 
@@ -90,7 +90,7 @@ if __name__=="__main__":
         for i in range(0, n-1):
             nv=Vector(random(3))
             nv.normalize()
-            nv=v+nv**3.8
+            nv=v+nv ** 3.8
             l.append(nv)
             v=nv
         return l
@@ -138,6 +138,9 @@ if __name__=="__main__":
     for i in range(len(angles)):
         print "angles[i] - angles1[i]:", angles[i] - angles1[i]
 
+    distances = [magnitude(moving[i] - moving[i-1]) for i in range(1, len(moving))]
+    
+    print "distances:", distances
     #print "fixed:", fixed
 
     # Print result
