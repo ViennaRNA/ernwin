@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import timeit, sys
+#import timeit, sys
 
 from numpy import array, dot, pi, cross, eye
 from math import cos, sin
@@ -331,6 +331,51 @@ def vector_rejection(a, b):
     d = dot(b, b)
     return a - (n / d) * b
 
+def rotation_matrix_weave(axis, theta, mat = None):
+    '''
+    Calculate the rotation matrix for a rotation of theta degrees around axis.
+    
+    Implemented in C++ using the weave module. Runs approximately 6x faster than 
+    the numpy version below if no mat is passed in and around 20x faster if mat is
+    passed in.
+
+    Thanks to unutbu on StackOverflow 
+
+    http://stackoverflow.com/questions/6802577/python-rotation-of-3d-vector
+
+    @param axis: The axis around which to rotate
+    @param theta: The angle of rotation
+    @return: A matrix which can be used to perform the given rotation. The coordinates
+             need only be multiplied by the matrix.
+    '''
+    if mat == None:
+        mat = np.eye(3,3)
+
+    support = "#include <math.h>"
+    code = """
+        double x = sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+        double a = cos(theta / 2.0);
+        double b = -(axis[0] / x) * sin(theta / 2.0);
+        double c = -(axis[1] / x) * sin(theta / 2.0);
+        double d = -(axis[2] / x) * sin(theta / 2.0);
+
+        mat[0] = a*a + b*b - c*c - d*d;
+        mat[1] = 2 * (b*c - a*d);
+        mat[2] = 2 * (b*d + a*c);
+
+        mat[3*1 + 0] = 2*(b*c+a*d);
+        mat[3*1 + 1] = a*a+c*c-b*b-d*d;
+        mat[3*1 + 2] = 2*(c*d-a*b);
+
+        mat[3*2 + 0] = 2*(b*d-a*c);
+        mat[3*2 + 1] = 2*(c*d+a*b);
+        mat[3*2 + 2] = a*a+d*d-b*b-c*c;
+    """
+
+    weave.inline(code, ['axis', 'theta', 'mat'], support_code = support, libraries = ['m'])
+
+    return mat
+
 
 def rotation_matrix(axis, theta):
     '''
@@ -348,45 +393,10 @@ def rotation_matrix(axis, theta):
     axis = axis/sqrt(dot(axis, axis))
     a = cos(theta/2)
     b, c, d = -axis*sin(theta/2)
-    mat = eye(3,3)
 
-    xs = np.tile(array([a,b,c,d]), (4, 1))
-    #ys = np.tile(array([a,b,c,d])[:,np.newaxis], (1, 4))
-    ys = np.tile(array([a,b,c,d])[:,np.newaxis], (1, 4))
-    #print xs
-    #print ys
-
-    xys = xs * ys
-
-
-    #mat[0][0] = a*a + b*b - c*c - d*d
-    #mat[0][1] = 2 * (b*c - a*d)
-    #mat[0][2] = 2 * (b*d + a*c)
-    mat[0][0] = xys[0][0] + xys[1][1] - xys[2][2] - xys[3][3]
-    mat[0][1] = 2 * (xys[1][2] - xys[0][3])
-    mat[0][2] = 2 * (xys[1][3] + xys[0][2])
-
-    #mat[1][0] = 2*(b*c+a*d)
-    mat[1][0] = 2*(xys[1][2] + xys[0][3])
-    #mat[1][1] = a*a+c*c-b*b-d*d 
-    mat[1][1] = xys[0][0] +xys[2][2] -xys[1][1] -xys[3][3]
-    #mat[1][2] = 2*(c*d-a*b)
-    mat[1][2] = 2*(xys[2][3] - xys[0][1])
-
-    #mat[2][0] = 2*(b*d-a*c)
-    mat[2][0] = 2*(xys[1][3] - xys[0][2])
-    #mat[2][1] = 2*(c*d+a*b)
-    mat[2][1] = 2*(xys[2][3] + xys[0][1])
-    #mat[2][2] = a*a+d*d-b*b-c*c
-    mat[2][2] = xys[0][0] + xys[3][3] - xys[1][1] - xys[2][2]
-
-    return mat
-
-    '''
     return array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
                   [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
-    '''
 
 def get_vector_centroid(crds1):
     centroid1 = array([0., 0., 0.])

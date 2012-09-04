@@ -39,6 +39,18 @@ import os
 
 def get_alignment_vectors_rosetta(ress, r1, r2):
     #print "rosetta r1, r2:", r1, r2
+    return( ress[r1]['C4*'].get_vector().get_array(),
+            ress[r1]['C3*'].get_vector().get_array(),
+            ress[r1]['O3*'].get_vector().get_array())
+
+def get_alignment_vectors_barnacle(ress, r1, r2):
+    #print "barnacle r1, r2:", r1, r2
+    return( ress[r1]['C4\''].get_vector().get_array(),
+            ress[r1]['C3\''].get_vector().get_array(),
+            ress[r1]['O3\''].get_vector().get_array())
+'''
+def get_alignment_vectors_rosetta(ress, r1, r2):
+    #print "rosetta r1, r2:", r1, r2
     return( ress[r1]['P'].get_vector().get_array(),
             ress[r1]['O5*'].get_vector().get_array(),
             ress[r1]['C5*'].get_vector().get_array())
@@ -48,13 +60,16 @@ def get_alignment_vectors_barnacle(ress, r1, r2):
     return( ress[r1]['P'].get_vector().get_array(),
             ress[r1]['O5\''].get_vector().get_array(),
             ress[r1]['C5\''].get_vector().get_array())
+'''
 
 def get_measurement_vectors_rosetta(ress, r1, r2):
-    return( ress[r2]['C3*'].get_vector().get_array(),
+    return( ress[r2]['C4*'].get_vector().get_array(), 
+            ress[r2]['C3*'].get_vector().get_array(),
             ress[r2]['O3*'].get_vector().get_array())
 
 def get_measurement_vectors_barnacle(ress, r1, r2):
-    return( ress[r2]['C3\''].get_vector().get_array(),
+    return( ress[r2]['C4\''].get_vector().get_array(), 
+            ress[r2]['C3\''].get_vector().get_array(),
             ress[r2]['O3\''].get_vector().get_array() )
 
 def output_chain(chain, filename):
@@ -518,6 +533,7 @@ class TestReconstructor(unittest.TestCase):
         (a,b,i1,i2) = bg.get_flanking_handles('b15')
 
         print "seq:", seq
+        print "a:", a, "b:", "i1:", i1, "i2:", i2
         model = Barnacle(seq)
         model.sample()
         s = model.structure
@@ -533,7 +549,7 @@ class TestReconstructor(unittest.TestCase):
         v2 = get_alignment_vectors_rosetta(chain, a, b)
         prev_r = 1000.
         min_r = 1000.
-        iterations = 10
+        iterations = 200
 
         for i in range(iterations):
             sample_len = poisson.rvs(2)
@@ -586,14 +602,6 @@ class TestReconstructor(unittest.TestCase):
         v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
 
-        '''
-        print "quality v1:", v1
-        print "quality v2:", v2
-
-        print "quality v1_m:", v1_m
-        print "quality v2_m:", v2_m
-        '''
-
         v1_centroid = get_vector_centroid(v1)
         v2_centroid = get_vector_centroid(v2)
 
@@ -601,12 +609,6 @@ class TestReconstructor(unittest.TestCase):
         v2_t = v2 - v2_centroid
 
         sup = optimal_superposition(v1_t, v2_t)
-
-        '''
-        v1_mt = dot(sup, v1_t.transpose()).transpose()
-        print "v1_mt:", v1_mt
-        print "v2_t:", v2_t
-        '''
 
         v1_mt = v1_m - v1_centroid
         v1_rmt = dot(sup.transpose(), v1_mt.transpose()).transpose()
@@ -625,32 +627,7 @@ class TestReconstructor(unittest.TestCase):
         rmsd /= float(count)
         rmsd = sqrt(rmsd)
 
-        #print "quality v1_t:", v1_t
-        #print "quality v2_t:", v2_t
-
-        #print "quality v1_rmt:", v1_rmt
-        #print "quality v2_rmt:", v2_rmt
-
-        #print "quality v1_rt:", v1_rt
-        #print "quality v2_rt:", v1_rt
-
         return rmsd
-
-    def quality_difference(self, chain_stems, chain_barnacle, handles):
-        v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-        rmsd = 0
-        count = 0
-        for i in xrange(len(v1_m)):
-            rmsd += magnitude(v1_m[i] - v2_m[i])
-            count += 1
-
-        rmsd /= float(count)
-        rmsd = sqrt(rmsd)
-
-        return rmsd
-
 
     def align_stems_and_barnacle(self, chain_stems, chain_barnacle, handles):
         v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])

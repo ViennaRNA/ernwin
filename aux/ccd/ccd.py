@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-from corgy.utilities.vector import normalize, rotation_matrix
+from corgy.utilities.vector import normalize, rotation_matrix_weave
 from corgy.utilities.vector import vec_angle, magnitude
 
 from numpy import array, dot, cross, allclose, eye, ones
@@ -35,7 +35,7 @@ def rotate_last_three(chain):
     l=[]
     rotation_axis=random(3)
     angle=0.1+0.1*pi*random()
-    m=rotation_matrix(rotation_axis, angle)
+    m=rotation_matrix_weave(rotation_axis, angle)
     t=-0.5*random(3)
     for i in range(-3, 0):
         v=chain[i]-t
@@ -67,6 +67,30 @@ def point_on_line(P, A, D):
 
     return X
 
+def get_closer_rotation_matrix(axis, point, M, F):
+    TH = axis
+    TH_norm = normalize(TH)
+    TH_arr = array([TH_norm, TH_norm, TH_norm])
+    O = point + (dot((M - point), TH_norm) * TH_arr.transpose()).transpose()
+    R = M - O
+
+    S = cross(R, TH)
+    s_row_sums = np.sum(np.abs(S) ** 2, axis=-1) ** (1. / 2.)
+
+    S = S / s_row_sums[:, np.newaxis]
+    r_row_sums = np.sum(np.abs(R) ** 2, axis=-1) ** (1./ 2.) 
+
+    R = R / r_row_sums[:, np.newaxis]
+    F = array(F)
+    F = F-O
+
+    n3 = dot(np.sum(F * S, axis=-1), r_row_sums)
+    d3 = dot(np.sum(F * R, axis=-1), r_row_sums)
+
+    a = atan2(n3, d3)
+
+    return rotation_matrix_weave(TH, a)
+
 def ccd(moving, fixed):
     '''
     Do cyclic-coordinate descent to align the last three coordinates of moving
@@ -78,44 +102,22 @@ def ccd(moving, fixed):
     for k in xrange(iterations):
         for i in xrange(1, len(moving) - 3):
             TH = (moving[i] - moving[i-1])
-            TH_norm = normalize(TH)
-            TH_arr = array([TH_norm, TH_norm, TH_norm])
-            M = moving[-3:]
-            F = fixed[-3:]
-            O = moving[i-1] + (dot((M - moving[i-1]), TH_norm) * TH_arr.transpose()).transpose()
-            R = M - O
 
-            S = cross(R, TH)
-            s_row_sums = np.sum(np.abs(S) ** 2, axis=-1) ** (1. / 2.)
+            rot_mat = get_closer_rotation_matrix(TH, moving[i-1], moving[-3:], fixed[-3:])
 
-            S = S / s_row_sums[:, np.newaxis]
-            r_row_sums = np.sum(np.abs(R) ** 2, axis=-1) ** (1./ 2.) 
+            '''
+            for j in range(i+1, len(moving)):
+                moving[j] -= moving[i]
+                moving[j] = dot(rot_mat, moving[j])
+                moving[j] += moving[i]
 
-            R = R / r_row_sums[:, np.newaxis]
-            F = array(F)
-            F = F-O
-
-            n3 = dot(np.sum(F * S, axis=-1), r_row_sums)
-            d3 = dot(np.sum(F * R, axis=-1), r_row_sums)
-
-            a = atan2(n3, d3)
-
-            rot_mat = rotation_matrix(TH, a)
-
+            '''
             rem_moving = array(moving[i+1:])
             rem_moving -= moving[i]
             rem_moving = dot(rot_mat, rem_moving.transpose()).transpose()
             rem_moving += moving[i]
             moving = moving[:i+1] + list(rem_moving)
 
-            #print list(rem_moving)[0]
-            #print list(rem_moving)[1]
-
-            #distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
-            #angles2 = [vec_angle(moving[j-1] - moving[j-2], moving[j] - moving[j-1]) for j in range(2, len(moving))]
-
-            #assert(allclose(array(angles2), array(angles1)))
-            #assert(allclose(array(distances1), array(distances2)))
         rmsd = calc_rmsd(moving[-3:], fixed)
         '''
         if rmsd < 0.08:
