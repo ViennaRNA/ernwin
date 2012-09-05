@@ -377,6 +377,23 @@ def rotation_matrix_weave(axis, theta, mat = None):
     return mat
 
 
+def vector_set_rmsd(set1, set2):
+    '''
+    Calculate the rmsd between two sets of vectors.
+
+    @param set1: A matrix
+    @param set2: Another matrix.
+
+    @return: The rmsd between the rows of the matrix.
+    '''
+    rmsd = 0
+    count = 0
+    for i in range(len(set1)):
+        rmsd += magnitude(set2[i] - set1[i])
+        count += 1
+    rmsd /= count
+    return sqrt(rmsd)
+
 def rotation_matrix(axis, theta):
     '''
     Calculate the rotation matrix for a rotation of theta degrees around axis.
@@ -399,6 +416,13 @@ def rotation_matrix(axis, theta):
                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
 
 def get_vector_centroid(crds1):
+    '''
+    Find the centroid of a set of vectors.
+
+    @param crds: A matrix containing all of the vectors.
+
+    @return: The centroid of the rows of the matrix crds.
+    '''
     centroid1 = array([0., 0., 0.])
 
     for i in range(len(crds1)):

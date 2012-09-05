@@ -21,13 +21,18 @@ from corgy.utilities.vector import get_vector_centroid
 
 from corgy.builder.models import SpatialModel
 from corgy.builder.rmsd import centered_rmsd, optimal_superposition
+from corgy.builder.ccd import get_closer_rotation_matrix
+
+from corgy.builder.reconstructor import reconstruct_stems
+from corgy.builder.reconstructor import output_chain
+from corgy.builder.reconstructor import define_to_stem_model
+from corgy.builder.reconstructor import splice_stem
 
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
 from copy import deepcopy
 from random import uniform, randint, random
 from scipy.stats import norm, poisson
-
 
 from Bio.PDB import PDBParser, PDBIO, Selection
 from Bio.PDB.Chain import Chain
@@ -36,204 +41,36 @@ from Bio.PDB.Structure import Structure
 
 import os
 
-
 def get_alignment_vectors_rosetta(ress, r1, r2):
     #print "rosetta r1, r2:", r1, r2
-    return( ress[r1]['C4*'].get_vector().get_array(),
-            ress[r1]['C3*'].get_vector().get_array(),
-            ress[r1]['O3*'].get_vector().get_array())
+    return( ress[r1]['O4*'].get_vector().get_array(),
+            ress[r1]['C1*'].get_vector().get_array(),
+            ress[r1]['C2*'].get_vector().get_array())
 
 def get_alignment_vectors_barnacle(ress, r1, r2):
     #print "barnacle r1, r2:", r1, r2
-    return( ress[r1]['C4\''].get_vector().get_array(),
-            ress[r1]['C3\''].get_vector().get_array(),
-            ress[r1]['O3\''].get_vector().get_array())
-'''
-def get_alignment_vectors_rosetta(ress, r1, r2):
-    #print "rosetta r1, r2:", r1, r2
-    return( ress[r1]['P'].get_vector().get_array(),
-            ress[r1]['O5*'].get_vector().get_array(),
-            ress[r1]['C5*'].get_vector().get_array())
-
-def get_alignment_vectors_barnacle(ress, r1, r2):
-    #print "barnacle r1, r2:", r1, r2
-    return( ress[r1]['P'].get_vector().get_array(),
-            ress[r1]['O5\''].get_vector().get_array(),
-            ress[r1]['C5\''].get_vector().get_array())
-'''
+    return( ress[r1]['O4\''].get_vector().get_array(),
+            ress[r1]['C1\''].get_vector().get_array(),
+            ress[r1]['C2\''].get_vector().get_array())
 
 def get_measurement_vectors_rosetta(ress, r1, r2):
-    return( ress[r2]['C4*'].get_vector().get_array(), 
-            ress[r2]['C3*'].get_vector().get_array(),
-            ress[r2]['O3*'].get_vector().get_array())
+    return( ress[r2]['O4*'].get_vector().get_array(), 
+            ress[r2]['C1*'].get_vector().get_array(),
+            ress[r2]['C2*'].get_vector().get_array())
 
 def get_measurement_vectors_barnacle(ress, r1, r2):
-    return( ress[r2]['C4\''].get_vector().get_array(), 
-            ress[r2]['C3\''].get_vector().get_array(),
-            ress[r2]['O3\''].get_vector().get_array() )
-
-def output_chain(chain, filename):
-    '''
-    Dump a chain to an output file.
-
-    @param chain: The Bio.PDB.Chain to dump.
-    @param filename: The place to dump it.
-    '''
-    m = Model(' ')
-    s = Structure(' ')
-
-    m.add(chain)
-    s.add(m)
-
-    io = PDBIO()
-    io.set_structure(s)
-    io.save(filename)
-
-def reconstruct_stems(sm):
-    '''
-    Reconstruct the stems around a Spatial Model.
-
-    @param sm: Spatial Model
-    '''
-    #sm.traverse_and_build()
-    new_chain = Chain(' ')
-
-    for stem_name in sm.stem_defs.keys():
-        stem_def = sm.stem_defs[stem_name]
-        stem = sm.stems[stem_name]
-
-        filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-        #print "stem_name:", stem_name, "stem_def:", stem_def
-        pdb_file = os.path.join(Configuration.stem_fragment_dir, filename)
-
-        chain = list(PDBParser().get_structure('temp', pdb_file).get_chains())[0]
-        align_chain_to_stem(chain, stem_def.define, stem)
-
-        #print "stem_def.define:", stem_def.define
-        #print "sm.bg.defines[stem_name]:", sm.bg.defines[stem_name]
-
-        #for e in chain.get_list():
-        for i in range(stem_def.bp_length+1):
-            #print "i:", i
-            e = chain[stem_def.define[0] + i]
-            e.id = (e.id[0], sm.bg.defines[stem_name][0] + i, e.id[2])
-            #print "adding:", e.id
-            new_chain.add(e)
-
-            e = chain[stem_def.define[2] + i]
-            e.id = (e.id[0], sm.bg.defines[stem_name][2] + i, e.id[2])
-            #print "adding:", e.id
-            new_chain.add(e)
-
-    return new_chain
-
-def define_to_stem_model(chain, define):
-    '''
-    Extract a StemModel from a Bio.PDB.Chain structure.
-
-    The define is 4-tuple containing the start and end coordinates
-    of the stem on each strand. 
-
-    s1s s1e s2s s2e
-
-    @param chain: The Bio.PDB.Chain representation of the chain
-    @param define: The BulgeGraph define
-    @return: A StemModel with the coordinates and orientation of the stem.
-    '''
-    stem = StemModel()
-
-    mids = get_mids(chain, define)
-
-    stem.mids = tuple([m.get_array() for m in mids])
-    stem.twists = get_twists(chain, define)
-
-    return stem
-
-def splice_stem(chain, define):
-    '''
-    Extract just the defined stem from the chain and return it as
-    a new chain.
-    
-    @param chain: A Bio.PDB.Chain containing the stem in define
-    @param define: The BulgeGraph stem define
-    '''
-    start1 = define[0]
-    end1 = define[1]
-
-    start2 = define[2]
-    end2 = define[3]
-
-    new_chain = Chain(' ')
-
-    for i in xrange(start1, end1+1):
-        #new_chain.insert(i, chain[i])
-        new_chain.add(chain[i])
-
-    for i in xrange(start2, end2+1):
-        new_chain.add(chain[i])
-
-    '''
-    m = Model(' ')
-    s = Structure(' ')
-    m.add(new_chain)
-    s.add(m)
-
-    io=PDBIO()
-    io.set_structure(s)
-    io.save('temp.pdb')
-    '''
-
-    return new_chain
-
-def get_stem_rotation_matrix(stem, (u, v, t)):
-    twist1 = stem.twists[0]
-
-    # rotate around the stem axis to adjust the twist
+    return( ress[r2]['O4\''].get_vector().get_array(), 
+            ress[r2]['C1\''].get_vector().get_array(),
+            ress[r2]['C2\''].get_vector().get_array() )
 
 
-    # rotate down from the twist axis
-    comp1 = cross(stem.vec(), twist1)
+def get_measurement_rmsd(chain1, chain2, handles):
+    v1_m = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
+    v2_m = get_measurement_vectors_barnacle(chain2, handles[2], handles[3])
 
-    rot_mat1 = rotation_matrix(stem.vec(), t)
-    rot_mat2 = rotation_matrix(twist1, u - pi/2)
-    rot_mat3 = rotation_matrix(comp1, v)
+    rmsd = vector_set_rmsd(v1_m, v2_m)
 
-    rot_mat4 = dot(rot_mat3, dot(rot_mat2, rot_mat1))
-
-    return rot_mat4
-
-def rotate_stem(stem, (u, v, t)):
-    '''
-    Rotate a particular stem.
-    '''
-    stem2 = deepcopy(stem)
-    rot_mat4 = get_stem_rotation_matrix(stem, (u,v,t))
-    stem2.rotate(rot_mat4, offset=stem.mids[0])
-
-    return stem2
-
-def rotate_chain(chain, rot_mat, offset):
-    atoms = Selection.unfold_entities(chain, 'A')
-
-    for atom in atoms:
-        atom.transform(identity_matrix, -offset)
-        atom.transform(rot_mat, null_array)
-        atom.transform(identity_matrix, offset)
-
-def translate_chain(chain, translation):
-    atoms = Selection.unfold_entities(chain, 'A')
-
-    for atom in atoms:
-        atom.transform(identity_matrix, translation)
-
-
-def align_chain_to_stem(chain, define, stem2):
-    stem1 = define_to_stem_model(chain, define)
-
-    (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
-    rot_mat = get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
-    rotate_chain(chain, inv(rot_mat), stem1.mids[0])
-    translate_chain(chain, stem2.mids[0] - stem1.mids[0])
+    return rmsd
 
 
 def get_random_orientation():
@@ -549,7 +386,7 @@ class TestReconstructor(unittest.TestCase):
         v2 = get_alignment_vectors_rosetta(chain, a, b)
         prev_r = 1000.
         min_r = 1000.
-        iterations = 200
+        iterations = 10
 
         for i in range(iterations):
             sample_len = poisson.rvs(2)
@@ -568,6 +405,7 @@ class TestReconstructor(unittest.TestCase):
             v1 = get_alignment_vectors_barnacle(ress, i1, i2)
             #r = centered_rmsd(v1, v2)
             r = self.quality_measurement(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
+            print "r:", r
 
             #print "p:", p, "prev_p:", prev_p, "transition_p:", transition_p
             multiplier = .001 ** (1 / float(iterations))
@@ -595,6 +433,82 @@ class TestReconstructor(unittest.TestCase):
             self.assertGreater(centered_rmsd, 0)
             model.save_structure(os.path.join(Configuration.test_output_dir, 'best.pdb'))
 
+    def perturb_c3_o3(self, chain, res_start, res_end, fixed):
+        axis1 = chain[res_start]['C3\''].get_vector().get_array() - chain[res_start]['O3\''].get_vector().get_array()
+        point1 = chain[res_start]['O3\''].get_vector().get_array()
+
+        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
+
+        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
+        last_res = chain.get_list()[-1].id[1]
+
+        for i in range(res_start+1, last_res+1):
+            atoms = Selection.unfold_entities(chain[i], 'A')
+            for atom in atoms:
+                atom.transform(identity_matrix, -point1)
+                atom.transform(rot_mat.transpose(), null_array)
+                atom.transform(identity_matrix, point1)
+
+    def perturb_p_o5(self, chain, res_start, res_end, fixed):
+        axis1 = chain[res_start]['P'].get_vector().get_array() - chain[res_start]['O5\''].get_vector().get_array()
+        point1 = chain[res_start]['O5\''].get_vector().get_array()
+
+        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
+
+        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
+        last_res = chain.get_list()[-1].id[1]
+
+        for i in range(res_start, last_res+1):
+            atoms = Selection.unfold_entities(chain[i], 'A')
+            for atom in atoms:
+                atom.transform(identity_matrix, -point1)
+                atom.transform(rot_mat.transpose(), null_array)
+                atom.transform(identity_matrix, point1)
+
+    def perturb_o5_c5(self, chain, res_start, res_end, fixed):
+        axis1 = chain[res_start]['O5\''].get_vector().get_array() - chain[res_start]['C5\''].get_vector().get_array()
+        point1 = chain[res_start]['C5\''].get_vector().get_array()
+
+        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
+
+        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
+        last_res = chain.get_list()[-1].id[1]
+
+        for i in range(res_start, last_res+1):
+            atoms = Selection.unfold_entities(chain[i], 'A')
+            for atom in atoms:
+                if i == res_start and atom.name == 'P':
+                    continue
+
+                atom.transform(identity_matrix, -point1)
+                atom.transform(rot_mat.transpose(), null_array)
+                atom.transform(identity_matrix, point1)
+
+    def perturb_c5_c4(self, chain, res_start, res_end, fixed):
+        axis1 = chain[res_start]['C5\''].get_vector().get_array() - chain[res_start]['C4\''].get_vector().get_array()
+        point1 = chain[res_start]['C4\''].get_vector().get_array()
+        
+        #print "axis1:", axis1
+        #print "point1:", point1
+
+        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
+
+        #print "moving:", moving
+        #print "fixed:", fixed
+
+        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
+        last_res = chain.get_list()[-1].id[1]
+
+        for i in range(res_start, last_res+1):
+            atoms = Selection.unfold_entities(chain[i], 'A')
+            for atom in atoms:
+                if i == res_start and (atom.name == 'P' or atom.name == 'O5\''):
+                    continue
+
+                atom.transform(identity_matrix, -point1)
+                atom.transform(rot_mat.transpose(), null_array)
+                atom.transform(identity_matrix, point1)
+
     def quality_measurement(self, chain_stems, chain_barnacle, handles):
         v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2 = get_alignment_vectors_barnacle(chain_barnacle, handles[2], handles[3])
@@ -608,26 +522,49 @@ class TestReconstructor(unittest.TestCase):
         v1_t = v1 - v1_centroid
         v2_t = v2 - v2_centroid
 
-        sup = optimal_superposition(v1_t, v2_t)
+        sup = optimal_superposition(v2_t, v1_t)
 
-        v1_mt = v1_m - v1_centroid
-        v1_rmt = dot(sup.transpose(), v1_mt.transpose()).transpose()
+        v2_mt = v2_m - v2_centroid
+        v2_rmt = dot(sup.transpose(), v2_mt.transpose()).transpose()
 
-        v1_rt = dot(sup.transpose(), v1_t.transpose()).transpose()
-        v2_rt = dot(sup.transpose(), v1_t.transpose()).transpose()
+        v1_rmt = v1_m - v1_centroid
 
-        v2_rmt = v2_m - v2_centroid
+        rmsd = vector_set_rmsd(v1_rmt, v2_rmt)
+        #print "rmsd1:", rmsd
 
-        rmsd = 0
-        count = 0
-        for i in xrange(len(v1_rmt)):
-            rmsd += magnitude(v1_rmt[i] - v2_rmt[i])
-            count += 1
+        for atom in Selection.unfold_entities(chain_barnacle, 'A'):
+            atom.transform(identity_matrix, -v2_centroid)
+            atom.transform(sup, null_array)
+            atom.transform(identity_matrix, v1_centroid)
 
-        rmsd /= float(count)
-        rmsd = sqrt(rmsd)
+        v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
+        v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
 
-        return rmsd
+        rmsd2 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
+        print "rmsd2:", rmsd2
+
+        for i in range(5):
+            self.perturb_c3_o3(chain_barnacle, handles[2], handles[3], v1_m)
+
+            for j in range(handles[2] + 1, handles[2] + 2):
+                self.perturb_p_o5(chain_barnacle, j, handles[3], v1_m)
+                self.perturb_o5_c5(chain_barnacle, j, handles[3], v1_m)
+                self.perturb_c5_c4(chain_barnacle,  j, handles[3], v1_m)
+
+            self.perturb_p_o5(chain_barnacle, handles[3], handles[3], v1_m)
+            self.perturb_o5_c5(chain_barnacle, handles[3], handles[3], v1_m)
+            self.perturb_c5_c4(chain_barnacle, handles[3], handles[3], v1_m)
+            #print "i:", i, "rmsd9:", rmsd9
+
+            '''
+            self.assertGreater(rmsd2, rmsd3)
+            self.assertGreater(rmsd3, rmsd4)
+            self.assertGreater(rmsd4, rmsd5)
+            self.assertGreater(rmsd5, rmsd6)
+            '''
+        rmsd9 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
+        #print "axis1:", axis1, "point1:", point1
+        return rmsd9
 
     def align_stems_and_barnacle(self, chain_stems, chain_barnacle, handles):
         v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
@@ -636,30 +573,31 @@ class TestReconstructor(unittest.TestCase):
         v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
 
-        #print "v1:", v1
-        #print "v2:", v2
-
-        #print "v1_m:", v1_m
-        #print "v2_m:", v2_m
-
         v1_centroid = get_vector_centroid(v1)
         v2_centroid = get_vector_centroid(v2)
 
         v1_t = v1 - v1_centroid
         v2_t = v2 - v2_centroid
-
-        #print "v1_t:", v1_t
-        #print "v2_t:", v2_t
-
         sup = optimal_superposition(v1_t, v2_t)
 
         chain1 = Chain(' ')
         chain2 = Chain(' ')
+        chain3 = Chain(' ')
 
         '''
         for res in chain_stems:
             chain1.add(res)
         '''
+        counter = 0
+        new_chain_barnacle = Chain(' ')
+
+        for i in range(handles[2], handles[3]+1):
+            id1 = chain_barnacle[i].id
+            chain_barnacle[i].id = (id1[0], handles[0] + counter, id1[2])
+            new_chain_barnacle.add(chain_barnacle[i])
+            counter += 1
+
+        chain_barnacle = new_chain_barnacle
 
         chain1.add(chain_stems[handles[0]])
         chain1.add(chain_stems[handles[1]])
@@ -670,31 +608,22 @@ class TestReconstructor(unittest.TestCase):
         chain1.add(chain_stems[handles[0]-2])
         chain1.add(chain_stems[handles[1]+2])
 
-        for i in range(handles[2], handles[3]+1):
+        for i in range(handles[0], handles[1]+1):
             chain2.add(chain_barnacle[i])
-
-        #print "chain1_stems[handles[0]]", chain_stems[handles[0]]
-        #print "chain1_stems[handles[1]]", chain_stems[handles[1]]
-
-        #print "chain_barnacle[handles[2]]", chain_barnacle[handles[2]]
-        #print "chain_barnacle[handles[3]]", chain_barnacle[handles[3]]
 
         for atom in Selection.unfold_entities(chain1, 'A'):
             atom.transform(identity_matrix, -v1_centroid)
             atom.transform(sup, null_array)
+            atom.transform(identity_matrix, v2_centroid)
 
-        for atom in Selection.unfold_entities(chain2, 'A'):
-            atom.transform(identity_matrix, -v2_centroid)
+        chain3.add(chain1[handles[0]-1])
+        chain3.add(chain1[handles[1]+1])
 
-        #v1 = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
-        #v2 = get_measurement_vectors_barnacle(chain2, handles[2], handles[3])
+        chain3.add(chain1[handles[0]-2])
+        chain3.add(chain1[handles[1]+2])
 
-        #print "v1_rmt:", v1
-        #print "v2_rmt:", v2
-
-        #print "quality:\n", self.quality_measurement(chain1, chain2, handles)
-        #print "difference:", self.quality_difference(chain1, chain2, handles)
-    #def quality_measurement(self, chain_stems, chain_barnacle, handles):
+        for i in range(handles[0], handles[1]+1):
+            chain3.add(chain2[i])
 
         s1 = Structure(' ')
         m1 = Model(' ')
@@ -706,10 +635,19 @@ class TestReconstructor(unittest.TestCase):
         m2.add(chain2)
         s2.add(m2)
 
+        s3 = Structure(' ')
+        m3 = Model(' ')
+        m3.add(chain3)
+        s3.add(m3)
+
         io = PDBIO()
         io.set_structure(s1)
         io.save(os.path.join(Configuration.test_output_dir, "s1.pdb"))
 
         io.set_structure(s2)
         io.save(os.path.join(Configuration.test_output_dir, 's2.pdb'))
+
+        io.set_structure(s3)
+        io.save(os.path.join(Configuration.test_output_dir, 's3.pdb'))
+
 

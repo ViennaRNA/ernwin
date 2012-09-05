@@ -12,6 +12,7 @@ from numpy.random import random
 import numpy as np
 
 from math import pi, sqrt, atan2
+from scipy import weave
 
 def make_random_chain(n=12):
     """
@@ -67,64 +68,136 @@ def point_on_line(P, A, D):
 
     return X
 
-def get_closer_rotation_matrix(axis, point, M, F):
-    TH = axis
-    TH_norm = normalize(TH)
-    TH_arr = array([TH_norm, TH_norm, TH_norm])
-    O = point + (dot((M - point), TH_norm) * TH_arr.transpose()).transpose()
-    R = M - O
+def get_closer_rotation_matrix(TH, point, M, F):
+    support = "#include <math.h>"
 
-    S = cross(R, TH)
-    s_row_sums = np.sum(np.abs(S) ** 2, axis=-1) ** (1. / 2.)
+    code = """
+    int i, j;
 
-    S = S / s_row_sums[:, np.newaxis]
-    r_row_sums = np.sum(np.abs(R) ** 2, axis=-1) ** (1./ 2.) 
+    double sum1 = 0;
+    double TH_norm[3];
+    double d1[3];
 
-    R = R / r_row_sums[:, np.newaxis]
-    F = array(F)
-    F = F-O
+    double R[9], O[9];
 
-    n3 = dot(np.sum(F * S, axis=-1), r_row_sums)
-    d3 = dot(np.sum(F * R, axis=-1), r_row_sums)
+    //TH_norm = normalize(TH)
+    for (i = 0; i < 3; i++) 
+        sum1 += TH[i] * TH[i];
+    sum1 = sqrt(sum1);
 
-    a = atan2(n3, d3)
+    //TH_arr = array([TH_norm, TH_norm, TH_norm])
+    for (i = 0; i < 3; i++)
+        TH_norm[i] = TH[i] / sum1;
+
+    for (i = 0; i < 3; i++) {
+        sum1 = 0;
+
+        for (j = 0; j < 3; j++) {
+            sum1 += (M[i * 3 + j] - point[j]) * TH_norm[j];
+        }
+        
+        d1[i] = sum1;
+    }
+
+    for ( i = 0; i < 3; i++) {
+        for (j = 0; j < 3; j++) {
+            O[i*3 + j] = TH_norm[j] * d1[i] + point[j];
+            R[i*3 + j] = M[i*3 + j] - O[i*3 + j];
+
+        }
+    }
+
+    double fs_sum = 0;
+    double fr_sum = 0;
+
+    double temp_fs_sum = 0;
+    double temp_fr_sum = 0;
+
+    double n3 = 0, d3 = 0, a, r_row_sums[3], s_row_sums[3];
+    double S[9], F1[9];
+
+    for (i = 0; i < 3; i++) {
+        // S = cross(R, TH)
+        S[3*i + 0] = R[3*i + 1] * TH[2] - R[3*i + 2] * TH[1];
+        S[3*i + 1] = R[3*i + 2] * TH[0] - R[3*i + 0] * TH[2];
+        S[3*i + 2] = R[3*i + 0] * TH[1] - R[3*i + 1] * TH[0];
+
+        s_row_sums[i] = 0;
+        r_row_sums[i] = 0;
+
+        //s_row_sums = np.sum(np.abs(S) ** 2, axis=-1) ** (1./2.)
+        //r_row_sums = np.sum(np.abs(R) ** 2, axis=-1) ** (1./2.)
+        //F = F - O
+
+        temp_fs_sum = 0;
+        temp_fr_sum = 0;
+
+        for (j = 0; j < 3; j++)  {
+            s_row_sums[i] += S[3*i + j] * S[3*i + j];
+            r_row_sums[i] += R[3*i + j] * R[3*i + j];
+
+            F1[3*i + j] = F[3*i + j] - O[3*i + j];
+
+        }
+
+        s_row_sums[i] = sqrt(s_row_sums[i]);
+        r_row_sums[i] = sqrt(r_row_sums[i]);
+
+        //np.sum(F * S, axis=-1)
+        //np.sum(F * R, axis=-1)
+        
+        for (j = 0; j < 3; j++) {
+            S[3*i + j] /= s_row_sums[i];
+            R[3*i + j] /= r_row_sums[i];
+
+            temp_fs_sum += F1[3*i + j] * S[3*i + j];
+            temp_fr_sum += F1[3*i + j] * R[3*i + j];
+        }
+
+        n3 += r_row_sums[i] * temp_fs_sum;
+        d3 += r_row_sums[i] * temp_fr_sum;
+    }
+
+    a = atan2(n3, d3);
+    return_val = a;
+    """
+
+    support = "#include <math.h>"
+    a = weave.inline(code, ['M', 'TH', 'F', 'point'], support_code = support, libraries = ['m'])
 
     return rotation_matrix_weave(TH, a)
 
-def ccd(moving, fixed):
+def ccd(moving, fixed, iterations=10, print_d=True):
     '''
     Do cyclic-coordinate descent to align the last three coordinates of moving
     to the three coordinates of fixed.
     '''
     assert(len(fixed) == 3)
-    iterations = 500
+    fixed = array(fixed)
 
     for k in xrange(iterations):
         for i in xrange(1, len(moving) - 3):
             TH = (moving[i] - moving[i-1])
 
-            rot_mat = get_closer_rotation_matrix(TH, moving[i-1], moving[-3:], fixed[-3:])
+            rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed)
 
-            '''
-            for j in range(i+1, len(moving)):
-                moving[j] -= moving[i]
-                moving[j] = dot(rot_mat, moving[j])
-                moving[j] += moving[i]
-
-            '''
             rem_moving = array(moving[i+1:])
             rem_moving -= moving[i]
             rem_moving = dot(rot_mat, rem_moving.transpose()).transpose()
             rem_moving += moving[i]
             moving = moving[:i+1] + list(rem_moving)
+            '''
+            rem_moving = moving[i+1:]
+            rem_moving -= moving[i]
+            dot(rot_mat, rem_moving.transpose(), rem_moving).transpose()
+            rem_moving += moving[i]
 
-        rmsd = calc_rmsd(moving[-3:], fixed)
-        '''
-        if rmsd < 0.08:
-            break
-        '''
+            '''
 
-        #print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
+        if print_d:
+            rmsd = calc_rmsd(moving[-3:], fixed)
+            print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
+
     return moving
 
 def main():
@@ -140,7 +213,10 @@ def main():
 
     #print "moving:", moving
 
-    moving = ccd(moving, fixed)
+    if len(sys.argv) < 2:
+        moving = ccd(moving, fixed, 10, True)
+    else:
+        moving = ccd(moving, fixed, iterations = int(sys.argv[1]), print_d = False)
 
     #print "moving:", moving
 
