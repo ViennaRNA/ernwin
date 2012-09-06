@@ -23,10 +23,7 @@ from corgy.builder.models import SpatialModel
 from corgy.builder.rmsd import centered_rmsd, optimal_superposition
 from corgy.builder.ccd import get_closer_rotation_matrix
 
-from corgy.builder.reconstructor import reconstruct_stems
-from corgy.builder.reconstructor import output_chain
-from corgy.builder.reconstructor import define_to_stem_model
-from corgy.builder.reconstructor import splice_stem
+import corgy.builder.reconstructor as rtor
 
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
@@ -39,16 +36,16 @@ from Bio.PDB.Chain import Chain
 from Bio.PDB.Model import Model
 from Bio.PDB.Structure import Structure
 
+import corgy.utilities.vector as cuv
+
 import os
 
 def get_alignment_vectors_rosetta(ress, r1, r2):
-    #print "rosetta r1, r2:", r1, r2
     return( ress[r1]['O4*'].get_vector().get_array(),
             ress[r1]['C1*'].get_vector().get_array(),
             ress[r1]['C2*'].get_vector().get_array())
 
 def get_alignment_vectors_barnacle(ress, r1, r2):
-    #print "barnacle r1, r2:", r1, r2
     return( ress[r1]['O4\''].get_vector().get_array(),
             ress[r1]['C1\''].get_vector().get_array(),
             ress[r1]['C2\''].get_vector().get_array())
@@ -68,7 +65,7 @@ def get_measurement_rmsd(chain1, chain2, handles):
     v1_m = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
     v2_m = get_measurement_vectors_barnacle(chain2, handles[2], handles[3])
 
-    rmsd = vector_set_rmsd(v1_m, v2_m)
+    rmsd = cuv.vector_set_rmsd(v1_m, v2_m)
 
     return rmsd
 
@@ -95,7 +92,7 @@ class TestReconstructor(unittest.TestCase):
         s = PDBParser().get_structure('temp', os.path.join(Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
 
         self.chain = list(s.get_chains())[0]
-        self.stem = define_to_stem_model(self.chain, self.bg.defines['s0'])
+        self.stem = rtor.define_to_stem_model(self.chain, self.bg.defines['s0'])
     
     def test_rotate_stem(self):
         stem1 = StemModel()
@@ -103,7 +100,7 @@ class TestReconstructor(unittest.TestCase):
         stem1.mids = self.bg.coords['s0']
         stem1.twists = self.bg.twists['s0']
 
-        stem2 = rotate_stem(stem1, get_random_orientation())
+        stem2 = rtor.rotate_stem(stem1, get_random_orientation())
 
         self.assertFalse(allclose(stem1.twists[0], stem2.twists[0]))
         self.assertFalse(allclose(stem1.twists[1], stem2.twists[1]))
@@ -116,7 +113,7 @@ class TestReconstructor(unittest.TestCase):
         stem1.mids = self.bg.coords['s0']
         stem1.twists = self.bg.twists['s0']
 
-        stem2 = define_to_stem_model(self.chain, self.bg.defines['s0'])
+        stem2 = rtor.define_to_stem_model(self.chain, self.bg.defines['s0'])
 
         self.assertTrue(stem1 == stem2)
 
@@ -124,7 +121,7 @@ class TestReconstructor(unittest.TestCase):
         stem1 = deepcopy(self.stem)
 
         orientation = get_random_orientation()
-        stem2 = rotate_stem(stem1, orientation)
+        stem2 = rtor.rotate_stem(stem1, orientation)
 
         # vector should not be rotated away from itself... duh!
         (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem1.vec(), stem1.twists[0])
@@ -134,7 +131,7 @@ class TestReconstructor(unittest.TestCase):
 
         # Figure out why exactly this works!!!
         orientation1 = (pi-u, -v, -t)
-        rot_mat = get_stem_rotation_matrix(stem1, orientation1)
+        rot_mat = rtor.get_stem_rotation_matrix(stem1, orientation1)
         
         stem3 = deepcopy(stem2)
         stem3.rotate(inv(rot_mat), offset=stem3.mids[0])
@@ -151,7 +148,7 @@ class TestReconstructor(unittest.TestCase):
         start2 = define[2]
         end2 = define[3]
 
-        new_chain = splice_stem(self.chain, define)
+        new_chain = rtor.splice_stem(self.chain, define)
         residues = Selection.unfold_entities(new_chain, 'R')
 
         # Make sure only the residues specified are in the chain
@@ -167,51 +164,51 @@ class TestReconstructor(unittest.TestCase):
             res = new_chain[i]
 
     def test_rotate_atom_stem(self):
-        chain = splice_stem(self.chain, self.bg.defines['s0'])
+        chain = rtor.splice_stem(self.chain, self.bg.defines['s0'])
 
-        stem1 = define_to_stem_model(chain, self.bg.defines['s0'])
+        stem1 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
         orientation = get_random_orientation()
-        stem2 = rotate_stem(stem1, orientation)
+        stem2 = rtor.rotate_stem(stem1, orientation)
 
         self.assertFalse(stem1 == stem2)
 
         (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
-        rot_mat = get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
-        rotate_chain(chain, inv(rot_mat), stem1.mids[0])
+        rot_mat = rtor.get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
+        rtor.rotate_chain(chain, inv(rot_mat), stem1.mids[0])
 
-        stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
+        stem3 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
 
     def test_align_chain_to_stem(self):
-        chain = splice_stem(self.chain, self.bg.defines['s0'])
+        chain = rtor.splice_stem(self.chain, self.bg.defines['s0'])
 
-        stem1 = define_to_stem_model(chain, self.bg.defines['s0'])
+        stem1 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
         orientation = get_random_orientation()
         translation = get_random_translation()
 
-        stem2 = rotate_stem(stem1, orientation)
+        stem2 = rtor.rotate_stem(stem1, orientation)
         #stem2.translate(translation)
 
         self.assertFalse(stem1 == stem2)
-        align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
-        stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
+        rtor.align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
+        stem3 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
 
     def test_align_chain_to_stem1(self):
-        chain = splice_stem(self.chain, self.bg.defines['s0'])
+        chain = rtor.splice_stem(self.chain, self.bg.defines['s0'])
 
-        stem1 = define_to_stem_model(chain, self.bg.defines['s0'])
+        stem1 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
         orientation = get_random_orientation()
         translation = get_random_translation()
 
-        stem2 = rotate_stem(stem1, orientation)
+        stem2 = rtor.rotate_stem(stem1, orientation)
         stem2.translate(translation)
 
         self.assertFalse(stem1 == stem2)
-        align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
-        stem3 = define_to_stem_model(chain, self.bg.defines['s0'])
+        rtor.align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
+        stem3 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
 
@@ -220,11 +217,7 @@ class TestReconstructor(unittest.TestCase):
             stem_def = sm.stem_defs[stem_name]
             bg_stem_def = sm.bg.defines[stem_name]
         
-            stem = define_to_stem_model(chain, bg_stem_def)
-
-            #print "stem.mids:", stem.mids
-            #print "bg.coords:", sm.bg.coords[stem_name]
-            #print
+            stem = rtor.define_to_stem_model(chain, bg_stem_def)
 
             self.assertEqual(stem, sm.stems[stem_name])
     
@@ -240,7 +233,7 @@ class TestReconstructor(unittest.TestCase):
         stems = []
         for d in bg.defines.keys():
             if d[0] == 's':
-                stem = define_to_stem_model(chain, bg.defines[d])
+                stem = rtor.define_to_stem_model(chain, bg.defines[d])
                 stems += [stem]
 
                 num_stems += 1
@@ -255,18 +248,14 @@ class TestReconstructor(unittest.TestCase):
                 end = array(map(float, parts[4:7]))
 
                 for stem in stems:
-                    #print start, end
-                    #print stem.mids
-                    #print
                     if ((allclose(stem.mids[0], start, atol=0.1) and allclose(stem.mids[1], end, atol=0.1)) or 
                         (allclose(stem.mids[1], start, atol=0.1) and allclose(stem.mids[0], end, atol=0.1))):
                             found += 1
                             break
 
-        #print "FOUND:", found, "num_stems:", num_stems
         self.assertEquals(found, num_stems)
 
-    def test_reconstruct_whole_model(self):
+    def test_reconstruct_sampled_whole_model(self):
         '''
         Test the reconstruction of the stems of the SpatialModel.
         '''
@@ -277,7 +266,21 @@ class TestReconstructor(unittest.TestCase):
         for bg in bgs:
             sm = SpatialModel(bg)
             sm.traverse_and_build()
-            chain = reconstruct_stems(sm)
+            chain = rtor.reconstruct_stems(sm)
+
+            self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+
+    def test_reconstruct_native_whole_model(self):
+        bgs = []
+        #bgs += [self.bg]
+        bgs += [BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))]
+
+        for bg in bgs:
+            sm = SpatialModel(bg)
+            sm.sample_native_stems()
+            sm.create_native_stem_models()
+            #sm.traverse_and_build()
+            chain = rtor.reconstruct_stems(sm)
 
             self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
     
@@ -299,7 +302,7 @@ class TestReconstructor(unittest.TestCase):
         sm.stem_defs['s1'].define = [678, 679, 684, 685]
         sm.traverse_and_build()
 
-        chain = reconstruct_stems(sm)
+        chain = rtor.reconstruct_stems(sm)
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
 
     def test_output_chain(self):
@@ -307,7 +310,7 @@ class TestReconstructor(unittest.TestCase):
         sm = SpatialModel(bg)
 
         sm.traverse_and_build()
-        chain = reconstruct_stems(sm)
+        chain = rtor.reconstruct_stems(sm)
 
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
 
@@ -339,7 +342,7 @@ class TestReconstructor(unittest.TestCase):
         sm = SpatialModel(bg)
 
         sm.traverse_and_build()
-        chain = reconstruct_stems(sm)
+        chain = rtor.reconstruct_stems(sm)
 
         #fr = bg.get_flanking_region('b15', 0)
         (a,b,i1,i2) = bg.get_flanking_handles('b15')
@@ -369,8 +372,6 @@ class TestReconstructor(unittest.TestCase):
         seq = bg.get_flanking_sequence('b15')
         (a,b,i1,i2) = bg.get_flanking_handles('b15')
 
-        print "seq:", seq
-        print "a:", a, "b:", "i1:", i1, "i2:", i2
         model = Barnacle(seq)
         model.sample()
         s = model.structure
@@ -380,9 +381,8 @@ class TestReconstructor(unittest.TestCase):
 
         sm = SpatialModel(bg)
         sm.traverse_and_build()
-        chain = reconstruct_stems(sm)
+        chain = rtor.reconstruct_stems(sm)
 
-        print "a:", a, "b:", b
         v2 = get_alignment_vectors_rosetta(chain, a, b)
         prev_r = 1000.
         min_r = 1000.
@@ -390,7 +390,6 @@ class TestReconstructor(unittest.TestCase):
 
         for i in range(iterations):
             sample_len = poisson.rvs(2)
-            #print "sample_len:", sample_len
 
             if sample_len == 0:
                 sample_len = 1
@@ -405,24 +404,18 @@ class TestReconstructor(unittest.TestCase):
             v1 = get_alignment_vectors_barnacle(ress, i1, i2)
             #r = centered_rmsd(v1, v2)
             r = self.quality_measurement(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
-            print "r:", r
-
-            #print "p:", p, "prev_p:", prev_p, "transition_p:", transition_p
             multiplier = .001 ** (1 / float(iterations))
-            #print "multiplier:", multiplier
             temperature = 1. * (multiplier) ** i
 
             if r > prev_r:
                 factor = -(r - prev_r) / ( temperature)
                 
                 p = exp (factor)
-                #print "r-prev_r:", r-prev_r, "temperature:", temperature, "factor:", factor, "p:", p
                 
                 if random() > p:
                     model.undo()
                     continue
 
-            print "r:", r, model.get_log_likelihood()
             prev_r = r
 
             if r < min_r:
@@ -446,8 +439,7 @@ class TestReconstructor(unittest.TestCase):
             atoms = Selection.unfold_entities(chain[i], 'A')
             for atom in atoms:
                 atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), null_array)
-                atom.transform(identity_matrix, point1)
+                atom.transform(rot_mat.transpose(), point1)
 
     def perturb_p_o5(self, chain, res_start, res_end, fixed):
         axis1 = chain[res_start]['P'].get_vector().get_array() - chain[res_start]['O5\''].get_vector().get_array()
@@ -462,8 +454,7 @@ class TestReconstructor(unittest.TestCase):
             atoms = Selection.unfold_entities(chain[i], 'A')
             for atom in atoms:
                 atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), null_array)
-                atom.transform(identity_matrix, point1)
+                atom.transform(rot_mat.transpose(), point1)
 
     def perturb_o5_c5(self, chain, res_start, res_end, fixed):
         axis1 = chain[res_start]['O5\''].get_vector().get_array() - chain[res_start]['C5\''].get_vector().get_array()
@@ -481,20 +472,13 @@ class TestReconstructor(unittest.TestCase):
                     continue
 
                 atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), null_array)
-                atom.transform(identity_matrix, point1)
+                atom.transform(rot_mat.transpose(), point1)
 
     def perturb_c5_c4(self, chain, res_start, res_end, fixed):
         axis1 = chain[res_start]['C5\''].get_vector().get_array() - chain[res_start]['C4\''].get_vector().get_array()
         point1 = chain[res_start]['C4\''].get_vector().get_array()
         
-        #print "axis1:", axis1
-        #print "point1:", point1
-
         moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-        #print "moving:", moving
-        #print "fixed:", fixed
 
         rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
         last_res = chain.get_list()[-1].id[1]
@@ -506,8 +490,7 @@ class TestReconstructor(unittest.TestCase):
                     continue
 
                 atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), null_array)
-                atom.transform(identity_matrix, point1)
+                atom.transform(rot_mat.transpose(), point1)
 
     def quality_measurement(self, chain_stems, chain_barnacle, handles):
         v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
@@ -529,19 +512,16 @@ class TestReconstructor(unittest.TestCase):
 
         v1_rmt = v1_m - v1_centroid
 
-        rmsd = vector_set_rmsd(v1_rmt, v2_rmt)
-        #print "rmsd1:", rmsd
+        rmsd = cuv.vector_set_rmsd(v1_rmt, v2_rmt)
 
         for atom in Selection.unfold_entities(chain_barnacle, 'A'):
             atom.transform(identity_matrix, -v2_centroid)
-            atom.transform(sup, null_array)
-            atom.transform(identity_matrix, v1_centroid)
+            atom.transform(sup, v1_centroid)
 
         v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
         v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
 
         rmsd2 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
-        print "rmsd2:", rmsd2
 
         for i in range(5):
             self.perturb_c3_o3(chain_barnacle, handles[2], handles[3], v1_m)
@@ -554,7 +534,6 @@ class TestReconstructor(unittest.TestCase):
             self.perturb_p_o5(chain_barnacle, handles[3], handles[3], v1_m)
             self.perturb_o5_c5(chain_barnacle, handles[3], handles[3], v1_m)
             self.perturb_c5_c4(chain_barnacle, handles[3], handles[3], v1_m)
-            #print "i:", i, "rmsd9:", rmsd9
 
             '''
             self.assertGreater(rmsd2, rmsd3)
@@ -563,7 +542,6 @@ class TestReconstructor(unittest.TestCase):
             self.assertGreater(rmsd5, rmsd6)
             '''
         rmsd9 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
-        #print "axis1:", axis1, "point1:", point1
         return rmsd9
 
     def align_stems_and_barnacle(self, chain_stems, chain_barnacle, handles):
@@ -613,8 +591,7 @@ class TestReconstructor(unittest.TestCase):
 
         for atom in Selection.unfold_entities(chain1, 'A'):
             atom.transform(identity_matrix, -v1_centroid)
-            atom.transform(sup, null_array)
-            atom.transform(identity_matrix, v2_centroid)
+            atom.transform(sup, v2_centroid)
 
         chain3.add(chain1[handles[0]-1])
         chain3.add(chain1[handles[1]+1])

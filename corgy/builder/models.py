@@ -170,6 +170,39 @@ class SpatialModel:
 
         self.stem_defs = stem_defs
 
+    def sample_native_stems(self):
+        '''
+        Sample the native stems for each stem region.
+
+        @return: A dictionary containing the real statistics about each stem in the
+        structure.
+        '''
+        stem_defs = dict()
+
+        for stats in self.stem_stats.values():
+            for stat in stats:
+                if stat.pdb_name == self.bg.name:
+                    for d in self.bg.defines.keys():
+                        if d[0] == 's':
+                            #define = " ".join(map(str,self.bg.defines[d]))
+                            if stat.define == self.bg.defines[d]:
+                                #print "define:", self.bg.defines[d], stat.define
+                                stem_defs[d] = stat
+
+        self.stem_defs = stem_defs
+
+    def create_native_stem_models(self):
+        '''
+        Create StemModels from the stem definitions in the graph file.
+        '''
+        stems = dict()
+
+        for d in self.bg.defines.keys():
+            if d[0] == 's':
+                stems[d] = StemModel(self.bg.coords[d], self.bg.twists[d])
+
+        self.stems = stems
+
     def sample_loops(self):
         '''
         Sample statistics for each loop region.
