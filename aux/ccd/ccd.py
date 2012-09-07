@@ -68,7 +68,7 @@ def point_on_line(P, A, D):
 
     return X
 
-def get_closer_rotation_matrix(TH, point, M, F):
+def get_closer_rotation_matrix(TH, point, M, F, out_rot_mat = None):
     support = "#include <math.h>"
 
     code = """
@@ -165,7 +165,7 @@ def get_closer_rotation_matrix(TH, point, M, F):
     support = "#include <math.h>"
     a = weave.inline(code, ['M', 'TH', 'F', 'point'], support_code = support, libraries = ['m'])
 
-    return rotation_matrix_weave(TH, a)
+    return rotation_matrix_weave(TH, a, out_rot_mat)
 
 def ccd(moving, fixed, iterations=10, print_d=True):
     '''
@@ -174,30 +174,63 @@ def ccd(moving, fixed, iterations=10, print_d=True):
     '''
     assert(len(fixed) == 3)
     fixed = array(fixed)
+    counter = 0
+    moving1 = array(moving)
+    moving2 = array(moving)
+    tmoving = moving2
+    moving = moving1
+    rot_mat = np.eye(3,3)
 
     for k in xrange(iterations):
         for i in xrange(1, len(moving) - 3):
             TH = (moving[i] - moving[i-1])
 
-            rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed)
+            rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
 
+            '''
             rem_moving = array(moving[i+1:])
             rem_moving -= moving[i]
-            rem_moving = dot(rot_mat, rem_moving.transpose()).transpose()
+            #rem_moving = dot(rot_mat, rem_moving.transpose()).transpose()
+            rem_moving = dot(rem_moving, rot_mat.transpose())
+            
             rem_moving += moving[i]
             moving = moving[:i+1] + list(rem_moving)
             '''
-            rem_moving = moving[i+1:]
-            rem_moving -= moving[i]
-            dot(rot_mat, rem_moving.transpose(), rem_moving).transpose()
-            rem_moving += moving[i]
 
+            #distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
+            #print "distances2:", distances2
+
+            #if i == 3:
+            #    sys.exit(1)
+
+            rem_moving = moving[i+1:]
+            rem_tmoving = tmoving[i+1:]
+
+            rem_moving -= moving[i]
+            #print "counter:", counter
+            #print "rem_tmoving:", rem_tmoving
+            dot(rem_moving, rot_mat.transpose(), rem_tmoving)
+            #print "rem_moving:", rem_tmoving
+            rem_tmoving += moving[i]
+
+            tt_moving = moving
+            moving = tmoving
+            moving[i] = tt_moving[i]
+            tmoving = tt_moving
+            
             '''
+            sys.exit(1)
+            #dot(rot_mat, rem_moving.transpose(), rem_moving.transpose())
+            rem_moving += moving[i]
+            print "rem_moving:", rem_moving
+            '''
+
 
         if print_d:
             rmsd = calc_rmsd(moving[-3:], fixed)
             print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
 
+    print "counter:", counter
     return moving
 
 def main():
@@ -223,8 +256,8 @@ def main():
     angles2 = [vec_angle(moving[i-1] - moving[i-2], moving[i] - moving[i-1]) for i in range(2, len(moving))]
     distances2 = [magnitude(moving[i] - moving[i-1]) for i in range(1, len(moving))]
 
-    assert(allclose(angles1, angles2))
     assert(allclose(distances1, distances2))
+    assert(allclose(angles1, angles2))
 
     #print "angles1:", angles1
     #print "angles2:", angles2

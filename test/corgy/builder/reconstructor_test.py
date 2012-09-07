@@ -1,5 +1,7 @@
 import unittest
 
+import aux.Barnacle as barn
+
 import corgy.builder.reconstructor as rc
 import pdb, sys
 
@@ -21,15 +23,13 @@ from corgy.utilities.vector import get_vector_centroid
 
 from corgy.builder.models import SpatialModel
 from corgy.builder.rmsd import centered_rmsd, optimal_superposition
-from corgy.builder.ccd import get_closer_rotation_matrix
 
 import corgy.builder.reconstructor as rtor
 
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
 from copy import deepcopy
-from random import uniform, randint, random
-from scipy.stats import norm, poisson
+from random import uniform, random
 
 from Bio.PDB import PDBParser, PDBIO, Selection
 from Bio.PDB.Chain import Chain
@@ -40,36 +40,6 @@ import corgy.utilities.vector as cuv
 
 import os
 
-def get_alignment_vectors_rosetta(ress, r1, r2):
-    return( ress[r1]['O4*'].get_vector().get_array(),
-            ress[r1]['C1*'].get_vector().get_array(),
-            ress[r1]['C2*'].get_vector().get_array())
-
-def get_alignment_vectors_barnacle(ress, r1, r2):
-    return( ress[r1]['O4\''].get_vector().get_array(),
-            ress[r1]['C1\''].get_vector().get_array(),
-            ress[r1]['C2\''].get_vector().get_array())
-
-def get_measurement_vectors_rosetta(ress, r1, r2):
-    return( ress[r2]['O4*'].get_vector().get_array(), 
-            ress[r2]['C1*'].get_vector().get_array(),
-            ress[r2]['C2*'].get_vector().get_array())
-
-def get_measurement_vectors_barnacle(ress, r1, r2):
-    return( ress[r2]['O4\''].get_vector().get_array(), 
-            ress[r2]['C1\''].get_vector().get_array(),
-            ress[r2]['C2\''].get_vector().get_array() )
-
-
-def get_measurement_rmsd(chain1, chain2, handles):
-    v1_m = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
-    v2_m = get_measurement_vectors_barnacle(chain2, handles[2], handles[3])
-
-    rmsd = cuv.vector_set_rmsd(v1_m, v2_m)
-
-    return rmsd
-
-
 def get_random_orientation():
     '''
     Return a random tuple (u, v, t) such that
@@ -77,6 +47,7 @@ def get_random_orientation():
     -pi <= v <= pi
     -pi <= t <= pi
     '''
+
     return (uniform(0, pi), uniform(-pi, pi), uniform(-pi, pi))
 
 def get_random_translation():
@@ -330,9 +301,111 @@ class TestReconstructor(unittest.TestCase):
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         self.check_pymol_stems(bg, output_file + ".pym", output_file + ".pdb")
 
+    def test_reconstruct_loop(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+
+        #sm.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm)
+        #rtor.reconstruct_loop(chain, sm, 'b15')
+        rtor.reconstruct_loop(chain, sm, 'b1')
+
+        #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+        rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
+
+    def get_adjacent_interatom_distances(self, chain):
+        adjacent_atoms = dict()
+        adjacent_atoms['P'] = ['O5\'']
+        adjacent_atoms['O5\''] = ['C5\'']
+        adjacent_atoms['C5\''] = ['C4\'']
+        adjacent_atoms['C4\''] = ['O4\'', 'C3\'']
+        adjacent_atoms['O4\''] = ['C1\'']
+        adjacent_atoms['C1\''] = ['C2\'']
+        adjacent_atoms['C2\''] = ['C3\'']
+        adjacent_atoms['C3\''] = ['O3\'']
+
+        distances = []
+        ress = list(chain.get_list())
+        for res in chain:
+            for key in adjacent_atoms.keys():
+                for value in adjacent_atoms[key]:
+                    distances += [res[key] - res[value]]
+        for i in range(1, len(ress)):
+            distances += [ress[i]['P'] - ress[i-1]['O3\'']]
+
+        return distances
+
+    def test_get_stem_coord_array(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        ld = 'b15'
+        seq = bg.get_flanking_sequence(ld)
+        (a,b,i1,i2) = bg.get_flanking_handles(ld)
+        model = barn.Barnacle(seq)
+        model.sample()
+        chain = list(model.structure.get_chains())[0]
+
+        (coords, indeces) = rtor.get_atom_coord_array(chain, i1, i2)
+        
+        for i in range(i1, i2+1):
+            res = chain[i]
+            self.assertTrue(allclose(coords[indeces[res.id[1]]], res['P'].get_vector().get_array()))
+
+
+    def test_quality_measure(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+
+        ld = 'b15'
+        seq = bg.get_flanking_sequence(ld)
+        (a,b,i1,i2) = bg.get_flanking_handles(ld)
+
+        model = barn.Barnacle(seq)
+        model.sample()
+        s = model.structure
+
+        chain_stems = rtor.reconstruct_stems(sm) 
+        chain_barnacle = list(model.structure.get_chains())[0]
+
+        distances = self.get_adjacent_interatom_distances(chain_barnacle)
+
+        r, loop_chain = rtor.quality_measurement(chain_stems, chain_barnacle, (a,b,i1,i2))
+
+        distances1 = self.get_adjacent_interatom_distances(loop_chain)
+
+        self.assertTrue(allclose(distances, distances1))
+
+    def test_close_fragment_loop(self):
+        import aux.Barnacle as barn
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+
+        ld = 'b15'
+        seq = bg.get_flanking_sequence(ld)
+        (a,b,i1,i2) = bg.get_flanking_handles(ld)
+
+        model = barn.Barnacle(seq)
+        model.sample()
+        s = model.structure
+
+        chain_stems = rtor.reconstruct_stems(sm) 
+        chain_barnacle = list(model.structure.get_chains())[0]
+
+        distances = self.get_adjacent_interatom_distances(chain_barnacle)
+
+        r, loop_chain = rtor.close_fragment_loop(chain_stems, chain_barnacle, (a,b,i1,i2), iterations=1000)
+
+        distances1 = self.get_adjacent_interatom_distances(loop_chain)
+
+        self.assertTrue(allclose(distances, distances1))
+
     def test_barnacle(self):
-        sys.path.append('aux/Barnacle')
-        from Barnacle import Barnacle
+        from aux.Barnacle import Barnacle
 
         model = Barnacle('ACGU')
         model.sample()
@@ -347,11 +420,10 @@ class TestReconstructor(unittest.TestCase):
         #fr = bg.get_flanking_region('b15', 0)
         (a,b,i1,i2) = bg.get_flanking_handles('b15')
 
-        get_alignment_vectors_rosetta(chain, a, b)
+        rtor.get_alignment_vectors_rosetta(chain, a, b)
 
     def test_barnacle_handles(self):
-        sys.path.append('aux/Barnacle')
-        from Barnacle import Barnacle
+        from aux.Barnacle import Barnacle
 
         bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         seq = bg.get_flanking_sequence('b15')
@@ -362,269 +434,5 @@ class TestReconstructor(unittest.TestCase):
         s = model.structure
 
         ress = list(s.get_residues())
-        get_alignment_vectors_barnacle(ress, i1, i2)
-
-    def test_handle_rmsd(self):
-        sys.path.append('aux/Barnacle')
-        from Barnacle import Barnacle
-
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        seq = bg.get_flanking_sequence('b15')
-        (a,b,i1,i2) = bg.get_flanking_handles('b15')
-
-        model = Barnacle(seq)
-        model.sample()
-        s = model.structure
-
-        ress = list(s.get_residues())
-        v1 = get_alignment_vectors_barnacle(ress, i1, i2)
-
-        sm = SpatialModel(bg)
-        sm.traverse_and_build()
-        chain = rtor.reconstruct_stems(sm)
-
-        v2 = get_alignment_vectors_rosetta(chain, a, b)
-        prev_r = 1000.
-        min_r = 1000.
-        iterations = 10
-
-        for i in range(iterations):
-            sample_len = poisson.rvs(2)
-
-            if sample_len == 0:
-                sample_len = 1
-
-            j = randint(0, len(seq)-sample_len)
-            m1 = j
-            m2 = m1 + sample_len
-
-            model.sample(start=m1, end=m2)
-
-            ress = list(model.structure.get_residues())
-            v1 = get_alignment_vectors_barnacle(ress, i1, i2)
-            #r = centered_rmsd(v1, v2)
-            r = self.quality_measurement(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
-            multiplier = .001 ** (1 / float(iterations))
-            temperature = 1. * (multiplier) ** i
-
-            if r > prev_r:
-                factor = -(r - prev_r) / ( temperature)
-                
-                p = exp (factor)
-                
-                if random() > p:
-                    model.undo()
-                    continue
-
-            prev_r = r
-
-            if r < min_r:
-                self.align_stems_and_barnacle(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
-                min_r = r
-            #sys.exit(1)
-
-            self.assertGreater(centered_rmsd, 0)
-            model.save_structure(os.path.join(Configuration.test_output_dir, 'best.pdb'))
-
-    def perturb_c3_o3(self, chain, res_start, res_end, fixed):
-        axis1 = chain[res_start]['C3\''].get_vector().get_array() - chain[res_start]['O3\''].get_vector().get_array()
-        point1 = chain[res_start]['O3\''].get_vector().get_array()
-
-        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
-        last_res = chain.get_list()[-1].id[1]
-
-        for i in range(res_start+1, last_res+1):
-            atoms = Selection.unfold_entities(chain[i], 'A')
-            for atom in atoms:
-                atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), point1)
-
-    def perturb_p_o5(self, chain, res_start, res_end, fixed):
-        axis1 = chain[res_start]['P'].get_vector().get_array() - chain[res_start]['O5\''].get_vector().get_array()
-        point1 = chain[res_start]['O5\''].get_vector().get_array()
-
-        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
-        last_res = chain.get_list()[-1].id[1]
-
-        for i in range(res_start, last_res+1):
-            atoms = Selection.unfold_entities(chain[i], 'A')
-            for atom in atoms:
-                atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), point1)
-
-    def perturb_o5_c5(self, chain, res_start, res_end, fixed):
-        axis1 = chain[res_start]['O5\''].get_vector().get_array() - chain[res_start]['C5\''].get_vector().get_array()
-        point1 = chain[res_start]['C5\''].get_vector().get_array()
-
-        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
-        last_res = chain.get_list()[-1].id[1]
-
-        for i in range(res_start, last_res+1):
-            atoms = Selection.unfold_entities(chain[i], 'A')
-            for atom in atoms:
-                if i == res_start and atom.name == 'P':
-                    continue
-
-                atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), point1)
-
-    def perturb_c5_c4(self, chain, res_start, res_end, fixed):
-        axis1 = chain[res_start]['C5\''].get_vector().get_array() - chain[res_start]['C4\''].get_vector().get_array()
-        point1 = chain[res_start]['C4\''].get_vector().get_array()
-        
-        moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-        rot_mat = get_closer_rotation_matrix(axis1, point1, moving, fixed)
-        last_res = chain.get_list()[-1].id[1]
-
-        for i in range(res_start, last_res+1):
-            atoms = Selection.unfold_entities(chain[i], 'A')
-            for atom in atoms:
-                if i == res_start and (atom.name == 'P' or atom.name == 'O5\''):
-                    continue
-
-                atom.transform(identity_matrix, -point1)
-                atom.transform(rot_mat.transpose(), point1)
-
-    def quality_measurement(self, chain_stems, chain_barnacle, handles):
-        v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2 = get_alignment_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-        v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-        v1_centroid = get_vector_centroid(v1)
-        v2_centroid = get_vector_centroid(v2)
-
-        v1_t = v1 - v1_centroid
-        v2_t = v2 - v2_centroid
-
-        sup = optimal_superposition(v2_t, v1_t)
-
-        v2_mt = v2_m - v2_centroid
-        v2_rmt = dot(sup.transpose(), v2_mt.transpose()).transpose()
-
-        v1_rmt = v1_m - v1_centroid
-
-        rmsd = cuv.vector_set_rmsd(v1_rmt, v2_rmt)
-
-        for atom in Selection.unfold_entities(chain_barnacle, 'A'):
-            atom.transform(identity_matrix, -v2_centroid)
-            atom.transform(sup, v1_centroid)
-
-        v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-        rmsd2 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
-
-        for i in range(5):
-            self.perturb_c3_o3(chain_barnacle, handles[2], handles[3], v1_m)
-
-            for j in range(handles[2] + 1, handles[2] + 2):
-                self.perturb_p_o5(chain_barnacle, j, handles[3], v1_m)
-                self.perturb_o5_c5(chain_barnacle, j, handles[3], v1_m)
-                self.perturb_c5_c4(chain_barnacle,  j, handles[3], v1_m)
-
-            self.perturb_p_o5(chain_barnacle, handles[3], handles[3], v1_m)
-            self.perturb_o5_c5(chain_barnacle, handles[3], handles[3], v1_m)
-            self.perturb_c5_c4(chain_barnacle, handles[3], handles[3], v1_m)
-
-            '''
-            self.assertGreater(rmsd2, rmsd3)
-            self.assertGreater(rmsd3, rmsd4)
-            self.assertGreater(rmsd4, rmsd5)
-            self.assertGreater(rmsd5, rmsd6)
-            '''
-        rmsd9 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
-        return rmsd9
-
-    def align_stems_and_barnacle(self, chain_stems, chain_barnacle, handles):
-        v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2 = get_alignment_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-        v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-        v1_centroid = get_vector_centroid(v1)
-        v2_centroid = get_vector_centroid(v2)
-
-        v1_t = v1 - v1_centroid
-        v2_t = v2 - v2_centroid
-        sup = optimal_superposition(v1_t, v2_t)
-
-        chain1 = Chain(' ')
-        chain2 = Chain(' ')
-        chain3 = Chain(' ')
-
-        '''
-        for res in chain_stems:
-            chain1.add(res)
-        '''
-        counter = 0
-        new_chain_barnacle = Chain(' ')
-
-        for i in range(handles[2], handles[3]+1):
-            id1 = chain_barnacle[i].id
-            chain_barnacle[i].id = (id1[0], handles[0] + counter, id1[2])
-            new_chain_barnacle.add(chain_barnacle[i])
-            counter += 1
-
-        chain_barnacle = new_chain_barnacle
-
-        chain1.add(chain_stems[handles[0]])
-        chain1.add(chain_stems[handles[1]])
-        
-        chain1.add(chain_stems[handles[0]-1])
-        chain1.add(chain_stems[handles[1]+1])
-
-        chain1.add(chain_stems[handles[0]-2])
-        chain1.add(chain_stems[handles[1]+2])
-
-        for i in range(handles[0], handles[1]+1):
-            chain2.add(chain_barnacle[i])
-
-        for atom in Selection.unfold_entities(chain1, 'A'):
-            atom.transform(identity_matrix, -v1_centroid)
-            atom.transform(sup, v2_centroid)
-
-        chain3.add(chain1[handles[0]-1])
-        chain3.add(chain1[handles[1]+1])
-
-        chain3.add(chain1[handles[0]-2])
-        chain3.add(chain1[handles[1]+2])
-
-        for i in range(handles[0], handles[1]+1):
-            chain3.add(chain2[i])
-
-        s1 = Structure(' ')
-        m1 = Model(' ')
-        m1.add(chain1)
-        s1.add(m1)
-
-        s2 = Structure(' ')
-        m2 = Model(' ')
-        m2.add(chain2)
-        s2.add(m2)
-
-        s3 = Structure(' ')
-        m3 = Model(' ')
-        m3.add(chain3)
-        s3.add(m3)
-
-        io = PDBIO()
-        io.set_structure(s1)
-        io.save(os.path.join(Configuration.test_output_dir, "s1.pdb"))
-
-        io.set_structure(s2)
-        io.save(os.path.join(Configuration.test_output_dir, 's2.pdb'))
-
-        io.set_structure(s3)
-        io.save(os.path.join(Configuration.test_output_dir, 's3.pdb'))
-
+        rtor.get_alignment_vectors_barnacle(ress, i1, i2)
 
