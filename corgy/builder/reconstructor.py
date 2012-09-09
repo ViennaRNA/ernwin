@@ -349,6 +349,16 @@ def perturb_c5_c4(chain, res_start, res_end, fixed):
             atom.transform(np.eye(3,3), -point1)
             atom.transform(rot_mat.transpose(), point1)
 
+a_5_names = ['P', 'O5\'', 'C5\'', 'C4\'', 'O4\'', 'C1\'', 'C2\''] 
+a_3_names = ['C3\'', 'O3\'']
+
+a_names = dict()
+a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
+a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+
+a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
+a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+
 def get_atom_coord_array(chain, start_res, end_res):
     '''
     Return an array of the coordinates of all the atoms in the chain, 
@@ -363,16 +373,6 @@ def get_atom_coord_array(chain, start_res, end_res):
         indeces - The indeces into this array, which indicate the position of the P atoms of each residue
 
     '''
-
-    a_5_names = ['P', 'O5\'', 'C5\'', 'C4\'', 'O4\'', 'C1\'', 'C2\''] 
-    a_3_names = ['C3\'', 'O3\'']
-
-    a_names = dict()
-    a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
-    a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
-
-    a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
-    a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
 
     coords = []
     indeces = dict()
@@ -390,9 +390,36 @@ def get_atom_coord_array(chain, start_res, end_res):
 
     return (coords, indeces)
 
+def set_atom_coord_array(chain, coords, start_res, end_res):
+    '''
+    Set the coordinates of the atoms in the chain to the ones in coords. 
+
+    P, O5', C5', C4', O4', C3', C1', C2', base_atoms, O3'
+
+    @param chain: The chain which will recieve coordinates
+    @param coords: The coordinates to be entered
+    @param start_res: The number of the starting residue
+    @param end_res: The number of the ending residue
+    @return (coords, indeces): coords - A 3 x n matrix where n is the number of atoms in the matrix
+        indeces - The indeces into this array, which indicate the position of the P atoms of each residue
+
+    '''
+    count = 0
+
+    for i in range(start_res, end_res+1):
+        res = chain[i]
+        #print 'res:', res.resname.strip()
+        for aname in a_names[res.resname.strip()]:
+            #print "coords[count]:", coords[count]
+            #chain[i][aname].coord = bpdb.Vector(coords[count])
+            chain[i][aname].coord = coords[count]
+            #print "coords2:", chain[i][aname].coord
+            count += 1
+    return chain
+
 def align_starts(chain_stems, chain_loop, handles):
     '''
-    Align the suger rings of one part of the stem structure to one part
+    Align the sugar rings of one part of the stem structure to one part
     of the loop structure.
 
     @param chain_stems: The chain containing the stems
@@ -440,7 +467,10 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=50):
     (moving, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
 
     moving1 = np.array(moving)
-    moving2 = np.array(moving)
+    moving2 = copy.deepcopy(moving1)
+    #moving2 = np.array(moving)
+    
+    moving_orig = np.array(moving)
 
     moving = moving1
     tmoving = moving2
@@ -457,13 +487,14 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=50):
     rot_mat = np.eye(3,3)
 
     for i in range(iterations):
-        rmsd = cbc.calc_rmsd(moving[-3:], fixed)
+        rmsd = cbc.calc_rmsd(moving[end_index+4:end_index+7], fixed)
         print "rmsd:", rmsd
 
         for j in xrange(len(points)):
             for k in xrange(len(points[j])):
                 l = points[j][k]
-                point = moving[l]
+                print "l:", l
+                point = moving[l-1]
                 axis = moving[l] - moving[l-1]
                 target = moving[end_index+4:end_index+7]
                 
@@ -477,19 +508,37 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=50):
 
                 rem_moving = moving[l+1:]
                 rem_tmoving = tmoving[l+1:]
+            
 
+                dists1 = [cuv.magnitude(rem_moving[x] - rem_moving[x-1]) for x in range(1, len(rem_moving))]
                 rem_moving -= moving[l]
-                #print "counter:", counter
-                #print "rem_tmoving:", rem_tmoving
+                dists2 = [cuv.magnitude(rem_moving[x] - rem_moving[x-1]) for x in range(1, len(rem_moving))]
+                assert(np.allclose(dists1, dists2))
                 np.dot(rem_moving, rot_mat.transpose(), rem_tmoving)
-                #print "rem_moving:", rem_tmoving
+                dists3 = [cuv.magnitude(rem_tmoving[x] - rem_tmoving[x-1]) for x in range(1, len(rem_tmoving))]
+                assert(np.allclose(dists2, dists3))
+
                 rem_tmoving += moving[l]
+                dists4 = [cuv.magnitude(rem_tmoving[x] - rem_tmoving[x-1]) for x in range(1, len(rem_tmoving))]
+                assert(np.allclose(dists3, dists4))
 
                 tt_moving = moving
                 moving = tmoving
                 moving[l] = tt_moving[l]
                 tmoving = tt_moving
+
+        print "moving:", moving
+        if i == 2:
+            sys.exit(1)
     
+    assert(not np.allclose(moving_orig, moving))
+
+    chain_loop = set_atom_coord_array(chain_loop, moving, handles[2], handles[3])
+    (moving_new, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
+
+    assert(not np.allclose(moving_orig, moving_new))
+
+    return (rmsd, chain_loop)
 
 def quality_measurement(chain_stems, chain_barnacle, handles):
     '''
@@ -553,7 +602,7 @@ def reconstruct_loop(chain, sm, ld):
 
     prev_r = 1000.
     min_r = 1000.
-    iterations = 10
+    iterations = 20
     best_loop_chain = None
 
     for i in range(iterations):
@@ -570,7 +619,7 @@ def reconstruct_loop(chain, sm, ld):
 
         # attempt to close the distance between the two stems with this loop and return
         # the minimum distance achieved
-        r, loop_chain = quality_measurement(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
+        r, loop_chain = close_fragment_loop(chain, list(model.structure.get_chains())[0], (a,b,i1,i2), iterations=500)
 
         multiplier = .001 ** (1 / float(iterations))
         temperature = 1. * (multiplier) ** i
@@ -585,6 +634,7 @@ def reconstruct_loop(chain, sm, ld):
                 continue
 
         prev_r = r
+        print "r:", r
 
         if r < min_r:
             best_loop_chain = copy.deepcopy(loop_chain)

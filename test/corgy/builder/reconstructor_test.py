@@ -310,7 +310,7 @@ class TestReconstructor(unittest.TestCase):
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
         #rtor.reconstruct_loop(chain, sm, 'b15')
-        rtor.reconstruct_loop(chain, sm, 'b1')
+        rtor.reconstruct_loop(chain, sm, 'b15')
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
@@ -333,6 +333,8 @@ class TestReconstructor(unittest.TestCase):
                 for value in adjacent_atoms[key]:
                     distances += [res[key] - res[value]]
         for i in range(1, len(ress)):
+            #print "ress[i]['P'].coord:", ress[i]['P'].coord
+            #print "ress[i]['O3\''].coord:", ress[i-1]['O3\''].coord
             distances += [ress[i]['P'] - ress[i-1]['O3\'']]
 
         return distances
@@ -396,12 +398,17 @@ class TestReconstructor(unittest.TestCase):
         chain_stems = rtor.reconstruct_stems(sm) 
         chain_barnacle = list(model.structure.get_chains())[0]
 
+        rtor.align_starts(chain_stems, chain_barnacle, (a,b,i1,i2))
         distances = self.get_adjacent_interatom_distances(chain_barnacle)
+        (moving, indeces) = rtor.get_atom_coord_array(chain_barnacle, i1, i2)
 
-        r, loop_chain = rtor.close_fragment_loop(chain_stems, chain_barnacle, (a,b,i1,i2), iterations=1000)
+        r, chain_loop = rtor.close_fragment_loop(chain_stems, chain_barnacle, (a,b,i1,i2), iterations=100)
 
-        distances1 = self.get_adjacent_interatom_distances(loop_chain)
+        (moving1, indeces1) = rtor.get_atom_coord_array(chain_loop, i1, i2)
 
+        # make sure that the loop closure actually did something
+        self.assertFalse(allclose(moving, moving1))
+        distances1 = self.get_adjacent_interatom_distances(chain_loop)
         self.assertTrue(allclose(distances, distances1))
 
     def test_barnacle(self):
