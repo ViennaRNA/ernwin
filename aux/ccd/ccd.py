@@ -7,7 +7,7 @@ from corgy.utilities.vector import normalize, rotation_matrix_weave
 from corgy.utilities.vector import vec_angle, magnitude
 
 from numpy import array, dot, cross, allclose, eye, ones
-from numpy.random import random
+from numpy.random import random, randint
 
 import numpy as np
 
@@ -23,9 +23,10 @@ def make_random_chain(n=12):
     l=[v]
     for i in range(0, n-1):
         nv=normalize(random(3))
-        nv=v + 3.8 * nv
+        nv=v + 38 * nv
         l.append(nv)
         v=nv
+
     return l
 
 def rotate_last_three(chain):
@@ -182,7 +183,8 @@ def ccd(moving, fixed, iterations=10, print_d=True):
     rot_mat = np.eye(3,3)
 
     for k in xrange(iterations):
-        for i in xrange(1, len(moving) - 3):
+        prev_i = 1
+        for i in xrange(1, len(moving) - 3, 2):
             TH = (moving[i] - moving[i-1])
 
             rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
@@ -197,7 +199,7 @@ def ccd(moving, fixed, iterations=10, print_d=True):
             moving = moving[:i+1] + list(rem_moving)
             '''
 
-            #distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
+            distances1 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
             #print "distances2:", distances2
 
             #if i == 3:
@@ -213,10 +215,13 @@ def ccd(moving, fixed, iterations=10, print_d=True):
             #print "rem_moving:", rem_tmoving
             rem_tmoving += moving[i]
 
-            tt_moving = moving
-            moving = tmoving
-            moving[i] = tt_moving[i]
-            tmoving = tt_moving
+            #tt_moving = moving
+            #moving = tmoving
+            #moving[i-1] = tt_moving[i-1]
+            #moving[prev_i+1:i+1] = tt_moving[prev_i+1:i+1]
+            moving[:] = tmoving
+            #moving[i] = tt_moving[i]
+            #tmoving = tt_moving
             
             '''
             sys.exit(1)
@@ -224,13 +229,20 @@ def ccd(moving, fixed, iterations=10, print_d=True):
             rem_moving += moving[i]
             print "rem_moving:", rem_moving
             '''
+            distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
+
+            #print "k:", i
+            #print "distances1", array([distances1]) - array([distances2])
+            assert(np.allclose(distances1, distances2))
+
+            prev_i = i
 
 
+        rmsd = calc_rmsd(moving[-3:], fixed)
         if print_d:
-            rmsd = calc_rmsd(moving[-3:], fixed)
             print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
 
-    print "counter:", counter
+    print "counter:", counter, "rmsd_d:", rmsd
     return moving
 
 def main():

@@ -315,30 +315,6 @@ class TestReconstructor(unittest.TestCase):
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
 
-    def get_adjacent_interatom_distances(self, chain):
-        adjacent_atoms = dict()
-        adjacent_atoms['P'] = ['O5\'']
-        adjacent_atoms['O5\''] = ['C5\'']
-        adjacent_atoms['C5\''] = ['C4\'']
-        adjacent_atoms['C4\''] = ['O4\'', 'C3\'']
-        adjacent_atoms['O4\''] = ['C1\'']
-        adjacent_atoms['C1\''] = ['C2\'']
-        adjacent_atoms['C2\''] = ['C3\'']
-        adjacent_atoms['C3\''] = ['O3\'']
-
-        distances = []
-        ress = list(chain.get_list())
-        for res in chain:
-            for key in adjacent_atoms.keys():
-                for value in adjacent_atoms[key]:
-                    distances += [res[key] - res[value]]
-        for i in range(1, len(ress)):
-            #print "ress[i]['P'].coord:", ress[i]['P'].coord
-            #print "ress[i]['O3\''].coord:", ress[i-1]['O3\''].coord
-            distances += [ress[i]['P'] - ress[i-1]['O3\'']]
-
-        return distances
-
     def test_get_stem_coord_array(self):
         bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         ld = 'b15'
@@ -372,11 +348,11 @@ class TestReconstructor(unittest.TestCase):
         chain_stems = rtor.reconstruct_stems(sm) 
         chain_barnacle = list(model.structure.get_chains())[0]
 
-        distances = self.get_adjacent_interatom_distances(chain_barnacle)
+        distances = rtor.get_adjacent_interatom_distances(chain_barnacle, i1, i2)
 
         r, loop_chain = rtor.quality_measurement(chain_stems, chain_barnacle, (a,b,i1,i2))
 
-        distances1 = self.get_adjacent_interatom_distances(loop_chain)
+        distances1 = rtor.get_adjacent_interatom_distances(loop_chain, i1, i2)
 
         self.assertTrue(allclose(distances, distances1))
 
@@ -399,16 +375,17 @@ class TestReconstructor(unittest.TestCase):
         chain_barnacle = list(model.structure.get_chains())[0]
 
         rtor.align_starts(chain_stems, chain_barnacle, (a,b,i1,i2))
-        distances = self.get_adjacent_interatom_distances(chain_barnacle)
+        distances = rtor.get_adjacent_interatom_distances(chain_barnacle, i1, i2)
         (moving, indeces) = rtor.get_atom_coord_array(chain_barnacle, i1, i2)
 
-        r, chain_loop = rtor.close_fragment_loop(chain_stems, chain_barnacle, (a,b,i1,i2), iterations=100)
+        r, chain_loop = rtor.close_fragment_loop(chain_stems, chain_barnacle, (a,b,i1,i2), iterations=10)
+        #chain_loop = rtor.set_atom_coord_array(chain_barnacle, moving, i1, i2)
 
         (moving1, indeces1) = rtor.get_atom_coord_array(chain_loop, i1, i2)
 
         # make sure that the loop closure actually did something
         self.assertFalse(allclose(moving, moving1))
-        distances1 = self.get_adjacent_interatom_distances(chain_loop)
+        distances1 = rtor.get_adjacent_interatom_distances(chain_loop, i1, i2)
         self.assertTrue(allclose(distances, distances1))
 
     def test_barnacle(self):
