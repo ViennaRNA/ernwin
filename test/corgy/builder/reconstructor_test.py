@@ -309,8 +309,16 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        #rtor.reconstruct_loop(chain, sm, 'b15')
+        rtor.reconstruct_loops(chain, sm)
+        '''
         rtor.reconstruct_loop(chain, sm, 'b15')
+        #rtor.reconstruct_loop(chain, sm, 'b1')
+        rtor.reconstruct_loop(chain, sm, 'b11')
+        rtor.reconstruct_loop(chain, sm, 'b18')
+        #rtor.reconstruct_loop(chain, sm, 'b16')
+        #rtor.reconstruct_loop(chain, sm, 'x2', 0)
+        #rtor.reconstruct_loop(chain, sm, 'x2', 1)
+        '''
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))

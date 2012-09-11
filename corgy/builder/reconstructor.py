@@ -30,9 +30,9 @@ def get_alignment_vectors_rosetta(ress, r1, r2):
             ress[r1]['C2*'].get_vector().get_array())
 
 def get_alignment_vectors_barnacle(ress, r1, r2):
-    return( ress[r1]['O4\''].get_vector().get_array(),
-            ress[r1]['C1\''].get_vector().get_array(),
-            ress[r1]['C2\''].get_vector().get_array())
+    return( ress[r1]['O4*'].get_vector().get_array(),
+            ress[r1]['C1*'].get_vector().get_array(),
+            ress[r1]['C2*'].get_vector().get_array())
 
 def get_measurement_vectors_rosetta(ress, r1, r2):
     return( ress[r2]['O4*'].get_vector().get_array(), 
@@ -40,9 +40,9 @@ def get_measurement_vectors_rosetta(ress, r1, r2):
             ress[r2]['C2*'].get_vector().get_array())
 
 def get_measurement_vectors_barnacle(ress, r1, r2):
-    return( ress[r2]['O4\''].get_vector().get_array(), 
-            ress[r2]['C1\''].get_vector().get_array(),
-            ress[r2]['C2\''].get_vector().get_array() )
+    return( ress[r2]['O4*'].get_vector().get_array(), 
+            ress[r2]['C1*'].get_vector().get_array(),
+            ress[r2]['C2*'].get_vector().get_array() )
 
 
 def get_measurement_rmsd(chain1, chain2, handles):
@@ -251,7 +251,7 @@ def add_residue_to_rosetta_chain(chain, residue):
 
     chain.add(residue)
 
-def add_loop_chain(chain, loop_chain, handles):
+def add_loop_chain(chain, loop_chain, handles, length):
     '''
     Add all of the residues in loop_chain to chain.
 
@@ -261,21 +261,18 @@ def add_loop_chain(chain, loop_chain, handles):
         chain which define which section is actually the loop and which is the additional linker
         region.
     '''
-    '''
     # detach the residues of the helix which are adjacent to the loop
-    r1_id = chain[handles[0]].id
-    r2_id = chain[handles[1]].id
-
-    chain.detach_child(r1_id)
-    chain.detach_child(r2_id)
-
+    #r1_id = chain[handles[0]].id
+    #chain.detach_child(r1_id)
     #replace them with the residues of the loop
-    loop_chain[handles[2]].id = r1_id
-    loop_chain[handles[3]].id = r2_id
+    #loop_chain[handles[2]].id = r1_id
+    #add_residue_to_rosetta_chain(chain, loop_chain[handles[2]])
 
-    add_residue_to_rosetta_chain(chain, loop_chain[handles[2]])
-    add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
-    '''
+    if handles[1] != length:
+        r2_id = chain[handles[1]].id
+        chain.detach_child(r2_id)
+        loop_chain[handles[3]].id = r2_id
+        add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
 
     counter = 1
     for i in range(handles[2]+1, handles[3]):
@@ -351,15 +348,15 @@ def perturb_c5_c4(chain, res_start, res_end, fixed):
             atom.transform(np.eye(3,3), -point1)
             atom.transform(rot_mat.transpose(), point1)
 
-a_5_names = ['P', 'O5\'', 'C5\'', 'C4\'', 'O4\'', 'C1\'', 'C2\''] 
-a_3_names = ['C3\'', 'O3\'']
+a_5_names = ['P', 'O5*', 'C5*', 'C4*', 'O4*', 'C1*', 'C2*'] 
+a_3_names = ['C3*', 'O3*']
 
 a_names = dict()
 a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
 a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
 
 a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
-a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
 
 def get_atom_coord_array(chain, start_res, end_res):
     '''
@@ -450,7 +447,7 @@ def set_atom_coord_array(chain, coords, start_res, end_res):
             count += 1
     return chain
 
-def align_starts(chain_stems, chain_loop, handles):
+def align_starts(chain_stems, chain_loop, handles, end=0):
     '''
     Align the sugar rings of one part of the stem structure to one part
     of the loop structure.
@@ -459,11 +456,15 @@ def align_starts(chain_stems, chain_loop, handles):
     @param chain_loop: The chain containing the sampled loop
     @param handles: The indexes into the stem and loop for the overlapping residues.
     '''
-    v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
-    v2 = get_alignment_vectors_barnacle(chain_loop, handles[2], handles[3])
+    if end == 0:
+        v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
+        v2 = get_alignment_vectors_barnacle(chain_loop, handles[2], handles[3])
+    else:
+        v1 = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
+        v2 = get_measurement_vectors_barnacle(chain_loop, handles[2], handles[3])
 
-    v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-    v2_m = get_measurement_vectors_barnacle(chain_loop, handles[2], handles[3])
+    #v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
+    #v2_m = get_measurement_vectors_barnacle(chain_loop, handles[2], handles[3])
 
     v1_centroid = cuv.get_vector_centroid(v1)
     v2_centroid = cuv.get_vector_centroid(v2)
@@ -473,12 +474,12 @@ def align_starts(chain_stems, chain_loop, handles):
 
     sup = brmsd.optimal_superposition(v2_t, v1_t)
 
-    v2_mt = v2_m - v2_centroid
-    v2_rmt = np.dot(sup.transpose(), v2_mt.transpose()).transpose()
+    #v2_mt = v2_m - v2_centroid
+    #v2_rmt = np.dot(sup.transpose(), v2_mt.transpose()).transpose()
 
-    v1_rmt = v1_m - v1_centroid
+    #v1_rmt = v1_m - v1_centroid
 
-    rmsd = cuv.vector_set_rmsd(v1_rmt, v2_rmt)
+    #rmsd = cuv.vector_set_rmsd(v1_rmt, v2_rmt)
 
     for atom in bpdb.Selection.unfold_entities(chain_loop, 'A'):
         atom.transform(np.eye(3,3), -v2_centroid)
@@ -569,7 +570,13 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     start_index = indeces[handles[2]+1]
     end_index = indeces[handles[3]]
 
-    points = [[start_index + 1, start_index + 2, start_index + 3], [end_index + 1, end_index + 2, end_index + 3]]
+    points = []
+    for i in range(handles[2]+1, handles[3]+1):
+        si = indeces[i]
+        points += [[si+1, si+2, si+3]]
+
+    #points = [[start_index + 1, start_index + 2, start_index + 3], [end_index + 1, end_index + 2, end_index + 3]]
+    #points = [[end_index + 1, end_index + 2, end_index + 3]]
     rot_mat = np.eye(3,3)
         
     #distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
@@ -577,6 +584,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
 
     for i in range(iterations):
         rmsd = cbc.calc_rmsd(moving[end_index+4:end_index+7], fixed)
+        if rmsd < 0.1:
+            break
         #print "rmsd:", rmsd
         #print "moving:", moving[:5]
         prev_l = points[0][0]
@@ -686,13 +695,13 @@ def trim_chain(chain, start_res, end_res):
     '''
     to_detach = []
     for res in chain:
-        if res.id[1] < start_res or end_res < res.id[1]:
+        if res.id[1] < start_res+1 or end_res-1 < res.id[1]:
             to_detach += [res]
 
     for res in to_detach:
         chain.detach_child(res.id)
 
-def reconstruct_loop(chain, sm, ld):
+def reconstruct_loop(chain, sm, ld, side=0):
     '''
     Reconstruct a particular loop.
 
@@ -704,8 +713,8 @@ def reconstruct_loop(chain, sm, ld):
     '''
 
     bg = sm.bg
-    seq = bg.get_flanking_sequence(ld)
-    (a,b,i1,i2) = bg.get_flanking_handles(ld)
+    seq = bg.get_flanking_sequence(ld, side)
+    (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
 
     model = barn.Barnacle(seq)
     model.sample()
@@ -713,10 +722,32 @@ def reconstruct_loop(chain, sm, ld):
 
     prev_r = 1000.
     min_r = 1000.
+    min_contacts = (1000, 100.)
     iterations = 20
     best_loop_chain = None
+    sys.stdout.write("reconstructing %s:" % (ld))
 
     for i in range(iterations):
+        model.sample()
+        chain_loop = list(model.structure.get_chains())[0]
+
+        loop_atoms = bpdb.Selection.unfold_entities(chain_loop, 'A') 
+        
+        ns = bpdb.NeighborSearch(loop_atoms)
+        contacts1 = len(ns.search_all(0.8))
+        
+        if a == 0:
+            align_starts(chain, chain_loop, (a,b,i1,i2), end=1)
+            loop_chain = chain_loop
+            r = 0.000
+        elif b == bg.length:
+            align_starts(chain, chain_loop, (a,b,i1,i2), end=0)
+            loop_chain = chain_loop
+            r = 0.000
+        else:
+            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=2000)
+
+        '''
         sample_len = ss.poisson.rvs(2)
 
         if sample_len == 0:
@@ -745,17 +776,49 @@ def reconstruct_loop(chain, sm, ld):
                 continue
 
         prev_r = r
-        print "r:", r
+        '''
+        orig_loop_chain = copy.deepcopy(loop_chain)
 
-        if r < min_r:
-            best_loop_chain = copy.deepcopy(loop_chain)
-            min_r = r
+        trim_chain(loop_chain, i1, i2)
+        loop_atoms = bpdb.Selection.unfold_entities(loop_chain, 'A')
 
-    trim_chain(best_loop_chain, i1, i2)
+        if a != 0:
+            loop_atoms += bpdb.Selection.unfold_entities(chain[a], 'A')
+        if b != bg.length:
+            loop_atoms += bpdb.Selection.unfold_entities(chain[b], 'A')
+
+        if a != 0:
+            loop_atoms += bpdb.Selection.unfold_entities(chain[a-1], 'A')
+        if b != bg.length:
+            loop_atoms += bpdb.Selection.unfold_entities(chain[b+1], 'A')
+
+        ns = bpdb.NeighborSearch(loop_atoms)
+
+        contacts2 = len(ns.search_all(1.0))
+        sys.stdout.write('.')
+        sys.stdout.flush()
+
+        #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
+
+        if (contacts2, r) < min_contacts:
+            best_loop_chain = copy.deepcopy(orig_loop_chain)
+            min_contacts = (contacts2, r)
+            #print "min_contacts:", min_contacts
+
+        '''
+        if contacts2 == 0:
+            break
+        '''
+
+        trim_chain(loop_chain, i1, i2)
+        output_chain(loop_chain, os.path.join(conf.Configuration.test_output_dir, 's%d.pdb' % (i+2)))
+        
     #output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
-    output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
-
-    add_loop_chain(chain, best_loop_chain, (a,b,i1,i2))
+    trim_chain(best_loop_chain, i1, i2+1)
+    output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 'sb.pdb'))
+    add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
+    sys.stdout.write('\n')
+    sys.stdout.flush()
 
 def reconstruct_loops(chain, sm):
     '''
@@ -766,8 +829,14 @@ def reconstruct_loops(chain, sm):
     @param chain: A Bio.PDB.Chain chain.
     @param sm: The SpatialModel from which to reconstruct the loops.
     '''
-    for d in sm.bg.defines():
-        reconstruct_loop(chain, sm, d)
+    for d in sm.bg.defines.keys():
+        if d[0] != 's':
+            if sm.bg.weights[d] == 2:
+                reconstruct_loop(chain, sm, d, 0)
+                reconstruct_loop(chain, sm, d, 1)
+            else:
+                reconstruct_loop(chain, sm, d)
+            
 
 def reconstruct(sm):
     '''
