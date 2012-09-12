@@ -62,3 +62,4 @@ cmd.load_cgo(cgox_9, 'cgox9')
 cmd.load_cgo(cgox_10, 'cgox10')
 cmd.load_cgo(cgox_11, 'cgox11')
 cmd.zoom("all", 2.0)
+

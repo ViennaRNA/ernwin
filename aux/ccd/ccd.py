@@ -184,56 +184,20 @@ def ccd(moving, fixed, iterations=10, print_d=True):
 
     for k in xrange(iterations):
         prev_i = 1
-        for i in xrange(1, len(moving) - 3, 2):
+        for i in xrange(1, len(moving) - 3, 1):
             TH = (moving[i] - moving[i-1])
 
             rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
-
-            '''
-            rem_moving = array(moving[i+1:])
-            rem_moving -= moving[i]
-            #rem_moving = dot(rot_mat, rem_moving.transpose()).transpose()
-            rem_moving = dot(rem_moving, rot_mat.transpose())
-            
-            rem_moving += moving[i]
-            moving = moving[:i+1] + list(rem_moving)
-            '''
-
-            distances1 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
-            #print "distances2:", distances2
-
-            #if i == 3:
-            #    sys.exit(1)
-
+            #distances1 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
             rem_moving = moving[i+1:]
             rem_tmoving = tmoving[i+1:]
 
             rem_moving -= moving[i]
-            #print "counter:", counter
-            #print "rem_tmoving:", rem_tmoving
             dot(rem_moving, rot_mat.transpose(), rem_tmoving)
-            #print "rem_moving:", rem_tmoving
             rem_tmoving += moving[i]
-
-            #tt_moving = moving
-            #moving = tmoving
-            #moving[i-1] = tt_moving[i-1]
-            #moving[prev_i+1:i+1] = tt_moving[prev_i+1:i+1]
             moving[:] = tmoving
-            #moving[i] = tt_moving[i]
-            #tmoving = tt_moving
-            
-            '''
-            sys.exit(1)
-            #dot(rot_mat, rem_moving.transpose(), rem_moving.transpose())
-            rem_moving += moving[i]
-            print "rem_moving:", rem_moving
-            '''
-            distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
-
-            #print "k:", i
-            #print "distances1", array([distances1]) - array([distances2])
-            assert(np.allclose(distances1, distances2))
+            #distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
+            #assert(np.allclose(distances1, distances2))
 
             prev_i = i
 

@@ -301,7 +301,7 @@ class TestReconstructor(unittest.TestCase):
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         self.check_pymol_stems(bg, output_file + ".pym", output_file + ".pdb")
 
-    def test_reconstruct_loop(self):
+    def test_reconstruct_loops(self):
         bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         sm = SpatialModel(bg)
         sm.sample_native_stems()
@@ -312,6 +312,27 @@ class TestReconstructor(unittest.TestCase):
         rtor.reconstruct_loops(chain, sm)
         '''
         rtor.reconstruct_loop(chain, sm, 'b15')
+        #rtor.reconstruct_loop(chain, sm, 'b1')
+        rtor.reconstruct_loop(chain, sm, 'b11')
+        rtor.reconstruct_loop(chain, sm, 'b18')
+        #rtor.reconstruct_loop(chain, sm, 'b16')
+        #rtor.reconstruct_loop(chain, sm, 'x2', 0)
+        #rtor.reconstruct_loop(chain, sm, 'x2', 1)
+        '''
+
+        #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+        rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
+
+    def test_reconstruct_loop(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+
+        #sm.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm)
+        rtor.reconstruct_loop(chain, sm, 'b4')
+        '''
         #rtor.reconstruct_loop(chain, sm, 'b1')
         rtor.reconstruct_loop(chain, sm, 'b11')
         rtor.reconstruct_loop(chain, sm, 'b18')
@@ -387,7 +408,6 @@ class TestReconstructor(unittest.TestCase):
         (moving, indeces) = rtor.get_atom_coord_array(chain_barnacle, i1, i2)
 
         r, chain_loop = rtor.close_fragment_loop(chain_stems, chain_barnacle, (a,b,i1,i2), iterations=10)
-        #chain_loop = rtor.set_atom_coord_array(chain_barnacle, moving, i1, i2)
 
         (moving1, indeces1) = rtor.get_atom_coord_array(chain_loop, i1, i2)
 

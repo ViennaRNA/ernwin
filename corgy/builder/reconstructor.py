@@ -348,7 +348,7 @@ def perturb_c5_c4(chain, res_start, res_end, fixed):
             atom.transform(np.eye(3,3), -point1)
             atom.transform(rot_mat.transpose(), point1)
 
-a_5_names = ['P', 'O5*', 'C5*', 'C4*', 'O4*', 'C1*', 'C2*'] 
+a_5_names = ['OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'C1*', 'C2*', 'O2*'] 
 a_3_names = ['C3*', 'O3*']
 
 a_names = dict()
@@ -487,14 +487,14 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
 
 def get_adjacent_interatom_distances(chain, start_res, end_res):
     adjacent_atoms = dict()
-    adjacent_atoms['P'] = ['O5\'']
-    adjacent_atoms['O5\''] = ['C5\'']
-    adjacent_atoms['C5\''] = ['C4\'']
-    adjacent_atoms['C4\''] = ['O4\'', 'C3\'']
-    adjacent_atoms['O4\''] = ['C1\'']
-    adjacent_atoms['C1\''] = ['C2\'']
-    adjacent_atoms['C2\''] = ['C3\'']
-    adjacent_atoms['C3\''] = ['O3\'']
+    adjacent_atoms['P'] = ['O5*', 'OP1', 'OP2']
+    adjacent_atoms['O5*'] = ['C5*']
+    adjacent_atoms['C5*'] = ['C4*']
+    adjacent_atoms['C4*'] = ['O4*', 'C3*']
+    adjacent_atoms['O4*'] = ['C1*']
+    adjacent_atoms['C1*'] = ['C2*']
+    adjacent_atoms['C2*'] = ['C3*', 'O2*']
+    adjacent_atoms['C3*'] = ['O3*']
 
     distances = []
     ress = list(chain.get_list())
@@ -507,21 +507,21 @@ def get_adjacent_interatom_distances(chain, start_res, end_res):
     for i in range(start_res, end_res+1):
         #print "ress[i]['P'].coord:", ress[i]['P'].coord
         #print "ress[i]['O3\''].coord:", ress[i-1]['O3\''].coord
-        distances += [ress[i]['P'] - ress[i-1]['O3\'']]
+        distances += [ress[i]['P'] - ress[i-1]['O3*']]
 
     return distances
 
 
 def get_adjacent_interatom_names(chain, start_res, end_res):
     adjacent_atoms = dict()
-    adjacent_atoms['P'] = ['O5\'']
-    adjacent_atoms['O5\''] = ['C5\'']
-    adjacent_atoms['C5\''] = ['C4\'']
-    adjacent_atoms['C4\''] = ['O4\'', 'C3\'']
-    adjacent_atoms['O4\''] = ['C1\'']
-    adjacent_atoms['C1\''] = ['C2\'']
-    adjacent_atoms['C2\''] = ['C3\'']
-    adjacent_atoms['C3\''] = ['O3\'']
+    adjacent_atoms['P'] = ['O5*', 'OP1', 'OP2']
+    adjacent_atoms['O5*'] = ['C5*']
+    adjacent_atoms['C5*'] = ['C4*']
+    adjacent_atoms['C4*'] = ['O4*', 'C3*']
+    adjacent_atoms['O4*'] = ['C1*']
+    adjacent_atoms['C1*'] = ['C2*']
+    adjacent_atoms['C2*'] = ['C3*', 'O2*']
+    adjacent_atoms['C3*'] = ['O3*']
 
     distances = []
     ress = list(chain.get_list())
@@ -573,78 +573,60 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     points = []
     for i in range(handles[2]+1, handles[3]+1):
         si = indeces[i]
-        points += [[si+1, si+2, si+3]]
+        points += [si+3, si+4, si+5]
 
     #points = [[start_index + 1, start_index + 2, start_index + 3], [end_index + 1, end_index + 2, end_index + 3]]
     #points = [[end_index + 1, end_index + 2, end_index + 3]]
     rot_mat = np.eye(3,3)
         
-    #distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
-    #names = get_adjacent_interatom_names(chain_loop, handles[2], handles[3])
+    distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
+    names = get_adjacent_interatom_names(chain_loop, handles[2], handles[3])
 
     for i in range(iterations):
-        rmsd = cbc.calc_rmsd(moving[end_index+4:end_index+7], fixed)
+        rmsd = cbc.calc_rmsd(moving[end_index+6:end_index+9], fixed)
         if rmsd < 0.1:
             break
         #print "rmsd:", rmsd
         #print "moving:", moving[:5]
-        prev_l = points[0][0]
+        prev_l = points[0]
 
-        for j in xrange(len(points)):
-            for k in xrange(len(points[j])):
-                l = points[j][k]
-                #print "l:", l, "len(moving):", len(moving)
-                #print "moving1:", moving[:6]
-                point = moving[l-1]
-                axis = moving[l] - moving[l-1]
-                target = moving[end_index+4:end_index+7]
-                #print moving_names[end_index+4:end_index+7]
-                
-                '''
-                print "axis:", axis
-                print "point:", point
-                print "target:", target
-                print "fixed:", fixed
-                '''
-                cbc.get_closer_rotation_matrix(axis, point, target, fixed, rot_mat)
+        for l in points:
+            point = moving[l-1]
+            axis = moving[l] - moving[l-1]
+            target = moving[end_index+6:end_index+9]
+            cbc.get_closer_rotation_matrix(axis, point, target, fixed, rot_mat)
 
-                rem_moving = moving[l+1:]
-                rem_tmoving = tmoving[l+1:]
+            rem_moving = moving[l+1:]
+            rem_tmoving = tmoving[l+1:]
 
-                rem_moving -= moving[l]
-                np.dot(rem_moving, rot_mat.transpose(), out = rem_tmoving)
-                rem_tmoving += moving[l]
+            rem_moving -= moving[l]
+            np.dot(rem_moving, rot_mat.transpose(), out = rem_tmoving)
+            rem_tmoving += moving[l]
 
-                #chain_loop = set_atom_coord_array(chain_loop, moving, handles[2], handles[3])
-                #distances2 = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
+            tt_moving = moving
+            moving = tmoving
 
-                '''
-                print "i:", i, "l:", l
-                print zip(moving_names, list(moving))
-                d3 =  zip(names, list(np.array(distances) - np.array(distances2)))
-                for z in range(len(d3)):
-                    #print "z1:", d3[z][1]
-                    if abs(d3[z][1]) > 0.1:
-                        print d3[z]
+            moving[prev_l+1:l+1] = tt_moving[prev_l+1:l+1]
+            tmoving = tt_moving
 
-                assert(np.allclose(distances, distances2))
-                '''
-                tt_moving = moving
-                moving = tmoving
-
-                moving[prev_l+1:l+1] = tt_moving[prev_l+1:l+1]
-                tmoving = tt_moving
-
-                prev_l = l
-
-    #print "moving:", moving
-    
-    assert(not np.allclose(moving_orig, moving))
+            prev_l = l
 
     chain_loop = set_atom_coord_array(chain_loop, moving, handles[2], handles[3])
+    '''
+    assert(not np.allclose(moving_orig, moving))
+
     (moving_new, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
 
     assert(not np.allclose(moving_orig, moving_new))
+
+    distances2 = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
+    print [ (d,n) for (d,n) in zip(np.array(distances2) - np.array(distances), names) if (d > 0.0001 or math.isnan(d)) ]
+
+    #print np.array(distances2) - np.array(distances)
+
+    assert(np.allclose(distances, distances2))
+    '''
+
 
     return (rmsd, chain_loop)
 
@@ -716,6 +698,9 @@ def reconstruct_loop(chain, sm, ld, side=0):
     seq = bg.get_flanking_sequence(ld, side)
     (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
 
+    #print "ld:", ld, "(a,b,i1,i2)", a,b,i1,i2
+    #print "seq:", seq
+
     model = barn.Barnacle(seq)
     model.sample()
     s = model.structure
@@ -745,7 +730,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
             loop_chain = chain_loop
             r = 0.000
         else:
-            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=2000)
+            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=500)
 
         '''
         sample_len = ss.poisson.rvs(2)
@@ -811,9 +796,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
         '''
 
         trim_chain(loop_chain, i1, i2)
-        output_chain(loop_chain, os.path.join(conf.Configuration.test_output_dir, 's%d.pdb' % (i+2)))
         
-    #output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     trim_chain(best_loop_chain, i1, i2+1)
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 'sb.pdb'))
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)

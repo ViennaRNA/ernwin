@@ -586,6 +586,9 @@ class BulgeGraph:
         
 
     def get_flanking_sequence(self, bulge_name, side=0):
+        if len(self.seq) == 0:
+            print >>sys.stderr, "No sequence present in the bulge_graph: %s" % (self.name)
+
         (m1, m2) = self.get_flanking_region(bulge_name, side)
 
         return self.seq[m1-1:m2]
