@@ -1,0 +1,117 @@
+#include "rot_mat_c.h"
+
+void rotation_matrix_c(double *axis1, double theta, double *mat1) {
+    double *axis = (double *)axis1;
+    double *mat = (double *)mat1;
+
+    double x = sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+    double a = cos(theta / 2.0);
+    double b = -(axis[0] / x) * sin(theta / 2.0);
+    double c = -(axis[1] / x) * sin(theta / 2.0);
+    double d = -(axis[2] / x) * sin(theta / 2.0);
+
+    mat[0] = a*a + b*b - c*c - d*d;
+    mat[1] = 2 * (b*c - a*d);
+    mat[2] = 2 * (b*d + a*c);
+
+    mat[3*1 + 0] = 2*(b*c+a*d);
+    mat[3*1 + 1] = a*a+c*c-b*b-d*d;
+    mat[3*1 + 2] = 2*(c*d-a*b);
+
+    mat[3*2 + 0] = 2*(b*d-a*c);
+    mat[3*2 + 1] = 2*(c*d+a*b);
+    mat[3*2 + 2] = a*a+d*d-b*b-c*c;
+}
+
+
+void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *F, double *out_rot_mat) {
+    int i, j;
+
+    double sum1 = 0;
+    double TH_norm[3];
+    double d1[3];
+
+    double R[9], O[9];
+
+    //TH_norm = normalize(TH)
+    for (i = 0; i < 3; i++) 
+        sum1 += TH[i] * TH[i];
+    sum1 = sqrt(sum1);
+
+    //TH_arr = array([TH_norm, TH_norm, TH_norm])
+    for (i = 0; i < 3; i++)
+        TH_norm[i] = TH[i] / sum1;
+
+    for (i = 0; i < 3; i++) {
+        sum1 = 0;
+
+        for (j = 0; j < 3; j++) {
+            sum1 += (M[i * 3 + j] - point[j]) * TH_norm[j];
+        }
+        
+        d1[i] = sum1;
+    }
+
+    for ( i = 0; i < 3; i++) {
+        for (j = 0; j < 3; j++) {
+            O[i*3 + j] = TH_norm[j] * d1[i] + point[j];
+            R[i*3 + j] = M[i*3 + j] - O[i*3 + j];
+
+        }
+    }
+
+    double fs_sum = 0;
+    double fr_sum = 0;
+
+    double temp_fs_sum = 0;
+    double temp_fr_sum = 0;
+
+    double n3 = 0, d3 = 0, a, r_row_sums[3], s_row_sums[3];
+    double S[9], F1[9];
+
+    for (i = 0; i < 3; i++) {
+        // S = cross(R, TH)
+        S[3*i + 0] = R[3*i + 1] * TH[2] - R[3*i + 2] * TH[1];
+        S[3*i + 1] = R[3*i + 2] * TH[0] - R[3*i + 0] * TH[2];
+        S[3*i + 2] = R[3*i + 0] * TH[1] - R[3*i + 1] * TH[0];
+
+        s_row_sums[i] = 0;
+        r_row_sums[i] = 0;
+
+        //s_row_sums = np.sum(np.abs(S) ** 2, axis=-1) ** (1./2.)
+        //r_row_sums = np.sum(np.abs(R) ** 2, axis=-1) ** (1./2.)
+        //F = F - O
+
+        temp_fs_sum = 0;
+        temp_fr_sum = 0;
+
+        for (j = 0; j < 3; j++)  {
+            s_row_sums[i] += S[3*i + j] * S[3*i + j];
+            r_row_sums[i] += R[3*i + j] * R[3*i + j];
+
+            F1[3*i + j] = F[3*i + j] - O[3*i + j];
+
+        }
+
+        s_row_sums[i] = sqrt(s_row_sums[i]);
+        r_row_sums[i] = sqrt(r_row_sums[i]);
+
+        //np.sum(F * S, axis=-1)
+        //np.sum(F * R, axis=-1)
+        
+        for (j = 0; j < 3; j++) {
+            S[3*i + j] /= s_row_sums[i];
+            R[3*i + j] /= r_row_sums[i];
+
+            temp_fs_sum += F1[3*i + j] * S[3*i + j];
+            temp_fr_sum += F1[3*i + j] * R[3*i + j];
+        }
+
+        n3 += r_row_sums[i] * temp_fs_sum;
+        d3 += r_row_sums[i] * temp_fr_sum;
+    }
+
+    a = atan2(n3, d3);
+
+    rotation_matrix_c(TH, a, out_rot_mat);
+}

@@ -3,16 +3,20 @@
 import sys
 from optparse import OptionParser
 
-from corgy.utilities.vector import normalize, rotation_matrix_weave
-from corgy.utilities.vector import vec_angle, magnitude
+from cytvec import rotation_matrix_cython
+from cytvec import normalize_in_place
+from cytvec import magnitude
+from cytvec import vec_angle
+from cytvec import get_closer_rotation_matrix_cython
 
 from numpy import array, dot, cross, allclose, eye, ones
 from numpy.random import random, randint
 
 import numpy as np
 
-from math import pi, sqrt, atan2
 from scipy import weave
+
+from math import pi, sqrt, atan2
 
 def make_random_chain(n=12):
     """
@@ -22,7 +26,8 @@ def make_random_chain(n=12):
     v=array([0,0,0])
     l=[v]
     for i in range(0, n-1):
-        nv=normalize(random(3))
+        nv = random(3)
+        normalize_in_place(nv)
         nv=v + 38 * nv
         l.append(nv)
         v=nv
@@ -37,7 +42,8 @@ def rotate_last_three(chain):
     l=[]
     rotation_axis=random(3)
     angle=0.1+0.1*pi*random()
-    m=rotation_matrix_weave(rotation_axis, angle)
+    m = np.eye(3,3)
+    rotation_matrix_cython(rotation_axis, angle, m)
     t=-0.5*random(3)
     for i in range(-3, 0):
         v=chain[i]-t
@@ -50,123 +56,7 @@ def calc_rmsd(a, b):
 
     return sqrt(sum([magnitude(a[i] - b[i]) for i in range(len(a))]) / len(a))
 
-def point_on_line(P, A, D):
-    '''
-    Point on axis
-    http://stackoverflow.com/questions/5227373/minimal-perpendicular-vector-between-a-point-and-a-line
-    
-    @param P: A point anywhere
-    @param A: A point on the axis
-    @param D: The direction of the axis
-    '''
 
-    D = normalize(D)
-    X = A + dot((P - A), D) * D
-
-    #print "dot((P-A), D) * D", dot((P-A), D) * D
-
-    #print "X:", X, dot(X-P, X-A)
-
-    return X
-
-def get_closer_rotation_matrix(TH, point, M, F, out_rot_mat = None):
-    support = "#include <math.h>"
-
-    code = """
-    int i, j;
-
-    double sum1 = 0;
-    double TH_norm[3];
-    double d1[3];
-
-    double R[9], O[9];
-
-    //TH_norm = normalize(TH)
-    for (i = 0; i < 3; i++) 
-        sum1 += TH[i] * TH[i];
-    sum1 = sqrt(sum1);
-
-    //TH_arr = array([TH_norm, TH_norm, TH_norm])
-    for (i = 0; i < 3; i++)
-        TH_norm[i] = TH[i] / sum1;
-
-    for (i = 0; i < 3; i++) {
-        sum1 = 0;
-
-        for (j = 0; j < 3; j++) {
-            sum1 += (M[i * 3 + j] - point[j]) * TH_norm[j];
-        }
-        
-        d1[i] = sum1;
-    }
-
-    for ( i = 0; i < 3; i++) {
-        for (j = 0; j < 3; j++) {
-            O[i*3 + j] = TH_norm[j] * d1[i] + point[j];
-            R[i*3 + j] = M[i*3 + j] - O[i*3 + j];
-
-        }
-    }
-
-    double fs_sum = 0;
-    double fr_sum = 0;
-
-    double temp_fs_sum = 0;
-    double temp_fr_sum = 0;
-
-    double n3 = 0, d3 = 0, a, r_row_sums[3], s_row_sums[3];
-    double S[9], F1[9];
-
-    for (i = 0; i < 3; i++) {
-        // S = cross(R, TH)
-        S[3*i + 0] = R[3*i + 1] * TH[2] - R[3*i + 2] * TH[1];
-        S[3*i + 1] = R[3*i + 2] * TH[0] - R[3*i + 0] * TH[2];
-        S[3*i + 2] = R[3*i + 0] * TH[1] - R[3*i + 1] * TH[0];
-
-        s_row_sums[i] = 0;
-        r_row_sums[i] = 0;
-
-        //s_row_sums = np.sum(np.abs(S) ** 2, axis=-1) ** (1./2.)
-        //r_row_sums = np.sum(np.abs(R) ** 2, axis=-1) ** (1./2.)
-        //F = F - O
-
-        temp_fs_sum = 0;
-        temp_fr_sum = 0;
-
-        for (j = 0; j < 3; j++)  {
-            s_row_sums[i] += S[3*i + j] * S[3*i + j];
-            r_row_sums[i] += R[3*i + j] * R[3*i + j];
-
-            F1[3*i + j] = F[3*i + j] - O[3*i + j];
-
-        }
-
-        s_row_sums[i] = sqrt(s_row_sums[i]);
-        r_row_sums[i] = sqrt(r_row_sums[i]);
-
-        //np.sum(F * S, axis=-1)
-        //np.sum(F * R, axis=-1)
-        
-        for (j = 0; j < 3; j++) {
-            S[3*i + j] /= s_row_sums[i];
-            R[3*i + j] /= r_row_sums[i];
-
-            temp_fs_sum += F1[3*i + j] * S[3*i + j];
-            temp_fr_sum += F1[3*i + j] * R[3*i + j];
-        }
-
-        n3 += r_row_sums[i] * temp_fs_sum;
-        d3 += r_row_sums[i] * temp_fr_sum;
-    }
-
-    a = atan2(n3, d3);
-    return_val = a;
-    """
-
-    support = "#include <math.h>"
-    a = weave.inline(code, ['M', 'TH', 'F', 'point'], support_code = support, libraries = ['m'])
-
-    return rotation_matrix_weave(TH, a, out_rot_mat)
 
 def ccd(moving, fixed, iterations=10, print_d=True):
     '''
@@ -187,7 +77,7 @@ def ccd(moving, fixed, iterations=10, print_d=True):
         for i in xrange(1, len(moving) - 3, 1):
             TH = (moving[i] - moving[i-1])
 
-            rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
+            get_closer_rotation_matrix_cython(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
             #distances1 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
             rem_moving = moving[i+1:]
             rem_tmoving = tmoving[i+1:]

@@ -7,7 +7,7 @@ from math import cos, sin, sqrt
 import numpy.random as nr
 
 from scipy import weave
-from rot_mat_cyt import rotation_matrix_cython
+from cytvec import rotation_matrix_cython
 
 def rotation_matrix_weave(axis, theta, mat = None):
     '''
@@ -70,15 +70,14 @@ import numpy.random as nr
 from rotation_matrix_test import rotation_matrix_weave
 from rotation_matrix_test import rotation_matrix_numpy
 from rot_mat_cyt import rotation_matrix_cython
-from rot_mat_c import rotation_matrix_c
 
 mat1 = np.eye(3,3)
 theta = nr.random()
 axis = nr.random(3)
 """
 
-    print timeit.repeat("rotation_matrix_c(axis, theta, mat1)", setup=setup, number=100000)
-    sys.exit(1)
     print timeit.repeat("rotation_matrix_cython(axis, theta, mat1)", setup=setup, number=100000)
     print timeit.repeat("rotation_matrix_weave(axis, theta, mat1)", setup=setup, number=100000)
+    sys.exit(1)
+
     print timeit.repeat("rotation_matrix_numpy(axis, theta)", setup=setup, number=100000)
