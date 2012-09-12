@@ -123,15 +123,13 @@ void mat_times_vec(double *mat, double *vec, double *out_vec, double *offset) {
     for (i = 0; i < 3; i++) {
         temp[i] = 0;
 
-        for (j = 0; j < 3; j++) {
-            temp[i] += mat[i*3 + j] * (vec[j]);
-            //temp[i] += mat[i*3 + j] * (vec[j] - offset[j]);
-            //temp[i] += mat[j*3 + i] * (vec[i] - offset[i])
-        }
+        for (j = 0; j < 3; j++) 
+            temp[i] += mat[i*3 + j] * (vec[j] - offset[j]);
+
+        temp[i] += offset[i];
     }
 
-    for (i = 0; i < 3; i++)
-        out_vec[i] = temp[i];
+    memcpy(out_vec, temp, 3 * sizeof(double));
 }
 
 double calc_rmsd_c(double *v1, double *v2, int n)
@@ -152,11 +150,11 @@ void print_rows(double *m, int n)
     int i, j;
 
     for (i = 0; i < n; i++) {
+        printf("[");
         for (j = 0; j < 3; j++)
             printf("%f ", m[i*3 + j]);
-        printf("\n");
+        printf("]\n");
     }
-    printf("-------\n");
 }
 
 void ccd_c(double *moving, double *fixed, int len_moving, int iterations) {
@@ -174,28 +172,11 @@ void ccd_c(double *moving, double *fixed, int len_moving, int iterations) {
 
             get_closer_rotation_matrix_c(TH, &moving[(i-1) * 3], &moving[(len_moving - 3) * 3], fixed, rot_mat);
 
-
-            if (i == 2) {
-                printf("before:\n");
-                print_rows(&moving[(i+1) * 3], 1);
-            }
-
             for (j = i+1; j < len_moving; j++) 
-                mat_times_vec(rot_mat, &moving[j*3], &moving[j*3], &moving[i]);
+                mat_times_vec(rot_mat, &moving[j*3], &moving[j*3], &moving[i*3]);
 
-            if (i == 2) {
-                printf("rot_mat\n");
-                print_rows(rot_mat, 3);
-                printf("moving[i+1]\n");
-                print_rows(&moving[(i+1) * 3], 1);
-                printf("*****\n");
-            }
-
-            if (i > 2)
-                return;
         }
 
         rmsd = calc_rmsd_c( &moving[(len_moving - 3) * 3], fixed, 3);
-        printf("%f\n", rmsd);
     }
 }

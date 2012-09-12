@@ -82,20 +82,32 @@ def ccd(moving, fixed, iterations=10, print_d=True):
             rem_moving = moving[i+1:]
             rem_tmoving = tmoving[i+1:]
 
+            '''
             if i == 2:
                 print "before:", moving[i+1]
+                print "before translated:", moving[i+1] - moving[i]
+            '''
 
             rem_moving -= moving[i]
+
             dot(rem_moving, rot_mat.transpose(), rem_tmoving)
+
+            '''
+            if i == 2:
+                print "after pre-translated:", rem_tmoving[0]
+            '''
+
             rem_tmoving += moving[i]
             moving[:] = tmoving
 
+            '''
             if i == 2:
                 print "rot_mat:", rot_mat
                 print "moving[i+1]", moving[i+1]
 
-            if i > 2:
+            if i == 2:
                 return
+            '''
             #distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
             #assert(np.allclose(distances1, distances2))
 
@@ -122,12 +134,17 @@ def main():
 
     #print "moving:", moving
 
-    print "moving[-3]:", array(moving)[-3:]
+    moving = array(moving)
+    fixed = array(fixed)
+    #print "moving[-3]:", array(moving)[-3:]
     if len(sys.argv) < 2:
-        ccd(array(moving), array(fixed), 20)
-        ccd_cython(array(moving), array(fixed), 20)
+        #ccd(array(moving), array(fixed), 20)
+        print "================="
+        ccd_cython(moving, fixed, 20)
     else:
-        ccd_cython(array(moving), array(fixed), int(sys.argv[1]))
+        ccd_cython(moving, fixed, int(sys.argv[1]))
+
+    print calc_rmsd(moving[-3:], fixed)
 
     '''
     if len(sys.argv) < 2:
