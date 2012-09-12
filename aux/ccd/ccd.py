@@ -8,6 +8,7 @@ from cytvec import normalize_in_place
 from cytvec import magnitude
 from cytvec import vec_angle
 from cytvec import get_closer_rotation_matrix_cython
+from cytvec import ccd_cython
 
 from numpy import array, dot, cross, allclose, eye, ones
 from numpy.random import random, randint
@@ -56,8 +57,6 @@ def calc_rmsd(a, b):
 
     return sqrt(sum([magnitude(a[i] - b[i]) for i in range(len(a))]) / len(a))
 
-
-
 def ccd(moving, fixed, iterations=10, print_d=True):
     '''
     Do cyclic-coordinate descent to align the last three coordinates of moving
@@ -78,14 +77,25 @@ def ccd(moving, fixed, iterations=10, print_d=True):
             TH = (moving[i] - moving[i-1])
 
             get_closer_rotation_matrix_cython(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
+
             #distances1 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
             rem_moving = moving[i+1:]
             rem_tmoving = tmoving[i+1:]
+
+            if i == 2:
+                print "before:", moving[i+1]
 
             rem_moving -= moving[i]
             dot(rem_moving, rot_mat.transpose(), rem_tmoving)
             rem_tmoving += moving[i]
             moving[:] = tmoving
+
+            if i == 2:
+                print "rot_mat:", rot_mat
+                print "moving[i+1]", moving[i+1]
+
+            if i > 2:
+                return
             #distances2 = [magnitude(moving[j] - moving[j-1]) for j in range(1, len(moving))]
             #assert(np.allclose(distances1, distances2))
 
@@ -112,10 +122,19 @@ def main():
 
     #print "moving:", moving
 
+    print "moving[-3]:", array(moving)[-3:]
+    if len(sys.argv) < 2:
+        ccd(array(moving), array(fixed), 20)
+        ccd_cython(array(moving), array(fixed), 20)
+    else:
+        ccd_cython(array(moving), array(fixed), int(sys.argv[1]))
+
+    '''
     if len(sys.argv) < 2:
         moving = ccd(moving, fixed, 10, True)
     else:
         moving = ccd(moving, fixed, iterations = int(sys.argv[1]), print_d = False)
+    '''
 
     #print "moving:", moving
 

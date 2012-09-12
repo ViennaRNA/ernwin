@@ -60,8 +60,8 @@ void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *
         }
     }
 
-    double fs_sum = 0;
-    double fr_sum = 0;
+    //double fs_sum = 0;
+    //double fr_sum = 0;
 
     double temp_fs_sum = 0;
     double temp_fr_sum = 0;
@@ -90,7 +90,6 @@ void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *
             r_row_sums[i] += R[3*i + j] * R[3*i + j];
 
             F1[3*i + j] = F[3*i + j] - O[3*i + j];
-
         }
 
         s_row_sums[i] = sqrt(s_row_sums[i]);
@@ -114,4 +113,89 @@ void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *
     a = atan2(n3, d3);
 
     rotation_matrix_c(TH, a, out_rot_mat);
+}
+
+void mat_times_vec(double *mat, double *vec, double *out_vec, double *offset) {
+    double temp[3];
+
+    int i, j;
+
+    for (i = 0; i < 3; i++) {
+        temp[i] = 0;
+
+        for (j = 0; j < 3; j++) {
+            temp[i] += mat[i*3 + j] * (vec[j]);
+            //temp[i] += mat[i*3 + j] * (vec[j] - offset[j]);
+            //temp[i] += mat[j*3 + i] * (vec[i] - offset[i])
+        }
+    }
+
+    for (i = 0; i < 3; i++)
+        out_vec[i] = temp[i];
+}
+
+double calc_rmsd_c(double *v1, double *v2, int n)
+{
+    double sum = 0;
+    int i, j;
+
+    for (i = 0; i < n; i++)
+        for (j = 0; j < 3; j++)
+            sum += (v1[j] - v2[j]) * (v1[j] - v2[j]);
+
+    sum /= n;
+    return sqrt(sum);
+}
+
+void print_rows(double *m, int n)
+{
+    int i, j;
+
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < 3; j++)
+            printf("%f ", m[i*3 + j]);
+        printf("\n");
+    }
+    printf("-------\n");
+}
+
+void ccd_c(double *moving, double *fixed, int len_moving, int iterations) {
+    double rot_mat[9], rmsd;
+    int k, i, prev_i, j;
+    //print_rows(&moving[(len_moving-3) * 3], 3);
+
+    for (k = 0; k < iterations; k++) {
+        for (i = 1; i < len_moving - 3; i++) {
+            double TH[3];
+
+            TH[0] = moving[i*3 + 0] - moving[(i-1) * 3 + 0];
+            TH[1] = moving[i*3 + 1] - moving[(i-1) * 3 + 1];
+            TH[2] = moving[i*3 + 2] - moving[(i-1) * 3 + 2];
+
+            get_closer_rotation_matrix_c(TH, &moving[(i-1) * 3], &moving[(len_moving - 3) * 3], fixed, rot_mat);
+
+
+            if (i == 2) {
+                printf("before:\n");
+                print_rows(&moving[(i+1) * 3], 1);
+            }
+
+            for (j = i+1; j < len_moving; j++) 
+                mat_times_vec(rot_mat, &moving[j*3], &moving[j*3], &moving[i]);
+
+            if (i == 2) {
+                printf("rot_mat\n");
+                print_rows(rot_mat, 3);
+                printf("moving[i+1]\n");
+                print_rows(&moving[(i+1) * 3], 1);
+                printf("*****\n");
+            }
+
+            if (i > 2)
+                return;
+        }
+
+        rmsd = calc_rmsd_c( &moving[(len_moving - 3) * 3], fixed, 3);
+        printf("%f\n", rmsd);
+    }
 }
