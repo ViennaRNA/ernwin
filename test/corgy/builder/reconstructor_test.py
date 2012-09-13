@@ -324,14 +324,14 @@ class TestReconstructor(unittest.TestCase):
         rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
 
     def test_reconstruct_loop(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         sm = SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loop(chain, sm, 'b4')
+        rtor.reconstruct_loop(chain, sm, 'x4', side=1)
         '''
         #rtor.reconstruct_loop(chain, sm, 'b1')
         rtor.reconstruct_loop(chain, sm, 'b11')

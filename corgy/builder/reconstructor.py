@@ -5,6 +5,7 @@ import corgy.graph.graph_pdb as gpdb
 import corgy.utilities.vector as cuv
 
 import corgy.builder.ccd as cbc
+import aux.ccd.cytvec as cv
 
 import aux.Barnacle as barn
 
@@ -272,6 +273,7 @@ def add_loop_chain(chain, loop_chain, handles, length):
         r2_id = chain[handles[1]].id
         chain.detach_child(r2_id)
         loop_chain[handles[3]].id = r2_id
+        #print "adding residue:", r2_id
         add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
 
     counter = 1
@@ -281,72 +283,6 @@ def add_loop_chain(chain, loop_chain, handles, length):
         add_residue_to_rosetta_chain(chain, loop_chain[i])
         counter += 1
 
-
-def perturb_c3_o3(chain, res_start, res_end, fixed):
-    axis1 = chain[res_start]['C3\''].get_vector().get_array() - chain[res_start]['O3\''].get_vector().get_array()
-    point1 = chain[res_start]['O3\''].get_vector().get_array()
-
-    moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-    rot_mat = cbc.get_closer_rotation_matrix(axis1, point1, moving, fixed)
-    last_res = chain.get_list()[-1].id[1]
-
-    for i in range(res_start+1, last_res+1):
-        atoms = bpdb.Selection.unfold_entities(chain[i], 'A')
-        for atom in atoms:
-            atom.transform(np.eye(3,3), -point1)
-            atom.transform(rot_mat.transpose(), point1)
-
-def perturb_p_o5(chain, res_start, res_end, fixed):
-    axis1 = chain[res_start]['P'].get_vector().get_array() - chain[res_start]['O5\''].get_vector().get_array()
-    point1 = chain[res_start]['O5\''].get_vector().get_array()
-
-    moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-    rot_mat = cbc.get_closer_rotation_matrix(axis1, point1, moving, fixed)
-    last_res = chain.get_list()[-1].id[1]
-
-    for i in range(res_start, last_res+1):
-        atoms = bpdb.Selection.unfold_entities(chain[i], 'A')
-        for atom in atoms:
-            atom.transform(np.eye(3,3), -point1)
-            atom.transform(rot_mat.transpose(), point1)
-
-def perturb_o5_c5(chain, res_start, res_end, fixed):
-    axis1 = chain[res_start]['O5\''].get_vector().get_array() - chain[res_start]['C5\''].get_vector().get_array()
-    point1 = chain[res_start]['C5\''].get_vector().get_array()
-
-    moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-    rot_mat = cbc.get_closer_rotation_matrix(axis1, point1, moving, fixed)
-    last_res = chain.get_list()[-1].id[1]
-
-    for i in range(res_start, last_res+1):
-        atoms = bpdb.Selection.unfold_entities(chain[i], 'A')
-        for atom in atoms:
-            if i == res_start and atom.name == 'P':
-                continue
-
-            atom.transform(np.eye(3,3), -point1)
-            atom.transform(rot_mat.transpose(), point1)
-
-def perturb_c5_c4(chain, res_start, res_end, fixed):
-    axis1 = chain[res_start]['C5\''].get_vector().get_array() - chain[res_start]['C4\''].get_vector().get_array()
-    point1 = chain[res_start]['C4\''].get_vector().get_array()
-    
-    moving = get_measurement_vectors_barnacle(chain, res_start, res_end)
-
-    rot_mat = cbc.get_closer_rotation_matrix(axis1, point1, moving, fixed)
-    last_res = chain.get_list()[-1].id[1]
-
-    for i in range(res_start, last_res+1):
-        atoms = bpdb.Selection.unfold_entities(chain[i], 'A')
-        for atom in atoms:
-            if i == res_start and (atom.name == 'P' or atom.name == 'O5\''):
-                continue
-
-            atom.transform(np.eye(3,3), -point1)
-            atom.transform(rot_mat.transpose(), point1)
 
 a_5_names = ['OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'C1*', 'C2*', 'O2*'] 
 a_3_names = ['C3*', 'O3*']
@@ -554,13 +490,6 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     (moving, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
     (moving_names, indeces_names) = get_atom_name_array(chain_loop, handles[2], handles[3])
 
-    moving1 = np.array(moving)
-    moving2 = np.array(moving)
-
-    moving_orig = np.array(moving)
-
-    moving = moving1
-    tmoving = moving2
 
     fixed = np.array(get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1]))
 
@@ -582,36 +511,15 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
     names = get_adjacent_interatom_names(chain_loop, handles[2], handles[3])
 
-    for i in range(iterations):
-        rmsd = cbc.calc_rmsd(moving[end_index+6:end_index+9], fixed)
-        if rmsd < 0.1:
-            break
-        #print "rmsd:", rmsd
-        #print "moving:", moving[:5]
-        prev_l = points[0]
 
-        for l in points:
-            point = moving[l-1]
-            axis = moving[l] - moving[l-1]
-            target = moving[end_index+6:end_index+9]
-            cbc.get_closer_rotation_matrix(axis, point, target, fixed, rot_mat)
+    moving = np.array(moving)
+    points = np.array(points)
 
-            rem_moving = moving[l+1:]
-            rem_tmoving = tmoving[l+1:]
-
-            rem_moving -= moving[l]
-            np.dot(rem_moving, rot_mat.transpose(), out = rem_tmoving)
-            rem_tmoving += moving[l]
-
-            tt_moving = moving
-            moving = tmoving
-
-            moving[prev_l+1:l+1] = tt_moving[prev_l+1:l+1]
-            tmoving = tt_moving
-
-            prev_l = l
+    cv.ccd_cython(moving, fixed, points, end_index+6, iterations) 
+    rmsd = cbc.calc_rmsd(moving[end_index+6:end_index+9], fixed)
 
     chain_loop = set_atom_coord_array(chain_loop, moving, handles[2], handles[3])
+
     '''
     assert(not np.allclose(moving_orig, moving))
 
@@ -629,47 +537,6 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
 
 
     return (rmsd, chain_loop)
-
-def quality_measurement(chain_stems, chain_barnacle, handles):
-    '''
-    See how well we can fit the ends of the loop to the ends of the
-    stems.
-
-    First the suger ring of one of the residues in the loop (barnacle) chain
-    is superimposed onto the suger ring of the end of the stem residue.
-
-    The torsion angles of the first and last residues of the loop region
-    are then modified to try and close the loop between the one end
-    of the first stem and the other end of the other stem (which can also
-    be part of the same stem in the case of a loop region).
-
-    @param chain_stems: The chain containing the reconstructed stems.
-    @param chain_barnacle: The chain which contains the sampled loop region.
-    @param handles: The residues of the ends of the stems as well as the 
-        indeces into the loop chain.
-    '''
-    align_starts(chain_stems, chain_barnacle, handles)
-
-    v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-    v2_m = get_measurement_vectors_barnacle(chain_barnacle, handles[2], handles[3])
-
-    rmsd2 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
-
-    for i in range(50):
-        perturb_c3_o3(chain_barnacle, handles[2], handles[3], v1_m)
-
-        for j in range(handles[2] + 1, handles[2] + 2):
-            perturb_p_o5(chain_barnacle, j, handles[3], v1_m)
-            perturb_o5_c5(chain_barnacle, j, handles[3], v1_m)
-            perturb_c5_c4(chain_barnacle,  j, handles[3], v1_m)
-
-        perturb_p_o5(chain_barnacle, handles[3], handles[3], v1_m)
-        perturb_o5_c5(chain_barnacle, handles[3], handles[3], v1_m)
-        perturb_c5_c4(chain_barnacle, handles[3], handles[3], v1_m)
-
-
-    rmsd9 = get_measurement_rmsd(chain_stems, chain_barnacle, handles)
-    return rmsd9, chain_barnacle
 
 def trim_chain(chain, start_res, end_res):
     '''
@@ -730,7 +597,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
             loop_chain = chain_loop
             r = 0.000
         else:
-            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=500)
+            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=1000)
 
         '''
         sample_len = ss.poisson.rvs(2)
@@ -788,7 +655,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
         if (contacts2, r) < min_contacts:
             best_loop_chain = copy.deepcopy(orig_loop_chain)
             min_contacts = (contacts2, r)
-            #print "min_contacts:", min_contacts
+            print "min_contacts:", min_contacts
 
         '''
         if contacts2 == 0:
