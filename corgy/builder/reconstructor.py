@@ -25,26 +25,25 @@ import random as rand
 
 import numpy as np
 
-def get_alignment_vectors_rosetta(ress, r1, r2):
-    return( ress[r1]['O4*'].get_vector().get_array(),
-            ress[r1]['C1*'].get_vector().get_array(),
-            ress[r1]['C2*'].get_vector().get_array())
+def get_alignment_vectors(ress, r1, r2):
+    return( ress[r1]['C4*'].get_vector().get_array(),
+            ress[r1]['C3*'].get_vector().get_array(),
+            ress[r1]['O3*'].get_vector().get_array())
 
-def get_alignment_vectors_barnacle(ress, r1, r2):
-    return( ress[r1]['O4*'].get_vector().get_array(),
-            ress[r1]['C1*'].get_vector().get_array(),
-            ress[r1]['C2*'].get_vector().get_array())
+def get_measurement_vectors1(ress, r1, r2):
+    return( ress[r2]['C4*'].get_vector().get_array(), 
+            ress[r2]['C3*'].get_vector().get_array(),
+            ress[r2]['O3*'].get_vector().get_array())
 
-def get_measurement_vectors_rosetta(ress, r1, r2):
+def get_measurement_vectors2(ress, r1, r2):
     return( ress[r2]['O4*'].get_vector().get_array(), 
             ress[r2]['C1*'].get_vector().get_array(),
             ress[r2]['C2*'].get_vector().get_array())
 
-def get_measurement_vectors_barnacle(ress, r1, r2):
-    return( ress[r2]['O4*'].get_vector().get_array(), 
-            ress[r2]['C1*'].get_vector().get_array(),
-            ress[r2]['C2*'].get_vector().get_array() )
-
+def get_measurement_vectors(ress, r1, r2):
+    return( ress[r2]['C2*'].get_vector().get_array(), 
+            ress[r2]['C3*'].get_vector().get_array(),
+            ress[r2]['O3*'].get_vector().get_array())
 
 def get_measurement_rmsd(chain1, chain2, handles):
     v1_m = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
@@ -273,7 +272,7 @@ def add_loop_chain(chain, loop_chain, handles, length):
         r2_id = chain[handles[1]].id
         chain.detach_child(r2_id)
         loop_chain[handles[3]].id = r2_id
-        #print "adding residue:", r2_id
+        print "adding residue:", r2_id
         add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
 
     counter = 1
@@ -284,8 +283,8 @@ def add_loop_chain(chain, loop_chain, handles, length):
         counter += 1
 
 
-a_5_names = ['OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'C1*', 'C2*', 'O2*'] 
-a_3_names = ['C3*', 'O3*']
+a_5_names = ['OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
+a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
 
 a_names = dict()
 a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
@@ -313,7 +312,7 @@ def get_atom_coord_array(chain, start_res, end_res):
     indeces = dict()
     count = 0
 
-    for i in range(start_res, end_res+1):
+    for i in range(start_res, end_res+2):
         res = chain[i]
         indeces[res.id[1]] = count
         #print 'res:', res.resname.strip()
@@ -344,7 +343,7 @@ def get_atom_name_array(chain, start_res, end_res):
     indeces = dict()
     count = 0
 
-    for i in range(start_res, end_res+1):
+    for i in range(start_res, end_res+2):
         res = chain[i]
         indeces[res.id[1]] = count
         #print 'res:', res.resname.strip()
@@ -372,7 +371,7 @@ def set_atom_coord_array(chain, coords, start_res, end_res):
     '''
     count = 0
 
-    for i in range(start_res, end_res+1):
+    for i in range(start_res, end_res+2):
         res = chain[i]
         #print 'res:', res.resname.strip()
         for aname in a_names[res.resname.strip()]:
@@ -393,11 +392,11 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
     @param handles: The indexes into the stem and loop for the overlapping residues.
     '''
     if end == 0:
-        v1 = get_alignment_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2 = get_alignment_vectors_barnacle(chain_loop, handles[2], handles[3])
+        v1 = get_alignment_vectors(chain_stems, handles[0], handles[1])
+        v2 = get_alignment_vectors(chain_loop, handles[2], handles[3])
     else:
-        v1 = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-        v2 = get_measurement_vectors_barnacle(chain_loop, handles[2], handles[3])
+        v1 = get_measurement_vectors(chain_stems, handles[0], handles[1])
+        v2 = get_measurement_vectors(chain_loop, handles[2], handles[3])
 
     #v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
     #v2_m = get_measurement_vectors_barnacle(chain_loop, handles[2], handles[3])
@@ -491,21 +490,22 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     (moving_names, indeces_names) = get_atom_name_array(chain_loop, handles[2], handles[3])
 
 
-    fixed = np.array(get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1]))
+    fixed = np.array(get_measurement_vectors(chain_stems, handles[0], handles[1]))
 
     start_res = handles[2]
     end_res = handles[3]
 
     start_index = indeces[handles[2]+1]
-    end_index = indeces[handles[3]]
+    end_index = indeces[handles[3]+1]
 
     points = []
+    #points += indeces[handles[2]+1] #O3* -> P bond
     for i in range(handles[2]+1, handles[3]+1):
         si = indeces[i]
+
+        # 
         points += [si+3, si+4, si+5]
 
-    #points = [[start_index + 1, start_index + 2, start_index + 3], [end_index + 1, end_index + 2, end_index + 3]]
-    #points = [[end_index + 1, end_index + 2, end_index + 3]]
     rot_mat = np.eye(3,3)
         
     distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
@@ -515,8 +515,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     moving = np.array(moving)
     points = np.array(points)
 
-    cv.ccd_cython(moving, fixed, points, end_index+6, iterations) 
-    rmsd = cbc.calc_rmsd(moving[end_index+6:end_index+9], fixed)
+    cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
+    rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
 
     chain_loop = set_atom_coord_array(chain_loop, moving, handles[2], handles[3])
 
@@ -549,6 +549,36 @@ def trim_chain(chain, start_res, end_res):
 
     for res in to_detach:
         chain.detach_child(res.id)
+
+def print_alignment_pymol_file(handles):
+    output_str = """
+select bb, /s2///%d/O4* | /s2///%d/C1* | /s2///%d/C1*
+show sticks, bb
+color red, bb
+
+select bb, /s2///%d/O4* | /s2///%d/C1*| /s2///%d/C2*
+show sticks, bb
+color red, bb
+
+select bb, s1///%d/O4* | s1///%d/C1* | s1///%d/C2*
+show sticks, bb
+color green, bb
+
+select bb, s1///%d/O4* | s1///%d/C1* | s1///%d/C2*
+show sticks, bb
+color green, bb
+
+show cartoon, all
+""" % (handles[2], handles[2], handles[2],
+        handles[3], handles[3], handles[3],
+        handles[0], handles[0], handles[0],
+        handles[1], handles[1], handles[1])
+    output_file = os.path.join(conf.Configuration.test_output_dir, "align.pml")
+    f = open(output_file, 'w')
+    f.write(output_str)
+    f.flush()
+    f.close()
+
 
 def reconstruct_loop(chain, sm, ld, side=0):
     '''
@@ -664,8 +694,11 @@ def reconstruct_loop(chain, sm, ld, side=0):
 
         trim_chain(loop_chain, i1, i2)
         
+    output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
+    output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
+    print_alignment_pymol_file((a,b,i1,i2))
+
     trim_chain(best_loop_chain, i1, i2+1)
-    output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 'sb.pdb'))
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
     sys.stdout.write('\n')
     sys.stdout.flush()
