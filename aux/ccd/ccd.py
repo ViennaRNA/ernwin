@@ -137,12 +137,13 @@ def main():
     moving = array(moving)
     fixed = array(fixed)
     #print "moving[-3]:", array(moving)[-3:]
+    points = array([i for i in range(1, len(moving) - 3, 2)])
     if len(sys.argv) < 2:
         #ccd(array(moving), array(fixed), 20)
         print "================="
-        ccd_cython(moving, fixed, 20)
+        ccd_cython(moving, fixed, points, len(moving)-3, 20)
     else:
-        ccd_cython(moving, fixed, int(sys.argv[1]))
+        ccd_cython(moving, fixed, points, len(moving)-3, int(sys.argv[1]))
 
     print calc_rmsd(moving[-3:], fixed)
 

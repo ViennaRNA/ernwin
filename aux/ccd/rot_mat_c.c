@@ -157,26 +157,27 @@ void print_rows(double *m, int n)
     }
 }
 
-void ccd_c(double *moving, double *fixed, int len_moving, int iterations) {
+void ccd_c(double *moving, int len_moving, double *fixed, long *points, int len_points, int moving_end, int iterations) {
     double rot_mat[9], rmsd;
     int k, i, prev_i, j;
     //print_rows(&moving[(len_moving-3) * 3], 3);
 
     for (k = 0; k < iterations; k++) {
-        for (i = 1; i < len_moving - 3; i++) {
+        for (i = 0; i < len_points; i++) {
             double TH[3];
+            int l = points[i];
 
-            TH[0] = moving[i*3 + 0] - moving[(i-1) * 3 + 0];
-            TH[1] = moving[i*3 + 1] - moving[(i-1) * 3 + 1];
-            TH[2] = moving[i*3 + 2] - moving[(i-1) * 3 + 2];
+            TH[0] = moving[l*3 + 0] - moving[(l-1) * 3 + 0];
+            TH[1] = moving[l*3 + 1] - moving[(l-1) * 3 + 1];
+            TH[2] = moving[l*3 + 2] - moving[(l-1) * 3 + 2];
 
-            get_closer_rotation_matrix_c(TH, &moving[(i-1) * 3], &moving[(len_moving - 3) * 3], fixed, rot_mat);
+            get_closer_rotation_matrix_c(TH, &moving[(l-1) * 3], &moving[(moving_end) * 3], fixed, rot_mat);
 
-            for (j = i+1; j < len_moving; j++) 
-                mat_times_vec(rot_mat, &moving[j*3], &moving[j*3], &moving[i*3]);
+            for (j = l+1; j < len_moving; j++) 
+                mat_times_vec(rot_mat, &moving[j*3], &moving[j*3], &moving[l*3]);
 
         }
 
-        rmsd = calc_rmsd_c( &moving[(len_moving - 3) * 3], fixed, 3);
+        rmsd = calc_rmsd_c( &moving[(moving_end - 3) * 3], fixed, 3);
     }
 }
