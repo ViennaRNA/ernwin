@@ -271,19 +271,21 @@ def add_loop_chain(chain, loop_chain, handles, length):
     if handles[1] != length:
         r2_id = chain[handles[1]].id
         chain.detach_child(r2_id)
-        loop_chain[handles[3]].id = r2_id
-        print "adding residue:", r2_id
+        loop_chain[handles[3]].id = (' ', handles[1], ' ')
+        add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
+    else:
+        loop_chain[handles[3]].id = (' ', handles[1], ' ')
         add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
 
+    # We won't replace the last residue
     counter = 1
     for i in range(handles[2]+1, handles[3]):
-        id1 = loop_chain[i].id
-        loop_chain[i].id = (id1[0], handles[0] + counter, id1[2])
+        loop_chain[i].id = (' ', handles[0] + counter, ' ')
         add_residue_to_rosetta_chain(chain, loop_chain[i])
         counter += 1
 
 
-a_5_names = ['OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
+a_5_names = ['P', 'OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
 a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
 
 a_names = dict()
@@ -499,12 +501,15 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
     end_index = indeces[handles[3]+1]
 
     points = []
+    #points += [indeces[handles[2]+1]]
+
     #points += indeces[handles[2]+1] #O3* -> P bond
     for i in range(handles[2]+1, handles[3]+1):
         si = indeces[i]
 
         # 
-        points += [si+3, si+4, si+5]
+        points += [si]
+        points += [si+4, si+5, si+6]
 
     rot_mat = np.eye(3,3)
         

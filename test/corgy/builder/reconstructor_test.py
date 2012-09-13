@@ -36,6 +36,7 @@ from Bio.PDB.Chain import Chain
 from Bio.PDB.Model import Model
 from Bio.PDB.Structure import Structure
 
+import Bio.PDB as bpdb
 import corgy.utilities.vector as cuv
 
 import os
@@ -331,7 +332,8 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loop(chain, sm, 'x4', side=1)
+        rtor.reconstruct_loop(chain, sm, 'b18')
+        #rtor.reconstruct_loop(chain, sm, 'x4', side=1)
         '''
         #rtor.reconstruct_loop(chain, sm, 'b1')
         rtor.reconstruct_loop(chain, sm, 'b11')
@@ -358,32 +360,6 @@ class TestReconstructor(unittest.TestCase):
         for i in range(i1, i2+1):
             res = chain[i]
             self.assertTrue(allclose(coords[indeces[res.id[1]]], res['P'].get_vector().get_array()))
-
-
-    def test_quality_measure(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        sm = SpatialModel(bg)
-        sm.sample_native_stems()
-        sm.create_native_stem_models()
-
-        ld = 'b15'
-        seq = bg.get_flanking_sequence(ld)
-        (a,b,i1,i2) = bg.get_flanking_handles(ld)
-
-        model = barn.Barnacle(seq)
-        model.sample()
-        s = model.structure
-
-        chain_stems = rtor.reconstruct_stems(sm) 
-        chain_barnacle = list(model.structure.get_chains())[0]
-
-        distances = rtor.get_adjacent_interatom_distances(chain_barnacle, i1, i2)
-
-        r, loop_chain = rtor.quality_measurement(chain_stems, chain_barnacle, (a,b,i1,i2))
-
-        distances1 = rtor.get_adjacent_interatom_distances(loop_chain, i1, i2)
-
-        self.assertTrue(allclose(distances, distances1))
 
     def test_close_fragment_loop(self):
         import aux.Barnacle as barn
@@ -432,19 +408,51 @@ class TestReconstructor(unittest.TestCase):
         #fr = bg.get_flanking_region('b15', 0)
         (a,b,i1,i2) = bg.get_flanking_handles('b15')
 
-        rtor.get_alignment_vectors_rosetta(chain, a, b)
+        rtor.get_alignment_vectors(chain, a, b)
 
-    def test_barnacle_handles(self):
-        from aux.Barnacle import Barnacle
+    def test_pdb_rmsd(self):
+        s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1gid/prepare/temp.pdb'))
+        s2 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1gid/prepare/temp_sampled.pdb'))
 
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        seq = bg.get_flanking_sequence('b15')
-        (a,b,i1,i2) = bg.get_flanking_handles('b15')
+        sup = bpdb.Superimposer()
 
-        model = Barnacle(seq)
-        model.sample()
-        s = model.structure
+        rs1 = list(s1.get_residues())
+        rs2 = list(s2.get_residues())
 
-        ress = list(s.get_residues())
-        rtor.get_alignment_vectors_barnacle(ress, i1, i2)
+        c1 = list(s1.get_chains())[0]
+        c2 = list(s2.get_chains())[0]
+
+        a_5_names = ['P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
+        a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
+
+        a_names = dict()
+        a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
+        a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+
+        a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
+        a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+
+        all_atoms1 = []
+        all_atoms2 = []
+
+        for i in range(1, len(list(s1.get_residues()))+1):
+            #anames = a_5_names + a_names[c1[i].resname.strip()] + a_3_names
+            anames = a_5_names + a_3_names
+
+            atoms1 = [c1[i][a] for a in anames]
+            atoms2 = [c2[i][a] for a in anames]
+
+            if len(atoms1) != len(atoms2):
+                print "different lengths"
+                sys.exit(1)
+
+            all_atoms1 += atoms1
+            all_atoms2 += atoms2
+
+        sup.set_atoms(all_atoms1, all_atoms2)
+
+        print "sup.rms:", sup.rms
+
+
+                
 
