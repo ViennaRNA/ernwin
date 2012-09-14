@@ -303,14 +303,14 @@ class TestReconstructor(unittest.TestCase):
         self.check_pymol_stems(bg, output_file + ".pym", output_file + ".pdb")
 
     def test_reconstruct_loops(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         sm = SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loops(chain, sm)
+        rtor.reconstruct_loops(chain, sm, samples=5)
         '''
         rtor.reconstruct_loop(chain, sm, 'b15')
         #rtor.reconstruct_loop(chain, sm, 'b1')
@@ -410,49 +410,27 @@ class TestReconstructor(unittest.TestCase):
 
         rtor.get_alignment_vectors(chain, a, b)
 
-    def test_pdb_rmsd(self):
+    def test_pdb_rmsd1(self):
         s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1gid/prepare/temp.pdb'))
         s2 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1gid/prepare/temp_sampled.pdb'))
-
-        sup = bpdb.Superimposer()
-
-        rs1 = list(s1.get_residues())
-        rs2 = list(s2.get_residues())
 
         c1 = list(s1.get_chains())[0]
         c2 = list(s2.get_chains())[0]
 
-        a_5_names = ['P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
-        a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
+        print "rms:", rtor.pdb_rmsd(c1, c2)
 
-        a_names = dict()
-        a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
-        a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+    def test_pdb_rmsd2(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.traverse_and_build()
 
-        a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
-        a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+        #sm.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm)
+        rtor.reconstruct_loops(chain, sm, samples=5)
 
-        all_atoms1 = []
-        all_atoms2 = []
+        rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
 
-        for i in range(1, len(list(s1.get_residues()))+1):
-            #anames = a_5_names + a_names[c1[i].resname.strip()] + a_3_names
-            anames = a_5_names + a_3_names
+        s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
+        print "rmsd:", rtor.pdb_rmsd(chain, list(s1.get_chains())[0])
 
-            atoms1 = [c1[i][a] for a in anames]
-            atoms2 = [c2[i][a] for a in anames]
-
-            if len(atoms1) != len(atoms2):
-                print "different lengths"
-                sys.exit(1)
-
-            all_atoms1 += atoms1
-            all_atoms2 += atoms2
-
-        sup.set_atoms(all_atoms1, all_atoms2)
-
-        print "sup.rms:", sup.rms
-
-
-                
 

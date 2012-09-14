@@ -45,13 +45,56 @@ def get_measurement_vectors(ress, r1, r2):
             ress[r2]['C3*'].get_vector().get_array(),
             ress[r2]['O3*'].get_vector().get_array())
 
-def get_measurement_rmsd(chain1, chain2, handles):
-    v1_m = get_measurement_vectors_rosetta(chain1, handles[0], handles[1])
-    v2_m = get_measurement_vectors_barnacle(chain2, handles[2], handles[3])
+def pdb_rmsd(c1, c2):
+    '''
+    Calculate the all-atom rmsd between two RNA chains.
 
-    rmsd = cuv.vector_set_rmsd(v1_m, v2_m)
+    @param c1: A Bio.PDB.Chain
+    @param c2: Another Bio.PDB.Chain
+    @return: The rmsd between the locations of all the atoms in the chains.
+    '''
 
-    return rmsd
+    a_5_names = ['P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
+    a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
+
+    a_names = dict()
+    a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
+    a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+
+    a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
+    a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+
+    all_atoms1 = []
+    all_atoms2 = []
+
+    if len(c1.get_list()) != len(c2.get_list()):
+        print >>sys.stderr, "Chains of different length"
+        raise Exception("Chains of different length.")
+
+    for i in range(1, len(list(c1.get_list()))+1):
+        anames = a_5_names + a_names[c1[i].resname.strip()] + a_3_names
+        #anames = a_5_names + a_3_names
+
+        try:
+            atoms1 = [c1[i][a] for a in anames]
+            atoms2 = [c2[i][a] for a in anames]
+        except KeyError:
+            print >>sys.stderr, "Residue number %d is missing an atom, continuing with the rest." % (i)
+            continue
+
+        if len(atoms1) != len(atoms2):
+            print >>sys.stderr, "Number of atoms differs in the two chains."
+            raise Exception("Missing atoms.")
+
+        all_atoms1 += atoms1
+        all_atoms2 += atoms2
+
+    print "rmsd len:", len(all_atoms1), len(all_atoms2)
+    sup = bpdb.Superimposer()
+    sup.set_atoms(all_atoms1, all_atoms2)
+
+    return sup.rms
+
 def get_stem_rotation_matrix(stem, (u, v, t)):
     twist1 = stem.twists[0]
 
@@ -475,7 +518,7 @@ def get_adjacent_interatom_names(chain, start_res, end_res):
     return distances
 
 
-def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
+def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     '''
     Align the chain_loop so that it stretches from the end of one stem to the 
     start of the other.
@@ -513,8 +556,10 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=1000):
 
     rot_mat = np.eye(3,3)
         
+    '''
     distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
     names = get_adjacent_interatom_names(chain_loop, handles[2], handles[3])
+    '''
 
 
     moving = np.array(moving)
@@ -585,7 +630,7 @@ show cartoon, all
     f.close()
 
 
-def reconstruct_loop(chain, sm, ld, side=0):
+def reconstruct_loop(chain, sm, ld, side=0, samples=40):
     '''
     Reconstruct a particular loop.
 
@@ -610,7 +655,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
     prev_r = 1000.
     min_r = 1000.
     min_contacts = (1000, 100.)
-    iterations = 20
+    iterations = samples
     best_loop_chain = None
     sys.stdout.write("reconstructing %s:" % (ld))
 
@@ -632,7 +677,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
             loop_chain = chain_loop
             r = 0.000
         else:
-            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=1000)
+            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=500)
 
         '''
         sample_len = ss.poisson.rvs(2)
@@ -664,9 +709,10 @@ def reconstruct_loop(chain, sm, ld, side=0):
 
         prev_r = r
         '''
-        orig_loop_chain = copy.deepcopy(loop_chain)
+        #orig_loop_chain = copy.deepcopy(loop_chain)
+        orig_loop_chain = loop_chain
 
-        trim_chain(loop_chain, i1, i2)
+        trim_chain(loop_chain, i1, i2+1)
         loop_atoms = bpdb.Selection.unfold_entities(loop_chain, 'A')
 
         if a != 0:
@@ -690,14 +736,14 @@ def reconstruct_loop(chain, sm, ld, side=0):
         if (contacts2, r) < min_contacts:
             best_loop_chain = copy.deepcopy(orig_loop_chain)
             min_contacts = (contacts2, r)
-            print "min_contacts:", min_contacts
+            #print "min_contacts:", min_contacts
 
         '''
         if contacts2 == 0:
             break
         '''
 
-        trim_chain(loop_chain, i1, i2)
+        #trim_chain(loop_chain, i1, i2)
         
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
@@ -708,7 +754,7 @@ def reconstruct_loop(chain, sm, ld, side=0):
     sys.stdout.write('\n')
     sys.stdout.flush()
 
-def reconstruct_loops(chain, sm):
+def reconstruct_loops(chain, sm, samples=40):
     '''
     Reconstruct the loops of a chain.
 
@@ -720,10 +766,10 @@ def reconstruct_loops(chain, sm):
     for d in sm.bg.defines.keys():
         if d[0] != 's':
             if sm.bg.weights[d] == 2:
-                reconstruct_loop(chain, sm, d, 0)
-                reconstruct_loop(chain, sm, d, 1)
+                reconstruct_loop(chain, sm, d, 0, samples=samples)
+                reconstruct_loop(chain, sm, d, 1, samples=samples)
             else:
-                reconstruct_loop(chain, sm, d)
+                reconstruct_loop(chain, sm, d, 0, samples=samples)
             
 
 def reconstruct(sm):
