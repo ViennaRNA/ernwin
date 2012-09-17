@@ -181,11 +181,11 @@ class SpatialModel:
 
         for stats in self.stem_stats.values():
             for stat in stats:
-                if stat.pdb_name == self.bg.name:
-                    for d in self.bg.defines.keys():
-                        if d[0] == 's':
+                for d in self.bg.sampled_stems.keys():
+                    if d[0] == 's':
+                        if stat.pdb_name == self.bg.sampled_stems[d][0]:
                             #define = " ".join(map(str,self.bg.defines[d]))
-                            if stat.define == self.bg.defines[d]:
+                            if stat.define == self.bg.sampled_stems[d][1:]:
                                 #print "define:", self.bg.defines[d], stat.define
                                 stem_defs[d] = stat
 
@@ -256,6 +256,13 @@ class SpatialModel:
 
                 break
 
+    def save_sampled_stems(self):
+        '''
+        Save the information about the sampled stems to the bulge graph file.
+        '''
+        for sd in self.stem_defs.items():
+            self.bg.sampled_stems[sd[0]] = [sd[1].pdb_name] + sd[1].define
+            #print "self.bg.sampled_stems[sd[0]]:", self.bg.sampled_stems[sd[0]]
 
     def get_transform(self, edge):
         '''
@@ -470,7 +477,8 @@ class SpatialModel:
             counter += 1
 
         self.fill_in_bulges_and_loops()
-        
         self.elements_to_coords()
+        self.save_sampled_stems()
 
+            #print self.bg.sampled_stems[sd[0]]
 

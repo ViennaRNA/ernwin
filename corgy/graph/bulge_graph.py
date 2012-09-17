@@ -25,6 +25,7 @@ class BulgeGraph:
         self.seq = ''
 
         # Look up tables
+        self.sampled_stems = dict()
         self.coords = dict()
         self.twists = dict()
         self.edges = dict()
@@ -499,6 +500,12 @@ class BulgeGraph:
     def print_me(self):
         print self.get_connect_str()
 
+    def get_sampled_stems_str(self):
+        out_str = ''
+        for key in self.sampled_stems.keys():
+            out_str += 'sampled %s %s\n' % (key, " ".join(map(str, self.sampled_stems[key])))
+        return out_str
+
     def get_coord_str(self):
         out_str = ''
         for key in self.coords.keys():
@@ -536,6 +543,7 @@ class BulgeGraph:
         out_str += self.get_length_str()
         out_str += self.get_define_str()
         out_str += self.get_coord_str()
+        out_str += self.get_sampled_stems_str()
         out_str += self.get_twist_str()
         out_str += self.get_connect_str()
         out_str += self.get_long_range_str()
@@ -967,6 +975,10 @@ class BulgeGraph:
                     self.seq = ''
                 else:
                     self.seq = parts[1]
+
+            if line.strip().find('sampled') == 0:
+                parts = line.strip().split(' ')
+                self.sampled_stems[parts[1]] = [parts[2], int(parts[3]), int(parts[4]), int(parts[5]), int(parts[6])]
 
             if line.strip().find('coord') == 0:
                 parts = line.strip().split(' ')

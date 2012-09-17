@@ -244,6 +244,23 @@ class TestReconstructor(unittest.TestCase):
             self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
             rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
 
+    def test_reconstruct_sampled_saved_model(self):
+        '''
+        Test the reconstruction of a model that was previously sampled and is now saved.
+        '''
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.traverse_and_build()
+        sm.bg.output(os.path.join(Configuration.test_output_dir, 'sampled.coords'))
+
+        bg = BulgeGraph(os.path.join(Configuration.test_output_dir, "sampled.coords"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+
+        chain = rtor.reconstruct_stems(sm)
+        self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+
     def test_reconstruct_native_whole_model(self):
         bgs = []
         #bgs += [self.bg]
