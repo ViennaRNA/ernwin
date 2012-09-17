@@ -3,7 +3,7 @@ import unittest
 import aux.Barnacle as barn
 
 import corgy.builder.reconstructor as rc
-import pdb, sys
+import pdb, sys, copy
 
 from operator import attrgetter
 from corgy.visual.pymol import PymolPrinter
@@ -239,8 +239,10 @@ class TestReconstructor(unittest.TestCase):
             sm = SpatialModel(bg)
             sm.traverse_and_build()
             chain = rtor.reconstruct_stems(sm)
+            rtor.replace_bases(chain, bg.seq)
 
             self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
+            rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
 
     def test_reconstruct_native_whole_model(self):
         bgs = []
@@ -426,6 +428,7 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
+        rtor.replace_bases(chain, bg.seq)
         rtor.reconstruct_loops(chain, sm, samples=5)
 
         rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
@@ -433,4 +436,34 @@ class TestReconstructor(unittest.TestCase):
         s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
         print "rmsd:", rtor.pdb_rmsd(chain, list(s1.get_chains())[0])
 
+    def test_replace_side_chains(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.traverse_and_build()
+
+        s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
+
+        reference_chain = list(s1.get_chains())[0]
+        sampled_chain = rtor.reconstruct_stems(sm)
+        replaced_chain = copy.deepcopy(sampled_chain)
+        rtor.replace_bases(replaced_chain, bg.seq)
+
+        anchor_atom = {'A': 'N9', 'C':'N1', 'G':'N9', 'U':'N1'}
+
+        # check that the N1 position is the same in 
+        for res1 in sampled_chain:
+            res2 = replaced_chain[res1.id[1]]
+            res3 = reference_chain[res1.id[1]]
+
+            print res1.resname, res2.resname, res3.resname
+
+            self.assertTrue(allclose(res1[anchor_atom[res1.resname.strip()]].get_vector().get_array(),
+                                     res2[anchor_atom[res2.resname.strip()]].get_vector().get_array())) 
+
+
+            # make sure all of the atoms in the reference chain are also in the relaced chain
+            side_chain_atoms = rtor.side_chain_atoms[res3.resname.strip()]
+
+            for atom_name in side_chain_atoms:
+                self.assertTrue(atom_name in res2)
 

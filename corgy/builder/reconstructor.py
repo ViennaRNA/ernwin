@@ -331,12 +331,20 @@ def add_loop_chain(chain, loop_chain, handles, length):
 a_5_names = ['P', 'OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
 a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
 
-a_names = dict()
-a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
-a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+side_chain_atoms = dict()
 
-a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
-a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+side_chain_atoms['U'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6']
+side_chain_atoms['C'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6']
+
+side_chain_atoms['A'] = ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9']
+side_chain_atoms['G'] = ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9']
+
+a_names = dict()
+a_names['U'] = a_5_names + side_chain_atoms['U'] + a_3_names
+a_names['C'] = a_5_names + side_chain_atoms['C'] + a_3_names
+
+a_names['A'] = a_5_names + side_chain_atoms['A'] + a_3_names
+a_names['G'] = a_5_names + side_chain_atoms['G'] + a_3_names
 
 def get_atom_coord_array(chain, start_res, end_res):
     '''
@@ -782,3 +790,84 @@ def reconstruct(sm):
     chain = reconstruct_stems(sm)
     reconstruct_loops(chain, sm)
     return chain
+
+def replace_base(res_dir, res_ref):
+    '''
+    Orient res_ref so that it points in the same direction
+    as res_dir.
+
+    @param res_dir: The residue indicating the direction
+    @param res_ref: The reference residue to be rotated
+    @return res: A residue with the atoms of res_ref pointing in the direction of res_dir
+    '''
+    #av = { 'U': ['N1', 'C6', 'C2'], 'C': ['N1', 'C6', 'C2'], 'A': ['N9', 'C4', 'C8'], 'G': ['N9', 'C4', 'C8'] }
+    av = { 'U': ['N1', 'C1*', 'C2*'], 'C': ['N1', 'C1*', 'C2*'], 'A': ['N9', 'C1*', 'C2*'], 'G': ['N9', 'C1*', 'C2*'] }
+
+    dv = av[res_dir.resname.strip()]
+    rv = av[res_ref.resname.strip()]
+
+    dir_points = np.array([res_dir[v].get_vector().get_array() for v in dv])
+    ref_points = np.array([res_ref[v].get_vector().get_array() for v in rv])
+
+    dir_centroid = cuv.get_vector_centroid(dir_points)
+    ref_centroid = cuv.get_vector_centroid(ref_points)
+
+    #sup = brmsd.optimal_superposition(dir_points - dir_centroid, ref_points - ref_centroid)
+    sup = brmsd.optimal_superposition(ref_points - ref_centroid, dir_points - dir_centroid)
+    new_res = copy.deepcopy(res_ref)
+
+    for atom in new_res:
+        atom.transform(np.eye(3,3), -ref_centroid)
+        atom.transform(sup, dir_centroid)
+
+    #print "dir_points:", dir_points
+    #print "ref_points:", ref_points
+    return new_res
+
+def replace_bases(chain, seq):
+    '''
+    Go through the chain and replace the bases with the ones specified in the
+    sequence.
+
+    This is necessary since the stems are sampled by their length rather than
+    sequence. Therefore some stem fragments may contain a sequence that is
+    different from the one that is required.
+
+    This method will change the identity of those bases, as well as align the atoms
+    according to their N1->C2, N1->C6 or N9->C4, N9->C8. vector pairs.
+
+    param @chain: A Bio.PDB.Chain with some reconstructed residues
+    param @seq: The sequence of the structure represented by chain
+    '''
+    s1 = bpdb.PDBParser().get_structure('t', conf.Configuration.template_residue_fn)
+    tchain = list(s1.get_chains())[0]
+
+
+    tindeces = { 'A': 1, 'C': 2, 'G': 3, 'U': 4}
+
+    print "len(seq):", len(seq)
+    ress = chain.get_list()
+
+    for i in range(len(ress)):
+        num = ress[i].id[1]
+        name = ress[i].resname.strip()
+
+        ref_res = tchain[tindeces[seq[num-1]]]
+        new_res = replace_base(ress[i], ref_res)
+
+        sca = side_chain_atoms[ress[i].resname.strip()]
+        for aname in sca:
+            ress[i].detach_child(aname)
+        
+        sca = side_chain_atoms[new_res.resname.strip()]
+        for aname in sca:
+            ress[i].add(new_res[aname])
+
+        ress[i].resname = new_res.resname
+        '''
+        ress[i].resname = new_res.resname
+        ress[i].child_list = new_res.child_list
+        ress[i].child_dict = new_res.child_dict
+        '''
+
+        
