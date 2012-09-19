@@ -4,10 +4,6 @@ show cartoon, all
 set cartoon_ring_mode
 set cartoon_tube_radius, .3
 hide all
-color green, resi 17-18 or resi 28-29
-color green, resi 13-15 or resi 31-33
-color green, resi 32-28
-color green, resi 19-12
 hide cartoon, resi 42
 hide sticks, resi 42
 hide cartoon, resi 43
@@ -32,26 +28,38 @@ hide sticks, resi 59
 hide cartoon, resi 59
 hide sticks, resi 60
 hide cartoon, resi 60
-hide cartoon, resi 17
-hide sticks, resi 17
-hide cartoon, resi 18
-hide sticks, resi 18
-hide sticks, resi 28
-hide cartoon, resi 28
-hide sticks, resi 29
-hide cartoon, resi 29
 hide cartoon, resi 13
 hide sticks, resi 13
 hide cartoon, resi 14
 hide sticks, resi 14
 hide cartoon, resi 15
 hide sticks, resi 15
+hide cartoon, resi 16
+hide sticks, resi 16
+hide cartoon, resi 17
+hide sticks, resi 17
+hide cartoon, resi 18
+hide sticks, resi 18
+hide cartoon, resi 19
+hide sticks, resi 19
+hide sticks, resi 27
+hide cartoon, resi 27
+hide sticks, resi 28
+hide cartoon, resi 28
+hide sticks, resi 29
+hide cartoon, resi 29
+hide sticks, resi 30
+hide cartoon, resi 30
 hide sticks, resi 31
 hide cartoon, resi 31
 hide sticks, resi 32
 hide cartoon, resi 32
 hide sticks, resi 33
 hide cartoon, resi 33
+hide cartoon, resi 1
+hide sticks, resi 1
+hide cartoon, resi 2
+hide sticks, resi 2
 hide cartoon, resi 3
 hide sticks, resi 3
 hide cartoon, resi 4
@@ -80,6 +88,22 @@ hide sticks, resi 68
 hide cartoon, resi 68
 hide sticks, resi 69
 hide cartoon, resi 69
+hide sticks, resi 70
+hide cartoon, resi 70
+hide sticks, resi 71
+hide cartoon, resi 71
+color blue, resi 61
+color blue, resi 62
+color blue, resi 10
+color blue, resi 11
+color blue, resi 12
+color blue, resi 20
+color blue, resi 21
+color blue, resi 22
+color blue, resi 23
+color blue, resi 24
+color blue, resi 25
+color blue, resi 26
 color blue, resi 34
 color blue, resi 35
 color blue, resi 36
@@ -95,24 +119,5 @@ color blue, resi 51
 color blue, resi 52
 color blue, resi 53
 color blue, resi 54
-color blue, resi 1
-color blue, resi 2
-color blue, resi 61
-color blue, resi 62
-color blue, resi 19
-color blue, resi 20
-color blue, resi 21
-color blue, resi 22
-color blue, resi 23
-color blue, resi 24
-color blue, resi 25
-color blue, resi 26
-color blue, resi 27
-color blue, resi 10
-color blue, resi 11
-color blue, resi 12
-color yellow, resi 30
-color yellow, resi 16
-color blue, resi 70
 run output/1y26/pymol/coarse_grain.pym
 show cartoon, temp

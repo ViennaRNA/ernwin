@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 base=${1##*/}
 pdb=${base%\.*}
 

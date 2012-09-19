@@ -116,7 +116,8 @@ class PymolPrinter:
             comp2 = normalize(cross(ncl, comp1))
             comp3 = normalize(cross(ncl, comp2))
 
-            pos = (p + n) / 2.0 + 3 * comp2
+            #pos = (p + n) / 2.0 + 3 * comp2
+            pos = p + (n - p) / 4.0 + 3 * comp2
             font = 2
             axes = [list(comp1 * 2), list(comp2 * 2), list(comp3 * 2)]
 
@@ -129,6 +130,7 @@ class PymolPrinter:
         for i in range(counter):
             s += "cmd.load_cgo(cgox_%d, \'cgox%d\')" % (i, i) + '\n'
         s += "cmd.zoom(\"all\", 2.0)" + '\n'
+
         return s
 
 
@@ -234,7 +236,7 @@ class PymolPrinter:
                     self.add_segment(p, n, "blue", 1.0, key)
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
-                        self.add_segment(p, n, "red", 1.0, key)
+                        self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
                     else:
                         self.add_segment(p, n, "yellow", 1.0, key)
 

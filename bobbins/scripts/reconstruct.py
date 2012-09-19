@@ -26,6 +26,7 @@ def main():
     sm.create_native_stem_models()
 
     chain = rtor.reconstruct_stems(sm)
+    rtor.replace_bases(chain, sm.bg.seq)
 
     if options.loops:
         rtor.reconstruct_loops(chain, sm)

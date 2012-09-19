@@ -2,40 +2,47 @@ name 1gid
 length 158
 define s0 0 5 8 109 112
 define s1 0 9 10 106 107
-define s2 0 15 16 101 102
+define s2 0 14 19 98 103
 define s3 0 24 27 91 94
 define s4 0 29 32 87 90
 define s5 0 34 36 78 80
-define s6 0 40 44 55 59
+define s6 0 39 47 52 60
 define s7 0 63 64 72 73
-define s8 0 119 121 148 150
-define s9 0 126 133 137 144
-define b0 1 36 40
-define b1 1 44 55
-define b2 1 59 63
+define s8 0 118 121 148 151
+define s9 0 124 124 147 147
+define s10 0 125 133 137 145
+define b0 1 36 39
+define b1 1 47 52
+define b2 1 60 63
 define b3 1 64 72
 define b4 1 32 34
 define b5 1 73 78
 define b6 1 27 29
 define b7 1 80 87
-define b8 1 16 24
-define b9 1 10 15
-define b10 1 94 101
+define b8 1 19 24
+define b9 1 10 14
+define b10 1 94 98
 define b11 1 0 5
-define b12 1 102 106
+define b12 1 103 106
 define b13 1 107 109
-define b14 1 121 126
+define b14 1 121 124
 define b15 1 133 137
-define b16 1 112 119
-define b17 1 144 148
-define b18 1 150 158
+define b16 1 112 118
+define b17 1 145 147
+define b18 1 151 158
 define b19 1 8 9
 define b20 1 90 91
+define b21 1 147 148
+define b22 1 124 125
 
 connect s0 b19
 connect s1 b19
 connect s3 b20
 connect s4 b20
+connect s8 b21
+connect s9 b21
+connect s9 b22
+connect s10 b22
 
 connect s0 b16 b11 b13
 connect s1 b9 b12 b13
@@ -45,5 +52,6 @@ connect s4 b4 b6 b7
 connect s5 b0 b4 b5 b7
 connect s6 b0 b1 b2
 connect s7 b2 b3 b5
-connect s8 b16 b17 b18 b14
-connect s9 b17 b14 b15
+connect s8 b16 b18 b14
+connect s9 b17 b14
+connect s10 b17 b15

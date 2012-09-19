@@ -52,6 +52,6 @@ if __name__ == '__main__':
     except:
         tb = traceback.format_exc()
         print >>stderr, tb
-        pdb.post_mortem()
+        #pdb.post_mortem()
         raise
 

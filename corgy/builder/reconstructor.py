@@ -171,7 +171,7 @@ def reconstruct_stems(sm):
         stem = sm.stems[stem_name]
 
         filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-        #print "stem_name:", stem_name, "stem_def:", stem_def
+        #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
         pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, filename)
 
         chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
@@ -444,6 +444,7 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
     @param chain_loop: The chain containing the sampled loop
     @param handles: The indexes into the stem and loop for the overlapping residues.
     '''
+
     if end == 0:
         v1 = get_alignment_vectors(chain_stems, handles[0], handles[1])
         v2 = get_alignment_vectors(chain_loop, handles[2], handles[3])
@@ -722,6 +723,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
 
         trim_chain(loop_chain, i1, i2+1)
         loop_atoms = bpdb.Selection.unfold_entities(loop_chain, 'A')
+        #loop_atoms += bpdb.Selection.unfold_entities(chain, 'A')
 
         if a != 0:
             loop_atoms += bpdb.Selection.unfold_entities(chain[a], 'A')
@@ -740,7 +742,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
         sys.stdout.flush()
 
         #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
-
+        
         if (contacts2, r) < min_contacts:
             best_loop_chain = copy.deepcopy(orig_loop_chain)
             min_contacts = (contacts2, r)
@@ -753,6 +755,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
 
         #trim_chain(loop_chain, i1, i2)
         
+    sys.stdout.write(str(min_contacts))
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
@@ -773,6 +776,7 @@ def reconstruct_loops(chain, sm, samples=40):
     '''
     for d in sm.bg.defines.keys():
         if d[0] != 's':
+            print "d:", d
             if sm.bg.weights[d] == 2:
                 reconstruct_loop(chain, sm, d, 0, samples=samples)
                 reconstruct_loop(chain, sm, d, 1, samples=samples)

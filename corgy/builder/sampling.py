@@ -165,6 +165,7 @@ class SamplingStatistics:
         '''
         self.counter += 1
         sm.traverse_and_build()
+
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
 

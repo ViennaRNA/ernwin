@@ -11,7 +11,8 @@ from corgy.builder.energy import JunctionClosureEnergy
 from corgy.builder.models import SpatialModel
 
 import sys, shutil, os
-import unittest
+import unittest, pickle
+
 import numpy as np
         
 class TestRandomEnergy(unittest.TestCase):
@@ -110,3 +111,30 @@ class TestCombinedEnergy(unittest.TestCase):
         print "calibrated lric:", energy2
 
         self.assertFalse(np.allclose(energy1, energy2, atol=0.1))
+
+    def test_save_and_evaluate_model(self):
+        iterations = 12
+        output_dir = os.path.join(Configuration.test_output_dir, 'energies')
+        energy = pickle.load(open(os.path.join(output_dir, '%s/%d/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (self.bg.name, iterations)), 'r'))
+
+        self.bg.calc_bp_distances()
+        sm = SpatialModel(self.bg)
+        sm.get_sampled_bulges()
+        sm.traverse_and_build()
+
+        sm.bg.output(os.path.join(Configuration.test_output_dir, 'saved_bg.coords'))
+
+        energy1 =  energy.eval_energy(sm, True)
+
+        sm = SpatialModel(BulgeGraph(os.path.join(Configuration.test_output_dir, 'saved_bg.coords')))
+        sm.bg.calc_bp_distances()
+        sm.get_sampled_bulges()
+        #sm.traverse_and_build()
+        
+        energy2 = energy.eval_energy(sm, True)
+
+        print 'energy1:', energy1
+        print 'energy2:', energy2
+
+        self.assertTrue(np.allclose(energy1, energy2))
+

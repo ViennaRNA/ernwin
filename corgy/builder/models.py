@@ -186,7 +186,6 @@ class SpatialModel:
                         if stat.pdb_name == self.bg.sampled_stems[d][0]:
                             #define = " ".join(map(str,self.bg.defines[d]))
                             if stat.define == self.bg.sampled_stems[d][1:]:
-                                #print "define:", self.bg.defines[d], stat.define
                                 stem_defs[d] = stat
 
         self.stem_defs = stem_defs
@@ -252,7 +251,8 @@ class SpatialModel:
         for define in self.bg.defines.keys():
             if define[0] != 's' and self.bg.weights[define] == 1 and len(self.bg.edges[define]) == 1:
                 for edge in self.bg.edges[define]:
-                    return (edge, 'start', StemModel()) 
+                    #return (edge, 'start', StemModel())
+                    return (edge, define, StemModel())
 
                 break
 
@@ -308,6 +308,8 @@ class SpatialModel:
         '''
         Return a random set of parameters with which to create a bulge.
         '''
+        if len(self.bg.edges[name]) == 1:
+            return AngleStat()
 
         return self.angle_defs[name]
 
@@ -386,26 +388,27 @@ class SpatialModel:
         sampled. This will be used to determine which ones are closed.
         '''
         visited = []
-        first_node = self.find_start_node()[0]
+        first_node = self.find_start_node()[:2]
+        self.sampled_bulges = []
 
         to_visit = [first_node]
         while len(to_visit) > 0:
-            curr_node = to_visit.pop()
+            (curr_node, prev_node) = to_visit.pop(0)
 
             while curr_node in visited:
                 if len(to_visit) > 0:
-                    curr_node = to_visit.pop()
+                    (curr_node, prev_node) = to_visit.pop(0)
                 else:
-                    self.sampled_bulges = visited
-                    return 
+                    break
 
             visited.append(curr_node)
 
+            if curr_node[0] == 's':
+                self.sampled_bulges += [prev_node]
+
             for edge in self.bg.edges[curr_node]:
                 if edge not in visited:
-                    to_visit.append(edge)
-
-        self.sampled_bulges = visited
+                    to_visit.append((edge, curr_node))
 
     def traverse_and_build(self):
         '''
@@ -438,7 +441,7 @@ class SpatialModel:
                 if len(self.to_visit) > 0:
                     (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
                 else:
-                    return
+                    break
                     
             self.visited.add(curr_node)
             stem = prev_stem
@@ -455,10 +458,7 @@ class SpatialModel:
                 self.sampled_bulges += [prev_node]
 
                 # the previous stem should always be in the direction(0, 1) 
-                if prev_node == 'bg':
-                    stem = self.add_stem(params, prev_stem, prev_params, (1, 0))
-                else:
-                    stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
+                stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
 
                 # the following is done to maintain the invariant that mids[s1b] is
                 # always in the direction of the bulge from which s1b was obtained
