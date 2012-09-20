@@ -490,7 +490,7 @@ class JunctionClosureEnergy(EnergyFunction):
             bgd = self.bgs[bl]
 
             dist = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
-            print "bl:", bl, "dist:", dist
+            #print "bl:", bl, "dist:", dist
 
             if background:
                 energy += -(fgd(dist) - bgd(dist))

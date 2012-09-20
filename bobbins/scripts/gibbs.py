@@ -97,6 +97,6 @@ if __name__ == '__main__':
     try:
         main()
     except:
-        pdb.post_mortem()
+        #pdb.post_mortem()
         raise
 
