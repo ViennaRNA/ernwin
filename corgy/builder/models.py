@@ -388,10 +388,14 @@ class SpatialModel:
         sampled. This will be used to determine which ones are closed.
         '''
         visited = []
+        prev_visited = []
+
         first_node = self.find_start_node()[:2]
         self.sampled_bulges = []
+        self.visit_order = []
 
         to_visit = [first_node]
+
         while len(to_visit) > 0:
             (curr_node, prev_node) = to_visit.pop(0)
 
@@ -400,8 +404,10 @@ class SpatialModel:
                     (curr_node, prev_node) = to_visit.pop(0)
                 else:
                     break
+            print "curr_node:", curr_node, "prev_node:", prev_node
 
             visited.append(curr_node)
+            prev_visited.append(prev_node)
 
             if curr_node[0] == 's':
                 self.sampled_bulges += [prev_node]
@@ -409,6 +415,9 @@ class SpatialModel:
             for edge in self.bg.edges[curr_node]:
                 if edge not in visited:
                     to_visit.append((edge, curr_node))
+
+        self.visit_order = visited
+        self.prev_visit_order = prev_visited
 
     def traverse_and_build(self):
         '''

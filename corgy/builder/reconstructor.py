@@ -5,9 +5,9 @@ import corgy.graph.graph_pdb as gpdb
 import corgy.utilities.vector as cuv
 
 import corgy.builder.ccd as cbc
-import aux.ccd.cytvec as cv
+import corgy.aux.ccd.cytvec as cv
 
-import aux.Barnacle as barn
+import corgy.aux.Barnacle as barn
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
@@ -147,7 +147,7 @@ def translate_chain(chain, translation):
     atoms = bpdb.Selection.unfold_entities(chain, 'A')
 
     for atom in atoms:
-        atom.transform(np.eye(3,3), translation)
+        atom.transform(cuv.identity_matrix, translation)
 
 def align_chain_to_stem(chain, define, stem2):
     stem1 = define_to_stem_model(chain, define)
@@ -157,7 +157,7 @@ def align_chain_to_stem(chain, define, stem2):
     rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
     translate_chain(chain, stem2.mids[0] - stem1.mids[0])
 
-def reconstruct_stems(sm):
+def reconstruct_stems(sm, stem_library=dict()):
     '''
     Reconstruct the stems around a Spatial Model.
 
@@ -174,7 +174,13 @@ def reconstruct_stems(sm):
         #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
         pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, filename)
 
-        chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        #print len(stem_library.keys())
+        if filename in stem_library.keys():
+            chain = stem_library[filename]
+        else:
+            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+            stem_library[filename] = chain
+
         align_chain_to_stem(chain, stem_def.define, stem)
 
         #print "stem_def.define:", stem_def.define
@@ -776,7 +782,6 @@ def reconstruct_loops(chain, sm, samples=40):
     '''
     for d in sm.bg.defines.keys():
         if d[0] != 's':
-            print "d:", d
             if sm.bg.weights[d] == 2:
                 reconstruct_loop(chain, sm, d, 0, samples=samples)
                 reconstruct_loop(chain, sm, d, 1, samples=samples)

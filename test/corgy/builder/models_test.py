@@ -132,6 +132,9 @@ class TestSpatialModel(unittest.TestCase):
 
         sm.get_sampled_bulges()
         sb2 = sm.sampled_bulges
+        #print "sb2:", sb2
+        #print "visit_order:", sm.visit_order
+        #print "pvsit_order:", sm.prev_visit_order
 
         self.assertEqual(sb1, sb2)
 
@@ -139,6 +142,7 @@ class TestSpatialModel(unittest.TestCase):
         sm = SpatialModel(bg)
         
         sm.traverse_and_build()
+
         for key in sm.sampled_bulges:
 
             if len(bg.edges[key]) != 2:
@@ -169,3 +173,9 @@ class TestSpatialModel(unittest.TestCase):
 
         self.long_bulge_test(bg1)
         self.long_bulge_test(bg2)
+
+    def test_resample_bulge(self):
+        bg = self.bg
+        sm = SpatialModel(copy.deepcopy(bg))
+
+        sm.traverse_and_build()

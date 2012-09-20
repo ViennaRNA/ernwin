@@ -12,6 +12,8 @@ from corgy.builder.energy import LongRangeInteractionCount, CombinedEnergy
 from corgy.builder.energy import JunctionClosureEnergy, SkewNormalInteractionEnergy
 from corgy.builder.models import SpatialModel
 
+import corgy.builder.energy as cbe
+
 import os, pdb
 
 from corgy.graph.bulge_graph import BulgeGraph
@@ -25,6 +27,8 @@ def main():
     energies += [SkewNormalInteractionEnergy()]
     energies += [LongRangeInteractionCount()]
     energies += [JunctionClosureEnergy()]
+
+    uncal_energies = [cbe.StemClashEnergy()]
 
     #energies += [LongRangeDistanceEnergy()]
 
@@ -40,7 +44,7 @@ def main():
         sys.exit(1)
 
 
-    ce = CombinedEnergy(energies)
+    ce = CombinedEnergy(energies, uncal_energies)
 
     bg = BulgeGraph(args[0])
 

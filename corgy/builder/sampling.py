@@ -126,6 +126,18 @@ class StatisticsPlotter:
         self.ax_plot.cla()
         sorted_energy_rmsds = sorted(self.energy_rmsds)
 
+        sorted_energies = sorted([s[0] for s in sorted_energy_rmsds])
+        sorted_rmsds = sorted([s[1] for s in sorted_energy_rmsds])
+
+        ylim = (sorted_energies[0] - 5., sorted_energies[3 * len(sorted_energies) / 4] + 5.)
+        xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
+
+        self.xlim = xlim
+        self.ylim = ylim
+
+        self.ax_plot.set_ylim(ylim)
+        self.ax_plot.set_xlim(xlim)
+
         for i in range(min(5, len(sorted_energy_rmsds))):
             self.ax_plot.plot(sorted_energy_rmsds[i][1], sorted_energy_rmsds[i][0], '%so' % (sorted_energy_rmsds[i][2]), alpha=0.5)
                     

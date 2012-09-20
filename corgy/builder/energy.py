@@ -1,12 +1,14 @@
 #!/usr/bin/python
 
 import pickle, os
+import Bio.PDB as bpdb
 from copy import deepcopy
 
 from corgy.utilities.vector import vec_distance
 from corgy.builder.models import SpatialModel
 
 from corgy.utilities.data_structures import DefaultDict
+import corgy.builder.reconstructor as rtor
 
 from pylab import plot, savefig, clf, ylim
 
@@ -146,8 +148,9 @@ class DistanceIterator:
 lri_iter = DistanceIterator(6., 25.)
 
 class CombinedEnergy:
-    def __init__(self, energies=[]):
+    def __init__(self, energies=[], uncalibrated_energies=[]):
         self.energies = energies
+        self.uncalibrated_energies = uncalibrated_energies
 
     def save_energy(self, energy, directory):
         if not os.path.exists(directory):
@@ -182,6 +185,8 @@ class CombinedEnergy:
     def eval_energy(self, sm, verbose=False, background=True):
         total_energy = 0.
 
+        for energy in self.uncalibrated_energies:
+            total_energy += energy.eval_energy(sm)
     
         for energy in self.energies:
             contrib = energy.eval_energy(sm, background)
@@ -315,6 +320,10 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         for j in range(len(defines)):
             for k in range(j+1, len(defines)):
                 if defines[j] not in bg.edges[defines[k]]:
+                    # Ignore interactions with elements that are only length 1
+                    if ((bg.defines[defines[j]][1] - bg.defines[defines[j]][0] == 1) or
+                        (bg.defines[defines[k]][1] - bg.defines[defines[k]][0] == 1)):
+                        continue
 
                     # Ignore interactions between extremely close elements
                     if bg.bp_distances == None:
@@ -582,3 +591,25 @@ class LongRangeInteractionCount(EnergyFunction):
 
         return contrib
         #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
+
+class StemClashEnergy(EnergyFunction):
+    '''
+    Determine if there's any atom clashes in the structures.
+    '''
+
+    def __init__(self):
+        self.stem_library = dict()
+
+        pass
+
+    def eval_energy(self, sm, background=True):
+        '''
+        The base energy function simply returns a random number.
+        '''
+        chain = rtor.reconstruct_stems(sm, self.stem_library)
+        atoms = bpdb.Selection.unfold_entities(chain, 'A')
+
+        ns = bpdb.NeighborSearch(atoms)
+        contacts1 = len(ns.search_all(0.8))
+
+        return contacts1 * 1000.

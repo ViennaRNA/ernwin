@@ -8,9 +8,12 @@ from corgy.builder.energy import SkewNormalInteractionEnergy
 from corgy.builder.energy import CombinedEnergy
 from corgy.builder.energy import JunctionClosureEnergy
 
+import corgy.builder.energy as cbe
+
 from corgy.builder.models import SpatialModel
 
-import sys, shutil, os
+import sys, shutil, os, copy
+
 import unittest, pickle
 
 import numpy as np
@@ -137,4 +140,21 @@ class TestCombinedEnergy(unittest.TestCase):
         print 'energy2:', energy2
 
         self.assertTrue(np.allclose(energy1, energy2))
+
+    def test_stem_clash_energy(self):
+        sce = cbe.StemClashEnergy()
+        self.sm.sample_native_stems()
+        self.sm.create_native_stem_models()
+        energy = sce.eval_energy(self.sm)
+
+        print "energy:", energy
+
+        sm1 = copy.deepcopy(self.sm)
+        for i in range(10):
+            sm1.sample_stems()
+            sm1.sample_angles()
+            sm1.traverse_and_build()
+            print "energy:", sce.eval_energy(sm1)
+
+
 

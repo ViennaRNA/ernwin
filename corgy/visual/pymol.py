@@ -258,7 +258,7 @@ class PymolPrinter:
             #for (interaction, energy) in self.energy_function.iterate_over_interactions(bg, background=False):
                 #print >>stderr, interaction, energy
                 (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
-                self.add_segment(p, n, 'purple', exp(energy) * 10)
+                self.add_segment(p, n, 'purple', exp(energy) * 40)
 
     def chain_to_pymol(self, chain):
         '''
