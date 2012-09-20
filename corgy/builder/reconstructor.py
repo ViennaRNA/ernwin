@@ -157,6 +157,42 @@ def align_chain_to_stem(chain, define, stem2):
     rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
     translate_chain(chain, stem2.mids[0] - stem1.mids[0])
 
+def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict()):
+    '''
+    Reconstruct a particular stem.
+    '''
+    stem_def = sm.stem_defs[stem_name]
+    stem = sm.stems[stem_name]
+
+    filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+    #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
+    pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+
+    #print len(stem_library.keys())
+    if filename in stem_library.keys():
+        chain = stem_library[filename]
+    else:
+        chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        stem_library[filename] = chain
+
+    align_chain_to_stem(chain, stem_def.define, stem)
+
+    #print "stem_def.define:", stem_def.define
+    #print "sm.bg.defines[stem_name]:", sm.bg.defines[stem_name]
+
+    #for e in chain.get_list():
+    for i in range(stem_def.bp_length+1):
+        #print "i:", i
+        e = chain[stem_def.define[0] + i]
+        e.id = (e.id[0], sm.bg.defines[stem_name][0] + i, e.id[2])
+        #print "adding:", e.id
+        new_chain.add(e)
+
+        e = chain[stem_def.define[2] + i]
+        e.id = (e.id[0], sm.bg.defines[stem_name][2] + i, e.id[2])
+        #print "adding:", e.id
+        new_chain.add(e)
+
 def reconstruct_stems(sm, stem_library=dict()):
     '''
     Reconstruct the stems around a Spatial Model.
@@ -167,37 +203,7 @@ def reconstruct_stems(sm, stem_library=dict()):
     new_chain = bpdbc.Chain(' ')
 
     for stem_name in sm.stem_defs.keys():
-        stem_def = sm.stem_defs[stem_name]
-        stem = sm.stems[stem_name]
-
-        filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-        #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
-        pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, filename)
-
-        #print len(stem_library.keys())
-        if filename in stem_library.keys():
-            chain = stem_library[filename]
-        else:
-            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
-            stem_library[filename] = chain
-
-        align_chain_to_stem(chain, stem_def.define, stem)
-
-        #print "stem_def.define:", stem_def.define
-        #print "sm.bg.defines[stem_name]:", sm.bg.defines[stem_name]
-
-        #for e in chain.get_list():
-        for i in range(stem_def.bp_length+1):
-            #print "i:", i
-            e = chain[stem_def.define[0] + i]
-            e.id = (e.id[0], sm.bg.defines[stem_name][0] + i, e.id[2])
-            #print "adding:", e.id
-            new_chain.add(e)
-
-            e = chain[stem_def.define[2] + i]
-            e.id = (e.id[0], sm.bg.defines[stem_name][2] + i, e.id[2])
-            #print "adding:", e.id
-            new_chain.add(e)
+        reconstruct_stem(sm, stem_name, new_chain, stem_library)
 
     return new_chain
 

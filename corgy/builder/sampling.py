@@ -265,6 +265,7 @@ class GibbsBGSampler:
 
         self.sm.sample_stems()
         self.sm.sample_loops()
+        self.sm.traverse_and_build()
 
         # pick a random bulge to vary
         bulge = self.sm.bg.get_random_bulge()
@@ -283,7 +284,7 @@ class GibbsBGSampler:
         # angle is replaced by one of the 10 potential new ones
         for pa in possible_angles:
             self.sm.angle_defs[bulge] = pa
-            self.sm.traverse_and_build()
+            self.sm.traverse_and_build(start=bulge)
             energy = self.energy_function.eval_energy(self.sm, background=True)
             energies[pa] = energy
 

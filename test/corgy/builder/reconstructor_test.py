@@ -1,6 +1,6 @@
 import unittest
 
-import aux.Barnacle as barn
+import corgy.aux.Barnacle as barn
 
 import corgy.builder.reconstructor as rc
 import pdb, sys, copy
@@ -191,6 +191,9 @@ class TestReconstructor(unittest.TestCase):
         
             stem = rtor.define_to_stem_model(chain, bg_stem_def)
 
+            print "stem:", stem
+            print "sm.stems[stem_name]:", sm.stems[stem_name]
+
             self.assertEqual(stem, sm.stems[stem_name])
     
     def check_pymol_stems(self, bg, coarse_filename, pdb_filename):
@@ -379,7 +382,6 @@ class TestReconstructor(unittest.TestCase):
             self.assertTrue(allclose(coords[indeces[res.id[1]]], res['P'].get_vector().get_array()))
 
     def test_close_fragment_loop(self):
-        import aux.Barnacle as barn
         bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         sm = SpatialModel(bg)
         sm.sample_native_stems()
@@ -410,9 +412,7 @@ class TestReconstructor(unittest.TestCase):
         self.assertTrue(allclose(distances, distances1))
 
     def test_barnacle(self):
-        from aux.Barnacle import Barnacle
-
-        model = Barnacle('ACGU')
+        model = barn.Barnacle('ACGU')
         model.sample()
 
     def test_get_handles(self): 
