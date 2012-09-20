@@ -42,6 +42,7 @@ class StemModel:
         mids1_close = allclose(self.mids[1], other.mids[1], atol=0.1)
         twists0_close = allclose(self.twists[0], other.twists[0], atol=0.1)
         twists1_close = allclose(self.twists[1], other.twists[1], atol=0.1)
+
         return mids0_close and mids1_close and twists0_close and twists1_close
 
     def reverse(self):
@@ -110,6 +111,8 @@ class SpatialModel:
         self.angle_stats = get_angle_stats()
         self.stem_stats = get_stem_stats()
         self.loop_stats = get_loop_stats()
+        self.stems = dict()
+        self.bulges = dict()
 
         self.bg = bg
         self.pymol_printer = PymolPrinter()
@@ -143,9 +146,12 @@ class SpatialModel:
         angle_defs['start'] = AngleStat()
 
         for d in self.bg.defines.keys():
-            if d[0] != 's' and len(self.bg.edges[d]) == 2:
-                size = self.bg.get_bulge_dimensions(d)
-                stats = choice(self.angle_stats[size[0]][size[1]])
+            if d[0] != 's': 
+                if len(self.bg.edges[d]) == 2:
+                    size = self.bg.get_bulge_dimensions(d)
+                    stats = choice(self.angle_stats[size[0]][size[1]])
+                else:
+                    stats = AngleStat()
 
                 angle_defs[d] = stats
 
@@ -308,8 +314,6 @@ class SpatialModel:
         '''
         Return a random set of parameters with which to create a bulge.
         '''
-        if len(self.bg.edges[name]) == 1:
-            return AngleStat()
 
         return self.angle_defs[name]
 
@@ -403,8 +407,10 @@ class SpatialModel:
                 if len(to_visit) > 0:
                     (curr_node, prev_node) = to_visit.pop(0)
                 else:
-                    break
-            print "curr_node:", curr_node, "prev_node:", prev_node
+                    self.visit_order = visited
+                    return
+
+            #print curr_node, prev_node
 
             visited.append(curr_node)
             prev_visited.append(prev_node)
@@ -417,9 +423,14 @@ class SpatialModel:
                     to_visit.append((edge, curr_node))
 
         self.visit_order = visited
-        self.prev_visit_order = prev_visited
+        #self.prev_visit_order = prev_visited
 
-    def traverse_and_build(self):
+    def finish_building(self):
+        self.fill_in_bulges_and_loops()
+        self.elements_to_coords()
+        self.save_sampled_stems()
+
+    def traverse_and_build(self, start=''):
         '''
         Build a 3D structure from the graph in self.bg.
 
@@ -432,8 +443,8 @@ class SpatialModel:
 
         self.visited = set()
         self.to_visit = []
-        self.stems = dict()
-        self.bulges = dict()
+        #self.stems = dict()
+        #self.bulges = dict()
         self.sampled_bulges = []
         self.closed_bulges = []
 
@@ -442,6 +453,11 @@ class SpatialModel:
 
         counter = 0
         self.bg.coords = dict()
+        started = False
+
+        if start == '':
+            started = True
+
 
         while len(self.to_visit) > 0:
             (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
@@ -450,10 +466,14 @@ class SpatialModel:
                 if len(self.to_visit) > 0:
                     (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
                 else:
-                    break
+                    self.finish_building()
+                    return
                     
             self.visited.add(curr_node)
             stem = prev_stem
+
+            if prev_node == start:
+                started = True
 
             if curr_node[0] == 's':
                 params = self.get_random_stem_stats(curr_node)
@@ -467,15 +487,22 @@ class SpatialModel:
                 self.sampled_bulges += [prev_node]
 
                 # the previous stem should always be in the direction(0, 1) 
-                stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
+                if started:
+                    stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
 
-                # the following is done to maintain the invariant that mids[s1b] is
-                # always in the direction of the bulge from which s1b was obtained
-                # i.e. s1e -> s1b -> bulge -> s2b -> s2e
-                if s1b == 1:
-                    self.stems[curr_node] = stem.reverse()
+
+                    # the following is done to maintain the invariant that mids[s1b] is
+                    # always in the direction of the bulge from which s1b was obtained
+                    # i.e. s1e -> s1b -> bulge -> s2b -> s2e
+                    if s1b == 1:
+                        self.stems[curr_node] = stem.reverse()
+                    else:
+                        self.stems[curr_node] = stem
                 else:
-                    self.stems[curr_node] = stem
+                    if s1b == 1:
+                        stem = self.stems[curr_node].reverse()
+                    else:
+                        stem = self.stems[curr_node]
 
                 #self.stems[curr_node] = stem
 
@@ -484,10 +511,8 @@ class SpatialModel:
                     self.to_visit.append((edge, curr_node, stem))
 
             counter += 1
+        self.finish_building()
 
-        self.fill_in_bulges_and_loops()
-        self.elements_to_coords()
-        self.save_sampled_stems()
 
             #print self.bg.sampled_stems[sd[0]]
 

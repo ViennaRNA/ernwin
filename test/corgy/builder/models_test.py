@@ -9,6 +9,7 @@ from numpy import allclose, pi
 from random import uniform
 
 import numpy as np
+import random, time
 import corgy.utilities.vector as cuv
 
 class TestSpatialModel(unittest.TestCase):
@@ -124,7 +125,7 @@ class TestSpatialModel(unittest.TestCase):
         self.compare_models(bg1, sm1.bg)
 
     def test_sampled_bulges(self):
-        bg = self.bg
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
         sm = SpatialModel(copy.deepcopy(bg))
 
         sm.traverse_and_build()
@@ -174,8 +175,58 @@ class TestSpatialModel(unittest.TestCase):
         self.long_bulge_test(bg1)
         self.long_bulge_test(bg2)
 
+    def are_stem_models_equal(self, sm1, sm2):
+        sm1.get_sampled_bulges()
+
+        for i in sm1.visit_order:
+            if i[0] != 's':
+                continue
+            if not sm1.stems[i].__eq__(sm2.stems[i]):
+                print "sm1.stems[i]", sm1.stems[i]
+                print "sm2.stems[i]", sm2.stems[i]
+                return False
+        print
+        return True
+
     def test_resample_bulge(self):
-        bg = self.bg
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
         sm = SpatialModel(copy.deepcopy(bg))
 
+        sm.sample_stems()
+        sm.sample_angles()
+
         sm.traverse_and_build()
+
+        bulge = sm.bg.get_random_bulge()
+        dims = sm.bg.get_bulge_dimensions(bulge)
+        possible_angles = sm.angle_stats[dims[0]][dims[1]]
+
+        new_angle =  random.choice(possible_angles)
+        print "bulge:", bulge
+
+        sm1 = copy.deepcopy(sm)
+        sm2 = copy.deepcopy(sm)
+
+        self.assertTrue(self.are_stem_models_equal(sm1, sm2))
+
+        sm1.traverse_and_build()
+        sm2.traverse_and_build()
+
+        self.assertTrue(self.are_stem_models_equal(sm1, sm2))
+
+        sm1.angle_defs[bulge] = new_angle
+        sm2.angle_defs[bulge] = new_angle
+
+        time1 = time.time()
+        for i in range(100):
+            sm1.traverse_and_build()
+        time2 = time.time()
+        print "t1:", time2 - time1
+
+        time1 = time.time()
+        for i in range(100):
+            sm2.traverse_and_build(start=bulge)
+        time2 = time.time()
+        print "t2:", time2 - time1
+
+        self.assertTrue(self.are_stem_models_equal(sm1, sm2))
