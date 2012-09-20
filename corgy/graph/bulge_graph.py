@@ -125,6 +125,7 @@ class BulgeGraph:
         if bulge == 'start':
             return (AngleStat(), AngleStat())
 
+        #print "bulge:", bulge
         connections = list(self.edges[bulge])
 
         angle_stat1 = self.get_bulge_angle_stats_core(bulge, connections)

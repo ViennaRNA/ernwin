@@ -170,7 +170,7 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict()):
 
     #print len(stem_library.keys())
     if filename in stem_library.keys():
-        chain = stem_library[filename]
+        chain = copy.deepcopy(stem_library[filename])
     else:
         chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         stem_library[filename] = chain

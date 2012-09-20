@@ -191,8 +191,8 @@ class TestReconstructor(unittest.TestCase):
         
             stem = rtor.define_to_stem_model(chain, bg_stem_def)
 
-            print "stem:", stem
-            print "sm.stems[stem_name]:", sm.stems[stem_name]
+            #print "stem:", stem
+            #print "sm.stems[stem_name]:", sm.stems[stem_name]
 
             self.assertEqual(stem, sm.stems[stem_name])
     
@@ -485,5 +485,5 @@ class TestReconstructor(unittest.TestCase):
             side_chain_atoms = rtor.side_chain_atoms[res3.resname.strip()]
 
             for atom_name in side_chain_atoms:
-                self.assertTrue(atom_name in res2)
+                self.assertTrue(atom_name in res2.child_dict)
 
