@@ -606,7 +606,8 @@ class StemClashEnergy(EnergyFunction):
         '''
         The base energy function simply returns a random number.
         '''
-        chain = rtor.reconstruct_stems(sm, self.stem_library)
+        #chain = rtor.reconstruct_stems(sm, self.stem_library)
+        chain = sm.chain
         atoms = bpdb.Selection.unfold_entities(chain, 'A')
 
         ns = bpdb.NeighborSearch(atoms)

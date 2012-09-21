@@ -11,6 +11,7 @@ from random import uniform
 import numpy as np
 import random, time
 import corgy.utilities.vector as cuv
+import corgy.builder.models as cbm
 
 class TestSpatialModel(unittest.TestCase):
     def setUp(self):
@@ -231,3 +232,24 @@ class TestSpatialModel(unittest.TestCase):
         print "t2:", time2 - time1
 
         self.assertTrue(self.are_stem_models_equal(sm1, sm2))
+
+    def check_reconstructed_stems(self, sm, chain, stem_names):
+        for stem_name in stem_names:
+            stem_def = sm.stem_defs[stem_name]
+            bg_stem_def = sm.bg.defines[stem_name]
+        
+            stem = cbm.define_to_stem_model(chain, bg_stem_def)
+
+            #print "stem:", stem
+            #print "sm.stems[stem_name]:", sm.stems[stem_name]
+
+            self.assertEqual(stem, sm.stems[stem_name])
+
+    def test_construct_allatom_stems(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
+        sm = SpatialModel(bg)
+
+        sm.traverse_and_build()
+
+        self.check_reconstructed_stems(sm, sm.chain, sm.stem_defs.keys())
+

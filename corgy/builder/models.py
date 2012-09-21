@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+import corgy.graph.graph_pdb as gpdb
+import Bio.PDB as bpdb
+import os
+import corgy.builder.config as conf
+
 from corgy.visual.pymol import PymolPrinter
 from corgy.builder.stats import AngleStat, LoopStat
 
@@ -12,6 +17,10 @@ from corgy.graph.graph_pdb import stem2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_orient_from_stem1
 from corgy.graph.graph_pdb import twist2_from_twist1
 from corgy.utilities.vector import get_double_alignment_matrix, magnitude
+
+import corgy.utilities.vector as cuv
+import numpy as np
+import math
 
 from corgy.builder.config import Configuration
 
@@ -91,6 +100,122 @@ class BulgeModel:
     def __str__(self):
         return str(self.mids)
             
+def translate_chain(chain, translation):
+    '''
+    Translate all of the atoms in a chain by a certain amount.
+
+    @param chain: A Bio.PDB.Chain instance to be translated.
+    @translation: A vector indicating the direction of the translation.
+    '''
+    atoms = bpdb.Selection.unfold_entities(chain, 'A')
+
+    for atom in atoms:
+        atom.transform(cuv.identity_matrix, translation)
+
+def rotate_chain(chain, rot_mat, offset):
+    '''
+    Move according to rot_mat for the position of offset.
+
+    @param chain: A Bio.PDB.Chain instance.
+    @param rot_mat: A left_multiplying rotation_matrix.
+    @param offset: The position from which to do the rotation.
+    '''
+
+    atoms = bpdb.Selection.unfold_entities(chain, 'A')
+
+    for atom in atoms:
+        #atom.transform(np.eye(3,3), -offset)
+        atom.coord -= offset
+        atom.transform(rot_mat, offset)
+
+def define_to_stem_model(chain, define):
+    '''
+    Extract a StemModel from a Bio.PDB.Chain structure.
+
+    The define is 4-tuple containing the start and end coordinates
+    of the stem on each strand. 
+
+    s1s s1e s2s s2e
+
+    @param chain: The Bio.PDB.Chain representation of the chain
+    @param define: The BulgeGraph define
+    @return: A StemModel with the coordinates and orientation of the stem.
+    '''
+    stem = StemModel()
+
+    mids = gpdb.get_mids(chain, define)
+
+    stem.mids = tuple([m.get_array() for m in mids])
+    stem.twists = gpdb.get_twists(chain, define)
+
+    return stem
+
+
+def get_stem_rotation_matrix(stem, (u, v, t)):
+    twist1 = stem.twists[0]
+
+    # rotate around the stem axis to adjust the twist
+
+    # rotate down from the twist axis
+    comp1 = np.cross(stem.vec(), twist1)
+
+    rot_mat1 = cuv.rotation_matrix(stem.vec(), t)
+    rot_mat2 = cuv.rotation_matrix(twist1, u - math.pi/2)
+    rot_mat3 = cuv.rotation_matrix(comp1, v)
+
+    rot_mat4 = np.dot(rot_mat3, np.dot(rot_mat2, rot_mat1))
+
+    return rot_mat4
+
+def align_chain_to_stem(chain, define, stem2):
+    stem1 = define_to_stem_model(chain, define)
+
+    (r, u, v, t) = gpdb.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
+    rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t))
+    rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
+    translate_chain(chain, stem2.mids[0] - stem1.mids[0])
+
+
+def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
+    '''
+    Reconstruct a particular stem.
+    '''
+    if stem is None:
+        stem = sm.stems[stem_name]
+
+    stem_def = sm.stem_defs[stem_name]
+
+    filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+    #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
+    pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+
+    #print len(stem_library.keys())
+    if filename in stem_library.keys():
+    #if False:
+        chain = stem_library[filename].copy()
+    else:
+        chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        stem_library[filename] = chain.copy()
+
+    align_chain_to_stem(chain, stem_def.define, stem)
+
+    for i in range(stem_def.bp_length+1):
+        #print "i:", i
+        if sm.bg.defines[stem_name][0] + i in new_chain:
+            new_chain.detach_child(new_chain[sm.bg.defines[stem_name][0] + i].id)
+
+        e = chain[stem_def.define[0] + i]
+        e.id = (e.id[0], sm.bg.defines[stem_name][0] + i, e.id[2])
+        #print "adding:", e.id
+        new_chain.add(e)
+
+        if sm.bg.defines[stem_name][2] + i in new_chain:
+            new_chain.detach_child(new_chain[sm.bg.defines[stem_name][2] + i].id)
+
+        e = chain[stem_def.define[2] + i]
+        e.id = (e.id[0], sm.bg.defines[stem_name][2] + i, e.id[2])
+        #print "adding:", e.id
+        new_chain.add(e)
 
 class SpatialModel:
     '''
@@ -113,6 +238,7 @@ class SpatialModel:
         self.loop_stats = get_loop_stats()
         self.stems = dict()
         self.bulges = dict()
+        self.chain = bpdb.Chain.Chain(' ')
 
         self.bg = bg
         self.pymol_printer = PymolPrinter()
@@ -317,7 +443,7 @@ class SpatialModel:
 
         return self.angle_defs[name]
 
-    def add_stem(self, stem_params, prev_stem, bulge_params, (s1b, s1e)):
+    def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
         Add a stem after a bulge. 
 
@@ -342,8 +468,9 @@ class SpatialModel:
         stem.mids = (mid1, mid2)
 
         twist2 = twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
-
         stem.twists = (twist1, twist2)
+
+        reconstruct_stem(self, stem_name, self.chain, stem_library=Configuration.stem_library, stem=stem)
 
         return stem
 
@@ -488,7 +615,7 @@ class SpatialModel:
 
                 # the previous stem should always be in the direction(0, 1) 
                 if started:
-                    stem = self.add_stem(params, prev_stem, prev_params, (0, 1))
+                    stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
 
 
                     # the following is done to maintain the invariant that mids[s1b] is

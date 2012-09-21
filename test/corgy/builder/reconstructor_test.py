@@ -26,6 +26,7 @@ from corgy.utilities.vector import get_vector_centroid
 from corgy.builder.models import SpatialModel
 from corgy.builder.rmsd import centered_rmsd, optimal_superposition
 
+import corgy.builder.models as cbm
 import corgy.builder.reconstructor as rtor
 
 import numpy as np
@@ -67,7 +68,7 @@ class TestReconstructor(unittest.TestCase):
         s = PDBParser().get_structure('temp', os.path.join(Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
 
         self.chain = list(s.get_chains())[0]
-        self.stem = rtor.define_to_stem_model(self.chain, self.bg.defines['s0'])
+        self.stem = cbm.define_to_stem_model(self.chain, self.bg.defines['s0'])
     
     def test_rotate_stem(self):
         stem1 = StemModel()
@@ -88,7 +89,7 @@ class TestReconstructor(unittest.TestCase):
         stem1.mids = self.bg.coords['s0']
         stem1.twists = self.bg.twists['s0']
 
-        stem2 = rtor.define_to_stem_model(self.chain, self.bg.defines['s0'])
+        stem2 = cbm.define_to_stem_model(self.chain, self.bg.defines['s0'])
 
         self.assertTrue(stem1 == stem2)
 
@@ -106,7 +107,7 @@ class TestReconstructor(unittest.TestCase):
 
         # Figure out why exactly this works!!!
         orientation1 = (pi-u, -v, -t)
-        rot_mat = rtor.get_stem_rotation_matrix(stem1, orientation1)
+        rot_mat = cbm.get_stem_rotation_matrix(stem1, orientation1)
         
         stem3 = deepcopy(stem2)
         stem3.rotate(inv(rot_mat), offset=stem3.mids[0])
@@ -141,24 +142,24 @@ class TestReconstructor(unittest.TestCase):
     def test_rotate_atom_stem(self):
         chain = rtor.splice_stem(self.chain, self.bg.defines['s0'])
 
-        stem1 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
+        stem1 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
         orientation = get_random_orientation()
         stem2 = rtor.rotate_stem(stem1, orientation)
 
         self.assertFalse(stem1 == stem2)
 
         (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
-        rot_mat = rtor.get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
-        rtor.rotate_chain(chain, inv(rot_mat), stem1.mids[0])
+        rot_mat = cbm.get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
+        cbm.rotate_chain(chain, inv(rot_mat), stem1.mids[0])
 
-        stem3 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
+        stem3 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
 
     def test_align_chain_to_stem(self):
         chain = rtor.splice_stem(self.chain, self.bg.defines['s0'])
 
-        stem1 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
+        stem1 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
         orientation = get_random_orientation()
         translation = get_random_translation()
 
@@ -166,15 +167,15 @@ class TestReconstructor(unittest.TestCase):
         #stem2.translate(translation)
 
         self.assertFalse(stem1 == stem2)
-        rtor.align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
-        stem3 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
+        cbm.align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
+        stem3 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
 
     def test_align_chain_to_stem1(self):
         chain = rtor.splice_stem(self.chain, self.bg.defines['s0'])
 
-        stem1 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
+        stem1 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
         orientation = get_random_orientation()
         translation = get_random_translation()
 
@@ -182,8 +183,8 @@ class TestReconstructor(unittest.TestCase):
         stem2.translate(translation)
 
         self.assertFalse(stem1 == stem2)
-        rtor.align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
-        stem3 = rtor.define_to_stem_model(chain, self.bg.defines['s0'])
+        cbm.align_chain_to_stem(chain, self.bg.defines['s0'], stem2)
+        stem3 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
 
         self.assertTrue(stem2 == stem3)
 
@@ -192,7 +193,7 @@ class TestReconstructor(unittest.TestCase):
             stem_def = sm.stem_defs[stem_name]
             bg_stem_def = sm.bg.defines[stem_name]
         
-            stem = rtor.define_to_stem_model(chain, bg_stem_def)
+            stem = cbm.define_to_stem_model(chain, bg_stem_def)
 
             #print "stem:", stem
             #print "sm.stems[stem_name]:", sm.stems[stem_name]
@@ -211,7 +212,7 @@ class TestReconstructor(unittest.TestCase):
         stems = []
         for d in bg.defines.keys():
             if d[0] == 's':
-                stem = rtor.define_to_stem_model(chain, bg.defines[d])
+                stem = cbm.define_to_stem_model(chain, bg.defines[d])
                 stems += [stem]
 
                 num_stems += 1
