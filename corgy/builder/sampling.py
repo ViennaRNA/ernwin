@@ -263,7 +263,7 @@ class GibbsBGSampler:
         Perform another step in the simulation.
         '''
 
-        self.sm.sample_stems()
+        #self.sm.sample_stems()
         self.sm.sample_loops()
         self.sm.traverse_and_build()
 
