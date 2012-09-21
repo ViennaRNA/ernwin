@@ -1,5 +1,6 @@
 import unittest
 
+import time
 import corgy.aux.Barnacle as barn
 
 import corgy.builder.reconstructor as rc
@@ -11,6 +12,7 @@ from math import sqrt, exp
 
 from pprint import pprint
 from corgy.builder.config import Configuration
+import corgy.builder.config as conf
 
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.builder.models import StemModel
@@ -26,10 +28,11 @@ from corgy.builder.rmsd import centered_rmsd, optimal_superposition
 
 import corgy.builder.reconstructor as rtor
 
+import numpy as np
 from numpy import allclose, array, pi, dot, cross
 from numpy.linalg import inv
 from copy import deepcopy
-from random import uniform, random
+from random import uniform, random, choice
 
 from Bio.PDB import PDBParser, PDBIO, Selection
 from Bio.PDB.Chain import Chain
@@ -486,4 +489,49 @@ class TestReconstructor(unittest.TestCase):
 
             for atom_name in side_chain_atoms:
                 self.assertTrue(atom_name in res2.child_dict)
+
+    def test_copy_chain(self):
+        files = os.listdir(conf.Configuration.stem_fragment_dir)
+        pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, choice(files))
+
+        chain1 = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        chain2 = chain1.copy()
+
+        residues1 = bpdb.Selection.unfold_entities(chain1, 'R')
+        residues2 = bpdb.Selection.unfold_entities(chain2, 'R')
+
+        for i in range(len(residues1)):
+            res1 = residues1[i]
+            res2 = residues2[i]
+
+            self.assertEqual(res1.id[1], res2.id[1])
+            self.assertFalse(res1 is res2)
+
+            chain1[res1.id[1]]
+            chain2[res1.id[1]]
+
+        atoms1 = bpdb.Selection.unfold_entities(chain1, 'A')
+        atoms2 = bpdb.Selection.unfold_entities(chain2, 'A')
+
+        for i in range(len(atoms1)):
+            atom1 = atoms1[i]
+            atom2 = atoms2[i]
+
+            self.assertTrue(np.allclose(atom1.get_vector().get_array(), atom2.get_vector().get_array()))
+        
+        t1 = time.time()
+        for i in range(50):
+            copy.deepcopy(chain1)
+        print "deepcopy time:", time.time() - t1
+
+        t1 = time.time()
+        for i in range(50):
+            chain1.copy()
+        print "chain.copy time:", time.time() - t1
+
+        t1 = time.time()
+        for i in range(50):
+            chain1 = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        print "file load time:", time.time() - t1
+
 

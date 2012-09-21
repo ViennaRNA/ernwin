@@ -20,7 +20,7 @@ from scipy.stats import norm, poisson
 
 import os, math, sys
 import corgy.builder.config as conf
-import copy
+import copy, time
 import random as rand
 
 import numpy as np
@@ -170,17 +170,14 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict()):
 
     #print len(stem_library.keys())
     if filename in stem_library.keys():
-        chain = copy.deepcopy(stem_library[filename])
+    #if False:
+        chain = stem_library[filename].copy()
     else:
         chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
-        stem_library[filename] = chain
+        stem_library[filename] = chain.copy()
 
     align_chain_to_stem(chain, stem_def.define, stem)
 
-    #print "stem_def.define:", stem_def.define
-    #print "sm.bg.defines[stem_name]:", sm.bg.defines[stem_name]
-
-    #for e in chain.get_list():
     for i in range(stem_def.bp_length+1):
         #print "i:", i
         e = chain[stem_def.define[0] + i]
