@@ -4,7 +4,6 @@ from optparse import OptionParser
 from bisect import bisect
 from copy import deepcopy
 
-from bobbins_config import ConstructionConfig
 from random import sample, random, seed
 from numpy import allclose, seterr
 
@@ -17,6 +16,9 @@ from corgy.builder.rmsd import centered_rmsd
 from corgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
 
 from corgy.utilities.vector import get_vector_centroid, center_on_centroid
+
+import corgy.builder.config as conf
+import os
 
 import sys
 import pickle, pdb
@@ -40,7 +42,6 @@ def main():
     parser.add_option('-e', '--energy', dest='energy', default='energies/lrde.energy', help="The energy function to use when evaluating structures")
     parser.add_option('-i', '--iterations', dest='iterations', default=10, help='Number of structures to generate', type='int')
     parser.add_option('-b', '--best_filename', dest='best_filename', default='best.coord', help="The filename to dump the best (least rmsd structure) into", type='str')
-    parser.add_option('-a', '--angle_stats', dest='angle_stats_fn', default=ConstructionConfig.angle_stats_file, help='Location of the angle statistics file.') 
     parser.add_option('-p', '--plot', dest='plot', default=False, action='store_true', help="Plot the energies as they are encountered")
 
     (options, args) = parser.parse_args()
@@ -67,7 +68,7 @@ def main():
     #energy_function = CombinedEnergy([ef4])
     #energy_function = ef3
 
-    energy_function = pickle.load(open('/home/mescalin/pkerp/projects/ernwin/bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name), 'r'))
+    energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
 
     if options.plot:
         plotter = StatisticsPlotter()

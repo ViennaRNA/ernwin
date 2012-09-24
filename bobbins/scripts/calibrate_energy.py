@@ -13,6 +13,7 @@ from corgy.builder.energy import JunctionClosureEnergy, SkewNormalInteractionEne
 from corgy.builder.models import SpatialModel
 
 import corgy.builder.energy as cbe
+import corgy.builder.config as conf
 
 import os, pdb
 
@@ -34,7 +35,7 @@ def main():
     #energies += [LongRangeDistanceEnergy()]
 
     parser.add_option('-i', '--iterations', dest='iterations', default=1000, help="The number of calibration steps.", type='int')
-    parser.add_option('-e', '--energy-dir', dest='energy_dir', default='/home/mescalin/pkerp/projects/ernwin/bobbins/energy', help="The root energy saving directory", type='string')
+    parser.add_option('-e', '--energy-dir', dest='energy_dir', default=os.path.join(conf.Configuration.base_dir, 'bobbins/energy'), help="The root energy saving directory", type='string')
 
     (options, args) = parser.parse_args()
 
