@@ -143,6 +143,7 @@ class TestCombinedEnergy(unittest.TestCase):
 
     def test_stem_clash_energy(self):
         sce = cbe.StemClashEnergy()
+        self.sm.build_chain = True
         self.sm.sample_native_stems()
         self.sm.create_native_stem_models()
         energy = sce.eval_energy(self.sm)

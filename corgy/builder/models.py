@@ -33,7 +33,9 @@ class StemModel:
     A way of encapsulating the coarse grain 3D stem.
     '''
 
-    def __init__(self, mids=None, twists=None):
+    def __init__(self, name=None, mids=None, twists=None):
+        self.name = name
+
         if mids == None:
             self.mids = (array([0., 0., 0.]), array([0., 0., 1.0]))
         else:
@@ -59,7 +61,7 @@ class StemModel:
         Reverse this stem's orientation so that the order of the mids
         is backwards. I.e. mids[1] = mids[0]...
         '''
-        return StemModel((self.mids[1], self.mids[0]), (self.twists[1], self.twists[0]))
+        return StemModel(self.name, (self.mids[1], self.mids[0]), (self.twists[1], self.twists[0]))
 
     def vec(self, (from_side, to_side) = (0, 1)):
         return self.mids[to_side] - self.mids[from_side]
@@ -141,7 +143,7 @@ def define_to_stem_model(chain, define):
     @param define: The BulgeGraph define
     @return: A StemModel with the coordinates and orientation of the stem.
     '''
-    stem = StemModel()
+    stem = StemModel(name=define)
 
     mids = gpdb.get_mids(chain, define)
 
@@ -331,7 +333,10 @@ class SpatialModel:
 
         for d in self.bg.defines.keys():
             if d[0] == 's':
-                stems[d] = StemModel(self.bg.coords[d], self.bg.twists[d])
+                stems[d] = StemModel(d, self.bg.coords[d], self.bg.twists[d])
+
+                if self.build_chain:
+                    reconstruct_stem(self, d, self.chain, stem_library=Configuration.stem_library, stem=stems[d])
 
         self.stems = stems
 
@@ -384,10 +389,9 @@ class SpatialModel:
         for define in self.bg.defines.keys():
             if define[0] != 's' and self.bg.weights[define] == 1 and len(self.bg.edges[define]) == 1:
                 for edge in self.bg.edges[define]:
-                    #return (edge, 'start', StemModel())
-                    return (edge, define, StemModel())
+                    if self.bg.get_sides(edge, define)[0] == 0:
+                        return (edge, define, StemModel(edge))
 
-                break
 
     def save_sampled_stems(self):
         '''
@@ -463,7 +467,7 @@ class SpatialModel:
         stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
         twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
     
-        stem = StemModel()
+        stem = StemModel(stem_name)
 
         mid1 = prev_stem.mids[s1e] + start_location
         mid2 = mid1 + stem_orientation
@@ -532,11 +536,11 @@ class SpatialModel:
         to_visit = [first_node]
 
         while len(to_visit) > 0:
-            (curr_node, prev_node) = to_visit.pop(0)
+            (curr_node, prev_node) = to_visit.pop()
 
             while curr_node in visited:
                 if len(to_visit) > 0:
-                    (curr_node, prev_node) = to_visit.pop(0)
+                    (curr_node, prev_node) = to_visit.pop()
                 else:
                     self.visit_order = visited
                     return
@@ -591,11 +595,11 @@ class SpatialModel:
 
 
         while len(self.to_visit) > 0:
-            (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
+            (curr_node, prev_node, prev_stem) = self.to_visit.pop()
 
             while curr_node in self.visited:
                 if len(self.to_visit) > 0:
-                    (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
+                    (curr_node, prev_node, prev_stem) = self.to_visit.pop()
                 else:
                     self.finish_building()
                     return
@@ -606,31 +610,39 @@ class SpatialModel:
             if prev_node == start:
                 started = True
 
-
             if curr_node[0] == 's':
                 params = self.get_random_stem_stats(curr_node)
+
                 if prev_node == 'start':
                     (s1b, s1e) = (1, 0)
                 else:
                     (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 
-                print "cn:", curr_node, "pn:", prev_node, "s1b:", s1b
+
                 # get some parameters for the previous bulge
                 prev_params = self.get_random_bulge_stats(prev_node)
                 self.sampled_bulges += [prev_node]
 
+                #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
+                (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
+
                 # the previous stem should always be in the direction(0, 1) 
                 if started:
-                    stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
+                    #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
+                    #print "ps1b:", ps1b, "ps1e", ps1e
+                    stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
 
                     # the following is done to maintain the invariant that mids[s1b] is
                     # always in the direction of the bulge from which s1b was obtained
                     # i.e. s1e -> s1b -> bulge -> s2b -> s2e
+                    #self.stems[curr_node] = stem
+
                     if s1b == 1:
                         self.stems[curr_node] = stem.reverse()
                     else:
                         self.stems[curr_node] = stem
                 else:
+                    pass
                     if s1b == 1:
                         stem = self.stems[curr_node].reverse()
                     else:

@@ -41,6 +41,11 @@ class TestSpatialModel(unittest.TestCase):
             if len(sm.bg.edges[b]) == 2:
                 angle_stat = sm.bg.get_bulge_angle_stats(b)
 
+                #print "b:", b, "angle_stat:", str(angle_stat[0])
+                #print "b1:", b, "angle_stat:", str(angle_stat[1])
+
+                #print "ad:", b, "sm.angle_defs:", str(sm.angle_defs[b])
+
                 self.assertTrue((angle_stat[0] == sm.angle_defs[b]) or (angle_stat[1] == sm.angle_defs[b]))
 
     def check_angle_composition(self, bg, angle_stats):
@@ -102,6 +107,7 @@ class TestSpatialModel(unittest.TestCase):
 
     def test_spatial_model_construction(self):
         bg = self.bg
+        #bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
 
         sm = SpatialModel(bg)
         sm.traverse_and_build()
@@ -167,6 +173,7 @@ class TestSpatialModel(unittest.TestCase):
             c1 = sm.bg.coords[e1][s1b]
             c2 = sm.bg.coords[e2][s2b]
 
+            print "e1:", e1, "key:", key, "e2:", e2
             self.assertTrue(np.allclose(sm.angle_defs[key].r1, cuv.magnitude(np.array(c1) - np.array(c2))))
             #print 'key:', key, 'dist:', cuv.magnitude(np.array(c1) - np.array(c2))
 
@@ -174,10 +181,10 @@ class TestSpatialModel(unittest.TestCase):
 
     def test_long_bulges(self):
         bg1 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
-        #bg2 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
+        bg2 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
 
         self.long_bulge_check(bg1)
-        #self.long_bulge_check(bg2)
+        self.long_bulge_check(bg2)
 
     def are_stem_models_equal(self, sm1, sm2):
         sm1.get_sampled_bulges()
