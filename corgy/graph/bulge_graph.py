@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
-import sys
+import sys, collections
+import corgy.utilities.vector as cuv
+
 from numpy import array, dot
 from corgy.utilities.data_structures import DefaultDict
 
@@ -111,6 +113,26 @@ class BulgeGraph:
         angle_stat = AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1)
 
         return angle_stat
+
+    def get_long_range_constraints(self):
+        seen = collections.defaultdict(set)
+        constr = []
+
+        for key1 in self.longrange.keys():
+            for key2 in self.longrange[key1]:
+                if key2 in seen[key1]:
+                    continue
+
+                seen[key1].add(key2)
+                seen[key2].add(key1)
+
+                point1 = self.get_point(key1)
+                point2 = self.get_point(key2)
+
+                constr += [(key1, key2, cuv.vec_distance(point1, point2))]
+
+        return constr
+
 
     def get_bulge_angle_stats(self, bulge):
         '''

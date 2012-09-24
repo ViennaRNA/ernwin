@@ -18,6 +18,7 @@ from corgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingSt
 from corgy.utilities.vector import get_vector_centroid, center_on_centroid
 
 import corgy.builder.config as conf
+import corgy.builder.energy as cbe
 import os
 
 import sys
@@ -43,6 +44,7 @@ def main():
     parser.add_option('-i', '--iterations', dest='iterations', default=10, help='Number of structures to generate', type='int')
     parser.add_option('-b', '--best_filename', dest='best_filename', default='best.coord', help="The filename to dump the best (least rmsd structure) into", type='str')
     parser.add_option('-p', '--plot', dest='plot', default=False, action='store_true', help="Plot the energies as they are encountered")
+    parser.add_option('-d', '--distance', dest='distance_energy', default=False, action='store_true', help='Use the DistanceEnergy energy')
 
     (options, args) = parser.parse_args()
 
@@ -54,7 +56,11 @@ def main():
     bg.calc_bp_distances()
     sm = SpatialModel(bg)
 
-    energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
+    if options.distance_energy:
+        energy_function = cbe.DistanceEnergy(bg.get_long_range_constraints())
+    else:
+        energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
+
 
     if options.plot:
         plotter = StatisticsPlotter()

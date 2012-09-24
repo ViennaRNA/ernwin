@@ -171,21 +171,7 @@ class TestDistanceEnergy(unittest.TestCase):
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
-        seen = collections.defaultdict(set)
-        constr = []
-
-        for key1 in bg.longrange.keys():
-            for key2 in bg.longrange[key1]:
-                if key2 in seen[key1]:
-                    continue
-
-                seen[key1].add(key2)
-                seen[key2].add(key1)
-
-                point1 = bg.get_point(key1)
-                point2 = bg.get_point(key2)
-
-                constr += [(key1, key2, cuv.vec_distance(point1, point2))]
+        constr = sm.bg.get_long_range_constraints()
 
         de = cbe.DistanceEnergy(constr)
         energy_native = de.eval_energy(sm)
