@@ -239,6 +239,7 @@ class SpatialModel:
         self.stems = dict()
         self.bulges = dict()
         self.chain = bpdb.Chain.Chain(' ')
+        self.build_chain = False
 
         self.bg = bg
         self.pymol_printer = PymolPrinter()
@@ -456,6 +457,8 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
+        #print "bulge_params.r1:", stem_name, bulge_params.r1
+
         start_location = stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
         stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
         twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
@@ -470,7 +473,8 @@ class SpatialModel:
         twist2 = twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
         stem.twists = (twist1, twist2)
 
-        reconstruct_stem(self, stem_name, self.chain, stem_library=Configuration.stem_library, stem=stem)
+        if self.build_chain:
+            reconstruct_stem(self, stem_name, self.chain, stem_library=Configuration.stem_library, stem=stem)
 
         return stem
 
@@ -602,6 +606,7 @@ class SpatialModel:
             if prev_node == start:
                 started = True
 
+
             if curr_node[0] == 's':
                 params = self.get_random_stem_stats(curr_node)
                 if prev_node == 'start':
@@ -609,6 +614,7 @@ class SpatialModel:
                 else:
                     (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 
+                print "cn:", curr_node, "pn:", prev_node, "s1b:", s1b
                 # get some parameters for the previous bulge
                 prev_params = self.get_random_bulge_stats(prev_node)
                 self.sampled_bulges += [prev_node]
@@ -616,7 +622,6 @@ class SpatialModel:
                 # the previous stem should always be in the direction(0, 1) 
                 if started:
                     stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
-
 
                     # the following is done to maintain the invariant that mids[s1b] is
                     # always in the direction of the bulge from which s1b was obtained

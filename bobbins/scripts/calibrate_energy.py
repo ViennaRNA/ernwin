@@ -28,7 +28,8 @@ def main():
     energies += [LongRangeInteractionCount()]
     energies += [JunctionClosureEnergy()]
 
-    uncal_energies = [cbe.StemClashEnergy()]
+    #uncal_energies = [cbe.StemClashEnergy()]
+    uncal_energies = []
 
     #energies += [LongRangeDistanceEnergy()]
 

@@ -146,6 +146,9 @@ class TestSpatialModel(unittest.TestCase):
         
         sm.traverse_and_build()
 
+        sm.bg.output(os.path.join(Configuration.test_output_dir, 'long_bulges.comp'))
+        print 'sm.sampled_bulges:', sm.sampled_bulges
+
         for key in sm.sampled_bulges:
 
             if len(bg.edges[key]) != 2:
@@ -167,15 +170,14 @@ class TestSpatialModel(unittest.TestCase):
             self.assertTrue(np.allclose(sm.angle_defs[key].r1, cuv.magnitude(np.array(c1) - np.array(c2))))
             #print 'key:', key, 'dist:', cuv.magnitude(np.array(c1) - np.array(c2))
 
-        sm.bg.output(os.path.join(Configuration.test_output_dir, 'long_bulges.comp'))
 
 
     def test_long_bulges(self):
         bg1 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
-        bg2 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
+        #bg2 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
 
         self.long_bulge_check(bg1)
-        self.long_bulge_check(bg2)
+        #self.long_bulge_check(bg2)
 
     def are_stem_models_equal(self, sm1, sm2):
         sm1.get_sampled_bulges()
@@ -249,7 +251,9 @@ class TestSpatialModel(unittest.TestCase):
         bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
         sm = SpatialModel(bg)
 
+        sm.build_chain = True
         sm.traverse_and_build()
 
         self.check_reconstructed_stems(sm, sm.chain, sm.stem_defs.keys())
+        sm.bg.output('this.coords')
 
