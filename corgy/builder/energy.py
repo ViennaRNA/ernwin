@@ -4,7 +4,7 @@ import pickle, os
 import Bio.PDB as bpdb
 from copy import deepcopy
 
-from corgy.utilities.vector import vec_distance
+import corgy.utilities.vector as cuv
 from corgy.builder.models import SpatialModel
 
 from corgy.utilities.data_structures import DefaultDict
@@ -139,7 +139,7 @@ class DistanceIterator:
                 point1 = bg.get_point(d1)
                 point2 = bg.get_point(d2)
 
-                dist = vec_distance(point1, point2)
+                dist = cuv.vec_distance(point1, point2)
 
                 #if dist > 6.0 and dist < 25.0:
                 if dist > self.min_distance and dist < self.max_distance:
@@ -255,7 +255,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                     if defines[j] not in bg.edges[defines[k]]:
                         interaction = tuple(sorted([defines[j], defines[k]]))
 
-                        distance = vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+                        distance = cuv.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
                         interaction_distances[interaction] += [distance]
 
         for interaction in interaction_distances.keys():
@@ -291,7 +291,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         '''
 
         fg = self.fg
-        distance = vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+        distance = cuv.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
 
         bgf = self.bgs[interaction]
         bgp = 1.
@@ -463,7 +463,7 @@ class JunctionClosureEnergy(EnergyFunction):
         for bg in structs:
             for bulge in closed_bulges:
                 bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
-                distance = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+                distance = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
                 distances[bulge] += [distance]
 
         for bulge in closed_bulges:
@@ -498,7 +498,7 @@ class JunctionClosureEnergy(EnergyFunction):
             fgd = self.fgs[bl]
             bgd = self.bgs[bl]
 
-            dist = vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+            dist = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
             #print "bl:", bl, "dist:", dist
 
             if background:
@@ -614,3 +614,25 @@ class StemClashEnergy(EnergyFunction):
         contacts1 = len(ns.search_all(0.8))
 
         return contacts1 * 1000.
+
+class DistanceEnergy(EnergyFunction):
+
+    def __init__(self, distance_constraints, multiplier= 10):
+        self.distance_constraints = distance_constraints
+        self.multiplier = multiplier
+
+        pass
+
+    def eval_energy(self, sm, background=True):
+        energy = 0.
+
+        for constraint in self.distance_constraints:
+            f = constraint[0]
+            t = constraint[1]
+            d = float(constraint[2])
+
+            d1 = cuv.magnitude(sm.bg.get_point(f) - sm.bg.get_point(t))
+
+            energy += abs(d1 - d)
+        
+        return energy

@@ -54,20 +54,6 @@ def main():
     bg.calc_bp_distances()
     sm = SpatialModel(bg)
 
-    '''
-    ef1 = pickle.load(open('energies/%s/LongRangeInteractionCount' % (bg.name), 'r'))
-    ef2 = pickle.load(open('energies/%s/LongRangeDistanceEnergy' % (bg.name), 'r'))
-    ef3 = pickle.load(open('energies/%s/JunctionClosureEnergy' % (bg.name), 'r'))
-    ef4 = pickle.load(open('energies/%s/SkewNormalInteractionEnergy' % (bg.name), 'r'))
-    '''
-
-    #print "LRIC.target", 
-
-    #energy_function = CombinedEnergy([ef1, ef4, ef3])
-    #energy_function = CombinedEnergy([ef1, ef3, ef4])
-    #energy_function = CombinedEnergy([ef4])
-    #energy_function = ef3
-
     energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
 
     if options.plot:

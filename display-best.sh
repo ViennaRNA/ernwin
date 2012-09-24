@@ -11,4 +11,4 @@ do
     esac
 done
 
-n=0; ./fess/scripts/coordinates_to_pymol.py -x bobbins/best/best${n}.coord > ss.pym; pymol $options temp.pml
+n=0; ./fess/scripts/coordinates_to_pymol.py -x best/best${n}.coord > ss.pym; pymol $options temp.pml

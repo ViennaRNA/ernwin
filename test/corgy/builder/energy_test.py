@@ -9,6 +9,9 @@ from corgy.builder.energy import CombinedEnergy
 from corgy.builder.energy import JunctionClosureEnergy
 
 import corgy.builder.energy as cbe
+import corgy.utilities.vector as cuv
+
+import collections
 
 from corgy.builder.models import SpatialModel
 
@@ -158,4 +161,41 @@ class TestCombinedEnergy(unittest.TestCase):
             print "energy:", sce.eval_energy(sm1)
 
 
+class TestDistanceEnergy(unittest.TestCase):
+    def test_native_vs_sampled(self):
+        '''
+        Native energy should always be less than the sampled energy.
+        '''
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+
+        seen = collections.defaultdict(set)
+        constr = []
+
+        for key1 in bg.longrange.keys():
+            for key2 in bg.longrange[key1]:
+                if key2 in seen[key1]:
+                    continue
+
+                seen[key1].add(key2)
+                seen[key2].add(key1)
+
+                point1 = bg.get_point(key1)
+                point2 = bg.get_point(key2)
+
+                constr += [(key1, key2, cuv.vec_distance(point1, point2))]
+
+        de = cbe.DistanceEnergy(constr)
+        energy_native = de.eval_energy(sm)
+
+        self.assertLess(energy_native, 0.2)
+
+        sm.sample_stems()
+        sm.sample_angles()
+        sm.traverse_and_build()
+
+        energy_sampled = de.eval_energy(sm)
+        self.assertLess(energy_native, energy_sampled)
 
