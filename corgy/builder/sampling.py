@@ -232,6 +232,8 @@ class SamplingStatistics:
 
         print "---------------------------"
 
+        print [e[1] for e in sorted_energies[:10]]
+
         '''
         for energy in energy_function.energies:
             print energy.__class__.__name__, energy.eval_energy(sm)
