@@ -58,7 +58,8 @@ def twist2_from_twist1(stem_vec, twist1, angle):
     basis = create_orthonormal_basis(stem_vec, twist1)
 
     twist2_new = array([0., cos(angle), sin(angle)])
-    twist2 = change_basis(twist2_new, standard_basis, basis)
+    twist2 = dot(basis.transpose(), twist2_new)
+    #twist2 = change_basis(twist2_new, standard_basis, basis)
 
     return twist2
 
@@ -181,7 +182,22 @@ def stem2_pos_from_stem1(stem1, twist1, params):
     stem2 = spherical_polar_to_cartesian((r, u, v))
 
     stem1_basis = create_orthonormal_basis(stem1, twist1)
-    stem2_start = change_basis(stem2, standard_basis, stem1_basis)
+    stem2_start = dot(stem1_basis.transpose(), stem2)
+
+    return stem2_start
+
+def stem2_pos_from_stem1_1(stem1_basis, params):
+    '''
+    Get the starting point of a second stem, given the parameters
+    about where it's located with respect to stem1
+
+    @param stem1: The vector representing the axis of stem1's cylinder
+    @param twist1: The twist parameter of stem1
+    @param params: The parameters describing the orientaiton of stem2 wrt stem1
+    '''
+    (r, u, v) = params
+    stem2 = spherical_polar_to_cartesian((r, u, v))
+    stem2_start = dot(stem1_basis, stem2)
 
     return stem2_start
 
@@ -213,6 +229,28 @@ def twist2_orient_from_stem1(stem1, twist1, (u, v, t)):
 
     return twist2_new_basis
 
+def twist2_orient_from_stem1_1(stem1_basis, (u, v, t)):
+    '''
+    Calculate the position of the twist factor of the 2nd stem from its
+    parameters and the first stem.
+
+    @param stem1: The vector representing the axis of stem1's cylinder
+    @param twist1: The twist factor of stem1.
+    @param (u, v, t): The parameters describing how the twist of stem2 is oriented with respect to stem1
+    '''
+
+    twist2_new = array([0., cos(t), sin(t)])
+
+    rot_mat1 = rotation_matrix(standard_basis[2], v)
+    rot_mat2 = rotation_matrix(standard_basis[1], u - pi/2)
+
+    rot_mat = dot(rot_mat2, rot_mat1)
+    twist2_new = dot(inv(rot_mat), twist2_new)
+
+    twist2_new_basis = dot(stem1_basis, twist2_new)
+
+    return twist2_new_basis
+
 def stem2_orient_from_stem1(stem1, twist1, (r, u, v)):
     '''
     Calculate the orientation of the second stem, given its parameterization
@@ -225,6 +263,22 @@ def stem2_orient_from_stem1(stem1, twist1, (r, u, v)):
     stem2 = spherical_polar_to_cartesian((r, u, v))
     stem1_basis = create_orthonormal_basis(stem1, twist1)
     stem2 = change_basis(stem2, standard_basis, stem1_basis)
+
+    return stem2
+
+def stem2_orient_from_stem1_1(stem1_basis, (r, u, v)):
+    '''
+    Calculate the orientation of the second stem, given its parameterization
+    and the parameterization of stem1
+
+    @param stem1: The vector representing the axis of stem1's cylinder
+    @param twist1: The twist factor of stem1.
+    @param (r,u,v): The orientation of stem2 wrt stem1
+    '''
+    stem2 = spherical_polar_to_cartesian((r, u, v))
+    #stem1_basis = create_orthonormal_basis(stem1, twist1)
+    #stem2 = change_basis(stem2, standard_basis, stem1_basis)
+    stem2 = dot(stem1_basis, stem2)
 
     return stem2
 

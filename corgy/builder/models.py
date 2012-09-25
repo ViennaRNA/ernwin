@@ -19,6 +19,8 @@ from corgy.graph.graph_pdb import twist2_from_twist1
 from corgy.utilities.vector import get_double_alignment_matrix, magnitude
 
 import corgy.utilities.vector as cuv
+import corgy.graph.graph_pdb as cggp
+
 import numpy as np
 import math
 
@@ -463,9 +465,16 @@ class SpatialModel:
         '''
         #print "bulge_params.r1:", stem_name, bulge_params.r1
 
-        start_location = stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
-        stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
-        twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
+        stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
+
+        start_location = cggp.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
+        #start_location = cggp.stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
+
+        stem_orientation = cggp.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
+        #stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
+
+        twist1 = cggp.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
+        #twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
     
         stem = StemModel(stem_name)
 

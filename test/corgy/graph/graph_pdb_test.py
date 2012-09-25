@@ -13,6 +13,11 @@ from corgy.utilities.vector import rotation_matrix, vec_angle
 
 from corgy.builder.config import Configuration
 
+import corgy.graph.graph_pdb as cggp
+import corgy.utilities.vector as cuv
+import random, time
+import numpy as np
+
 from Bio.PDB import PDBParser
 
 from numpy import allclose, dot, array, cross, pi
@@ -155,3 +160,78 @@ class TestGraphPDBFunctions(unittest.TestCase):
         centroid = get_vector_centroid(vectors)
 
         self.assertTrue(allclose(centroid, array([2, 0, 0])))
+
+    def test_new_stem2_pos_from_stem1(self):
+        stem1 = cuv.get_random_vector()
+        twist1 = cuv.get_random_vector()
+
+        r = random.uniform(1., 3.)
+        u = random.uniform(0, np.pi / 2.)
+        v = random.uniform(0, 2 * np.pi)
+
+        stem1_basis = cuv.create_orthonormal_basis(stem1, twist1).transpose()
+
+        print
+        t1 = time.time()
+        for i in range(10000):
+            sp1 = cggp.stem2_pos_from_stem1(stem1, twist1, (r,u,v))
+        print "t1:", time.time() - t1
+        t1 = time.time()
+        for i in range(10000):
+            sp2 = cggp.stem2_pos_from_stem1_1(stem1_basis, (r,u,v))
+        print "t2:", time.time() - t1
+
+        print
+        print "sp1:", sp1
+        print "sp2:", sp2
+        self.assertTrue(np.allclose(sp1, sp2))
+
+    def test_new_stem2_orient_from_stem1(self):
+        stem1 = cuv.get_random_vector()
+        twist1 = cuv.get_random_vector()
+
+        r = random.uniform(1., 3.)
+        u = random.uniform(0, np.pi / 2.)
+        v = random.uniform(0, 2 * np.pi)
+
+        stem1_basis = cuv.create_orthonormal_basis(stem1, twist1).transpose()
+
+        print
+        t1 = time.time()
+        for i in range(10000):
+            sp1 = cggp.stem2_orient_from_stem1(stem1, twist1, (r,u,v))
+        print "t1:", time.time() - t1
+        t1 = time.time()
+        for i in range(10000):
+            sp2 = cggp.stem2_orient_from_stem1_1(stem1_basis, (r,u,v))
+        print "t2:", time.time() - t1
+
+        print
+        print "sp1:", sp1
+        print "sp2:", sp2
+        self.assertTrue(np.allclose(sp1, sp2))
+
+    def test_new_twist2_orient_from_stem1(self):
+        stem1 = cuv.get_random_vector()
+        twist1 = cuv.get_random_vector()
+
+        r = random.uniform(1., 3.)
+        u = random.uniform(0, np.pi / 2.)
+        v = random.uniform(0, 2 * np.pi)
+
+        stem1_basis = cuv.create_orthonormal_basis(stem1, twist1).transpose()
+
+        print
+        t1 = time.time()
+        for i in range(10000):
+            sp1 = cggp.twist2_orient_from_stem1(stem1, twist1, (r,u,v))
+        print "t1:", time.time() - t1
+        t1 = time.time()
+        for i in range(10000):
+            sp2 = cggp.twist2_orient_from_stem1_1(stem1_basis, (r,u,v))
+        print "t2:", time.time() - t1
+
+        print
+        print "sp1:", sp1
+        print "sp2:", sp2
+        self.assertTrue(np.allclose(sp1, sp2))
