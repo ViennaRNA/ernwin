@@ -77,7 +77,7 @@ def main():
 
     for i in range(options.iterations):
         gs.step()
-        gs_random.step()
+        #gs_random.step()
 
     stats.print_final_stats(energy_function)
     stats.save_top()
