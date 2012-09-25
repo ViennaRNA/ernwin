@@ -185,6 +185,7 @@ class SamplingStatistics:
         r = centered_rmsd(self.centers_orig, centers_new)
 
         self.energy_rmsd_structs += [(energy, r, deepcopy(sm.bg))]
+        #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
 

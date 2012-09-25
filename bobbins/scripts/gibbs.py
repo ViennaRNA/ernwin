@@ -72,8 +72,8 @@ def main():
     stats = SamplingStatistics(sm, plotter, 'b', silent=False)
     random_stats = SamplingStatistics(sm, plotter, 'r', silent=True)
 
-    gs = GibbsBGSampler(deepcopy(sm), energy_function, stats)
-    gs_random = GibbsBGSampler(deepcopy(sm), CombinedEnergy([RandomEnergy()]), random_stats)
+    gs = GibbsBGSampler(sm, energy_function, stats)
+    gs_random = GibbsBGSampler(sm, CombinedEnergy([RandomEnergy()]), random_stats)
 
     for i in range(options.iterations):
         gs.step()

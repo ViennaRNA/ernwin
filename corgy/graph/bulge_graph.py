@@ -25,6 +25,7 @@ class BulgeGraph:
     def __init__(self, filename=None):
         self.name = 'unnamed'
         self.seq = ''
+        self.length = 0
 
         # Look up tables
         self.sampled_stems = dict()
@@ -40,7 +41,6 @@ class BulgeGraph:
 
         # store which bulges were merged
         self.merge_defs = dict()
-        self.length = 0
         self.longrange = DefaultDict(set())
         
         self.bp_distances = None
@@ -414,8 +414,8 @@ class BulgeGraph:
 
         #print >>sys.stderr, "s1: %s b: %s" % (s1, b)
 
-        for i in range(4):
-            for k in range(len(bd)):
+        for i in xrange(4):
+            for k in xrange(len(bd)):
                 if s1d[i] == bd[k]:
                     if i == 0 or i == 3:
                         s1b = 0
@@ -572,6 +572,27 @@ class BulgeGraph:
         out_str += self.get_long_range_str()
 
         return out_str
+    
+    def copy(self):
+        bg = BulgeGraph()
+
+        bg.name = self.name
+        bg.seq = self.seq
+        bg.length = self.length
+
+        bg.sampled_stems = self.sampled_stems.copy()
+        bg.coords = self.coords.copy()
+        bg.twists = self.twists.copy()
+        bg.edges = self.edges.copy()
+        bg.defines = self.defines.copy()
+        bg.weights = self.weights.copy()
+        bg.merge_defs = self.merge_defs.copy()
+        bg.longrange = self.longrange.copy()
+
+        if self.bp_distances is not None:
+            bg.bp_distances = self.bp_distances.copy()
+
+        return bg
 
     def output(self, filename):
         f = open(filename, 'w')

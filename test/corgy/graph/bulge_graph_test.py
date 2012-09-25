@@ -1,10 +1,10 @@
 import unittest, os
 
 from corgy.graph.bulge_graph import BulgeGraph
-
 from corgy.builder.config import Configuration
-
 from numpy import allclose
+
+import copy, time
 
 class TestBulgeGraph(unittest.TestCase):
     def setUp(self):
@@ -118,6 +118,28 @@ class TestBulgeGraph(unittest.TestCase):
 
         def1 = bg.defines['b0']
         self.assertEquals(bg.seq[def1[0]:def1[1]-1], 'AAG')
+
+    def test_copy(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+
+        bg1 = copy.deepcopy(bg)
+        bg2 = bg.copy()
+
+        self.assertFalse(bg1 is bg2)
+
+        print
+        iterations = 1000
+        t1 = time.time()
+        for i in range(iterations):
+            bg1 = copy.deepcopy(bg)
+        print "t1:", time.time() - t1
+
+        t1 = time.time()
+        for i in range(iterations):
+            bg2 = bg.copy()
+
+        print "t2:", time.time() - t1
+
 
     def t1est_get_indeces_into_flanking(self):
         bg = self.bg
