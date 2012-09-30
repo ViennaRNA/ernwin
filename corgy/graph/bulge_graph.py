@@ -2,6 +2,7 @@
 
 import sys, collections
 import corgy.utilities.vector as cuv
+import math
 
 from numpy import array, dot
 from corgy.utilities.data_structures import DefaultDict
@@ -92,6 +93,21 @@ class BulgeGraph:
                     return key
 
         raise Exception("Base number %d not found in the defines." % (base_num))
+
+    def get_stem_angle(self, s1, s2):
+        '''
+        Return the angle between the vectors of the stems.
+
+        @param s1: The name of the first stem.
+        @param s2: The name of the second stem.
+        @return: The angle (in radians), between the two stem vectors.
+        '''
+        s1_vec = self.coords[s1][1] - self.coords[s1][0]
+        s2_vec = self.coords[s2][1] - self.coords[s2][0]
+
+        angle = cuv.vec_angle(s1_vec, s2_vec)
+
+        return min(angle, math.pi - angle)
 
     def get_bulge_angle_stats_core(self, define, connections):
         '''

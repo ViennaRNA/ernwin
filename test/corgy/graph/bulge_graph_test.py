@@ -170,4 +170,12 @@ class TestBulgeGraph(unittest.TestCase):
         self.assertEquals(i1, 7)
         self.assertEquals(i2, 11)
 
+    def test_get_stem_angle(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+
+        stems = [d for d in bg.defines.keys() if d[0] == 's']
+
+        for i in xrange(len(stems)):
+            for j in xrange(i+1, len(stems)):
+                print stems[i], stems[j], bg.get_stem_angle(stems[i], stems[j])
 
