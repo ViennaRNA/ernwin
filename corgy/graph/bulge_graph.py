@@ -108,6 +108,7 @@ class BulgeGraph:
         angle = cuv.vec_angle(s1_vec, s2_vec)
 
         return min(angle, math.pi - angle)
+        #return angle
 
     def get_bulge_angle_stats_core(self, define, connections):
         '''

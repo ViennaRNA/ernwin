@@ -2,7 +2,7 @@
 
 from optparse import OptionParser
 from bisect import bisect
-from copy import deepcopy
+import copy
 
 from random import sample, random, seed
 from numpy import allclose, seterr
@@ -73,11 +73,11 @@ def main():
     random_stats = SamplingStatistics(sm, plotter, 'r', silent=True)
 
     gs = GibbsBGSampler(sm, energy_function, stats)
-    gs_random = GibbsBGSampler(sm, CombinedEnergy([RandomEnergy()]), random_stats)
+    gs_random = GibbsBGSampler(copy.deepcopy(sm), CombinedEnergy([RandomEnergy()]), random_stats)
 
     for i in range(options.iterations):
         gs.step()
-        #gs_random.step()
+        gs_random.step()
 
     stats.print_final_stats(energy_function)
     stats.save_top()
