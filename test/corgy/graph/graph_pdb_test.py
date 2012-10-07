@@ -1,5 +1,7 @@
 import unittest, os
 
+import corgy.graph.graph_pdb as cgg
+
 from corgy.graph.bulge_graph import BulgeGraph
 
 from corgy.graph.graph_pdb import get_mids, get_twists, get_stem_orientation_parameters
@@ -235,3 +237,19 @@ class TestGraphPDBFunctions(unittest.TestCase):
         print "sp1:", sp1
         print "sp2:", sp2
         self.assertTrue(np.allclose(sp1, sp2))
+
+    def test_virtual_res_3d_pos(self):
+        return
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+
+        for d in bg.defines.keys():
+            if d[0] == 's':
+                stem = d
+                stem_len = bg.defines[d][1] - bg.defines[d][0]
+                pos = cgg.virtual_res_3d_pos(bg, stem, 0)
+                self.assertTrue(allclose(bg.twists[d][0] + bg.coords[d][0], pos))
+                pos = cgg.virtual_res_3d_pos(bg, stem, stem_len - 1)
+                self.assertTrue(allclose(bg.twists[d][1] + bg.coords[d][1], pos))
+
+
+

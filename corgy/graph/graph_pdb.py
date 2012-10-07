@@ -426,3 +426,20 @@ def get_twists(chain, define):
 def get_helix_vector(chain, start1, start2, end1, end2):
     (mid1, mid2) = get_mids(chain, start1, start2, end1, end2)
     return mid2 - mid1
+
+def virtual_res_3d_pos(bg, stem, i):
+    '''
+    Calculate the virtual position of the i'th nucleotide in the stem.
+
+    The virtual position extrapolates the position of the residues based
+    on the twists of the helix.
+    '''
+    stem_len = bg.defines[stem][1] - bg.defines[stem][0]
+    stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
+
+    # the position of the virtual residue along the axis of
+    # the stem
+    vres_stem_pos = bg.coords[stem][0] + i * (stem_vec / float(stem_len))
+
+    # to be continued
+
