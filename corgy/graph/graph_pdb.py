@@ -507,3 +507,21 @@ def pos_to_spos(bg, s1, i1, s2, i2):
     @param i2: The nucleotide to be converted position
     '''
     pass
+
+def spos_to_cartesian(bg, stem, i, spos):
+    '''
+    Convert a position defined by the coordinate system of a 
+    virtual residue to the standard cartesian coordinate system 
+    used in the rest of the model.
+
+    @param bg: The BulgeGraph data structure
+    @param stem: The name of the stem that defines the virtual residue
+        coordinate system.
+    @param i: The i'th residue of the stem.
+    @param spos: The coordinates in the coordinate system of the virtual 
+        nucleotide
+
+    @return: The coordinates in the cartesian coordinate system of the
+        rest of the model.
+    '''
+    pass
