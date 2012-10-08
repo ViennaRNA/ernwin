@@ -238,17 +238,51 @@ class TestGraphPDBFunctions(unittest.TestCase):
         self.assertTrue(np.allclose(sp1, sp2))
 
     def test_virtual_res_3d_pos(self):
-        return
         bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
         for d in bg.defines.keys():
             if d[0] == 's':
                 stem = d
-                stem_len = bg.defines[d][1] - bg.defines[d][0]
-                pos = cgg.virtual_res_3d_pos(bg, stem, 0)
-                self.assertTrue(allclose(bg.twists[d][0] + bg.coords[d][0], pos))
-                pos = cgg.virtual_res_3d_pos(bg, stem, stem_len - 1)
-                self.assertTrue(allclose(bg.twists[d][1] + bg.coords[d][1], pos))
+                stem_len = bg.defines[d][1] - bg.defines[d][0] + 1
+                (pos, vec) = cgg.virtual_res_3d_pos(bg, stem, 0)
 
+                self.assertTrue(allclose(bg.twists[d][0] + bg.coords[d][0], pos + vec))
+                (pos, vec) = cgg.virtual_res_3d_pos(bg, stem, stem_len - 1)
 
+                self.assertTrue(allclose(bg.twists[d][1] + bg.coords[d][1], pos + vec))
+
+    def test_virtual_res_basis(self):
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+
+        for d in bg.defines.keys():
+            if d[0] == 's':
+                stem_len = bg.defines[d][1] - bg.defines[d][0] + 1
+                for i in range(stem_len):
+                    b1 = cgg.virtual_res_basis(bg, d, i)
+
+    def test_surrounding_pos_to_cartesian(self):
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        stems = [d for d in bg.defines.keys() if d[0] == 's']
+
+        for i in range(len(stems)):
+            s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+            
+            for j in range(i+1, len(stems)):
+                s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+
+                for k in range(s1_len):
+                    for l in range(s2_len):
+                        # re-define the position of (stems[j], l) into the 
+                        # coordinate system defined by (stems[i], k) 
+                        spos = cgg.pos_to_spos(bg, stems[i], k,
+                                               stems[j], l)
+
+                        # get the actual position of (stems[j], l) in cartesian space
+                        (vpos1, vvec1) = cgg.virtual_res_3d_pos(bg, stems[j], l)
+                        vpos1 = vpos1 + vvec1
+
+                        # convert the spos back to the real coordinate system and see
+                        # make sure it matches the one calculated above
+                        r_vpos1 = spos_to_cartesian(bg, stems[i], k, spos)
+                        self.assertTrue(allclose(vpos1, r_vpos1))
 

@@ -16,6 +16,11 @@ from corgy.utilities.vector import standard_basis
 
 from math import pi, atan2, cos, sin
 
+import numpy as np
+import math
+import corgy.utilities.my_math as cum
+import corgy.utilities.vector as cuv
+
 catom_name = 'C1*'
 
 
@@ -433,13 +438,72 @@ def virtual_res_3d_pos(bg, stem, i):
 
     The virtual position extrapolates the position of the residues based
     on the twists of the helix.
+
+    @param bg: The BulgeGraph structure
+    @param stem: The name of the stem
+    @param i: The i'th residue of the stem
+
+    @return: A tuple containing the point located on the axis of the stem
+             and a vector away from that point in the direction of the 
+             residue.
     '''
-    stem_len = bg.defines[stem][1] - bg.defines[stem][0]
+    stem_len = bg.defines[stem][1] - bg.defines[stem][0] + 1
     stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
 
     # the position of the virtual residue along the axis of
     # the stem
-    vres_stem_pos = bg.coords[stem][0] + i * (stem_vec / float(stem_len))
+    vres_stem_pos = bg.coords[stem][0] + (i / float(stem_len-1)) * stem_vec
 
-    # to be continued
+    # the angle of the second twist with respect to the first
+    stem_basis = create_orthonormal_basis(stem_vec, bg.twists[stem][0])
+    t2 = change_basis(bg.twists[stem][1], stem_basis, cuv.standard_basis)
 
+    ang = cum.atan3(t2[2], t2[1])
+    # the nts_per_2pi_twist need to be calculated separately 
+    # It is the minimum number of nucleotides needed to create
+    # a full twist of the stem
+    nts_per_2pi_twist = 11
+    ang += math.pi * (i / nts_per_2pi_twist)
+
+    ang_per_nt = ang / float(stem_len-1)
+    ang = ang_per_nt * i
+
+    # the basis vectors for the helix along which the
+    # virtual residues will residue
+    u = cuv.normalize(bg.twists[stem][0])
+    v = cuv.normalize(np.cross(stem_vec, bg.twists[stem][0]))
+    
+    # equation for a circle in 3-space
+    return (vres_stem_pos, u * cos(ang) + v * sin(ang))
+
+def virtual_res_basis(bg, stem, i):
+    '''
+    Define a basis based on the location of a virtual stem residue.
+
+    The basis will be defined by the direction of the stem, the direction
+    of the virtual residue.
+
+    @param bg: The BulgeGraph structure
+    @param stem: The name of the stem
+    @param i: The i'th residue of the stem
+
+    @return: A 3x3 matrix defining the coordinate system above.
+    '''
+
+    (pos, vec) = virtual_res_3d_pos(bg, stem, i)
+    stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
+
+    return cuv.create_orthonormal_basis(stem_vec, vec)
+
+def pos_to_spos(bg, s1, i1, s2, i2):
+    '''
+    Convert the location of s2, i2 into the coordinate system
+    defined by (s1, i1)
+
+    @param bg: The BulgeGraph containing the stems
+    @param s1: The basis stem name
+    @param i1: The basis res position
+    @param s2: The stem containing the nucleotide to be converted
+    @param i2: The nucleotide to be converted position
+    '''
+    pass
