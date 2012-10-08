@@ -1,8 +1,7 @@
 import unittest, os
 
 import corgy.graph.graph_pdb as cgg
-
-from corgy.graph.bulge_graph import BulgeGraph
+import corgy.graph.bulge_graph as cgb
 
 from corgy.graph.graph_pdb import get_mids, get_twists, get_stem_orientation_parameters
 from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs, stem2_orient_from_stem1
@@ -30,7 +29,7 @@ class TestGraphToAngles(unittest.TestCase):
     Tests for the gathering of angles statistics.
     '''
     def setUp(self):
-        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        self.bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
     def orientation_subtest(self, stem1, twist1, stem2, twist2):
         '''
@@ -140,7 +139,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
         s = PDBParser().get_structure('test', os.path.join(Configuration.test_input_dir, "1gid/prepare", "temp.pdb"))
         chain = list(s.get_chains())[0]
 
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
         for d in bg.defines.keys():
             if d[0] == 's':
@@ -175,11 +174,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
         print
         t1 = time.time()
-        for i in range(10000):
+        for i in range(100):
             sp1 = cggp.stem2_pos_from_stem1(stem1, twist1, (r,u,v))
         print "t1:", time.time() - t1
         t1 = time.time()
-        for i in range(10000):
+        for i in range(100):
             sp2 = cggp.stem2_pos_from_stem1_1(stem1_basis, (r,u,v))
         print "t2:", time.time() - t1
 
@@ -200,11 +199,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
         print
         t1 = time.time()
-        for i in range(10000):
+        for i in range(100):
             sp1 = cggp.stem2_orient_from_stem1(stem1, twist1, (r,u,v))
         print "t1:", time.time() - t1
         t1 = time.time()
-        for i in range(10000):
+        for i in range(100):
             sp2 = cggp.stem2_orient_from_stem1_1(stem1_basis, (r,u,v))
         print "t2:", time.time() - t1
 
@@ -225,11 +224,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
         print
         t1 = time.time()
-        for i in range(10000):
+        for i in range(100):
             sp1 = cggp.twist2_orient_from_stem1(stem1, twist1, (r,u,v))
         print "t1:", time.time() - t1
         t1 = time.time()
-        for i in range(10000):
+        for i in range(100):
             sp2 = cggp.twist2_orient_from_stem1_1(stem1_basis, (r,u,v))
         print "t2:", time.time() - t1
 
@@ -240,7 +239,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
     def test_virtual_res_3d_pos(self):
         return
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
         for d in bg.defines.keys():
             if d[0] == 's':
