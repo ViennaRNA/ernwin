@@ -1,4 +1,5 @@
 name 2b3j
+seq 
 length 15
 define s0 0 2 5 12 15
 define b0 1 0 2

@@ -2,38 +2,38 @@ name 1gid
 seq GAAUUGCGGGAAAGGGGUCAACAGCCGUUCAGUACCAAGUCUCAGGGGAAACUUUGAGAUGGCCUUGCAAAGGGUAUGGUAAUAAGCUGACGGACAUGGUCCUAACCACGCAGCCAAGUCCUAAGUCAACAGAUCUUCUGUUGAUAUGGAUGCAGUUC
 length 158
 define b5 1 73 78
-define b0 1 36 39
-define b1 1 47 52
-define b2 1 60 63
+define b0 1 36 40
+define b1 1 44 55
+define b2 1 59 63
 define b3 1 64 72
-define s8 0 118 121 148 151
+define s9 0 126 133 137 144
+define s8 0 119 121 148 150
 define s3 0 24 27 91 94
-define s2 0 14 19 98 103
+define s2 0 15 16 101 102
 define s1 0 9 10 106 107
 define s0 0 5 8 109 112
 define s7 0 63 64 72 73
-define s6 0 39 47 52 60
+define s6 0 40 44 55 59
 define s5 0 34 36 78 80
 define s4 0 29 32 87 90
-define b16 1 112 118
+define b16 1 112 119
 define b15 1 133 137
 define b11 1 0 5
-define b18 1 151 158
-define s10 0 125 133 137 145
-define x2 2 145 148 121 125
-define x3 2 90 91 27 29
-define x6 2 8 9 107 109
-define x7 2 80 87 32 34
-define x4 2 94 98 19 24
-define x5 2 10 14 103 106
-connect s8 b16 x2 b18
-connect s3 x3 x4
-connect s2 x4 x5
-connect s1 x6 x5
-connect s0 b16 x6 b11
+define b18 1 150 158
+define x2 2 94 101 16 24
+define x3 2 10 15 102 106
+define x0 2 121 126 144 148
+define x1 2 90 91 27 29
+define x4 2 8 9 107 109
+define x5 2 80 87 32 34
+connect s9 x0 b15
+connect s8 b16 x0 b18
+connect s3 x2 x1
+connect s2 x2 x3
+connect s1 x3 x4
+connect s0 b16 x4 b11
 connect s7 b5 b2 b3
 connect s6 b0 b1 b2
-connect s5 b5 b0 x7
-connect s4 x3 x7
-connect s10 x2 b15
+connect s5 b5 b0 x5
+connect s4 x1 x5
 
