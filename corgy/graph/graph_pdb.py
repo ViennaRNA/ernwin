@@ -506,4 +506,24 @@ def pos_to_spos(bg, s1, i1, s2, i2):
     @param s2: The stem containing the nucleotide to be converted
     @param i2: The nucleotide to be converted position
     '''
-    pass
+    sbasis = virtual_res_basis(bg, s1, i1)
+    (s1_pos, s1_vec) = virtual_res_3d_pos(bg, s1, i1)
+    (s2_pos, s2_vec) = virtual_res_3d_pos(bg, s2, i2)
+
+    spos = cuv.change_basis((s2_pos + s2_vec) - (s1_pos + s1_vec), sbasis, cuv.standard_basis)
+    return spos
+
+def spos_to_pos(bg, stem, i, spos):
+    '''
+    Convert the location of spos from the coordinate system
+    of (stem, i) into the standard coordinate system.
+
+    @param bg: The BulgeGraph
+    @param stem: The name of the stem in the BulgeGraph
+    @param i: The i'th residue in 'stem' which will define the coordinate system
+    @param spos: The position in the alternate coordinate system
+    '''
+    sbasis = virtual_res_basis(bg, stem, i)
+    (s1_pos, s1_vec) = virtual_res_3d_pos(bg, stem, i)
+    pos = cuv.change_basis(spos, cuv.standard_basis, sbasis)
+    return pos + (s1_pos + s1_vec)

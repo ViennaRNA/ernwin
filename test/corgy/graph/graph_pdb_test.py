@@ -263,6 +263,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
     def test_surrounding_pos_to_cartesian(self):
         bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         stems = [d for d in bg.defines.keys() if d[0] == 's']
+        print
 
         for i in range(len(stems)):
             s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
@@ -283,6 +284,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
                         # convert the spos back to the real coordinate system and see
                         # make sure it matches the one calculated above
-                        r_vpos1 = spos_to_cartesian(bg, stems[i], k, spos)
+                        r_vpos1 = cgg.spos_to_pos(bg, stems[i], k, spos)
+
                         self.assertTrue(allclose(vpos1, r_vpos1))
 
