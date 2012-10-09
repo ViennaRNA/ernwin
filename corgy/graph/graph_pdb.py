@@ -522,6 +522,9 @@ def spos_to_pos(bg, stem, i, spos):
     @param stem: The name of the stem in the BulgeGraph
     @param i: The i'th residue in 'stem' which will define the coordinate system
     @param spos: The position in the alternate coordinate system
+
+    @return: The coordinates in the cartesian coordinate system of the
+        rest of the model.
     '''
     sbasis = virtual_res_basis(bg, stem, i)
     (s1_pos, s1_vec) = virtual_res_3d_pos(bg, stem, i)

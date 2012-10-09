@@ -285,6 +285,5 @@ class TestGraphPDBFunctions(unittest.TestCase):
                         # convert the spos back to the real coordinate system and see
                         # make sure it matches the one calculated above
                         r_vpos1 = cgg.spos_to_pos(bg, stems[i], k, spos)
-
                         self.assertTrue(allclose(vpos1, r_vpos1))
 
