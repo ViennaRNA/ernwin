@@ -287,3 +287,15 @@ class TestGraphPDBFunctions(unittest.TestCase):
                         r_vpos1 = cgg.spos_to_pos(bg, stems[i], k, spos)
                         self.assertTrue(allclose(vpos1, r_vpos1))
 
+    def test_get_residue_type(self):
+        self.assertEquals(cgg.get_residue_type(0, 10), 0)
+        self.assertEquals(cgg.get_residue_type(1, 10), 1)
+        self.assertEquals(cgg.get_residue_type(2, 10), 2)
+        self.assertEquals(cgg.get_residue_type(3, 10), 2)
+
+        self.assertEquals(cgg.get_residue_type(9, 10), 0)
+        self.assertEquals(cgg.get_residue_type(8, 10), 1)
+        self.assertEquals(cgg.get_residue_type(7, 10), 2)
+        self.assertEquals(cgg.get_residue_type(6, 10), 2)
+
+

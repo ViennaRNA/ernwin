@@ -530,3 +530,28 @@ def spos_to_pos(bg, stem, i, spos):
     (s1_pos, s1_vec) = virtual_res_3d_pos(bg, stem, i)
     pos = cuv.change_basis(spos, cuv.standard_basis, sbasis)
     return pos + (s1_pos + s1_vec)
+
+def get_residue_type(i, stem_len):
+    '''
+    Each nucleotide will be classified according to its position
+    within the stem. That way, the distribution of surrounding
+    nucleotides will be conditioned on the type of nucleotides.
+
+    This is important due to the fact that nucleotides at the end
+    of a stem may have other stem nucleotides in the direction
+    of the stem vector. Nucleotides, in the middle should not due
+    to the excluded volume of the stem they occupy.
+
+    @param i: The position of the nucleotide.
+    @param stem_len: The length of the stem.
+
+    @return: The type of nucleotide position.
+    '''
+    assert(i < stem_len)
+
+    offset_from_end = min(i, stem_len - i - 1)
+    if offset_from_end <= 2:
+        return offset_from_end
+    else:
+        return 2
+
