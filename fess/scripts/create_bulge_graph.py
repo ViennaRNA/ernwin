@@ -14,9 +14,20 @@ def add_bulge(bulges, bulge, context, message):
     bulges[context] = bulges.get(context, []) + [bulge]
     return bulges
 
-# See if there's any difference of one between the two
-# ends of the stem [(a,b),(c,d)] and a bulge (e,f)
 def any_difference_of_one(stem, bulge):
+    '''
+    See if there's any difference of one between the two
+    ends of the stem [(a,b),(c,d)] and a bulge (e,f)
+
+    @param stem: A couple of couples (2 x 2-tuple) indicating the start and end
+                 nucleotides of the stem in the form ((s1, e1), (s2, e2))
+    @param bulge: A couple (2-tuple) indicating the first and last position
+                  of the bulge.
+
+    @return: True if there is an overlap between the stem nucleotides and the 
+                  bulge nucleotides
+             False otherwise
+    '''
     for stem_part in stem:
         for part in stem_part:
             for bulge_part in bulge:
@@ -24,8 +35,22 @@ def any_difference_of_one(stem, bulge):
                     return True
     return False
 
-# Find out which stems connect to which bulges
 def create_bulge_graph(stems, bulges):
+    '''
+    Find out which stems connect to which bulges
+
+    Stems and bulges which share a nucleotide are considered connected.
+
+    @param stems: A list of tuples of tuples of the form [((s1, e1), (s2, e2))]
+                  where s1 and e1 are the nucleotides at one end of the stem
+                  and s2 and e2 are the nucleotides at the other.
+
+    @param bulges: A list of tuples of the form [(s, e)] where s and e are the 
+                   numbers of the nucleotides at the start and end of the bulge.
+
+    @return: A dictionary, indexed by stem names, containing the indexes of the
+             the bulges.
+    '''
     #print "stems:", stems
     stem_bulges = dict()
     for i in range(len(stems)):
@@ -38,11 +63,30 @@ def create_bulge_graph(stems, bulges):
                 stem_bulges_set = stem_bulges.get(i, set())
                 stem_bulges_set.add(j)
                 stem_bulges[i] = stem_bulges_set
+
     #print >>sys.stderr, "stem_bulges:", stem_bulges
     return stem_bulges
 
 # Find out which stems connect to which stems
 def create_stem_graph(stems, bulge_counter):
+    '''
+    Determine which stems are connected to each other. A stem can be connected to
+    another stem when there is an interior loop with an unpaired nucleotide on
+    one side. In this case, a bulge will be created on the other side, but it
+    will only consist of the two paired bases around where the unpaired base 
+    would be if it existed.
+
+    The defines for these bulges will be printed as well as the connection strings
+    for the stems they are connected to.
+
+    @param stems: A list of tuples of tuples of the form [((s1, e1), (s2, e2))]
+                  where s1 and e1 are the nucleotides at one end of the stem
+                  and s2 and e2 are the nucleotides at the other.
+    @param bulge_counter: The number of bulges that have been encountered so far.
+
+    @return: A dictionary indexed by the number of a stem, containing a set of the 
+             other stems that the index is connected to.
+    '''
     #print "stems:", stems
     stem_stems = dict()
     define_text = ""
@@ -76,37 +120,26 @@ def create_stem_graph(stems, bulge_counter):
 
 
 def print_bulge_graph(graph):
+    '''
+    Print out the connections in the graph.
+
+    @param graph: A dictionary indexed by stem number containing a set
+                  of the bulge numbers that it is connected to.
+    '''
     for key in graph.keys():
         stem_str = "connect s%d" % (key)
         for item in graph[key]:
             stem_str += " b%d" % (item)
         print stem_str
 
-def print_stem_graph(graph, num_bulges):
-    # Add a few extra bulge definitions
-    # print >>sys.stderr, "graph:", graph
-    define_text = ""
-    connect_text = ""
-
-    bulge_counter = num_bulges + 1
-
-    for key1 in graph.keys():
-        connections = graph[key1]
-
-        for key2 in connections:
-            #define_text += "define b%d 1 -1 -2\n" % (bulge_counter)
-
-            #print >>sys.stderr, "define_text:", define_text
-            connect_text += "connect s%d b%d\n" % (key1, bulge_counter)
-            connect_text += "connect s%d b%d\n" % (key2, bulge_counter)
-
-            bulge_counter += 1
-
-    print define_text
-    print connect_text
-
 def print_stems(stems):
-    #print >>sys.stderr, "stems:", stems
+    '''
+    Print the names and definitions of the stems.
+
+    @param stems: A list of tuples of tuples of the form [((s1, e1), (s2, e2))]
+                  where s1 and e1 are the nucleotides at one end of the stem
+                  and s2 and e2 are the nucleotides at the other.
+    '''
     for i in range(len(stems)):
         # one is added to each coordinate to make up for the fact that residues are 1-based
         ss1 = stems[i][0][0]+1
@@ -117,6 +150,12 @@ def print_stems(stems):
         print "define s%d 0 %d %d %d %d" % (i, min(ss1,se1), max(ss1,se1), min(ss2,se2), max(ss2,se2))
 
 def print_bulges(bulges):
+    '''
+    Print the names and definitions of the bulges.
+
+    @param bulges: A list of tuples of the form [(s, e)] where s and e are the 
+                   numbers of the nucleotides at the start and end of the bulge.
+    '''
     for i in range(len(bulges)):
             #print "bulge:", bulge
         bulge_str = "define b%d 1" % (i)
@@ -125,11 +164,19 @@ def print_bulges(bulges):
         bulge_str += " %d %d" % (bulge[0]+1, bulge[1]+1)
         print bulge_str
 
-# Given a list of stem pairs, condense them into stem definitions
-#
-# I.e. the pairs (0,10),(1,9),(2,8),(3,7) can be condensed into
-# just the ends of the stem: [(0,10),(3,7)]
 def condense_stem_pairs(stem_pairs):
+    '''
+    Given a list of stem pairs, condense them into stem definitions
+
+    I.e. the pairs (0,10),(1,9),(2,8),(3,7) can be condensed into
+    just the ends of the stem: [(0,10),(3,7)]
+
+    @param stem_pairs: A list of tuples containing paired base numbers.
+
+    @return: A list of tuples of tuples of the form [((s1, e1), (s2, e2))]
+                  where s1 and e1 are the nucleotides at one end of the stem
+                  and s2 and e2 are the nucleotides at the other.
+    '''
     stem_pairs.sort()
 
     prev_pair = (-10, -10)
@@ -152,23 +199,31 @@ def condense_stem_pairs(stem_pairs):
 
     return stems
 
-# Print the brackets and a numbering, for debugging purposes
 def print_brackets(brackets):
+    '''
+    Print the brackets and a numbering, for debugging purposes
+
+    @param brackets: A string with the dotplot passed as input to this script.
+    '''
     numbers = [chr(ord('0') + i % 10) for i in range(len(brackets))]
     tens = [chr(ord('0') + i / 10) for i in range(len(brackets))]
     print "brackets:\n", brackets, "\n", "".join(tens), "\n" ,"".join(numbers)
 
-# Iterate through the structure and enumerate the bulges and the stems that are
-# present.
-# 
-# The returned stems are of the form [[(s1, s2), (e1,e2)], [(s1,s2),(e1,e2)],...]
-# where (s1,s2) are the residue numbers of one end of the stem and (e1,e2) are the
-# residue numbers at the other end of the stem
-# (see condense_stem_pairs)
-#
-# The returned bulges are of the form [(s,e), (s,e),...] where s is the start of a bulge
-# and e is the end of a bulge
 def find_bulges_and_stems(brackets):
+    '''
+    Iterate through the structure and enumerate the bulges and the stems that are
+    present.
+
+    The returned stems are of the form [[(s1, s2), (e1,e2)], [(s1,s2),(e1,e2)],...]
+    where (s1,s2) are the residue numbers of one end of the stem and (e1,e2) are the
+    residue numbers at the other end of the stem
+    (see condense_stem_pairs)
+
+    The returned bulges are of the form [(s,e), (s,e),...] where s is the start of a bulge
+    and e is the end of a bulge
+
+    @param brackets: A string with the dotplot passed as input to this script.
+    '''
     prev = '.'
     context = 0
 
@@ -259,6 +314,7 @@ def find_bulges_and_stems(brackets):
     #print "End, finished_bulges:", finished_bulges
     #print "stem_pairs:", stem_pairs
     stems = condense_stem_pairs(stem_pairs)
+    #print "stems:", stems
     
     return (finished_bulges, stems)
 
@@ -267,7 +323,49 @@ def print_name(filename):
 
 def main():
     if len(sys.argv) < 2:
-        print "Usage: ./create_bulge_graph.py file.dotbracket [name]"
+        print """
+        Usage: ./create_bulge_graph.py file.dotbracket [name]"
+        
+        Creates a graph of the paired and unpaired regions within a
+        dotplot. Paired regions are called stems while unpaired regions
+        are called bulges.
+
+        The file created contains four sections:
+        1. Name (optional):
+            The name of this graph. This can be used, for example, to specify which
+            PDB file the dotplot was inferred from. The name should not contain any
+            spaces.
+
+        2. Length (optional):
+            The length of the dotplot that was used to create this graph.
+
+        3. Definitions:
+            Each line in the definitions sections begins with the keyword 'define'
+            It is followed by the name of the region and the numbers of the 
+            nucleotides which define that region.
+
+            The numbers of the nucleotides always come in sets of two for bulges and
+            sets of four for stems (which can be interpreted as two sets of two). Each
+            set of two numbers indicates the starting and ending nucleotide for that
+            region.
+
+            All numbers are 1-based.
+
+        4. Connections:
+            This section shows how the different regions are connected to each other.
+            The term connected means that they share a common nucleotide.
+
+            Each line begins with the keyword 'connect'. It is followed by the name
+            of the region for which the connections are being described. The name
+            is followed by a number of different names. Each of these regions is connected
+            to the first.
+
+            One region may be defined by more than one connect statement. This section
+            of the file is simpy an adjacency list.
+
+
+        The results are printed to standard out.
+        """
         sys.exit(1)
     if sys.argv[1] == '-':
         f = sys.stdin
@@ -288,7 +386,6 @@ def main():
     bulge_graph = create_bulge_graph(stems, bulges)
     stem_graph = create_stem_graph(stems, len(bulges))
 
-    #print_stem_graph(stem_graph, len(bulges))
     print_bulge_graph(bulge_graph)
 
 if __name__ == "__main__":
