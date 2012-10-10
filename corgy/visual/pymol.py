@@ -1,7 +1,12 @@
 #!/usr/bin/python
 
+import corgy.graph.graph_pdb as cgg
+
 from numpy import array, cross, dot, allclose, exp
 from corgy.utilities.vector import normalize, get_non_colinear_unit_vector, magnitude
+
+import corgy.utilities.vector as cuv
+
 from sys import stderr
 from Bio.PDB.Model import Model
 from Bio.PDB.Chain import Chain
@@ -208,28 +213,49 @@ class PymolPrinter:
         s += "cmd.load_cgo(obj, 'ss')" + '\n'
         return s
 
+    def add_stem(self, bg, key):
+        (p, n) = bg.coords[key]
+        self.add_segment(p, n, 'green', 2.4, key)
+
+        if self.add_twists:
+            twist1o = bg.twists[key][0]
+            twist2o = bg.twists[key][1]
+
+            twist_rot_mat_l = cuv.rotation_matrix(n - p, -(1.45 / 2.))
+            twist_rot_mat_r = cuv.rotation_matrix(n - p, (1.45 / 2.))
+
+            twist1 = dot(twist_rot_mat_l, twist1o)
+            twist2 = dot(twist_rot_mat_l, twist2o)
+
+            twist3 = dot(twist_rot_mat_r, twist1o)
+            twist4 = dot(twist_rot_mat_r, twist2o)
+
+
+            mult = 5.
+            width = .3
+
+            self.add_segment(p, p + mult * twist1, "white", width, '')
+            self.add_segment(n, n + mult * twist2, "white", width, '')
+
+            self.add_segment(p, p + mult * twist3, "red", width, '')
+            self.add_segment(n, n + mult * twist4, "red", width, '')
+
+        stem_len = bg.defines[key][1] - bg.defines[key][0] + 1
+        for i in range(stem_len):
+            (pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
+            self.add_segment(pos, pos + mult * vec, "blue", width, '')
+
+        '''
+        self.add_sphere(p + mult * twist1, "white", width, key)
+        self.add_sphere(n + mult * twist2, "white", width, key)
+        '''
+
     def coordinates_to_pymol(self, bg):
         for key in bg.coords.keys():
             (p, n) = bg.coords[key]
         
             if key[0] == 's':
-                self.add_segment(p, n, 'green', 2.4, key)
-
-                if self.add_twists:
-                    twist1 = bg.twists[key][0]
-                    twist2 = bg.twists[key][1]
-
-
-                    mult = 5.
-                    width = .3
-
-                    self.add_segment(p, p + mult * twist1, "white", width, '')
-                    self.add_segment(n, n + mult * twist2, "white", width, '')
-
-                '''
-                self.add_sphere(p + mult * twist1, "white", width, key)
-                self.add_sphere(n + mult * twist2, "white", width, key)
-                '''
+                self.add_stem(bg, key)
 
             else:
                 if len(bg.edges[key]) == 1:

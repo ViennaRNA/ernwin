@@ -3,6 +3,8 @@
 from Bio.PDB import PDBParser, Vector
 from sys import argv
 
+import sys
+
 from numpy import array
 from numpy.linalg import inv
 from numpy.testing import assert_allclose
@@ -396,13 +398,19 @@ def get_twists_core(chain, start1, start2, end1, end2):
     start_vec1 = chain[start1][catom_name].get_vector() - mids[0]
     end_vec1 = chain[end1][catom_name].get_vector() - mids[1]
 
-    #print >>sys.stderr, "mag1:", magnitude(start_vec1)
-    #print >>sys.stderr, "mag2:", magnitude(end_vec1)
+    start_vec1a = chain[start2][catom_name].get_vector() - mids[0]
+    end_vec1a = chain[end2][catom_name].get_vector() - mids[1]
 
     notch1 = vector_rejection(start_vec1.get_array(), (mids[0] - mids[1]).get_array())
     notch2 = vector_rejection(end_vec1.get_array(), (mids[1] - mids[0]).get_array())
 
-    return (normalize(notch1), normalize(notch2))
+    notch1a = vector_rejection(start_vec1a.get_array(), (mids[0] - mids[1]).get_array())
+    notch2a = vector_rejection(end_vec1a.get_array(), (mids[1] - mids[0]).get_array())
+
+    #print >>sys.stderr, "twist_angle_1:", cuv.vec_angle(notch1, notch1a)
+    #print >>sys.stderr, "twist_angle_2:", cuv.vec_angle(notch2, notch2a)
+
+    return (normalize(notch1 + notch1a), normalize(notch2 + notch2a))
 
 
 def get_mids(chain, define):
@@ -510,6 +518,9 @@ def pos_to_spos(bg, s1, i1, s2, i2):
     (s1_pos, s1_vec) = virtual_res_3d_pos(bg, s1, i1)
     (s2_pos, s2_vec) = virtual_res_3d_pos(bg, s2, i2)
 
+    rpos = (s2_pos + s2_vec) - (s1_pos + s1_vec)
+    #print "sbasis:", sbasis
+
     spos = cuv.change_basis((s2_pos + s2_vec) - (s1_pos + s1_vec), sbasis, cuv.standard_basis)
     return spos
 
@@ -549,9 +560,4 @@ def get_residue_type(i, stem_len):
     '''
     assert(i < stem_len)
 
-    offset_from_end = min(i, stem_len - i - 1)
-    if offset_from_end <= 2:
-        return offset_from_end
-    else:
-        return 2
-
+    return 0
