@@ -89,6 +89,22 @@ class PymolPrinter:
             s += "SPHERE, %s, %f," % (", ".join([str(pi) for pi in p]), width) + '\n'
 
         return s
+    
+    def pymol_axis_string(self):
+        w = 0.12 # cylinder width 
+        l = 1.5 # cylinder length
+        h = 0.5 # cone hight
+        d = w * 1.618 # cone base diameter
+        s = ""
+         
+        s += "CYLINDER, 0.0, 0.0, 0.0,   %f, 0.0, 0.0, %f, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0," % (l, w)
+        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0,   %f, 0.0, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0," % (l, w)
+        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0, 0.0,   %f, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0," % (l, w)
+        s += "CONE,   %f, 0.0, 0.0, %f, 0.0, 0.0, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0," % (l, h+l, d)
+        s += "CONE, 0.0, %f, 0.0, 0.0, %f, 0.0, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0," % (l, h+l, d)
+        s += "CONE, 0.0, 0.0, %f, 0.0, 0.0, %f, %f, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0," % (l, h+l, d)
+
+        return s
 
     def pymol_segments_string(self):
         color = 'green'
@@ -148,6 +164,7 @@ class PymolPrinter:
         s = self.pymol_intro_string()
         s += self.pymol_segments_string()
         s += self.pymol_spheres_string()
+        s += self.pymol_axis_string()
         s += self.pymol_outro_string()
 
         if self.print_text:
