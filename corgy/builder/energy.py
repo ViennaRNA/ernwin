@@ -2,9 +2,16 @@
 
 import pickle, os
 import Bio.PDB as bpdb
+
+import scipy.spatial as ss
+import Bio.KDTree as kd
+import sys
+
 from copy import deepcopy
 
 import corgy.utilities.vector as cuv
+import corgy.graph.graph_pdb as cgg
+
 from corgy.builder.models import SpatialModel
 
 from corgy.utilities.data_structures import DefaultDict
@@ -591,6 +598,50 @@ class LongRangeInteractionCount(EnergyFunction):
 
         return contrib
         #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
+
+class StemVirtualResClashEnergy(EnergyFunction):
+    '''
+    Determine if the virtual residues clash.
+    '''
+
+    def __init__(self):
+        pass
+
+    def eval_energy(self, sm, background=False):
+        '''
+        Cound how many clashes of virtual residues there are.
+
+        @param sm: The SpatialModel containing the list of stems.
+        @param background: Use a background distribution to normalize this one.
+                           This should always be false since clashes are independent
+                           of any other energies.
+        '''
+        l = []
+        bg = sm.bg
+        mult = 7
+
+        for d in sm.bg.defines.keys():
+            if d[0] == 's':
+                s_len = bg.defines[d][1] - bg.defines[d][0]
+                for i in range(s_len):
+                    (p, v) = cgg.virtual_res_3d_pos(bg, d, i)
+                    l += [p+ mult * v]
+
+        #kk = ss.KDTree(array(l))
+        kdt = kd.KDTree(3)
+        kdt.set_coords(array(l))
+        kdt.all_search(4.)
+        #print len(kdt.all_get_indices())
+        #print len(kk.query_pairs(7.))
+
+        energy = 1000 * len(kdt.all_get_indices())
+
+        #energy = 1000 * len(kdt.all_search(4.))
+        #energy = 1000 * len(kd.query_pairs(4.))
+
+        #print >>sys.stderr, "energy:", energy
+
+        return energy
 
 class StemClashEnergy(EnergyFunction):
     '''

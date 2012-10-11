@@ -91,10 +91,10 @@ class PymolPrinter:
         return s
     
     def pymol_axis_string(self):
-        w = 0.12 # cylinder width 
-        l = 1.5 # cylinder length
-        h = 0.5 # cone hight
-        d = w * 1.618 # cone base diameter
+        w = 0.22 # cylinder width 
+        l = 4.0 # cylinder length
+        h = 1.0 # cone hight
+        d = w * 2.618 # cone base diameter
         s = ""
          
         s += "CYLINDER, 0.0, 0.0, 0.0,   %f, 0.0, 0.0, %f, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0," % (l, w)
@@ -248,7 +248,7 @@ class PymolPrinter:
             twist4 = dot(twist_rot_mat_r, twist2o)
 
 
-            mult = 5.
+            mult = 7.
             width = .3
 
             self.add_segment(p, p + mult * twist1, "white", width, '')

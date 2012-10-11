@@ -160,6 +160,14 @@ class TestCombinedEnergy(unittest.TestCase):
             sm1.traverse_and_build()
             print "energy:", sce.eval_energy(sm1)
 
+    def test_stem_virtual_res_clash_energy(self):
+        svrce = cbe.StemVirtualResClashEnergy()
+        self.sm.build_chain = True
+        self.sm.sample_native_stems()
+        self.sm.create_native_stem_models()
+        energy = svrce.eval_energy(self.sm)
+
+        print "energy:", energy
 
 class TestDistanceEnergy(unittest.TestCase):
     def test_native_vs_sampled(self):

@@ -54,8 +54,8 @@ usage: %prog [options] temp.comp
             if i == j:
                 continue
 
-            if connected_stems(bg, stems[i], stems[j]):
-                continue
+            #if connected_stems(bg, stems[i], stems[j]):
+            #    continue
 
             s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
             for k in range(s1_len):

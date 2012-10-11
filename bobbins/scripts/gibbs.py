@@ -7,9 +7,9 @@ import copy
 from random import sample, random, seed
 from numpy import allclose, seterr
 
+
+
 from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.energy import LongRangeInteractionCount, RandomEnergy
-from corgy.builder.energy import CombinedEnergy
 from corgy.builder.models import SpatialModel
 from corgy.builder.rmsd import centered_rmsd
 
@@ -45,6 +45,8 @@ def main():
     parser.add_option('-b', '--best_filename', dest='best_filename', default='best.coord', help="The filename to dump the best (least rmsd structure) into", type='str')
     parser.add_option('-p', '--plot', dest='plot', default=False, action='store_true', help="Plot the energies as they are encountered")
     parser.add_option('-d', '--distance', dest='distance_energy', default=False, action='store_true', help='Use the DistanceEnergy energy')
+    parser.add_option('-r', '--random', dest='random_energy', default=False, action='store_true', help='Use the RandomEnergy energy')
+    parser.add_option('-s', '--step-random', dest='step_random', default=False, action='store_true', help='Concurrently sample with a random energy.')
 
     (options, args) = parser.parse_args()
 
@@ -53,13 +55,16 @@ def main():
         sys.exit(1)
 
     bg = BulgeGraph(args[0])
-    bg.calc_bp_distances()
     sm = SpatialModel(bg)
 
-    if options.distance_energy:
+    if options.random_energy:
+        energy_function = cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.StemVirtualResClashEnergy()])
+    elif options.distance_energy:
         energy_function = cbe.DistanceEnergy(bg.get_long_range_constraints())
     else:
+        bg.calc_bp_distances()
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
+
 
 
     if options.plot:
@@ -73,11 +78,12 @@ def main():
     random_stats = SamplingStatistics(sm, plotter, 'r', silent=True)
 
     gs = GibbsBGSampler(sm, energy_function, stats)
-    gs_random = GibbsBGSampler(copy.deepcopy(sm), CombinedEnergy([RandomEnergy()]), random_stats)
+    gs_random = GibbsBGSampler(copy.deepcopy(sm), cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.StemVirtualResClashEnergy()]), random_stats)
 
     for i in range(options.iterations):
         gs.step()
-        gs_random.step()
+        if options.step_random:
+            gs_random.step()
 
     stats.print_final_stats(energy_function)
     stats.save_top()

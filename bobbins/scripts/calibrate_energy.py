@@ -30,7 +30,7 @@ def main():
     energies += [JunctionClosureEnergy()]
 
     #uncal_energies = [cbe.StemClashEnergy()]
-    uncal_energies = []
+    uncal_energies = [cbe.StemVirtualResClashEnergy()]
 
     #energies += [LongRangeDistanceEnergy()]
 
