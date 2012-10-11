@@ -4,12 +4,14 @@ import sys, os
 from optparse import OptionParser
 
 import numpy as np
+import scipy.stats as stats
 
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
 import corgy.builder.config as cbc
 import corgy.visual.pymol as cvp
 import corgy.utilities.vector as cuv
+import corgy.utilities.colormap as cuc
 
 def main():
     usage = """
@@ -40,14 +42,26 @@ usage: %prog [options] data_file
 
     for i in range(len(args)):
         f = open(args[i], 'r')
+        points = []
+
         for line in f.readlines():
             parts = line.split(' ')
             res_type = int(parts[0])
             x = float(parts[2])
             y = float(parts[3])
             z = float(parts[4])
-            
-            pp.add_sphere([x,y,z], colors[i], 0.3, '')
+            points += [[x, y, z]]
+        points = np.array(points) 
+        kernel = stats.gaussian_kde(points.T) 
+
+        vals = kernel(points.T)
+        mi = min(vals)
+        mx = max(vals)
+
+        for p in points:
+            #print "p:", p, "kernel(p):", kernel(p)
+            val = kernel(p)[0]
+            pp.add_sphere(p, colors[i], 0.3, '', color_rgb=cuc.floatRgb(val, mi, mx))
 
     pp.output_pymol_file()
 

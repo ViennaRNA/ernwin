@@ -43,11 +43,14 @@ class PymolPrinter:
         else:
             return [0.0, 0.0, 0.0]
 
-    def add_sphere(self, p, color='green', width=0.2, text=""):
+    def add_sphere(self, p, color='green', width=0.2, text="", color_rgb = None):
         if self.override_color != None:
             color = self.override_color
+        
+        if color_rgb == None:
+            color_rgb = self.get_color_vec(color)
 
-        self.new_spheres += [(array(p), color, width, text)]
+        self.new_spheres += [(array(p), color_rgb, width, text)]
 
 
     def transform_spheres(self, translation, rotation):
@@ -84,7 +87,7 @@ class PymolPrinter:
         s = ''
 
         for (p, color, width, text) in self.new_spheres:
-            color_vec = self.get_color_vec(color)
+            color_vec = color
             s += "COLOR, %s," % (",  ".join([str(c) for c in color_vec])) + '\n'
             s += "SPHERE, %s, %f," % (", ".join([str(pi) for pi in p]), width) + '\n'
 
