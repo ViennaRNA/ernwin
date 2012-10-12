@@ -40,6 +40,11 @@ usage: %prog [options] data_file
     pp = cvp.PymolPrinter()
     colors = ['red', 'green', 'blue']
 
+    kernels = []
+    point_sets = []
+    val_sets = []
+    kernels = []
+
     for i in range(len(args)):
         f = open(args[i], 'r')
         points = []
@@ -51,17 +56,30 @@ usage: %prog [options] data_file
             y = float(parts[3])
             z = float(parts[4])
             points += [[x, y, z]]
+
         points = np.array(points) 
-        kernel = stats.gaussian_kde(points.T) 
+        point_sets += [points]
+
+        kernel = stats.gaussian_kde(points.T)
+        kernels += [kernel]
 
         vals = kernel(points.T)
-        mi = min(vals)
-        mx = max(vals)
+        val_sets += [vals]
 
-        for p in points:
+
+    if len(val_sets) == 2:
+        vals = np.log(kernels[0](point_sets[0].T)) - np.log(kernels[1](point_sets[0].T))
+    else:
+        vals = np.log(kernels[0](point_sets[0].T))
+
+    mi = min(vals)
+    mx = max(vals)
+
+    for k in range(1):
+        for j in range(len(point_sets[0])):
             #print "p:", p, "kernel(p):", kernel(p)
-            val = kernel(p)[0]
-            pp.add_sphere(p, colors[i], 0.3, '', color_rgb=cuc.floatRgb(val, mi, mx))
+            val = vals[j]
+            pp.add_sphere(point_sets[k][j], colors[i], 0.3, '', color_rgb=cuc.floatRgb(val, mi, mx))
 
     pp.output_pymol_file()
 

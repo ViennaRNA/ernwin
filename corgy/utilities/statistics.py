@@ -107,3 +107,83 @@ class interpolated_kde:
     def __call__(self, data):
         return self.evaluate(data)
 
+def meshgrid2(*arrs):
+    '''
+    Snatched from:
+    
+    http://stackoverflow.com/questions/1827489/numpy-meshgrid-in-3d.
+    '''
+    arrs = tuple(reversed(arrs))  #edit
+    lens = map(len, arrs)
+    dim = len(arrs)
+
+    sz = 1
+    for s in lens:
+        sz*=s
+
+    ans = []    
+    for i, arr in enumerate(arrs):
+        slc = [1]*dim
+        slc[i] = lens[i]
+        arr2 = asarray(arr).reshape(slc)
+        for j, sz in enumerate(lens):
+            if j!=i:
+                arr2 = arr2.repeat(sz, axis=j) 
+        ans.append(arr2)
+
+    return tuple(ans)
+
+class InterpolatedMultiKDE:
+    '''
+    An interpolated kernel density estimate.
+    '''
+
+    def __init__(self, data, grain=100):
+        '''
+        Create a kde from the data and then fit a cubic spline to it.
+
+        @param grain: Use n points to create the grid over which to interpolate.
+        '''
+        grid_arrays = []
+        n_points = len(data) / grain
+        print "n_points:", n_points
+
+        if len(data.shape) == 1:
+            # 1-d array
+            grid_arrays += [data[0::n_points]]
+        else:
+            for i in xrange(data.shape[1]):
+                grid_arrays += [data[:,i][0::n_points]]
+
+
+        print grid_arrays
+        return
+
+
+        if limits == None:
+            limits = (min(0, min(data)), max(500, max(data)))
+
+        x = linspace(limits[0], limits[1], n)
+        self.kde = gaussian_kde(data)
+        y = my_log(self.kde(x))
+
+        # the data needs to be sorted for the interpolation to succeed
+        d = zip(x, y)
+        d.sort()
+        x,y = zip(*d)
+
+        self.inter = interpolate.splrep(x, y)
+
+    def evaluate(self, data):
+        '''
+        Get the probability density of the data as if we were
+        using the kde.
+
+        @param data: An array-like set of data.
+        '''
+        return interpolate.splev(data, self.inter)
+
+    def __call__(self, data):
+        return self.evaluate(data)
+
+

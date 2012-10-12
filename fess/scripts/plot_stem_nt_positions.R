@@ -1,6 +1,35 @@
+library(plotrix)
+
 t <- read.csv('../stats/stem_nt.stats', sep=' ', head=F)
+t1 <- read.csv('../stats/stem_nt_sampled.stats', sep=' ', head=F)
+
 head(t)
+
 t$dist = sqrt(t$V4 ** 2 + t$V5 ** 2)
+t1$dist = sqrt(t1$V4 ** 2 + t1$V5 ** 2)
+
+t$ang = atan2(t$V4, t$V5)
+t1$ang = atan2(t1$V4, t1$V)
+
+
+require(CircStats)
+library(circular)
+
+d <- circular(t$ang)
+radial.plot(d, t$ang)
+
+b <- head(t$ang, n=100)
+
+
+b <- circular(t$ang)
+a <- density(b, bw=200)
+plot(b,stack=T,cex=0, ticks=T)
+lines(a)
+
+h <- hist(t$ang)
+
+radial.plot(h$counts, h$mids)
+hist(t1$ang)
 
 t1 <- t[abs(t$V4) < 1,]
 t2 <- t[abs(t$V4) < 1 & abs(t$V3) < 1,]
@@ -29,3 +58,7 @@ data$z = runif(
 data
 str(data)
 wireframe(z ~ x * y, data=data)
+
+t <- read.csv('../stats/vres_distances.csv', sep=' ', head=F)
+min(t$V1)
+?rose.diag
