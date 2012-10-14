@@ -1,23 +1,21 @@
-from scipy import linspace
-from scipy import pi, sqrt, exp, mean, std
-from scipy.special import erf
-from scipy.stats import norm, gaussian_kde
-from scipy import interpolate
-from scipy.interpolate import interp1d
+import scipy.stats as ss
+import scipy.interpolate as si
+import scipy.optimize as so
 
-from scipy.optimize import leastsq
+import numpy as np
+import scipy.special as sspec
 
-from numpy import log
+import numpy as np
 
 def my_log(x):
-    return log(x + 1e-200)
+    return np.log(x + 1e-200)
 
 
 def pdf(x):
-    return 1/sqrt(2 * pi) * exp(-x ** 2 / 2)
+    return 1/np.sqrt(2 * np.pi) * np.exp(-x ** 2 / 2)
 
 def cdf(x):
-    return (1 + erf(x / sqrt(2))) / 2
+    return (1 + sspec.erf(x / np.sqrt(2))) / 2
 
 def skew(x,e=0,w=1,a=0):
     t = (x - e) / w
@@ -34,12 +32,12 @@ def fit_skew(x):
     '''
 
     #Get a kernel density estimate of the probability density
-    kde = gaussian_kde(x)
+    kde = ss.gaussian_kde(x)
     fzz = kde(x)
 
     #normalize the data
     optm = lambda l, x: skew(x, l[0], l[1], l[2]) - fzz 
-    fit = leastsq(optm, [mean(x), std(x), 0.5], (x,))[0]
+    fit = so.leastsq(optm, [np.mean(x), np.std(x), 0.5], (x,))[0]
 
     '''
     hist(x)
@@ -64,9 +62,9 @@ def test_fit_skew():
     a = 4.0
 
     dataset = []
-    for x in linspace(-10, 10, n):
+    for x in np.linspace(-10, 10, n):
         mult = int(100 * skew(x, e, w, a))
-        dataset += [x + norm.rvs(0, 0.1) for i in range(mult)]
+        dataset += [x + ss.norm.rvs(0, 0.1) for i in range(mult)]
 
     fit_skew(dataset)
 
@@ -85,7 +83,7 @@ class interpolated_kde:
             limits = (min(0, min(data)), max(500, max(data)))
 
         x = linspace(limits[0], limits[1], n)
-        self.kde = gaussian_kde(data)
+        self.kde = ss.gaussian_kde(data)
         y = my_log(self.kde(x))
 
         # the data needs to be sorted for the interpolation to succeed
@@ -93,7 +91,7 @@ class interpolated_kde:
         d.sort()
         x,y = zip(*d)
 
-        self.inter = interpolate.splrep(x, y)
+        self.inter = si.splrep(x, y)
 
     def evaluate(self, data):
         '''
@@ -102,7 +100,7 @@ class interpolated_kde:
 
         @param data: An array-like set of data.
         '''
-        return interpolate.splev(data, self.inter)
+        return si.splev(data, self.inter)
 
     def __call__(self, data):
         return self.evaluate(data)
@@ -125,54 +123,51 @@ def meshgrid2(*arrs):
     for i, arr in enumerate(arrs):
         slc = [1]*dim
         slc[i] = lens[i]
-        arr2 = asarray(arr).reshape(slc)
+        arr2 = np.asarray(arr).reshape(slc)
         for j, sz in enumerate(lens):
             if j!=i:
                 arr2 = arr2.repeat(sz, axis=j) 
         ans.append(arr2)
 
-    return tuple(ans)
+    return tuple(ans[::-1])
 
 class InterpolatedMultiKDE:
     '''
     An interpolated kernel density estimate.
     '''
 
-    def __init__(self, data, grain=100):
+    def __init__(self, data, grain=None):
         '''
         Create a kde from the data and then fit a cubic spline to it.
 
         @param grain: Use n points to create the grid over which to interpolate.
+                      If it's not passed in, then the number of points is equal
+                      to the length of the data set.
+        '''
         '''
         grid_arrays = []
-        n_points = len(data) / grain
-        print "n_points:", n_points
+
+        if grain == None:
+            skip_points = 1
+        else:
+            skip_points = len(data) / grain
 
         if len(data.shape) == 1:
             # 1-d array
-            grid_arrays += [data[0::n_points]]
+            grid_arrays += [data[0::skip_points]]
         else:
             for i in xrange(data.shape[1]):
-                grid_arrays += [data[:,i][0::n_points]]
+                grid_arrays += [data[:,i][0::skip_points]]
 
+        grid = meshgrid2(*grid_arrays)
+        grid_points = np.array(zip(*(x.flat for x in grid)))
+        '''
 
-        print grid_arrays
-        return
+        kde = ss.gaussian_kde(data.T)
 
+        #self.interp = si.LinearNDInterpolator(grid_points, kde(grid_points.T))
+        self.interp = si.LinearNDInterpolator(data, kde(data.T))
 
-        if limits == None:
-            limits = (min(0, min(data)), max(500, max(data)))
-
-        x = linspace(limits[0], limits[1], n)
-        self.kde = gaussian_kde(data)
-        y = my_log(self.kde(x))
-
-        # the data needs to be sorted for the interpolation to succeed
-        d = zip(x, y)
-        d.sort()
-        x,y = zip(*d)
-
-        self.inter = interpolate.splrep(x, y)
 
     def evaluate(self, data):
         '''
@@ -181,7 +176,7 @@ class InterpolatedMultiKDE:
 
         @param data: An array-like set of data.
         '''
-        return interpolate.splev(data, self.inter)
+        return self.interp([data])
 
     def __call__(self, data):
         return self.evaluate(data)
