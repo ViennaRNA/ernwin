@@ -20,7 +20,6 @@
 # Standard library imports.
 import warnings
 
-
 import scipy.spatial.kdtree as ssk
 import Bio.KDTree as kd
 
@@ -128,12 +127,11 @@ class gaussian_kde(object):
                 raise ValueError(msg)
 
         result = zeros((m,), points.dtype)
-
-        max_dist = 5. * max(np.sqrt(self.eigen_val))
-        print "max_dist:", max_dist
+        max_dist = 4. * max(np.sqrt(self.eigen_val))
 
         if m >= self.n:
             # there are more points than data, so loop over data
+
             for i in range(self.n):
                 diff = self.dataset[:,i,newaxis] - points
                 tdiff = dot(self.inv_cov, diff)
@@ -141,14 +139,10 @@ class gaussian_kde(object):
                 result += exp(-energy)
         else:
             # loop over points
-            #neighbors = self.kd_tree.query_ball_point(points.T, max_dist)
 
             for i in range(m):
-                #cud.pv('points.T[i]')
-                #cud.pv('max_dist')
                 self.kd_tree.search(points.T[i], max_dist)
                 neighbors = self.kd_tree.get_indices()
-                #cud.pv('neighbors')
                 diff = self.dataset[:,neighbors] - points[:,i,newaxis]
                 tdiff = dot(self.inv_cov, diff)
                 energy = sum(diff*tdiff,axis=0)/2.0
