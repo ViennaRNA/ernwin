@@ -59,7 +59,7 @@ def main():
     sm = SpatialModel(bg)
 
     if options.random_energy:
-        energy_function = cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.StemVirtualResClashEnergy()])
+        energy_function = cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
     elif options.distance_energy:
         energy_function = cbe.DistanceEnergy(bg.get_long_range_constraints())
     elif options.helix_orientation:

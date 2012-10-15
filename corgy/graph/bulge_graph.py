@@ -68,7 +68,7 @@ class BulgeGraph:
         else:
             return False
 
-    def get_stem_length(self, key):
+    def stem_length(self, key):
         d = self.defines[key]
         return (d[1] - d[0]) + 1
 

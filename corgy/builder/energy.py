@@ -737,4 +737,32 @@ class HelixOrientationEnergy(EnergyFunction):
                             score += score_incr
         return -score
 
+class RoughJunctionClosureEnergy(EnergyFunction):
+    def __init__(self):
+        pass
 
+    def eval_energy(self, sm, background=True):
+        bg = sm.bg
+        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
+        #closed_bulges = all_bulges.difference(sm.sampled_bulges)
+
+        energy = 0.
+
+        #for bulge in closed_bulges:
+        for bulge in all_bulges:
+            bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
+
+            dist = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+            #cud.pv('dist')
+
+            if bl == 1:
+                if dist > 4.0:
+                    energy += 10000
+            elif bl == 2:
+                if dist > 10.0:
+                    energy += 10000
+            else:
+                if dist > (bl-1) * 7.0:
+                    energy += 10000
+
+        return energy

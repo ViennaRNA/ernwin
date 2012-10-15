@@ -1,7 +1,7 @@
 import corgy.builder.models as models
 import corgy.builder.rmsd as brmsd
 
-import corgy.graph.graph_pdb as gpdb
+import corgy.graph.graph_pdb as cgg
 import corgy.utilities.vector as cuv
 
 import corgy.builder.ccd as cbc
@@ -553,7 +553,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
     @param sm: A SpatialModel structure
     @param ld: The name of the loop
     '''
-
+    samples = 2
     bg = sm.bg
     seq = bg.get_flanking_sequence(ld, side)
     (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
@@ -570,7 +570,32 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
     min_contacts = (1000, 100.)
     iterations = samples
     best_loop_chain = None
-    sys.stdout.write("reconstructing %s:" % (ld))
+
+    bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
+    dist = cuv.vec_distance(bg.coords[ld][1], bg.coords[ld][0])
+
+    if len(bg.edges[ld]) == 2:
+        connecting_stems = list(bg.edges[ld])
+
+        (s1b, s1e) = bg.get_sides(connecting_stems[0], ld)
+        (s2b, s2e) = bg.get_sides(connecting_stems[1], ld)
+
+        if s1b == 1:
+            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
+        else:
+            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], 0)
+
+        if s2b == 1:
+            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
+        else:
+            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], 0)
+
+        dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
+    else:
+        dist2 = 0.
+
+
+    sys.stdout.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
 
     for i in range(iterations):
         model.sample()
@@ -647,9 +672,11 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
 
         #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
         
-        if (contacts2, r) < min_contacts:
+        #if (contacts2, r) < min_contacts:
+        if (0, r) < min_contacts:
             best_loop_chain = copy.deepcopy(orig_loop_chain)
-            min_contacts = (contacts2, r)
+            #min_contacts = (contacts2, r)
+            min_contacts = (0, r)
             #print "min_contacts:", min_contacts
 
         '''
