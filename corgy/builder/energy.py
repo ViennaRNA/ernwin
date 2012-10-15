@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import pickle, os
+import pandas
 import Bio.PDB as bpdb
 
 import scipy.spatial as ss
@@ -698,20 +699,9 @@ class HelixOrientationEnergy(EnergyFunction):
         pass
 
     def load_stem_orientation_data(self, filename):
-        f = open(filename, 'r')
-
-        points = []
-
-        for line in f.readlines():
-            parts = line.split(' ')
-            
-            x = float(parts[2])
-            y = float(parts[3])
-            z = float(parts[4])
-
-            points += [[x,y,z]]
-
-        points = np.array(points)
+        stats = pandas.read_csv(filename,header=None, sep=' ')
+        points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
+        
         return cek.gaussian_kde(points.T)
 
 
