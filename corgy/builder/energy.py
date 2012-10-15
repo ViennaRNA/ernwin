@@ -6,11 +6,14 @@ import Bio.PDB as bpdb
 import scipy.spatial as ss
 import Bio.KDTree as kd
 import sys
+import numpy as np
+import corgy.utilities.debug as cud
 
 from copy import deepcopy
 
 import corgy.utilities.vector as cuv
 import corgy.graph.graph_pdb as cgg
+import corgy.exp.kde as cek
 
 from corgy.builder.models import SpatialModel
 
@@ -634,7 +637,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
 
-        energy = 1000 * len(kdt.all_get_indices())
+        energy = 100000 * len(kdt.all_get_indices())
 
         #energy = 1000 * len(kdt.all_search(4.))
         #energy = 1000 * len(kd.query_pairs(4.))
@@ -687,3 +690,51 @@ class DistanceEnergy(EnergyFunction):
             energy += abs(d1 - d)
         
         return energy
+
+class HelixOrientationEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_kde = self.load_stem_orientation_data('fess/stats/stem_nt.stats')
+        self.fake_kde = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
+        pass
+
+    def load_stem_orientation_data(self, filename):
+        f = open(filename, 'r')
+
+        points = []
+
+        for line in f.readlines():
+            parts = line.split(' ')
+            
+            x = float(parts[2])
+            y = float(parts[3])
+            z = float(parts[4])
+
+            points += [[x,y,z]]
+
+        points = np.array(points)
+        return cek.gaussian_kde(points.T)
+
+
+    def eval_energy(self, sm, background=True):
+        bg = sm.bg
+        stems = [d for d in bg.defines.keys() if d[0] == 's']
+        score = 0
+
+        for s1 in stems:
+            s1_len = bg.defines[s1][1] - bg.defines[s1][0]
+            for s2 in stems:
+                if s1 != s2:
+                    s2_len = bg.defines[s2][1] - bg.defines[s2][0]
+                    for l in range(s1_len):
+                        for k in range(s2_len):
+                            r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
+
+                            score_incr = my_log(self.real_kde(r2_spos)) - my_log(self.fake_kde(r2_spos))
+                            #print
+                            #cud.pv('my_log(self.real_kde(r2_spos))')
+                            #cud.pv('my_log(self.fake_kde(r2_spos))')
+
+                            score += score_incr
+        return -score
+
+

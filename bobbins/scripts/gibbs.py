@@ -47,6 +47,7 @@ def main():
     parser.add_option('-d', '--distance', dest='distance_energy', default=False, action='store_true', help='Use the DistanceEnergy energy')
     parser.add_option('-r', '--random', dest='random_energy', default=False, action='store_true', help='Use the RandomEnergy energy')
     parser.add_option('-s', '--step-random', dest='step_random', default=False, action='store_true', help='Concurrently sample with a random energy.')
+    parser.add_option('-o', '--helix_orientation', dest='helix_orientation', default=False, action='store_true', help='Sample using the helix orientation energy')
 
     (options, args) = parser.parse_args()
 
@@ -61,6 +62,8 @@ def main():
         energy_function = cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.StemVirtualResClashEnergy()])
     elif options.distance_energy:
         energy_function = cbe.DistanceEnergy(bg.get_long_range_constraints())
+    elif options.helix_orientation:
+        energy_function = cbe.CombinedEnergy([], [cbe.StemVirtualResClashEnergy(), cbe.HelixOrientationEnergy()])
     else:
         bg.calc_bp_distances()
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))

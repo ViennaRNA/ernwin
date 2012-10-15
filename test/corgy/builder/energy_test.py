@@ -1,3 +1,5 @@
+import corgy.utilities.debug as cud
+
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.builder.energy import MissingTargetException 
 from corgy.builder.config import Configuration
@@ -193,3 +195,18 @@ class TestDistanceEnergy(unittest.TestCase):
         energy_sampled = de.eval_energy(sm)
         self.assertLess(energy_native, energy_sampled)
 
+class TestHelixOrientationEnergy(unittest.TestCase):
+    def test_eval(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+
+        energy = cbe.HelixOrientationEnergy()
+        cud.pv('energy.eval_energy(sm)')
+
+        sm.sample_stems()
+        sm.sample_angles()
+        sm.traverse_and_build()
+
+        energy = cbe.HelixOrientationEnergy()
+        cud.pv('energy.eval_energy(sm)')

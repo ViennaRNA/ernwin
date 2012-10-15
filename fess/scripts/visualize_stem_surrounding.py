@@ -12,6 +12,7 @@ import corgy.builder.config as cbc
 import corgy.visual.pymol as cvp
 import corgy.utilities.vector as cuv
 import corgy.utilities.colormap as cuc
+import corgy.exp.kde as cek
 
 def main():
     usage = """
@@ -60,7 +61,7 @@ usage: %prog [options] data_file
         points = np.array(points) 
         point_sets += [points]
 
-        kernel = stats.gaussian_kde(points.T)
+        kernel = cek.gaussian_kde(points.T)
         kernels += [kernel]
 
         vals = kernel(points.T)
