@@ -16,6 +16,7 @@ import corgy.builder.models as cbm
 import corgy.builder.reconstructor as rtor
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
+import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
 import corgy.visual.pymol as cvp
 
@@ -39,7 +40,7 @@ def get_random_translation():
 class TestReconstructor(unittest.TestCase):
     def setUp(self):
         self.bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "2b3j/graph", "temp.comp"))
-        s = np.PDBParser().get_structure('temp', os.path.join(cbc.Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
+        s = bp.PDBParser().get_structure('temp', os.path.join(cbc.Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
 
         self.chain = list(s.get_chains())[0]
         self.stem = cbm.define_to_stem_model(self.chain, self.bg.defines['s0'])
@@ -169,8 +170,13 @@ class TestReconstructor(unittest.TestCase):
         
             stem = cbm.define_to_stem_model(chain, bg_stem_def)
 
-            #print "stem:", stem
-            #print "sm.stems[stem_name]:", sm.stems[stem_name]
+            '''
+            print '['
+            cud.pv('str(stem)')
+            print '---'
+            cud.pv('str(sm.stems[stem_name])')
+            print ']'
+            '''
 
             self.assertEqual(stem, sm.stems[stem_name])
     
@@ -279,7 +285,16 @@ class TestReconstructor(unittest.TestCase):
         bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         sm = cbm.SpatialModel(bg)
 
+        # If we don't sample the native stems, then the coarse grain model that is created
+        # from the sampled stems may not be exactly equal to the one we had before (although
+        # it should be close)
+        #
+        # This is because the twists of the coarse grain model are created by averaging
+        # the vectors from the center of the helical region to C1' atom of the nucleotides
+        # at each end of the stem
+        sm.sample_native_stems()
         sm.traverse_and_build()
+
         chain = rtor.reconstruct_stems(sm)
 
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
@@ -293,6 +308,9 @@ class TestReconstructor(unittest.TestCase):
 
         pymol_printer.coordinates_to_pymol(sm.bg)
         pymol_printer.chain_to_pymol(chain)
+
+        # this will dump both the coarse grain representation as well as the
+        # stem reconstruction
         pymol_printer.dump_pymol_file(output_file)
 
         chain = list(bp.PDBParser().get_structure('t', output_file + ".pdb").get_chains())[0]

@@ -411,6 +411,7 @@ def get_twists_core(chain, start1, start2, end1, end2):
     #print >>sys.stderr, "twist_angle_2:", cuv.vec_angle(notch2, notch2a)
 
     return (normalize(notch1 + notch1a), normalize(notch2 + notch2a))
+    #return (normalize(notch1), normalize(notch2))
 
 
 def get_mids(chain, define):

@@ -1,18 +1,17 @@
 #!/usr/bin/python
 
+import sys
+
+import numpy as np
+
 import corgy.graph.graph_pdb as cgg
-
-from numpy import array, cross, dot, allclose, exp
-from corgy.utilities.vector import normalize, get_non_colinear_unit_vector, magnitude
-
+import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
 
-from sys import stderr
-from Bio.PDB.Model import Model
-from Bio.PDB.Chain import Chain
-from Bio.PDB.Structure import Structure
-from Bio.PDB import PDBIO
-
+import Bio.PDB.Model as bpm
+import Bio.PDB.Chain as bpc
+import Bio.PDB.Structure as bps
+import Bio.PDB as bp
 
 class PymolPrinter:
     def __init__(self):
@@ -50,14 +49,14 @@ class PymolPrinter:
         if color_rgb == None:
             color_rgb = self.get_color_vec(color)
 
-        self.new_spheres += [(array(p), color_rgb, width, text)]
+        self.new_spheres += [(np.array(p), color_rgb, width, text)]
 
 
     def transform_spheres(self, translation, rotation):
         for (p, color, width, text) in self.new_spheres:
             p -= translation
 
-            new_p = dot(rotation, p)
+            new_p = np.dot(rotation, p)
             self.spheres += [(p, color, width, text)]
 
         self.new_spheres = []
@@ -68,15 +67,15 @@ class PymolPrinter:
 
         #assert(not allclose(p, n))
 
-        self.new_segments += [(array(p), array(n), color, width, text)]
+        self.new_segments += [(np.array(p), np.array(n), color, width, text)]
 
     def transform_segments(self, translation, rotation):
         for (p, n, color, width, text) in self.new_segments:
             p -= translation
             n -= translation
 
-            new_p = dot(rotation, p)
-            new_n = dot(rotation, n)
+            new_p = np.dot(rotation, p)
+            new_n = np.dot(rotation, n)
 
             self.segments += [(new_p, new_n, color, width, text)]
 
@@ -133,19 +132,19 @@ class PymolPrinter:
 
             s +=  "cgox_%d = []" % (counter) + '\n'
 
-            comp1 = normalize(n - p)
+            comp1 = cuv.normalize(n - p)
 
-            ncl = get_non_colinear_unit_vector(comp1)
+            ncl = cuv.get_non_colinear_unit_vector(comp1)
 
-            comp2 = normalize(cross(ncl, comp1))
-            comp3 = normalize(cross(ncl, comp2))
+            comp2 = cuv.normalize(np.cross(ncl, comp1))
+            comp3 = cuv.normalize(np.cross(ncl, comp2))
 
             #pos = (p + n) / 2.0 + 3 * comp2
             pos = p + (n - p) / 4.0 + 3 * comp2
             font = 2
             axes = [list(comp1 * 2), list(comp2 * 2), list(comp3 * 2)]
 
-            text = "%s: %.1f" % (text, magnitude(n-p))
+            text = "%s: %.1f" % (text, cuv.magnitude(n-p))
 
             s += "cyl_text(cgox_%d, plain, %s, \"%s\", 0.20, axes=%s)" % (counter, str(list(pos)), text, str(axes)) + '\n'
             counter += 1
@@ -184,13 +183,14 @@ class PymolPrinter:
         if self.chain == None:
             return
 
-        m = Model(' ')
-        s = Structure(' ')
+        self.chain.child_list.sort()
+        m = bpm.Model(' ')
+        s = bps.Structure(' ')
 
         m.add(self.chain)
         s.add(m)
 
-        io = PDBIO()
+        io = bp.PDBIO()
         io.set_structure(s)
         io.save(filename)
 
@@ -244,11 +244,11 @@ class PymolPrinter:
             twist_rot_mat_l = cuv.rotation_matrix(n - p, -(1.45 / 2.))
             twist_rot_mat_r = cuv.rotation_matrix(n - p, (1.45 / 2.))
 
-            twist1 = dot(twist_rot_mat_l, twist1o)
-            twist2 = dot(twist_rot_mat_l, twist2o)
+            twist1 = np.dot(twist_rot_mat_l, twist1o)
+            twist2 = np.dot(twist_rot_mat_l, twist2o)
 
-            twist3 = dot(twist_rot_mat_r, twist1o)
-            twist4 = dot(twist_rot_mat_r, twist2o)
+            twist3 = np.dot(twist_rot_mat_r, twist1o)
+            twist4 = np.dot(twist_rot_mat_r, twist2o)
 
 
             mult = 7.
@@ -302,9 +302,9 @@ class PymolPrinter:
         if self.energy_function != None:
             for (interaction, energy) in self.energy_function.iterate_over_interaction_energies(bg, background=False):
             #for (interaction, energy) in self.energy_function.iterate_over_interactions(bg, background=False):
-                #print >>stderr, interaction, energy
+                #print >>sys.stderr, interaction, energy
                 (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
-                self.add_segment(p, n, 'purple', exp(energy) * 40)
+                self.add_segment(p, n, 'purple', np.exp(energy) * 40)
 
     def chain_to_pymol(self, chain):
         '''

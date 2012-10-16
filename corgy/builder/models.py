@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import corgy.graph.graph_pdb as gpdb
 import Bio.PDB as bpdb
 import os
 import numpy as np
@@ -132,10 +131,10 @@ def define_to_stem_model(chain, define):
     '''
     stem = StemModel(name=define)
 
-    mids = gpdb.get_mids(chain, define)
+    mids = cgg.get_mids(chain, define)
 
     stem.mids = tuple([m.get_array() for m in mids])
-    stem.twists = gpdb.get_twists(chain, define)
+    stem.twists = cgg.get_twists(chain, define)
 
     return stem
 
@@ -159,7 +158,7 @@ def get_stem_rotation_matrix(stem, (u, v, t)):
 def align_chain_to_stem(chain, define, stem2):
     stem1 = define_to_stem_model(chain, define)
 
-    (r, u, v, t) = gpdb.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
+    (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
     rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t))
     rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
     translate_chain(chain, stem2.mids[0] - stem1.mids[0])
