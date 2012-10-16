@@ -1,4 +1,5 @@
 import inspect    
+import sys
 
 def pv(name):
     '''
@@ -9,4 +10,4 @@ def pv(name):
     record=inspect.getouterframes(inspect.currentframe())[1]
     frame=record[0]
     val=eval(name,frame.f_globals,frame.f_locals)
-    print('{0}: {1}'.format(name, val))
+    print >>sys.stderr, '{0}: {1}'.format(name, val)

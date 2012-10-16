@@ -5,6 +5,7 @@ from optparse import OptionParser
 
 import numpy as np
 import scipy.stats as stats
+import scipy.ndimage as sn
 
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
@@ -13,6 +14,7 @@ import corgy.visual.pymol as cvp
 import corgy.utilities.vector as cuv
 import corgy.utilities.colormap as cuc
 import corgy.exp.kde as cek
+import corgy.utilities.debug as cud
 
 import pandas as pa
 
@@ -27,6 +29,7 @@ usage: %prog [options] data_file
 
     #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
     parser.add_option('-w', '--with_stem', dest='with_stem', default=False, action='store_true', help='Draw the surrounding residue distribution with respect to a stem')
+    parser.add_option('-i', '--image-filtering', dest='image_filtering', default=False, action='store_true', help='Use image filtering as a proxy for a gaussian kde.')
 
     (options, args) = parser.parse_args()
 
@@ -54,17 +57,38 @@ usage: %prog [options] data_file
 
         point_sets += [points]
 
-        kernel = cek.gaussian_kde(points.T)
-        kernels += [kernel]
+        if options.image_filtering:
+            res = 2.
 
-        vals = kernel(points.T)
-        val_sets += [vals]
+            cud.pv('points.shape')
+            min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
+            max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
+
+            n_points = [int((max_dims[j] - min_dims[j]) / float(res))+1 for j in range(points.shape[1])]
+
+            img = np.zeros(n_points)
+            for p in points:
+                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                img[ixs[0],ixs[1],ixs[2]] += 1
+            img = sn.gaussian_filter(img, (2,2,2))
+
+            vals = []
+            for p in points:
+                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                vals += [img[ixs[0], ixs[1], ixs[2]]]
+            val_sets += [np.log(np.array(vals))]
+        else:
+            kernel = cek.gaussian_kde(points.T)
+            kernels += [kernel]
+
+            vals = np.log(kernel(points.T))
+            val_sets += [vals]
 
 
     if len(val_sets) == 2:
-        vals = np.log(kernels[0](point_sets[0].T)) - np.log(kernels[1](point_sets[0].T))
+        vals = val_sets[0] - val_sets[1]
     else:
-        vals = np.log(kernels[0](point_sets[0].T))
+        vals = val_sets[0]
 
     mi = min(vals)
     mx = max(vals)
