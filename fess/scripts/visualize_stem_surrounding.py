@@ -14,6 +14,8 @@ import corgy.utilities.vector as cuv
 import corgy.utilities.colormap as cuc
 import corgy.exp.kde as cek
 
+import pandas as pa
+
 def main():
     usage = """
 Visualize the data about the location of surrounding virutal
@@ -47,18 +49,9 @@ usage: %prog [options] data_file
     kernels = []
 
     for i in range(len(args)):
-        f = open(args[i], 'r')
-        points = []
+        stats = pa.read_csv(args[i],header=None, sep=' ')
+        points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
 
-        for line in f.readlines():
-            parts = line.split(' ')
-            res_type = int(parts[0])
-            x = float(parts[2])
-            y = float(parts[3])
-            z = float(parts[4])
-            points += [[x, y, z]]
-
-        points = np.array(points) 
         point_sets += [points]
 
         kernel = cek.gaussian_kde(points.T)

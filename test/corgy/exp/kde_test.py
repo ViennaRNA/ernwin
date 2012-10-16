@@ -8,6 +8,7 @@ import corgy.utilities.debug as cud
 import numpy as np
 import numpy.random as nr
 import scipy.stats as ss
+import scipy.ndimage as sn
 
 import matplotlib.pyplot as plt
 
@@ -85,4 +86,45 @@ class TestKDE(unittest.TestCase):
         ax.set_ylim([ymin, ymax])
 
         #plt.show()
+
+    def test_ndimage(self):
+        source_data = nr.rand(200,2)
+
+        xmin  = 0
+        xmax = 1
+        ymin = 0
+        ymax = 1
+        resolution = 30 
+
+        X, Y = np.mgrid[xmin:xmax:np.complex(0, resolution), ymin:ymax:np.complex(0, resolution)]
+        positions = np.vstack([X.ravel(), Y.ravel()])
+
+        ss_kde = ss.gaussian_kde(source_data.T)
+        vals_ss = ss_kde(positions)
+
+        img = np.zeros((resolution, resolution))
+
+        xincr = (xmax - xmin) / float(resolution)
+        yincr = (ymax - ymin) / float(resolution)
+
+        for d in source_data:
+            img[int(d[0] / xincr), int(d[1] / yincr)] += 1
+        img = sn.gaussian_filter(img, (1,1))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(121)
+        ax.imshow(img.T, extent=(xmin, xmax, ymin, ymax), origin='lower')
+        ax.plot(source_data.T[0], source_data.T[1], 'k.', markersize=3)
+        ax.set_xlim([xmin, xmax])
+        ax.set_xlim([ymin, ymax])
+
+        ax = fig.add_subplot(122)
+        ax.imshow(np.rot90(vals_ss.reshape(X.shape)), extent=(xmin,xmax,ymin,ymax), origin='lower')
+        ax.plot(source_data.T[0], source_data.T[1], 'k.', markersize=2)
+        ax.set_xlim([xmin, xmax])
+        ax.set_ylim([ymin, ymax])
+
+        #plt.show()
+
+        
         
