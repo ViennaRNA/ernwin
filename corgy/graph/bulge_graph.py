@@ -1,19 +1,14 @@
 #!/usr/bin/python
 
 import sys, collections
-import corgy.utilities.vector as cuv
 import math
+import random
+import numpy as np
 
-from numpy import array, dot
-from corgy.utilities.data_structures import DefaultDict
-
-from corgy.graph.graph_pdb import get_stem_orientation_parameters
-from corgy.graph.graph_pdb import get_stem_separation_parameters
-from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
-
-from corgy.builder.stats import AngleStat
-
-from random import choice
+import corgy.builder.stats as cbs
+import corgy.graph.graph_pdb as cgg
+import corgy.utilities.data_structures as cuds
+import corgy.utilities.vector as cuv
 
 def error_exit(message):
     print >> sys.stderr, message
@@ -42,7 +37,7 @@ class BulgeGraph:
 
         # store which bulges were merged
         self.merge_defs = dict()
-        self.longrange = DefaultDict(set())
+        self.longrange = cuds.DefaultDict(set())
         
         self.bp_distances = None
 
@@ -117,17 +112,17 @@ class BulgeGraph:
 
         @param define: The name of the bulge.
         @param connections: The two stems that are connected by it.
-        @return: AngleStat object
+        @return: cbs.AngleStat object
         '''
-        (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(self, define, connections)
+        (stem1, twist1, stem2, twist2, bulge) = cgg.get_stem_twist_and_bulge_vecs(self, define, connections)
 
         # Get the orientations for orienting these two stems
-        (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
-        (r1, u1, v1) = get_stem_separation_parameters(stem1, twist1, bulge)
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
+        (r1, u1, v1) = cgg.get_stem_separation_parameters(stem1, twist1, bulge)
 
         dims =self.get_bulge_dimensions(define)
 
-        angle_stat = AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1)
+        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1)
 
         return angle_stat
 
@@ -162,7 +157,7 @@ class BulgeGraph:
         '''
 
         if bulge == 'start':
-            return (AngleStat(), AngleStat())
+            return (cbs.AngleStat(), cbs.AngleStat())
 
         #print "bulge:", bulge
         connections = list(self.edges[bulge])
@@ -185,7 +180,7 @@ class BulgeGraph:
             if d[0] != 's' and len(self.edges[d]) == 2:
                 bulges += [d]
 
-        return choice(bulges)
+        return random.choice(bulges)
 
     def get_length(self, vertex):
         '''
@@ -220,8 +215,8 @@ class BulgeGraph:
         The result is stored in the double dict self.bp_distances. 
         '''
 
-        dist = DefaultDict(DefaultDict(0))
-        sides = DefaultDict(DefaultDict((0,1)))
+        dist = cuds.DefaultDict(cuds.DefaultDict(0))
+        sides = cuds.DefaultDict(cuds.DefaultDict((0,1)))
 
         defs = self.defines.keys()
 
@@ -508,12 +503,12 @@ class BulgeGraph:
         for key in self.coords.keys():
             coords = self.coords[key]
 
-            new_coords = (dot(rotation, coords[0]), dot(rotation, coords[1]))
+            new_coords = (np.dot(rotation, coords[0]), np.dot(rotation, coords[1]))
 
             self.coords[key] = new_coords
             if key[0] == 's':
                 twists = self.twists[key]
-                new_twists = (dot(rotation, twists[0]), dot(rotation, twists[1]))
+                new_twists = (np.dot(rotation, twists[0]), np.dot(rotation, twists[1]))
                 self.twists[key] = new_twists
 
     def translate_coords(self, translation):
@@ -1043,11 +1038,11 @@ class BulgeGraph:
 
             if line.strip().find('coord') == 0:
                 parts = line.strip().split(' ')
-                self.coords[parts[1]] = [array([float(parts[2]), float(parts[3]), float(parts[4])]), array([float(parts[5]), float(parts[6]), float(parts[7])])]
+                self.coords[parts[1]] = [np.array([float(parts[2]), float(parts[3]), float(parts[4])]), np.array([float(parts[5]), float(parts[6]), float(parts[7])])]
 
             if line.strip().find('twist') == 0:
                 parts = line.strip().split(' ')
-                self.twists[parts[1]] = [array([float(parts[2]), float(parts[3]), float(parts[4])]), array([float(parts[5]), float(parts[6]), float(parts[7])])]
+                self.twists[parts[1]] = [np.array([float(parts[2]), float(parts[3]), float(parts[4])]), np.array([float(parts[5]), float(parts[6]), float(parts[7])])]
 
             if line.strip().find('length') == 0:
                 parts = line.strip().split(' ')
