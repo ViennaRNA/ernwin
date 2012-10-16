@@ -3,30 +3,15 @@
 import corgy.graph.graph_pdb as gpdb
 import Bio.PDB as bpdb
 import os
-import corgy.builder.config as conf
-
-from corgy.visual.pymol import PymolPrinter
-from corgy.builder.stats import AngleStat, LoopStat
-
-from corgy.builder.stats import get_stem_stats
-from corgy.builder.stats import get_loop_stats
-from corgy.builder.stats import get_angle_stats
-
-from corgy.graph.graph_pdb import stem2_pos_from_stem1
-from corgy.graph.graph_pdb import stem2_orient_from_stem1
-from corgy.graph.graph_pdb import twist2_orient_from_stem1
-from corgy.graph.graph_pdb import twist2_from_twist1
-from corgy.utilities.vector import get_double_alignment_matrix, magnitude
-
-import corgy.utilities.vector as cuv
-import corgy.graph.graph_pdb as cggp
-
 import numpy as np
 import math
 
-from corgy.builder.config import Configuration
+import corgy.builder.config as cbc
+import corgy.visual.pymol as cvp
+import corgy.builder.stats as cbs
+import corgy.graph.graph_pdb as cgg
+import corgy.utilities.vector as cuv
 
-from numpy import array, dot, allclose
 from random import choice, uniform
 from math import pi
 
@@ -39,11 +24,11 @@ class StemModel:
         self.name = name
 
         if mids == None:
-            self.mids = (array([0., 0., 0.]), array([0., 0., 1.0]))
+            self.mids = (np.array([0., 0., 0.]), np.array([0., 0., 1.0]))
         else:
             self.mids = mids
         if twists == None:
-            self.twists = (array([0., 1., 0.]), array([1., 0., 0.0]))
+            self.twists = (np.array([0., 1., 0.]), np.array([1., 0., 0.0]))
         else:
             self.twists = twists
 
@@ -51,10 +36,10 @@ class StemModel:
         return str(self.mids) + '\n' + str(self.twists)
 
     def __eq__(self, other):
-        mids0_close = allclose(self.mids[0], other.mids[0], atol=0.1)
-        mids1_close = allclose(self.mids[1], other.mids[1], atol=0.1)
-        twists0_close = allclose(self.twists[0], other.twists[0], atol=0.1)
-        twists1_close = allclose(self.twists[1], other.twists[1], atol=0.1)
+        mids0_close = np.allclose(self.mids[0], other.mids[0], atol=0.1)
+        mids1_close = np.allclose(self.mids[1], other.mids[1], atol=0.1)
+        twists0_close = np.allclose(self.twists[0], other.twists[0], atol=0.1)
+        twists1_close = np.allclose(self.twists[1], other.twists[1], atol=0.1)
 
         return mids0_close and mids1_close and twists0_close and twists1_close
 
@@ -68,15 +53,15 @@ class StemModel:
     def vec(self, (from_side, to_side) = (0, 1)):
         return self.mids[to_side] - self.mids[from_side]
 
-    def rotate(self, rot_mat, offset=array([0., 0., 0.])):
+    def rotate(self, rot_mat, offset=np.array([0., 0., 0.])):
         '''
         Rotate the stem and its twists according to the definition
         of rot_mat.
 
         @param rot_mat: A rotation matrix.
         '''
-        self.mids = (dot(rot_mat, self.mids[0] - offset) + offset, dot(rot_mat, self.mids[1] - offset) + offset)
-        self.twists = (dot(rot_mat, self.twists[0]), dot(rot_mat, self.twists[1]))
+        self.mids = (np.dot(rot_mat, self.mids[0] - offset) + offset, np.dot(rot_mat, self.mids[1] - offset) + offset)
+        self.twists = (np.dot(rot_mat, self.twists[0]), np.dot(rot_mat, self.twists[1]))
 
     def translate(self, translation):
         '''
@@ -88,7 +73,7 @@ class StemModel:
         '''
         Get the length of this stem.
         '''
-        return magnitude(self.mids[1] - self.mids[0])
+        return cuv.magnitude(self.mids[1] - self.mids[0])
 
 class BulgeModel:
     '''
@@ -97,7 +82,7 @@ class BulgeModel:
 
     def __init__(self, mids=None):
         if mids == None:
-            self.mids = (array([0., 0., 0.]), array([0., 0., 1.0]))
+            self.mids = (np.array([0., 0., 0.]), np.array([0., 0., 1.0]))
         else:
             self.mids = mids
 
@@ -191,7 +176,7 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
 
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
     #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
-    pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+    pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
     #print len(stem_library.keys())
     if filename in stem_library.keys():
@@ -227,7 +212,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file=Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None):
+    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None):
         '''
         Initialize the structure.
 
@@ -237,16 +222,16 @@ class SpatialModel:
         @param angle_defs: Pre-determined statistics for each bulge
         '''
 
-        self.angle_stats = get_angle_stats()
-        self.stem_stats = get_stem_stats()
-        self.loop_stats = get_loop_stats()
+        self.angle_stats = cbs.get_angle_stats()
+        self.stem_stats = cbs.get_stem_stats()
+        self.loop_stats = cbs.get_loop_stats()
         self.stems = dict()
         self.bulges = dict()
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
 
         self.bg = bg
-        self.pymol_printer = PymolPrinter()
+        self.pymol_printer = cvp.PymolPrinter()
 
         if self.angle_stats == None:
             return
@@ -274,7 +259,7 @@ class SpatialModel:
             statistic for the angles of that bulge.
         '''
         angle_defs = dict()
-        angle_defs['start'] = AngleStat()
+        angle_defs['start'] = cbs.AngleStat()
 
         for d in self.bg.defines.keys():
             if d[0] != 's': 
@@ -282,7 +267,7 @@ class SpatialModel:
                     size = self.bg.get_bulge_dimensions(d)
                     stats = choice(self.angle_stats[size[0]][size[1]])
                 else:
-                    stats = AngleStat()
+                    stats = cbs.AngleStat()
 
                 angle_defs[d] = stats
 
@@ -338,7 +323,7 @@ class SpatialModel:
                 stems[d] = StemModel(d, self.bg.coords[d], self.bg.twists[d])
 
                 if self.build_chain:
-                    reconstruct_stem(self, d, self.chain, stem_library=Configuration.stem_library, stem=stems[d])
+                    reconstruct_stem(self, d, self.chain, stem_library=cbc.Configuration.stem_library, stem=stems[d])
 
         self.stems = stems
 
@@ -378,7 +363,7 @@ class SpatialModel:
         start_mid = prev_stem.mids[s1b]
         (r, u, v) = params
 
-        direction = stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
+        direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
         end_mid = start_mid + direction
         self.bulges[name] = BulgeModel((start_mid, end_mid))
 
@@ -426,13 +411,13 @@ class SpatialModel:
         '''
         assert(edge[0] == 's')
 
-        target = [array([1., 0., 0.]), array([0., 1., 0.])]
+        target = [np.array([1., 0., 0.]), np.array([0., 1., 0.])]
 
 
         vec1 = self.stems[edge].vec()
         twist1 = self.stems[edge].twists[1]
 
-        mat = get_double_alignment_matrix(target, [vec1, twist1])
+        mat = cuv.get_double_alignment_matrix(target, [vec1, twist1])
 
         return mat
 
@@ -467,13 +452,13 @@ class SpatialModel:
 
         stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
 
-        start_location = cggp.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
-        #start_location = cggp.stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
+        start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
+        #start_location = cgg.stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
 
-        stem_orientation = cggp.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
+        stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
         #stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
 
-        twist1 = cggp.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
+        twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
         #twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
     
         stem = StemModel(stem_name)
@@ -483,11 +468,11 @@ class SpatialModel:
 
         stem.mids = (mid1, mid2)
 
-        twist2 = twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
+        twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
         stem.twists = (twist1, twist2)
 
         if self.build_chain:
-            reconstruct_stem(self, stem_name, self.chain, stem_library=Configuration.stem_library, stem=stem)
+            reconstruct_stem(self, stem_name, self.chain, stem_library=cbc.Configuration.stem_library, stem=stem)
 
         return stem
 
