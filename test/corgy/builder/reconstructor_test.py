@@ -1,49 +1,23 @@
 import unittest
 
 import time
+import os
 import corgy.aux.Barnacle as barn
 
-import corgy.builder.reconstructor as rc
+import numpy as np
+import numpy.linalg as nl
+import random as rand
+
+import Bio.PDB as bp
 import pdb, sys, copy
 
-from operator import attrgetter
-from corgy.visual.pymol import PymolPrinter
-from math import sqrt, exp
-
-from pprint import pprint
-from corgy.builder.config import Configuration
-import corgy.builder.config as conf
-
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.models import StemModel
-
-from corgy.graph.graph_pdb import get_mids, get_twists
-from corgy.graph.graph_pdb import get_stem_orientation_parameters
-from corgy.utilities.vector import rotation_matrix, magnitude
-from corgy.utilities.vector import x_array, null_array, identity_matrix
-from corgy.utilities.vector import get_vector_centroid
-
-from corgy.builder.models import SpatialModel
-from corgy.builder.rmsd import centered_rmsd, optimal_superposition
-
+import corgy.builder.config as cbc
 import corgy.builder.models as cbm
 import corgy.builder.reconstructor as rtor
-
-import numpy as np
-from numpy import allclose, array, pi, dot, cross
-from numpy.linalg import inv
-from copy import deepcopy
-from random import uniform, random, choice
-
-from Bio.PDB import PDBParser, PDBIO, Selection
-from Bio.PDB.Chain import Chain
-from Bio.PDB.Model import Model
-from Bio.PDB.Structure import Structure
-
-import Bio.PDB as bpdb
+import corgy.graph.bulge_graph as cgb
+import corgy.graph.graph_pdb as cgg
 import corgy.utilities.vector as cuv
-
-import os
+import corgy.visual.pymol as cvp
 
 def get_random_orientation():
     '''
@@ -53,39 +27,39 @@ def get_random_orientation():
     -pi <= t <= pi
     '''
 
-    return (uniform(0, pi), uniform(-pi, pi), uniform(-pi, pi))
+    return (rand.uniform(0, np.pi), rand.uniform(-np.pi, np.pi), rand.uniform(-np.pi, np.pi))
 
 def get_random_translation():
     '''
     Return a random translation.
     '''
 
-    return array([uniform(-10, 10), uniform(-10, 10), uniform(-10, 10)])
+    return np.array([rand.uniform(-10, 10), rand.uniform(-10, 10), rand.uniform(-10, 10)])
 
 class TestReconstructor(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "2b3j/graph", "temp.comp"))
-        s = PDBParser().get_structure('temp', os.path.join(Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
+        self.bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "2b3j/graph", "temp.comp"))
+        s = np.PDBParser().get_structure('temp', os.path.join(cbc.Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
 
         self.chain = list(s.get_chains())[0]
         self.stem = cbm.define_to_stem_model(self.chain, self.bg.defines['s0'])
     
     def test_rotate_stem(self):
-        stem1 = StemModel()
+        stem1 = cbm.StemModel()
 
         stem1.mids = self.bg.coords['s0']
         stem1.twists = self.bg.twists['s0']
 
         stem2 = rtor.rotate_stem(stem1, get_random_orientation())
 
-        self.assertFalse(allclose(stem1.twists[0], stem2.twists[0]))
-        self.assertFalse(allclose(stem1.twists[1], stem2.twists[1]))
+        self.assertFalse(np.allclose(stem1.twists[0], stem2.twists[0]))
+        self.assertFalse(np.allclose(stem1.twists[1], stem2.twists[1]))
 
-        self.assertTrue(allclose(stem1.mids[0], stem2.mids[0]))
-        self.assertTrue(allclose(magnitude(stem1.mids[1] - stem1.mids[0]), magnitude(stem2.mids[1] - stem2.mids[0])))
+        self.assertTrue(np.allclose(stem1.mids[0], stem2.mids[0]))
+        self.assertTrue(np.allclose(cuv.magnitude(stem1.mids[1] - stem1.mids[0]), cuv.magnitude(stem2.mids[1] - stem2.mids[0])))
 
     def test_define_to_stem_model(self):
-        stem1 = StemModel()
+        stem1 = cbm.StemModel()
         stem1.mids = self.bg.coords['s0']
         stem1.twists = self.bg.twists['s0']
 
@@ -94,26 +68,26 @@ class TestReconstructor(unittest.TestCase):
         self.assertTrue(stem1 == stem2)
 
     def test_rerotate_stem(self):
-        stem1 = deepcopy(self.stem)
+        stem1 = copy.deepcopy(self.stem)
 
         orientation = get_random_orientation()
         stem2 = rtor.rotate_stem(stem1, orientation)
 
         # vector should not be rotated away from itself... duh!
-        (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem1.vec(), stem1.twists[0])
-        self.assertTrue(allclose((u,v,t), (pi/2,0.,0.)))
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem1.vec(), stem1.twists[0])
+        self.assertTrue(np.allclose((u,v,t), (np.pi/2,0.,0.)))
 
-        (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
 
         # Figure out why exactly this works!!!
-        orientation1 = (pi-u, -v, -t)
+        orientation1 = (np.pi-u, -v, -t)
         rot_mat = cbm.get_stem_rotation_matrix(stem1, orientation1)
         
-        stem3 = deepcopy(stem2)
-        stem3.rotate(inv(rot_mat), offset=stem3.mids[0])
+        stem3 = copy.deepcopy(stem2)
+        stem3.rotate(nl.inv(rot_mat), offset=stem3.mids[0])
 
-        (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem3.vec(), stem3.twists[0])
-        self.assertTrue(allclose((u,v,t),(pi/2, 0., 0.)))
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem3.vec(), stem3.twists[0])
+        self.assertTrue(np.allclose((u,v,t),(np.pi/2, 0., 0.)))
 
     def test_splice_stem(self):
         define = self.bg.defines['s0']
@@ -125,7 +99,7 @@ class TestReconstructor(unittest.TestCase):
         end2 = define[3]
 
         new_chain = rtor.splice_stem(self.chain, define)
-        residues = Selection.unfold_entities(new_chain, 'R')
+        residues = bp.Selection.unfold_entities(new_chain, 'R')
 
         # Make sure only the residues specified are in the chain
         for res in residues:
@@ -148,9 +122,9 @@ class TestReconstructor(unittest.TestCase):
 
         self.assertFalse(stem1 == stem2)
 
-        (r, u, v, t) = get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
-        rot_mat = cbm.get_stem_rotation_matrix(stem1, (pi-u, -v, -t))
-        cbm.rotate_chain(chain, inv(rot_mat), stem1.mids[0])
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
+        rot_mat = cbm.get_stem_rotation_matrix(stem1, (np.pi-u, -v, -t))
+        cbm.rotate_chain(chain, nl.inv(rot_mat), stem1.mids[0])
 
         stem3 = cbm.define_to_stem_model(chain, self.bg.defines['s0'])
 
@@ -208,7 +182,7 @@ class TestReconstructor(unittest.TestCase):
         found = 0
         num_stems = 0
 
-        chain = list(PDBParser().get_structure('t', pdb_filename).get_chains())[0]
+        chain = list(bp.PDBParser().get_structure('t', pdb_filename).get_chains())[0]
         stems = []
         for d in bg.defines.keys():
             if d[0] == 's':
@@ -223,12 +197,12 @@ class TestReconstructor(unittest.TestCase):
         for line in f:
             if line.find('CYLINDER') >= 0:
                 parts = line.strip().split(', ')
-                start = array(map(float, parts[1:4]))
-                end = array(map(float, parts[4:7]))
+                start = np.array(map(float, parts[1:4]))
+                end = np.array(map(float, parts[4:7]))
 
                 for stem in stems:
-                    if ((allclose(stem.mids[0], start, atol=0.1) and allclose(stem.mids[1], end, atol=0.1)) or 
-                        (allclose(stem.mids[1], start, atol=0.1) and allclose(stem.mids[0], end, atol=0.1))):
+                    if ((np.allclose(stem.mids[0], start, atol=0.1) and np.allclose(stem.mids[1], end, atol=0.1)) or 
+                        (np.allclose(stem.mids[1], start, atol=0.1) and np.allclose(stem.mids[0], end, atol=0.1))):
                             found += 1
                             break
 
@@ -236,32 +210,32 @@ class TestReconstructor(unittest.TestCase):
 
     def test_reconstruct_sampled_whole_model(self):
         '''
-        Test the reconstruction of the stems of the SpatialModel.
+        Test the reconstruction of the stems of the cbm.SpatialModel.
         '''
         bgs = []
         #bgs += [self.bg]
-        bgs += [BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))]
+        bgs += [cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))]
 
         for bg in bgs:
-            sm = SpatialModel(bg)
+            sm = cbm.SpatialModel(bg)
             sm.traverse_and_build()
             chain = rtor.reconstruct_stems(sm)
             rtor.replace_bases(chain, bg.seq)
 
             self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
-            rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
+            rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
 
     def test_reconstruct_sampled_saved_model(self):
         '''
         Test the reconstruction of a model that was previously sampled and is now saved.
         '''
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
         sm.traverse_and_build()
-        sm.bg.output(os.path.join(Configuration.test_output_dir, 'sampled.coords'))
+        sm.bg.output(os.path.join(cbc.Configuration.test_output_dir, 'sampled.coords'))
 
-        bg = BulgeGraph(os.path.join(Configuration.test_output_dir, "sampled.coords"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_output_dir, "sampled.coords"))
+        sm = cbm.SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
@@ -271,10 +245,10 @@ class TestReconstructor(unittest.TestCase):
     def test_reconstruct_native_whole_model(self):
         bgs = []
         #bgs += [self.bg]
-        bgs += [BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))]
+        bgs += [cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))]
 
         for bg in bgs:
-            sm = SpatialModel(bg)
+            sm = cbm.SpatialModel(bg)
             sm.sample_native_stems()
             sm.create_native_stem_models()
             #sm.traverse_and_build()
@@ -283,8 +257,8 @@ class TestReconstructor(unittest.TestCase):
             self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
     
     def test_twice_defined_stem(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
 
         for d1 in bg.defines.keys():
             if d1[0] == 's':
@@ -302,17 +276,17 @@ class TestReconstructor(unittest.TestCase):
                             return
 
     def test_output_chain(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
 
         sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
 
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
 
-        output_file = os.path.join(Configuration.test_output_dir, "output_chain")
+        output_file = os.path.join(cbc.Configuration.test_output_dir, "output_chain")
 
-        pymol_printer = PymolPrinter()
+        pymol_printer = cvp.PymolPrinter()
         pymol_printer.print_text = False
         pymol_printer.add_twists = True
         pymol_printer.add_longrange = False
@@ -321,14 +295,14 @@ class TestReconstructor(unittest.TestCase):
         pymol_printer.chain_to_pymol(chain)
         pymol_printer.dump_pymol_file(output_file)
 
-        chain = list(PDBParser().get_structure('t', output_file + ".pdb").get_chains())[0]
+        chain = list(bp.PDBParser().get_structure('t', output_file + ".pdb").get_chains())[0]
 
         self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         self.check_pymol_stems(bg, output_file + ".pym", output_file + ".pdb")
 
     def test_reconstruct_loops(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
@@ -346,11 +320,11 @@ class TestReconstructor(unittest.TestCase):
         '''
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
-        rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
+        rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
 
     def test_reconstruct_loop(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
@@ -368,10 +342,10 @@ class TestReconstructor(unittest.TestCase):
         '''
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
-        rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
+        rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
 
     def test_get_stem_coord_array(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         ld = 'b15'
         seq = bg.get_flanking_sequence(ld)
         (a,b,i1,i2) = bg.get_flanking_handles(ld)
@@ -383,11 +357,11 @@ class TestReconstructor(unittest.TestCase):
         
         for i in range(i1, i2+1):
             res = chain[i]
-            self.assertTrue(allclose(coords[indeces[res.id[1]]], res['P'].get_vector().get_array()))
+            self.assertTrue(np.allclose(coords[indeces[res.id[1]]], res['P'].get_vector().get_array()))
 
     def test_close_fragment_loop(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
@@ -411,17 +385,17 @@ class TestReconstructor(unittest.TestCase):
         (moving1, indeces1) = rtor.get_atom_coord_array(chain_loop, i1, i2)
 
         # make sure that the loop closure actually did something
-        self.assertFalse(allclose(moving, moving1))
+        self.assertFalse(np.allclose(moving, moving1))
         distances1 = rtor.get_adjacent_interatom_distances(chain_loop, i1, i2)
-        self.assertTrue(allclose(distances, distances1))
+        self.assertTrue(np.allclose(distances, distances1))
 
     def test_barnacle(self):
         model = barn.Barnacle('ACGU')
         model.sample()
 
     def test_get_handles(self): 
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
 
         sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
@@ -432,8 +406,8 @@ class TestReconstructor(unittest.TestCase):
         rtor.get_alignment_vectors(chain, a, b)
 
     def test_pdb_rmsd1(self):
-        s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1gid/prepare/temp.pdb'))
-        s2 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1gid/prepare/temp_sampled.pdb'))
+        s1 = bp.PDBParser().get_structure('t', os.path.join(cbc.Configuration.test_input_dir, '1gid/prepare/temp.pdb'))
+        s2 = bp.PDBParser().get_structure('t', os.path.join(cbc.Configuration.test_input_dir, '1gid/prepare/temp_sampled.pdb'))
 
         c1 = list(s1.get_chains())[0]
         c2 = list(s2.get_chains())[0]
@@ -441,8 +415,8 @@ class TestReconstructor(unittest.TestCase):
         print "rms:", rtor.pdb_rmsd(c1, c2)
 
     def test_pdb_rmsd2(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
         sm.traverse_and_build()
 
         #sm.traverse_and_build()
@@ -450,17 +424,17 @@ class TestReconstructor(unittest.TestCase):
         rtor.replace_bases(chain, bg.seq)
         rtor.reconstruct_loops(chain, sm, samples=5)
 
-        rtor.output_chain(chain, os.path.join(Configuration.test_output_dir, 'r1.pdb'))
+        rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
 
-        s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
+        s1 = bp.PDBParser().get_structure('t', os.path.join(cbc.Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
         print "rmsd:", rtor.pdb_rmsd(chain, list(s1.get_chains())[0])
 
     def test_replace_side_chains(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
         sm.traverse_and_build()
 
-        s1 = bpdb.PDBParser().get_structure('t', os.path.join(Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
+        s1 = bp.PDBParser().get_structure('t', os.path.join(cbc.Configuration.test_input_dir, '1y26/prepare/temp.pdb'))
 
         reference_chain = list(s1.get_chains())[0]
         sampled_chain = rtor.reconstruct_stems(sm)
@@ -480,7 +454,7 @@ class TestReconstructor(unittest.TestCase):
             #print res2[anchor_atom[res2.resname.strip()]].get_vector().get_array()
 
             '''
-            self.assertTrue(allclose(res1[anchor_atom[res1.resname.strip()]].get_vector().get_array(),
+            self.assertTrue(np.allclose(res1[anchor_atom[res1.resname.strip()]].get_vector().get_array(),
                                      res2[anchor_atom[res2.resname.strip()]].get_vector().get_array())) 
             '''
 
@@ -492,14 +466,14 @@ class TestReconstructor(unittest.TestCase):
                 self.assertTrue(atom_name in res2.child_dict)
 
     def test_copy_chain(self):
-        files = os.listdir(conf.Configuration.stem_fragment_dir)
-        pdb_file = os.path.join(conf.Configuration.stem_fragment_dir, choice(files))
+        files = os.listdir(cbc.Configuration.stem_fragment_dir)
+        pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, rand.choice(files))
 
-        chain1 = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        chain1 = list(bp.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         chain2 = chain1.copy()
 
-        residues1 = bpdb.Selection.unfold_entities(chain1, 'R')
-        residues2 = bpdb.Selection.unfold_entities(chain2, 'R')
+        residues1 = bp.Selection.unfold_entities(chain1, 'R')
+        residues2 = bp.Selection.unfold_entities(chain2, 'R')
 
         for i in range(len(residues1)):
             res1 = residues1[i]
@@ -511,8 +485,8 @@ class TestReconstructor(unittest.TestCase):
             chain1[res1.id[1]]
             chain2[res1.id[1]]
 
-        atoms1 = bpdb.Selection.unfold_entities(chain1, 'A')
-        atoms2 = bpdb.Selection.unfold_entities(chain2, 'A')
+        atoms1 = bp.Selection.unfold_entities(chain1, 'A')
+        atoms2 = bp.Selection.unfold_entities(chain2, 'A')
 
         for i in range(len(atoms1)):
             atom1 = atoms1[i]
@@ -532,7 +506,7 @@ class TestReconstructor(unittest.TestCase):
 
         t1 = time.time()
         for i in range(50):
-            chain1 = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+            chain1 = list(bp.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         print "file load time:", time.time() - t1
 
 
