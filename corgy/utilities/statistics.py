@@ -82,7 +82,7 @@ class interpolated_kde:
         if limits == None:
             limits = (min(0, min(data)), max(500, max(data)))
 
-        x = linspace(limits[0], limits[1], n)
+        x = np.linspace(limits[0], limits[1], n)
         self.kde = ss.gaussian_kde(data)
         y = my_log(self.kde(x))
 

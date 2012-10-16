@@ -116,3 +116,4 @@ color yellow, resi 16
 color blue, resi 70
 run output/1y26/pymol/coarse_grain.pym
 show cartoon, temp
+orient

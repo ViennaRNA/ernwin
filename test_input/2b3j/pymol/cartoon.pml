@@ -29,3 +29,4 @@ color blue, resi 10
 color blue, resi 11
 run output/2b3j/pymol/coarse_grain.pym
 show cartoon, temp
+orient
