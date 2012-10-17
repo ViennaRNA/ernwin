@@ -1,8 +1,0 @@
-name 2b3j
-length 15
-define s0 0 2 5 12 15
-define b0 1 0 2
-define b1 1 5 12
-
-
-connect s0 b0 b1
