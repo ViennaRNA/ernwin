@@ -54,6 +54,8 @@ usage: %prog [options] data_file
     val_sets = []
     kernels = []
 
+    min_dims_set = []
+
     for i in range(len(args)):
         stats = pa.read_csv(args[i],header=None, sep=' ')
         points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
@@ -67,7 +69,7 @@ usage: %prog [options] data_file
             min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
             max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
 
-            n_points = [int((max_dims[j] - min_dims[j]) / float(res))+40 for j in range(points.shape[1])]
+            n_points = [int((max_dims[j] - min_dims[j]) / float(res)) + 1 for j in range(points.shape[1])]
 
             img = np.zeros(n_points)
             for p in points:
@@ -75,6 +77,8 @@ usage: %prog [options] data_file
                 img[ixs[0],ixs[1],ixs[2]] += 1
             img = sn.gaussian_filter(img, (2,2,2))
             img_sets += [img]
+
+            min_dims_set += [min_dims]
 
         else:
             kernel = cek.gaussian_kde(points.T)
@@ -88,9 +92,13 @@ usage: %prog [options] data_file
             vals = []
             points = point_sets[0]
             for p in points:
-                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                ixs[0] = [int((p[j] - min_dims_set[0][j]) / res) for j in xrange(points.shape[1])]
+                ixs[1] = [int((p[j] - min_dims_set[1][j]) / res) for j in xrange(points.shape[1])]
                 #cud.pv('ixs')
-                vals += [cbe.my_log(img_sets[0][ixs[0], ixs[1], ixs[2]]) - cbe.my_log(img_sets[1][ixs[0], ixs[1], ixs[2] ])]
+                try:
+                    vals += [cbe.my_log(img_sets[0][ixs[0][0], ixs[0][1], ixs[0][2]]) - cbe.my_log(img_sets[1][ixs[1][0], ixs[1][1], ixs[1][2] ])]
+                except IndexError:
+                    vals += [350.]
         else:
             vals = cbe.my_log(kernel_sets[0](point_sets[0])) - cbe.my_log(kernel_sets[1](point_sets[0]))
     else:
