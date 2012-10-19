@@ -210,3 +210,19 @@ class TestHelixOrientationEnergy(unittest.TestCase):
 
         energy = cbe.HelixOrientationEnergy()
         cud.pv('energy.eval_energy(sm)')
+
+class TestImgHelixOrientationEnergy(unittest.TestCase):
+    def test_eval(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        sm.sample_native_stems()
+
+        energy = cbe.ImgHelixOrientationEnergy()
+        cud.pv('energy.eval_energy(sm)')
+
+        sm.sample_stems()
+        sm.sample_angles()
+        sm.traverse_and_build()
+
+        energy = cbe.ImgHelixOrientationEnergy()
+        cud.pv('energy.eval_energy(sm)')

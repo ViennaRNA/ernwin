@@ -63,7 +63,7 @@ def main():
     elif options.distance_energy:
         energy_function = cbe.DistanceEnergy(bg.get_long_range_constraints())
     elif options.helix_orientation:
-        energy_function = cbe.CombinedEnergy([], [cbe.StemVirtualResClashEnergy(), cbe.HelixOrientationEnergy()])
+        energy_function = cbe.CombinedEnergy([], [cbe.StemVirtualResClashEnergy(), cbe.ImgHelixOrientationEnergy()])
     else:
         bg.calc_bp_distances()
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
