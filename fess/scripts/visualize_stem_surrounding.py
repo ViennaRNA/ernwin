@@ -4,18 +4,20 @@ import sys, os
 from optparse import OptionParser
 
 import numpy as np
-import scipy.stats as stats
+import scipy.stats as ss
 import scipy.ndimage as sn
 
+import corgy.builder.config as cbc
+import corgy.builder.energy as cbe
+import corgy.exp.kde as cek
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
-import corgy.builder.config as cbc
-import corgy.visual.pymol as cvp
-import corgy.utilities.vector as cuv
 import corgy.utilities.colormap as cuc
-import corgy.exp.kde as cek
 import corgy.utilities.debug as cud
+import corgy.utilities.vector as cuv
+import corgy.visual.pymol as cvp
 
+import matplotlib.pyplot as plt
 import pandas as pa
 
 def main():
@@ -47,6 +49,7 @@ usage: %prog [options] data_file
     colors = ['red', 'green', 'blue']
 
     kernels = []
+    img_sets = []
     point_sets = []
     val_sets = []
     kernels = []
@@ -64,34 +67,50 @@ usage: %prog [options] data_file
             min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
             max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
 
-            n_points = [int((max_dims[j] - min_dims[j]) / float(res))+1 for j in range(points.shape[1])]
+            n_points = [int((max_dims[j] - min_dims[j]) / float(res))+40 for j in range(points.shape[1])]
 
             img = np.zeros(n_points)
             for p in points:
                 ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
                 img[ixs[0],ixs[1],ixs[2]] += 1
             img = sn.gaussian_filter(img, (2,2,2))
+            img_sets += [img]
 
-            vals = []
-            for p in points:
-                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
-                vals += [img[ixs[0], ixs[1], ixs[2]]]
-            val_sets += [np.log(np.array(vals))]
         else:
             kernel = cek.gaussian_kde(points.T)
             kernels += [kernel]
 
-            vals = np.log(kernel(points.T))
+            vals = cbe.my_log(kernel(points.T))
             val_sets += [vals]
 
-
-    if len(val_sets) == 2:
-        vals = val_sets[0] - val_sets[1]
+    if len(point_sets) == 2:
+        if options.image_filtering:
+            vals = []
+            points = point_sets[0]
+            for p in points:
+                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                #cud.pv('ixs')
+                vals += [cbe.my_log(img_sets[0][ixs[0], ixs[1], ixs[2]]) - cbe.my_log(img_sets[1][ixs[0], ixs[1], ixs[2] ])]
+        else:
+            vals = cbe.my_log(kernel_sets[0](point_sets[0])) - cbe.my_log(kernel_sets[1](point_sets[0]))
     else:
-        vals = val_sets[0]
+        if options.image_filtering:
+            vals = []
+            points = point_sets[0]
+            for p in points:
+                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                vals += [np.log(img_sets[0][ixs[0], ixs[1], ixs[2]])]
+        else:
+            vals = np.log(kernel_sets[0](point_sets[0]))
 
-    mi = min(vals)
-    mx = max(vals)
+    mi = ss.scoreatpercentile(vals, 10)
+    mx = ss.scoreatpercentile(vals, 90)
+    cud.pv('mi')
+    cud.pv('mx')
+    #cud.pv('vals')
+
+    #plt.hist(vals)
+    #plt.show()
 
     for k in range(1):
         for j in range(len(point_sets[0])):

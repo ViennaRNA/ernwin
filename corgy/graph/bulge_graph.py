@@ -970,7 +970,7 @@ class BulgeGraph:
         # for all stems of length 1, merge with adjacent bulges
         for key in self.edges.keys():
             if key[0] == 's':
-                if self.get_stem_length(key) == 1:
+                if self.stem_length(key) == 1:
                     self.dissolve_stem(key)
 
                 """

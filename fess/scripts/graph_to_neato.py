@@ -33,7 +33,7 @@ def print_neato(bg):
     if fancy:
         for key2 in bg.defines.keys():
             if key2[0] == 's':
-                node_lines += '\t{node [style=filled,fillcolor=green,label=\"%s\\n(%d)\"] %s};\n' % (key2, bg.get_stem_length(key2), key2)
+                node_lines += '\t{node [style=filled,fillcolor=green,label=\"%s\\n(%d)\"] %s};\n' % (key2, bg.stem_length(key2), key2)
                 continue
 
             if len(bg.edges[key2]) == 2:

@@ -692,7 +692,7 @@ class DistanceEnergy(EnergyFunction):
         
         return energy
 
-class HelixOrientationEnergy(EnergyFunction):
+class GaussianHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         self.real_kde = self.load_stem_orientation_data('fess/stats/stem_nt.stats')
         self.fake_kde = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
@@ -703,6 +703,58 @@ class HelixOrientationEnergy(EnergyFunction):
         points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
         
         return cek.gaussian_kde(points.T)
+
+
+    def eval_energy(self, sm, background=True):
+        bg = sm.bg
+        stems = [d for d in bg.defines.keys() if d[0] == 's']
+        score = 0
+
+        for s1 in stems:
+            s1_len = bg.defines[s1][1] - bg.defines[s1][0]
+            for s2 in stems:
+                if s1 != s2:
+                    s2_len = bg.defines[s2][1] - bg.defines[s2][0]
+                    for l in range(s1_len):
+                        for k in range(s2_len):
+                            r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
+
+                            score_incr = my_log(self.real_kde(r2_spos)) - my_log(self.fake_kde(r2_spos))
+                            #print
+                            #cud.pv('my_log(self.real_kde(r2_spos))')
+                            #cud.pv('my_log(self.fake_kde(r2_spos))')
+
+                            score += score_incr
+        return -score
+
+class GaussianHelixOrientationEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_img = self.load_stem_orientation_data('fess/stats/stem_nt.stats')
+        self.fake_img = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
+        pass
+
+    def load_stem_orientation_data(self, filename):
+        stats = pa.read_csv(filename,header=None, sep=' ')
+        points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
+
+        res = 2.
+
+        cud.pv('points.shape')
+        min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
+        max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
+
+        n_points = [int((max_dims[j] - min_dims[j]) / float(res))+40 for j in range(points.shape[1])]
+
+        img = np.zeros(n_points)
+        for p in points:
+            ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+            img[ixs[0],ixs[1],ixs[2]] += 1
+        img = sn.gaussian_filter(img, (2,2,2))
+
+        return img
+
+    def get_img_score(self, img):
+        pass
 
 
     def eval_energy(self, sm, background=True):
