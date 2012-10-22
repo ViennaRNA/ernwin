@@ -9,36 +9,28 @@ import scipy.spatial as ss
 import Bio.KDTree as kd
 import sys
 import numpy as np
+import random as rand
 import corgy.utilities.debug as cud
+
+import collections as c
 
 from copy import deepcopy
 
 import corgy.utilities.vector as cuv
 import corgy.graph.graph_pdb as cgg
 import corgy.exp.kde as cek
-
-from corgy.builder.models import SpatialModel
-
-from corgy.utilities.data_structures import DefaultDict
+import corgy.builder.models as cbm
 import corgy.builder.reconstructor as rtor
+import corgy.utilities.statistics as cus
+import corgy.builder.sampling as cbs
+import corgy.builder.config as cbc
 
-from pylab import plot, savefig, clf, ylim
-
-from numpy import mean
-
-from scipy.stats import norm, linregress
-from numpy import log, array, sqrt, linspace
-from random import random, shuffle, uniform
-from corgy.builder.sampling import GibbsBGSampler, SamplingStatistics
-
-from corgy.utilities.statistics import interpolated_kde
-from corgy.builder.config import Configuration
-
-from sys import float_info, stderr
-
+import pylab as pl
+import scipy.stats as ss
+import sys
 
 def my_log(x):
-    return log(x + 1e-200)
+    return np.log(x + 1e-200)
 
 class MissingTargetException(Exception):
     def __init__(self, message):
@@ -56,7 +48,7 @@ class EnergyFunction:
         '''
         The base energy function simply returns a random number.
         '''
-        return random()
+        return rand.random()
 
     def calc_fg_parameters(self, bg):
         '''
@@ -85,17 +77,17 @@ class EnergyFunction:
         '''
         self.calc_fg_parameters(sm.bg)
 
-        stats = SamplingStatistics(sm)
+        stats = cbs.SamplingStatistics(sm)
         stats.silent = True
 
         # if not background energy function is provided, then the background
         # distribution is simply the proposal distribution implicit in 
-        # GibbsBGSampler
+        # cbs.GibbsBGSampler
 
         if bg_energy == None:
             bg_energy = EnergyFunction()
         
-        gs = GibbsBGSampler(deepcopy(sm), bg_energy, stats)
+        gs = cbs.GibbsBGSampler(deepcopy(sm), bg_energy, stats)
         for i in range(iterations):
             gs.step()
 
@@ -117,7 +109,7 @@ class RandomEnergy(EnergyFunction):
         pass
 
     def eval_energy(self, sm, background=True):
-        return uniform(-5, 3)
+        return rand.uniform(-5, 3)
 
 class DistanceIterator:
     '''
@@ -125,7 +117,7 @@ class DistanceIterator:
     distance from each other.
 
     '''
-    def __init__(self, min_distance=0., max_distance=float_info.max):
+    def __init__(self, min_distance=0., max_distance=sys.float_info.max):
         '''
         @param min_distance: The minimum distance for an interaction.
         @param max_distance: The maximum distance for an interaction.
@@ -233,7 +225,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         lengths = []
 
 
-        length = list(linspace(0, 200, 200))
+        length = list(np.linspace(0, 200, 200))
 
         for line in f:
             parts = line.strip().split(' ')
@@ -241,10 +233,10 @@ class SkewNormalInteractionEnergy(EnergyFunction):
 
         print "len(lengths):", len(lengths)
         lengths = lengths[::len(lengths)/100]
-        self.fg = interpolated_kde(lengths)
+        self.fg = cus.interpolated_kde(lengths)
 
     def calc_fg_parameters(self, bg):
-        self.get_target_distribution(Configuration.longrange_contact_stats_fn)
+        self.get_target_distribution(cbc.Configuration.longrange_contact_stats_fn)
 
     def calc_bg_parameters(self, structs):
         '''
@@ -256,7 +248,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         
         @param structs: The structures to used to define the background energy distribution.
         '''
-        interaction_distances = DefaultDict([])
+        interaction_distances = c.defaultdict(list)
 
         for bg in structs:
 
@@ -271,9 +263,9 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                         interaction_distances[interaction] += [distance]
 
         for interaction in interaction_distances.keys():
-            interaction_distances[interaction] += list(linspace(0, 200, 100))
+            interaction_distances[interaction] += list(np.linspace(0, 200, 100))
             interactions = interaction_distances[interaction][::len(interaction_distances[interaction])/100]
-            self.bgs[interaction] = interpolated_kde(interactions)
+            self.bgs[interaction] = cus.interpolated_kde(interactions)
 
         #self.plot_energies()
 
@@ -285,17 +277,17 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             bg = self.bgs[interaction]
             fg = self.fg
 
-            clf()
-            distance_range = linspace(0, 100., 300)
+            pl.clf()
+            distance_range = np.linspace(0, 100., 300)
 
-            ylim((-20, 10))
-            plot(distance_range, fg(distance_range), 'ro')
-            plot(distance_range, fg(distance_range) - bg(distance_range), 'go')
-            plot(distance_range, bg(distance_range), 'bo')
+            pl.ylim((-20, 10))
+            pl.plot(distance_range, fg(distance_range), 'ro')
+            pl.plot(distance_range, fg(distance_range) - bg(distance_range), 'go')
+            pl.plot(distance_range, bg(distance_range), 'bo')
             figname = 'figs/%s.png' % ("-".join(interaction))
-            print >>stderr, "saving: %s..." % (figname)
+            print >>sys.stderr, "saving: %s..." % (figname)
 
-            savefig(figname, bbox_inches=0)
+            pl.savefig(figname, bbox_inches=0)
 
     def get_energy_contribution(self, bg, interaction, background=True):
         '''
@@ -309,7 +301,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         bgp = 1.
 
         if background:
-            #print >>stderr, "distance;", distance, "fg:", fg, "interaction:", interaction
+            #print >>sys.stderr, "distance;", distance, "fg:", fg, "interaction:", interaction
 
 
             try:
@@ -363,7 +355,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         sorted_interactions_falling = sorted(energies, key=lambda key: -energies[key])
         sorted_interactions_rising = sorted(energies, key=lambda key: energies[key])
 
-        energy_counts = DefaultDict(0)
+        energy_counts = c.defaultdict(int)
         new_energies = dict()
 
         num_best = 1
@@ -375,7 +367,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                 energy_counts[interaction[1]] += 1
                 new_energies[interaction] = energies[interaction]
 
-        energy_counts = DefaultDict(0)
+        energy_counts = c.defaultdict(int)
         for interaction in sorted_interactions_rising:
             if energy_counts[interaction[0]] < num_worst and energy_counts[interaction[1]] < num_worst:
                 energy_counts[interaction[0]] += 1 
@@ -387,7 +379,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         return new_energies
 
     def iterate_over_interaction_energies(self, bg, background):
-        sm = SpatialModel(bg)
+        sm = cbm.SpatialModel(bg)
 
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
@@ -434,15 +426,15 @@ class JunctionClosureEnergy(EnergyFunction):
         stats = [s.r1 for s in angle_stats[k]]
 
         if len(stats) < 4:
-            fit = [mean(stats), 1.0, 0.0]
+            fit = [np.mean(stats), 1.0, 0.0]
         else:
-            fit = interpolated_kde(stats)
+            fit = cus.interpolated_kde(stats)
 
         return fit
 
     def calc_fg_parameters(self, bg):
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
-        sm = SpatialModel(bg)
+        sm = cbm.SpatialModel(bg)
 
         # build the structure to see if there are any closed bulges
         sm.traverse_and_build()
@@ -463,11 +455,11 @@ class JunctionClosureEnergy(EnergyFunction):
         @param structs: The structures used to define the background energy distribution.
         '''
         bg = structs[0]
-        sm = SpatialModel(deepcopy(bg))
+        sm = cbm.SpatialModel(deepcopy(bg))
 
         sm.traverse_and_build()
 
-        distances = DefaultDict([])
+        distances = c.defaultdict(list)
 
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
@@ -479,20 +471,20 @@ class JunctionClosureEnergy(EnergyFunction):
                 distances[bulge] += [distance]
 
         for bulge in closed_bulges:
-            bg_fit = interpolated_kde(distances[bulge])
+            bg_fit = cus.interpolated_kde(distances[bulge])
 
             self.bgs[abs(bg.defines[bulge][1] - bg.defines[bulge][0])] = bg_fit
 
             '''
-            ds = array(distances[bulge])
+            ds = np.array(distances[bulge])
 
             fg = fg_fit(ds)
             bg = bg_fit(ds)
 
 
-            plot(ds, fg, 'bo')
-            plot(ds, bg, 'ro')
-            plot(ds, fg - bg, 'go')
+            pl.plot(ds, fg, 'bo')
+            pl.plot(ds, bg, 'ro')
+            pl.plot(ds, fg - bg, 'go')
             #show()
             '''
 
@@ -502,7 +494,7 @@ class JunctionClosureEnergy(EnergyFunction):
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
-        energy = array([0.])
+        energy = np.array([0.])
 
         for bulge in closed_bulges:
             bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
@@ -549,20 +541,20 @@ class LongRangeInteractionCount(EnergyFunction):
 
             if float(parts[1]) < 400:
                 long_range += [float(parts[0])]
-                all_range += [sqrt(float(parts[1]))]
+                all_range += [np.sqrt(float(parts[1]))]
 
-        gradient, intercept, r_value, p_value, std_err = linregress(all_range, long_range)
+        gradient, intercept, r_value, p_value, std_err = ss.linregress(all_range, long_range)
 
         di = self.distance_iterator
         self.distance_iterator = DistanceIterator()
         total_interactions = self.count_interactions(bg)
-        target_interactions = gradient * sqrt(total_interactions) + intercept
+        target_interactions = gradient * np.sqrt(total_interactions) + intercept
         self.distance_iterator = di
         
         return target_interactions
 
     def calc_fg_parameters(self, bg):
-        self.target_interactions = self.get_target_interactions(bg, Configuration.lric_stats_fn)
+        self.target_interactions = self.get_target_interactions(bg, cbc.Configuration.lric_stats_fn)
 
     def calc_bg_parameters(self, structs):
         '''
@@ -575,8 +567,8 @@ class LongRangeInteractionCount(EnergyFunction):
         @param structs: The structures to used to define the background energy distribution.
         '''
         interactions = [self.count_interactions(struct) for struct in structs]
-        shuffle(interactions)
-        self.bgf = interpolated_kde([float(interaction) for interaction in interactions])
+        rand.shuffle(interactions)
+        self.bgf = cus.interpolated_kde([float(interaction) for interaction in interactions])
             
     def count_interactions(self, bg):
         '''
@@ -599,10 +591,10 @@ class LongRangeInteractionCount(EnergyFunction):
             raise MissingTargetException("LongRangeInteractionEnergy target_interaction is not defined. This energy probably hasn't been calibrated")
 
         #return float(count)
-        contrib = -(my_log(norm.pdf(float(count), self.target_interactions, 8.)) - self.bgf(float(count)))
+        contrib = -(my_log(ss.norm.pdf(float(count), self.target_interactions, 8.)) - self.bgf(float(count)))
 
         return contrib
-        #return -(log(norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
+        #return -(log(ss.norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
 
 class StemVirtualResClashEnergy(EnergyFunction):
     '''
@@ -632,9 +624,9 @@ class StemVirtualResClashEnergy(EnergyFunction):
                     (p, v) = cgg.virtual_res_3d_pos(bg, d, i)
                     l += [p+ mult * v]
 
-        #kk = ss.KDTree(array(l))
+        #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
-        kdt.set_coords(array(l))
+        kdt.set_coords(np.array(l))
         kdt.all_search(4.)
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
