@@ -441,7 +441,7 @@ def get_helix_vector(chain, start1, start2, end1, end2):
     (mid1, mid2) = get_mids(chain, start1, start2, end1, end2)
     return mid2 - mid1
 
-def virtual_res_3d_pos(bg, stem, i):
+def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     '''
     Calculate the virtual position of the i'th nucleotide in the stem.
 
@@ -464,8 +464,11 @@ def virtual_res_3d_pos(bg, stem, i):
     vres_stem_pos = bg.coords[stem][0] + (i / float(stem_len-1)) * stem_vec
 
     # the angle of the second twist with respect to the first
-    stem_basis = create_orthonormal_basis(stem_vec, bg.twists[stem][0])
-    t2 = change_basis(bg.twists[stem][1], stem_basis, cuv.standard_basis)
+    if stem_inv == None:
+        stem_basis = create_orthonormal_basis(stem_vec, bg.twists[stem][0])
+        t2 = change_basis(bg.twists[stem][1], stem_basis, cuv.standard_basis)
+    else:
+        t2 = np.dot(stem_inv, bg.twists[stem][1])
 
     ang = cum.atan3(t2[2], t2[1])
     # the nts_per_2pi_twist need to be calculated separately 
@@ -485,7 +488,7 @@ def virtual_res_3d_pos(bg, stem, i):
     # equation for a circle in 3-space
     return (vres_stem_pos, u * cos(ang) + v * sin(ang))
 
-def virtual_res_basis(bg, stem, i):
+def virtual_res_basis(bg, stem, i, vec = None):
     '''
     Define a basis based on the location of a virtual stem residue.
 
@@ -499,7 +502,9 @@ def virtual_res_basis(bg, stem, i):
     @return: A 3x3 matrix defining the coordinate system above.
     '''
 
-    (pos, vec) = virtual_res_3d_pos(bg, stem, i)
+    if vec == None:
+        (pos, vec) = virtual_res_3d_pos(bg, stem, i)
+
     stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
 
     return cuv.create_orthonormal_basis(stem_vec, vec)

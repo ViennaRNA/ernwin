@@ -9,6 +9,7 @@ import scipy.spatial as ss
 import Bio.KDTree as kd
 import sys
 import numpy as np
+import numpy.linalg as nl
 import random as rand
 import corgy.utilities.debug as cud
 
@@ -755,8 +756,11 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             ixs_fake = [int((p[j] - self.fake_min_dims[j]) / self.res) for j in xrange(points.shape[1])]
 
             try:
-                val_real = my_log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
-                val_fake = my_log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
+                #val_real = my_log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
+                #val_fake = my_log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
+                val_real = np.log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
+                val_fake = np.log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
+
                 score += val_real - val_fake
             except IndexError:
                 score += -350.
@@ -770,14 +774,43 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         score = 0
         points = []
 
+        vposs = c.defaultdict( dict )
+        vbasis = c.defaultdict( dict )
+        invs = c.defaultdict( dict )
+
+        for s in stems:
+            s_len = bg.defines[s][1] - bg.defines[s][0]
+            stem_vec = bg.coords[s][1] - bg.coords[s][0]
+            stem_basis = cgg.create_orthonormal_basis(stem_vec, bg.twists[s][0])
+            stem_inv = nl.inv(stem_basis.transpose())
+
+            for i in range(s_len):
+                vposs[s][i] = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
+                vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vposs[s][i][1])
+                invs[s][i] = nl.inv(vbasis[s][i].transpose())
+
+
         for s1 in stems:
             s1_len = bg.defines[s1][1] - bg.defines[s1][0]
+
+            s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
+            s1_end = cgg.pos_to_spos(bg, stems[i], k, stems[i], s1_len - 1)
+
+            #s1_start = np.dot(invs[s1][
+
             for s2 in stems:
                 if s1 != s2:
                     s2_len = bg.defines[s2][1] - bg.defines[s2][0]
                     for l in range(s1_len):
                         for k in range(s2_len):
-                            r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
+                            s2_pos = vposs[s2][k][0] + vposs[s2][k][1]
+                            s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
+
+
+                            r2_spos = np.dot(invs[s1][l], s2_pos - s1_pos)
+                            #r2_spos = cuv.change_basis(s2_pos - s1_pos, vbasis[s1][l], cuv.standard_basis)
+
+                            #r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
 
                             points += [r2_spos]
                             #print
