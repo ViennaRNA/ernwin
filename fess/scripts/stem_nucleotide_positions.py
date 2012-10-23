@@ -60,8 +60,14 @@ usage: %prog [options] temp.comp
             s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
             for k in range(s1_len):
 
+
                 s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
                 s1_end = cgg.pos_to_spos(bg, stems[i], k, stems[i], s1_len - 1)
+
+                '''
+                print >>sys.stderr, stems[i], k, s1_start, s1_end
+                print >>sys.stderr, s1_len
+                '''
 
                 #print "s1_start:", s1_start, "s1_end:", s1_end
 

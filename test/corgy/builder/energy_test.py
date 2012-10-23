@@ -224,5 +224,5 @@ class TestImgHelixOrientationEnergy(unittest.TestCase):
         sm.sample_angles()
         sm.traverse_and_build()
 
-        energy = cbe.ImgHelixOrientationEnergy()
+        #energy = cbe.ImgHelixOrientationEnergy()
         cud.pv('energy.eval_energy(sm)')

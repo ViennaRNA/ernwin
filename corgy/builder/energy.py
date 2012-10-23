@@ -779,7 +779,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         invs = c.defaultdict( dict )
 
         for s in stems:
-            s_len = bg.defines[s][1] - bg.defines[s][0]
+            s_len = bg.defines[s][1] - bg.defines[s][0] + 1
             stem_vec = bg.coords[s][1] - bg.coords[s][0]
             stem_basis = cgg.create_orthonormal_basis(stem_vec, bg.twists[s][0])
             stem_inv = nl.inv(stem_basis.transpose())
@@ -791,32 +791,40 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
 
         for s1 in stems:
-            s1_len = bg.defines[s1][1] - bg.defines[s1][0]
-
-            s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
-            s1_end = cgg.pos_to_spos(bg, stems[i], k, stems[i], s1_len - 1)
-
-            #s1_start = np.dot(invs[s1][
+            s1_len = bg.defines[s1][1] - bg.defines[s1][0] + 1
 
             for s2 in stems:
                 if s1 != s2:
-                    s2_len = bg.defines[s2][1] - bg.defines[s2][0]
+                    s2_len = bg.defines[s2][1] - bg.defines[s2][0] + 1
                     for l in range(s1_len):
+                        s1_0_pos = vposs[s1][0][0] + vposs[s1][0][1]
+                        s1_len_pos = vposs[s1][s1_len - 1][0] + vposs[s1][s1_len - 1][1]
+                        s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
+
+                        s1_start = np.dot(invs[s1][l], s1_0_pos - s1_pos)
+                        s1_end = np.dot(invs[s1][l], s1_len_pos - s1_pos)
+
+                        #print s1, l, s1_start, s1_end, s1_pos
+                        #print s1_len
+
                         for k in range(s2_len):
                             s2_pos = vposs[s2][k][0] + vposs[s2][k][1]
-                            s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
 
 
                             r2_spos = np.dot(invs[s1][l], s2_pos - s1_pos)
                             #r2_spos = cuv.change_basis(s2_pos - s1_pos, vbasis[s1][l], cuv.standard_basis)
 
                             #r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
+                            #print "r2_spos:", r2_spos
 
-                            points += [r2_spos]
+                            if cuv.magnitude(r2_spos) < 400. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
+                                points += [r2_spos]
                             #print
                             #cud.pv('my_log(self.real_kde(r2_spos))')
                             #cud.pv('my_log(self.fake_kde(r2_spos))')
 
+        #print "points:", "\n".join(map(str,points))
+        cud.pv('len(points)')
         score = self.get_img_score(points)
         return -score
 
