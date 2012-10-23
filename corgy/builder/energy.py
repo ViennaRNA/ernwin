@@ -51,6 +51,13 @@ class EnergyFunction:
         '''
         return rand.random()
 
+    def iterate_over_interaction_energies(self, bg, background):
+        sm = cbm.SpatialModel(bg)
+
+        self.eval_energy(sm, background)
+        for key in self.interaction_energies.keys():
+            yield (key, self.interaction_energies[key])
+
     def calc_fg_parameters(self, bg):
         '''
         Found out the parameters for the target distribution.
@@ -379,12 +386,6 @@ class SkewNormalInteractionEnergy(EnergyFunction):
 
         return new_energies
 
-    def iterate_over_interaction_energies(self, bg, background):
-        sm = cbm.SpatialModel(bg)
-
-        self.eval_energy(sm, background)
-        for key in self.interaction_energies.keys():
-            yield (key, self.interaction_energies[key])
         
     def eval_energy(self, sm, background=True):
         energy_total = 0.
@@ -771,12 +772,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
     def eval_energy(self, sm, background=True):
         bg = sm.bg
         stems = [d for d in bg.defines.keys() if d[0] == 's']
-        score = 0
+        score = 0.
         points = []
 
         vposs = c.defaultdict( dict )
         vbasis = c.defaultdict( dict )
         invs = c.defaultdict( dict )
+
+        self.interaction_energies = c.defaultdict(int)
 
         for s in stems:
             s_len = bg.defines[s][1] - bg.defines[s][0] + 1
@@ -817,15 +820,17 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                             #r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
                             #print "r2_spos:", r2_spos
 
-                            if cuv.magnitude(r2_spos) < 400. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
-                                points += [r2_spos]
+                            if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
+                                point_score = self.get_img_score([r2_spos])
+                                score += point_score
+                                self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
+
                             #print
                             #cud.pv('my_log(self.real_kde(r2_spos))')
                             #cud.pv('my_log(self.fake_kde(r2_spos))')
 
         #print "points:", "\n".join(map(str,points))
-        cud.pv('len(points)')
-        score = self.get_img_score(points)
+        #cud.pv('len(points)')
         return -score
 
 class RoughJunctionClosureEnergy(EnergyFunction):

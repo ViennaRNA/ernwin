@@ -93,9 +93,9 @@ class PymolPrinter:
         return s
     
     def pymol_axis_string(self):
-        w = 0.22 # cylinder width 
-        l = 4.0 # cylinder length
-        h = 1.0 # cone hight
+        w = 0.42 # cylinder width 
+        l = 40.0 # cylinder length
+        h = 3.0 # cone hight
         d = w * 2.618 # cone base diameter
         s = ""
          
@@ -298,13 +298,26 @@ class PymolPrinter:
                     except:
                         continue
 
+        print >>sys.stderr, "energy_function:", self.energy_function
         # print the contributions of the energy function, if one is specified
         if self.energy_function != None:
-            for (interaction, energy) in self.energy_function.iterate_over_interaction_energies(bg, background=False):
-            #for (interaction, energy) in self.energy_function.iterate_over_interactions(bg, background=False):
-                #print >>sys.stderr, interaction, energy
+            print >>sys.stderr, "key"
+            sum_energy = 0.
+
+            int_energies = list(self.energy_function.iterate_over_interaction_energies(bg, background=False))
+            min_energy = min(int_energies, key=lambda x: x[1])
+            print >>sys.stderr, "min_energy:", min_energy
+
+            for (interaction, energy) in int_energies:
                 (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
-                self.add_segment(p, n, 'purple', np.exp(energy) * 40)
+                scaled_energy = min_energy[1] - energy
+
+                print >>sys.stderr, "Adding segment:", energy, scaled_energy, np.exp(scaled_energy) 
+                self.add_segment(p, n, 'purple', 3 * np.exp(scaled_energy) )
+
+                sum_energy += energy
+
+            cud.pv("sum_energy")
 
     def chain_to_pymol(self, chain):
         '''
