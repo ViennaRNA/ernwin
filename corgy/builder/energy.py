@@ -3,6 +3,7 @@
 import pickle, os
 import pandas as pa
 import Bio.PDB as bpdb
+import Bio.KDTree as bk
 
 import scipy.ndimage as sn
 import scipy.spatial as ss
@@ -628,6 +629,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
+        cud.pv('np.array(l)')
+        cud.pv('np.array(l).min()')
         kdt.set_coords(np.array(l))
         kdt.all_search(4.)
         #print len(kdt.all_get_indices())
@@ -781,9 +784,13 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         vposs = c.defaultdict( dict )
         vbasis = c.defaultdict( dict )
         invs = c.defaultdict( dict )
+        starts = c.defaultdict( dict )
+        ends = c.defaultdict( dict )
+        points = []
 
         self.interaction_energies = c.defaultdict(int)
 
+        # pre-calculate all virtual positions and their change of basis matrices
         for s in stems:
             s_len = bg.defines[s][1] - bg.defines[s][0] + 1
             stem_vec = bg.coords[s][1] - bg.coords[s][0]
@@ -794,31 +801,72 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                 vposs[s][i] = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
                 vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vposs[s][i][1])
                 invs[s][i] = nl.inv(vbasis[s][i].transpose())
+                points += [[vposs[s][i][0], s, i]]
 
+        # pre-calculate the start and end positions of each virtual res
+        for s in stems:
+            s_len = bg.defines[s][1] - bg.defines[s][0] + 1
+            s1_0_pos = vposs[s][0][0] + vposs[s][0][1]
+            s1_len_pos = vposs[s][s_len - 1][0] + vposs[s][s_len - 1][1]
 
+            for i in range(s_len):
+                s1_pos = vposs[s][i][0] + vposs[s][i][1]
+
+                starts[s][i] = np.dot(invs[s][i], s1_0_pos - s1_pos)
+                ends[s][i] = np.dot(invs[s][i], s1_len_pos - s1_pos)
+
+        
         count = 0
         count1 = 0
+        coords = np.vstack([p[0] for p in points])
+
+        kdt = bk.KDTree(3)
+        kdt.set_coords(coords)
+
+        kdt.all_search(50.)
+        indices = kdt.all_get_indices()
+        cud.pv('len(indices)')
+
+        energy1 = 0.
+        for (ia,ib) in indices:
+
+            for (i1, i2) in [(ia, ib), (ib, ia)]:
+                s1,l = points[i1][1:]
+                s2,k = points[i2][1:]
+
+                s1_pos = sum(vposs[s1][l])
+
+                if s1 != s2:
+                    s2_pos = sum(vposs[s2][k])
+
+                    s1_end = ends[s1][l]
+                    s1_start = starts[s1][l]
+
+                    np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
+
+                    count += 1
+                    if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
+                        point_score = self.get_img_score([r2_spos])
+                        energy1 += point_score
+                        self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
+                        count1 += 1
+
+        cud.pv('energy1')
 
         for s1 in stems:
             s1_len = bg.defines[s1][1] - bg.defines[s1][0] + 1
 
             for l in range(s1_len):
-                s1_0_pos = vposs[s1][0][0] + vposs[s1][0][1]
-                s1_len_pos = vposs[s1][s1_len - 1][0] + vposs[s1][s1_len - 1][1]
                 s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
-
-                np.dot(invs[s1][l], s1_0_pos - s1_pos, out=s1_start)
-                np.dot(invs[s1][l], s1_len_pos - s1_pos, out=s1_end)
 
                 for s2 in stems:
                     if s1 != s2:
                         s2_len = bg.defines[s2][1] - bg.defines[s2][0] + 1
 
-                        #print s1, l, s1_start, s1_end, s1_pos
-                        #print s1_len
-
                         for k in range(s2_len):
                             s2_pos = vposs[s2][k][0] + vposs[s2][k][1]
+                            s1_end = ends[s1][l]
+                            s1_start = starts[s1][l]
 
                             np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
@@ -828,6 +876,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                                 score += point_score
                                 self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
                                 count1 += 1
+        cud.pv('count')
+        cud.pv('count1')
 
         return -score
 
