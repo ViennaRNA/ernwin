@@ -371,6 +371,10 @@ class BulgeGraph:
 
                             del merge_defs[key1] 
                             done = False
+    def stems(self):
+        for d in self.defines.keys():
+            if d[0] == 's':
+                yield d
 
     def get_centers(self):
         centers = []
@@ -380,7 +384,6 @@ class BulgeGraph:
                 centers += [(p[1] + p[0]) / 2.]
 
         return centers
-                        
 
     def get_name_str(self):
         return "name " + self.name + '\n'

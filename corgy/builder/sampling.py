@@ -2,6 +2,8 @@
 
 import matplotlib.pyplot as plt
 
+import corgy.graph.graph_pdb as cgg
+
 from corgy.utilities.data_structures import DefaultDict
 from corgy.builder.rmsd import centered_rmsd
 from corgy.builder.models import SpatialModel
@@ -161,7 +163,7 @@ class SamplingStatistics:
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
         self.energy_rmsd_structs = []
-        self.centers_orig = sm_orig.bg.get_centers()
+        self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
         self.counter = 0
         self.plotter = plotter
         self.plot_color = plot_color
@@ -181,7 +183,7 @@ class SamplingStatistics:
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
 
-        centers_new = sm.bg.get_centers()
+        centers_new = cgg.bg_virtual_residues(sm.bg)
         r = centered_rmsd(self.centers_orig, centers_new)
 
         self.energy_rmsd_structs += [(energy, r, deepcopy(sm.bg))]

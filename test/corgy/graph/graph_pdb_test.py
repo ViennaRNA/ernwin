@@ -250,6 +250,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
                 (pos, vec) = cgg.virtual_res_3d_pos(bg, stem, stem_len - 1)
 
                 self.assertTrue(allclose(bg.twists[d][1] + bg.coords[d][1], pos + vec))
+    def test_bg_virtual_residues(self):
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+
+        vress = cgg.bg_virtual_residues(bg)
+        self.assertGreater(len(vress), 0)
 
     def test_virtual_res_basis(self):
         bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))

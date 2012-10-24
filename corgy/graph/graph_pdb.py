@@ -488,6 +488,15 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     # equation for a circle in 3-space
     return (vres_stem_pos, u * cos(ang) + v * sin(ang))
 
+def bg_virtual_residues(bg):
+    vress = []
+
+    for s in bg.stems():
+        for i in range(bg.stem_length(s)):
+            vres = virtual_res_3d_pos(bg, s, i)
+            vress += [vres[0] + vres[1]]
+    return np.array(vress)
+
 def virtual_res_basis(bg, stem, i, vec = None):
     '''
     Define a basis based on the location of a virtual stem residue.
