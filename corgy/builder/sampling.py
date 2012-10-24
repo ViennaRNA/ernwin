@@ -1,19 +1,16 @@
 #!/usr/bin/python
 
+import collections as c
+import sys, random, copy
+import numpy as np
+import scipy.stats as ss
+
 import matplotlib.pyplot as plt
 
 import corgy.graph.graph_pdb as cgg
+import corgy.builder.rmsd as cbr
+import corgy.builder.models as cbm
 
-from corgy.utilities.data_structures import DefaultDict
-from corgy.builder.rmsd import centered_rmsd
-from corgy.builder.models import SpatialModel
-
-from sys import stderr
-from random import random, sample
-from copy import deepcopy
-
-from numpy import exp, array
-from scipy.stats import gaussian_kde
 import numpy as np
 
 class StatisticsPlotter:
@@ -26,8 +23,8 @@ class StatisticsPlotter:
         self.ax_hist = self.fig.add_subplot(2, 1, 1)
         self.ax_plot = self.fig.add_subplot(2, 1, 2)
 
-        self.energies = DefaultDict([])
-        self.rmsds = DefaultDict([])
+        self.energies = c.defaultdict(list)
+        self.rmsds = c.defaultdict(list)
         self.energy_rmsds = []
 
         self.ax_plot.set_xlabel('rmsd')
@@ -50,7 +47,7 @@ class StatisticsPlotter:
         positions = np.vstack([X.ravel(), Y.ravel()])
         values = np.vstack([m1, m2])
         #print "values:", values
-        kernel = gaussian_kde(values)
+        kernel = ss.gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
 
         #print "Z:", Z
@@ -102,11 +99,11 @@ class StatisticsPlotter:
             if len(self.energies[color]) > 2. and len(sorted_energies) > 4:
                 for color in self.energies.keys():
                     try: 
-                        s = sample(sorted_energy_rmsds, min(len(sorted_energy_rmsds), 180))
+                        s = random.sample(sorted_energy_rmsds, min(len(sorted_energy_rmsds), 180))
                         e = [s1[0] for s1 in s if s1[2] == color]
                         r = [s1[1] for s1 in s if s1[2] == color]
 
-                        self.create_contour_plot(array(r), array(e), self.ax_plot, xlim, ylim, color)
+                        self.create_contour_plot(np.array(r), np.array(e), self.ax_plot, xlim, ylim, color)
                     except Exception as ex:
                         print "exception:", ex, "color:", color
 
@@ -121,7 +118,7 @@ class StatisticsPlotter:
 
     def diagnose_energy(self, energy_function, bgs):
 
-        energies = [energy_function.eval_energy(SpatialModel(bg), background=True) for bg in bgs]
+        energies = [energy_function.eval_energy(cbm.SpatialModel(bg), background=True) for bg in bgs]
 
 
     def finish(self):
@@ -147,7 +144,7 @@ class StatisticsPlotter:
             self.ax_plot.plot(self.rmsds[color], self.energies[color], '%so' % (color), alpha=0.05)
 
         for color in self.energies.keys():
-            self.create_contour_plot(array(self.rmsds[color]), array(self.energies[color]), self.ax_plot, self.xlim, self.ylim, color)
+            self.create_contour_plot(np.array(self.rmsds[color]), np.array(self.energies[color]), self.ax_plot, self.xlim, self.ylim, color)
 
         plt.ioff()
         plt.show()
@@ -184,9 +181,9 @@ class SamplingStatistics:
         energy = energy_function.eval_energy(sm, background=True)
 
         centers_new = cgg.bg_virtual_residues(sm.bg)
-        r = centered_rmsd(self.centers_orig, centers_new)
+        r = cbr.centered_rmsd(self.centers_orig, centers_new)
 
-        self.energy_rmsd_structs += [(energy, r, deepcopy(sm.bg))]
+        self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
@@ -230,7 +227,7 @@ class SamplingStatistics:
     
     def print_final_stats(self, energy_function):
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
-        sm = SpatialModel(sorted_energies[0][2])
+        sm = cbm.SpatialModel(sorted_energies[0][2])
         sm.get_sampled_bulges()
 
         print "---------------------------"
@@ -281,7 +278,7 @@ class GibbsBGSampler:
 
         # only choose 10 possible angles
         if len(possible_angles) > 20:
-            possible_angles = sample(possible_angles, 20)
+            possible_angles = random.sample(possible_angles, 20)
 
         energies = dict()
 
@@ -310,7 +307,7 @@ class GibbsBGSampler:
                 prev_energy = max_energy 
             
             prev_energy = prev_energy - min_energy
-            energies[pa] = exp(-prev_energy)
+            energies[pa] = np.exp(-prev_energy)
             #print >>stderr, "energies[pa]:", energies[pa], "energy:", prev_energy
 
         # Convert all of the sampled energies into one probability
@@ -329,7 +326,7 @@ class GibbsBGSampler:
         #sampled ones
         prob_remaining = 1.
         for key in energy_probs.keys():
-            if random() < energy_probs[key] / prob_remaining:
+            if random.random() < energy_probs[key] / prob_remaining:
                 self.sm.angle_defs[bulge] = key
                 break
 
