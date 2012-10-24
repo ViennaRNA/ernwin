@@ -744,7 +744,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         for p in points:
             ixs = [int((p[j] - min_dims[j]) / self.res) for j in xrange(points.shape[1])]
             img[ixs[0],ixs[1],ixs[2]] += 1
-        img = sn.gaussian_filter(img, (2,2,2))
+        img = sn.gaussian_filter(img, (3,3,3))
 
         return (img, min_dims)
 
@@ -774,6 +774,9 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         stems = [d for d in bg.defines.keys() if d[0] == 's']
         score = 0.
         points = []
+        s1_start = np.zeros(3)
+        s1_end = np.zeros(3)
+        r2_spos = np.zeros(3)
 
         vposs = c.defaultdict( dict )
         vbasis = c.defaultdict( dict )
@@ -793,19 +796,23 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                 invs[s][i] = nl.inv(vbasis[s][i].transpose())
 
 
+        count = 0
+        count1 = 0
+
         for s1 in stems:
             s1_len = bg.defines[s1][1] - bg.defines[s1][0] + 1
 
-            for s2 in stems:
-                if s1 != s2:
-                    s2_len = bg.defines[s2][1] - bg.defines[s2][0] + 1
-                    for l in range(s1_len):
-                        s1_0_pos = vposs[s1][0][0] + vposs[s1][0][1]
-                        s1_len_pos = vposs[s1][s1_len - 1][0] + vposs[s1][s1_len - 1][1]
-                        s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
+            for l in range(s1_len):
+                s1_0_pos = vposs[s1][0][0] + vposs[s1][0][1]
+                s1_len_pos = vposs[s1][s1_len - 1][0] + vposs[s1][s1_len - 1][1]
+                s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
 
-                        s1_start = np.dot(invs[s1][l], s1_0_pos - s1_pos)
-                        s1_end = np.dot(invs[s1][l], s1_len_pos - s1_pos)
+                np.dot(invs[s1][l], s1_0_pos - s1_pos, out=s1_start)
+                np.dot(invs[s1][l], s1_len_pos - s1_pos, out=s1_end)
+
+                for s2 in stems:
+                    if s1 != s2:
+                        s2_len = bg.defines[s2][1] - bg.defines[s2][0] + 1
 
                         #print s1, l, s1_start, s1_end, s1_pos
                         #print s1_len
@@ -813,24 +820,15 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                         for k in range(s2_len):
                             s2_pos = vposs[s2][k][0] + vposs[s2][k][1]
 
+                            np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                            r2_spos = np.dot(invs[s1][l], s2_pos - s1_pos)
-                            #r2_spos = cuv.change_basis(s2_pos - s1_pos, vbasis[s1][l], cuv.standard_basis)
-
-                            #r2_spos = cgg.pos_to_spos(bg, s1, k, s2, l)
-                            #print "r2_spos:", r2_spos
-
+                            count += 1
                             if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                                 point_score = self.get_img_score([r2_spos])
                                 score += point_score
                                 self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
+                                count1 += 1
 
-                            #print
-                            #cud.pv('my_log(self.real_kde(r2_spos))')
-                            #cud.pv('my_log(self.fake_kde(r2_spos))')
-
-        #print "points:", "\n".join(map(str,points))
-        #cud.pv('len(points)')
         return -score
 
 class RoughJunctionClosureEnergy(EnergyFunction):
