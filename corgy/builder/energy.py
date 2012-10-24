@@ -780,8 +780,6 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         s1_end = np.zeros(3)
         r2_spos = np.zeros(3)
 
-        t = time.time()
-
         vposs = c.defaultdict( dict )
         vbasis = c.defaultdict( dict )
         invs = c.defaultdict( dict )
@@ -799,94 +797,79 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             stem_inv = nl.inv(stem_basis.transpose())
 
             for i in range(s_len):
-                vposs[s][i] = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
-                vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vposs[s][i][1])
+                vpos = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
+                vposs[s][i] = vpos[0] + vpos[1]
+                vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vpos[1])
                 invs[s][i] = nl.inv(vbasis[s][i].transpose())
-                points += [[vposs[s][i][0], s, i]]
+                points += [[vposs[s][i], s, i]]
 
         # pre-calculate the start and end positions of each virtual res
         for s in stems:
             s_len = bg.defines[s][1] - bg.defines[s][0] + 1
-            s1_0_pos = vposs[s][0][0] + vposs[s][0][1]
-            s1_len_pos = vposs[s][s_len - 1][0] + vposs[s][s_len - 1][1]
+            s1_0_pos = vposs[s][0]
+            s1_len_pos = vposs[s][s_len - 1]
 
             for i in range(s_len):
-                s1_pos = vposs[s][i][0] + vposs[s][i][1]
+                s1_pos = vposs[s][i]
 
                 starts[s][i] = np.dot(invs[s][i], s1_0_pos - s1_pos)
                 ends[s][i] = np.dot(invs[s][i], s1_len_pos - s1_pos)
-
-        
-        count = 0
-        count1 = 0
         coords = np.vstack([p[0] for p in points])
 
         kdt = bk.KDTree(3)
         kdt.set_coords(coords)
 
-        kdt.all_search(50.)
+        kdt.all_search(40.)
         indices = kdt.all_get_indices()
-        #cud.pv('len(indices)')
-        print "time0:", time.time() - t
-
-        countk = 0
-        countn = 0
 
         energy1 = 0.
-        t = time.time()
         for (ia,ib) in indices:
             for (i1, i2) in [(ia, ib), (ib, ia)]:
                 s1,l = points[i1][1:]
                 s2,k = points[i2][1:]
 
-                s1_pos = sum(vposs[s1][l])
+                s1_pos = vposs[s1][l]
 
                 if s1 != s2:
-                    s2_pos = sum(vposs[s2][k])
+                    s2_pos = vposs[s2][k]
 
                     s1_end = ends[s1][l]
                     s1_start = starts[s1][l]
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                    countk += 1
                     if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                         point_score = self.get_img_score([r2_spos])
                         energy1 += point_score
                         self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
-                        count1 += 1
-        print "time1:", time.time() - t
 
+        '''
         t = time.time()
         for s1 in stems:
             s1_len = bg.defines[s1][1] - bg.defines[s1][0] + 1
 
             for l in range(s1_len):
-                s1_pos = vposs[s1][l][0] + vposs[s1][l][1]
+                s1_pos = vposs[s1][l]
+                #s1_pos = sum(vposs[s1][l])
 
                 for s2 in stems:
                     if s1 != s2:
                         s2_len = bg.defines[s2][1] - bg.defines[s2][0] + 1
 
                         for k in range(s2_len):
-                            s2_pos = vposs[s2][k][0] + vposs[s2][k][1]
+                            s2_pos = vposs[s2][k]
+                            #s2_pos = sum(vposs[s2][k])
                             s1_end = ends[s1][l]
                             s1_start = starts[s1][l]
 
                             np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                            count += 1
-                            countn += 1
                             if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                                 point_score = self.get_img_score([r2_spos])
                                 score += point_score
                                 self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
-                                count1 += 1
-        print "time2:", time.time() - t
-        #score = energy1
-        cud.pv('countk')
-        cud.pv('countn')
-
+        '''
+        score = energy1
         return -score
 
 class RoughJunctionClosureEnergy(EnergyFunction):
