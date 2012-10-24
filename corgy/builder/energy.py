@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import time
 import pickle, os
 import pandas as pa
 import Bio.PDB as bpdb
@@ -629,8 +630,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
-        cud.pv('np.array(l)')
-        cud.pv('np.array(l).min()')
         kdt.set_coords(np.array(l))
         kdt.all_search(4.)
         #print len(kdt.all_get_indices())
@@ -781,6 +780,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         s1_end = np.zeros(3)
         r2_spos = np.zeros(3)
 
+        t = time.time()
+
         vposs = c.defaultdict( dict )
         vbasis = c.defaultdict( dict )
         invs = c.defaultdict( dict )
@@ -825,11 +826,15 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         kdt.all_search(50.)
         indices = kdt.all_get_indices()
-        cud.pv('len(indices)')
+        #cud.pv('len(indices)')
+        print "time0:", time.time() - t
+
+        countk = 0
+        countn = 0
 
         energy1 = 0.
+        t = time.time()
         for (ia,ib) in indices:
-
             for (i1, i2) in [(ia, ib), (ib, ia)]:
                 s1,l = points[i1][1:]
                 s2,k = points[i2][1:]
@@ -844,15 +849,15 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                    count += 1
+                    countk += 1
                     if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                         point_score = self.get_img_score([r2_spos])
                         energy1 += point_score
                         self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
                         count1 += 1
+        print "time1:", time.time() - t
 
-        cud.pv('energy1')
-
+        t = time.time()
         for s1 in stems:
             s1_len = bg.defines[s1][1] - bg.defines[s1][0] + 1
 
@@ -871,13 +876,16 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                             np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
                             count += 1
+                            countn += 1
                             if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                                 point_score = self.get_img_score([r2_spos])
                                 score += point_score
                                 self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
                                 count1 += 1
-        cud.pv('count')
-        cud.pv('count1')
+        print "time2:", time.time() - t
+        #score = energy1
+        cud.pv('countk')
+        cud.pv('countn')
 
         return -score
 
