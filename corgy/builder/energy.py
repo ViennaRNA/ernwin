@@ -13,11 +13,8 @@ import sys
 import numpy as np
 import numpy.linalg as nl
 import random as rand
-import corgy.utilities.debug as cud
 
 import collections as c
-
-from copy import deepcopy
 
 import corgy.utilities.vector as cuv
 import corgy.graph.graph_pdb as cgg
@@ -27,6 +24,7 @@ import corgy.builder.reconstructor as rtor
 import corgy.utilities.statistics as cus
 import corgy.builder.sampling as cbs
 import corgy.builder.config as cbc
+import corgy.utilities.debug as cud
 
 import pylab as pl
 import scipy.stats as ss
@@ -56,9 +54,13 @@ class EnergyFunction:
     def iterate_over_interaction_energies(self, bg, background):
         sm = cbm.SpatialModel(bg)
 
+        for stem in bg.stems():
+            cgg.add_virtual_residues(bg, stem)
+
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
-            yield (key, self.interaction_energies[key])
+            if abs(self.interaction_energies[key]) > 0.0000001:
+                yield (key, self.interaction_energies[key])
 
     def calc_fg_parameters(self, bg):
         '''
@@ -97,7 +99,7 @@ class EnergyFunction:
         if bg_energy == None:
             bg_energy = EnergyFunction()
         
-        gs = cbs.GibbsBGSampler(deepcopy(sm), bg_energy, stats)
+        gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, stats)
         for i in range(iterations):
             gs.step()
 
@@ -394,6 +396,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         interactions = 1.
         bg = sm.bg
 
+
         energies = dict()
 
         for (interaction, energy) in self.iterate_over_interactions(bg, background):
@@ -459,7 +462,7 @@ class JunctionClosureEnergy(EnergyFunction):
         @param structs: The structures used to define the background energy distribution.
         '''
         bg = structs[0]
-        sm = cbm.SpatialModel(deepcopy(bg))
+        sm = cbm.SpatialModel(copy.deepcopy(bg))
 
         sm.traverse_and_build()
 
@@ -793,16 +796,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         self.interaction_energies = c.defaultdict(int)
 
+        if len(bg.vposs.keys()) == 0:
+            for stem in bg.stems():
+                cgg.add_virtual_residues(bg, stem)
+
         # pre-calculate all virtual positions and their change of basis matrices
         for s in stems:
-            #s_len = bg.defines[s][1] - bg.defines[s][0] + 1
-            #stem_inv = bg.stem_invs[s]
 
             for i in range(bg.stem_length(s)):
-                #vpos = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
-                #vposs[s][i] = vpos[0] + vpos[1]
-                #vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vpos[1])
-                #invs[s][i] = nl.inv(vbasis[s][i].transpose())
                 points += [[vposs[s][i], s, i]]
 
         # pre-calculate the start and end positions of each virtual res
@@ -816,6 +817,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                 starts[s][i] = np.dot(invs[s][i], s1_0_pos - s1_pos)
                 ends[s][i] = np.dot(invs[s][i], s1_len_pos - s1_pos)
+
         coords = np.vstack([p[0] for p in points])
 
         kdt = bk.KDTree(3)
@@ -825,8 +827,18 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         indices = kdt.all_get_indices()
 
         energy1 = 0.
+        stem_interactions = dict()
+        count = 0
+
+        for s1 in stems:
+            for s2 in stems:
+                stem_interactions[(s1, s2)] = 0.
+
         for (ia,ib) in indices:
+            point_energies = []
+
             for (i1, i2) in [(ia, ib), (ib, ia)]:
+                point_energy = 0
                 s1,l = points[i1][1:]
                 s2,k = points[i2][1:]
 
@@ -843,7 +855,23 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                     if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                         point_score = self.get_img_score([r2_spos])
                         energy1 += point_score
-                        self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
+                        #point_energy += point_score
+                        stem_interactions[(s1,s2)] += point_score
+                        count += 1
+                        #self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
+
+        energy1 = 0.
+        #cud.pv('count')
+        ses = []
+        for (s1, s2) in stem_interactions:
+            se = min(stem_interactions[(s1, s2)], stem_interactions[(s2, s1)])
+            se = (stem_interactions[(s1,s2)] + stem_interactions[(s2,s1)]) / 2
+            energy1 += se
+            self.interaction_energies[tuple(sorted([s1,s2]))] = se
+            if abs(se) > 0.00001:
+                ses += [se]
+        #cud.pv('len(ses)')
+        #cud.pv('energy1 / (len(ses) + 1.)')
 
         '''
         t = time.time()

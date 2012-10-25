@@ -1,30 +1,17 @@
 #!/usr/bin/python
 
-from Bio.PDB import PDBParser, Vector
-from sys import argv
-
+import Bio.PDB as bp
 import sys
 
-from numpy import array
-from numpy.linalg import inv
-from numpy.testing import assert_allclose
-
-from corgy.utilities.vector import dot, cross, vector_rejection, magnitude, normalize
-from corgy.utilities.vector import change_basis, create_orthonormal_basis
-from corgy.utilities.vector import spherical_cartesian_to_polar, rotation_matrix
-from corgy.utilities.vector import spherical_polar_to_cartesian
-from corgy.utilities.vector import get_vector_centroid
-from corgy.utilities.vector import standard_basis
-
-from math import pi, atan2, cos, sin
+import math as m
 
 import numpy as np
-import math
+import numpy.linalg as nl
+import numpy.testing as nt
 import corgy.utilities.my_math as cum
 import corgy.utilities.vector as cuv
 
 catom_name = 'C1*'
-
 
 def get_stem_phys_length(coords):
     '''
@@ -33,7 +20,7 @@ def get_stem_phys_length(coords):
     @param coords: The coordinates of the ends of the helix axis.
     '''
 
-    return magnitude(coords[1] - coords[0])
+    return cuv.magnitude(coords[1] - coords[0])
 
 def get_twist_angle(coords, twists):
     ''' 
@@ -45,12 +32,12 @@ def get_twist_angle(coords, twists):
     '''
 
     stem_vec = coords[1] - coords[0]
-    basis = create_orthonormal_basis(stem_vec, twists[0])
+    basis = cuv.create_orthonormal_basis(stem_vec, twists[0])
 
-    twist2 = change_basis(twists[1], basis, standard_basis)
+    twist2 = cuv.change_basis(twists[1], basis, cuv.standard_basis)
     #assert_allclose(twist2[0], 0., rtol=1e-7, atol=1e-7)
 
-    angle = atan2(twist2[2], twist2[1])
+    angle = m.atan2(twist2[2], twist2[1])
     return angle
 
 def twist2_from_twist1(stem_vec, twist1, angle):
@@ -62,11 +49,11 @@ def twist2_from_twist1(stem_vec, twist1, angle):
     @param twist1: The vector of the first twist.
     @param angle: The angular difference between the two twists.
     '''
-    basis = create_orthonormal_basis(stem_vec, twist1)
+    basis = cuv.create_orthonormal_basis(stem_vec, twist1)
 
-    twist2_new = array([0., cos(angle), sin(angle)])
-    twist2 = dot(basis.transpose(), twist2_new)
-    #twist2 = change_basis(twist2_new, standard_basis, basis)
+    twist2_new = np.array([0., m.cos(angle), m.sin(angle)])
+    twist2 = np.dot(basis.transpose(), twist2_new)
+    #twist2 = cuv.change_basis(twist2_new, cuv.standard_basis, basis)
 
     return twist2
 
@@ -80,15 +67,15 @@ def get_twist_parameter(twist1, twist2, (u, v)):
     @param (u,v): The parameters for rotating stem2 onto stem1
     '''
 
-    rot_mat1 = rotation_matrix(standard_basis[2], v)
-    rot_mat2 = rotation_matrix(standard_basis[1], u - pi/2)
+    rot_mat1 = cuv.rotation_matrix(cuv.standard_basis[2], v)
+    rot_mat2 = cuv.rotation_matrix(cuv.standard_basis[1], u - m.pi/2)
 
-    twist2_new = dot(rot_mat1, twist2)
-    twist2_new = dot(rot_mat2, twist2_new)
+    twist2_new = np.dot(rot_mat1, twist2)
+    twist2_new = np.dot(rot_mat2, twist2_new)
     
     #print "get_twist_parameter twist2:", twist2_new
 
-    return atan2(twist2_new[2], twist2_new[1])
+    return m.atan2(twist2_new[2], twist2_new[1])
 
     
 
@@ -106,14 +93,14 @@ def get_stem_orientation_parameters(stem1_vec, twist1, stem2_vec, twist2):
     # Since we will denote the orientation of stem2 with respect to stem1
     # We first need to define a new coordinate system based on stem1
 
-    stem1_basis = create_orthonormal_basis(stem1_vec, twist1)
+    stem1_basis = cuv.create_orthonormal_basis(stem1_vec, twist1)
 
     # Transform the vector of stem2 to the new coordinate system
-    stem2_new_basis = change_basis(stem2_vec, stem1_basis, standard_basis) 
-    twist2_new_basis = change_basis(twist2, stem1_basis, standard_basis)
+    stem2_new_basis = cuv.change_basis(stem2_vec, stem1_basis, cuv.standard_basis) 
+    twist2_new_basis = cuv.change_basis(twist2, stem1_basis, cuv.standard_basis)
 
     # Convert the cartesian coordinates to polar coordinates
-    (r, u, v) = spherical_cartesian_to_polar(stem2_new_basis)
+    (r, u, v) = cuv.spherical_cartesian_to_polar(stem2_new_basis)
     t = get_twist_parameter(twist1, twist2_new_basis, (u, v))
 
     return (r, u, v, t)
@@ -127,10 +114,10 @@ def get_stem_separation_parameters(stem, twist, bulge):
     @param bulge: the bulge vector.
     '''
 
-    stem_basis = create_orthonormal_basis(stem, twist)
-    bulge_new_basis = change_basis(bulge, stem_basis, standard_basis)
+    stem_basis = cuv.create_orthonormal_basis(stem, twist)
+    bulge_new_basis = cuv.change_basis(bulge, stem_basis, cuv.standard_basis)
 
-    return spherical_cartesian_to_polar(bulge_new_basis)
+    return cuv.spherical_cartesian_to_polar(bulge_new_basis)
 
 
 def get_stem_twist_and_bulge_vecs(bg, bulge, connections):
@@ -186,10 +173,10 @@ def stem2_pos_from_stem1(stem1, twist1, params):
     @param params: The parameters describing the orientaiton of stem2 wrt stem1
     '''
     (r, u, v) = params
-    stem2 = spherical_polar_to_cartesian((r, u, v))
+    stem2 = cuv.spherical_polar_to_cartesian((r, u, v))
 
-    stem1_basis = create_orthonormal_basis(stem1, twist1)
-    stem2_start = dot(stem1_basis.transpose(), stem2)
+    stem1_basis = cuv.create_orthonormal_basis(stem1, twist1)
+    stem2_start = np.dot(stem1_basis.transpose(), stem2)
 
     return stem2_start
 
@@ -203,8 +190,8 @@ def stem2_pos_from_stem1_1(stem1_basis, params):
     @param params: The parameters describing the orientaiton of stem2 wrt stem1
     '''
     (r, u, v) = params
-    stem2 = spherical_polar_to_cartesian((r, u, v))
-    stem2_start = dot(stem1_basis, stem2)
+    stem2 = cuv.spherical_polar_to_cartesian((r, u, v))
+    stem2_start = np.dot(stem1_basis, stem2)
 
     return stem2_start
 
@@ -218,21 +205,21 @@ def twist2_orient_from_stem1(stem1, twist1, (u, v, t)):
     @param (u, v, t): The parameters describing how the twist of stem2 is oriented with respect to stem1
     '''
 
-    twist2_new = array([0., cos(t), sin(t)])
+    twist2_new = np.array([0., m.cos(t), m.sin(t)])
 
-    rot_mat1 = rotation_matrix(standard_basis[2], v)
-    rot_mat2 = rotation_matrix(standard_basis[1], u - pi/2)
+    rot_mat1 = cuv.rotation_matrix(cuv.standard_basis[2], v)
+    rot_mat2 = cuv.rotation_matrix(cuv.standard_basis[1], u - m.pi/2)
 
-    rot_mat = dot(rot_mat2, rot_mat1)
-    twist2_new = dot(inv(rot_mat), twist2_new)
+    rot_mat = np.dot(rot_mat2, rot_mat1)
+    twist2_new = np.dot(nl.inv(rot_mat), twist2_new)
     
     '''
     twist2_new = dot(inv(rot_mat2), twist2_new)
     twist2_new = dot(inv(rot_mat1), twist2_new)
     '''
 
-    stem1_basis = create_orthonormal_basis(stem1, twist1)
-    twist2_new_basis = change_basis(twist2_new, standard_basis, stem1_basis)
+    stem1_basis = cuv.create_orthonormal_basis(stem1, twist1)
+    twist2_new_basis = cuv.change_basis(twist2_new, cuv.standard_basis, stem1_basis)
 
     return twist2_new_basis
 
@@ -246,15 +233,15 @@ def twist2_orient_from_stem1_1(stem1_basis, (u, v, t)):
     @param (u, v, t): The parameters describing how the twist of stem2 is oriented with respect to stem1
     '''
 
-    twist2_new = array([0., cos(t), sin(t)])
+    twist2_new = np.array([0., m.cos(t), m.sin(t)])
 
-    rot_mat1 = rotation_matrix(standard_basis[2], v)
-    rot_mat2 = rotation_matrix(standard_basis[1], u - pi/2)
+    rot_mat1 = cuv.rotation_matrix(cuv.standard_basis[2], v)
+    rot_mat2 = cuv.rotation_matrix(cuv.standard_basis[1], u - m.pi/2)
 
-    rot_mat = dot(rot_mat2, rot_mat1)
-    twist2_new = dot(inv(rot_mat), twist2_new)
+    rot_mat = np.dot(rot_mat2, rot_mat1)
+    twist2_new = np.dot(nl.inv(rot_mat), twist2_new)
 
-    twist2_new_basis = dot(stem1_basis, twist2_new)
+    twist2_new_basis = np.dot(stem1_basis, twist2_new)
 
     return twist2_new_basis
 
@@ -267,9 +254,9 @@ def stem2_orient_from_stem1(stem1, twist1, (r, u, v)):
     @param twist1: The twist factor of stem1.
     @param (r,u,v): The orientation of stem2 wrt stem1
     '''
-    stem2 = spherical_polar_to_cartesian((r, u, v))
-    stem1_basis = create_orthonormal_basis(stem1, twist1)
-    stem2 = change_basis(stem2, standard_basis, stem1_basis)
+    stem2 = cuv.spherical_polar_to_cartesian((r, u, v))
+    stem1_basis = cuv.create_orthonormal_basis(stem1, twist1)
+    stem2 = cuv.change_basis(stem2, cuv.standard_basis, stem1_basis)
 
     return stem2
 
@@ -282,10 +269,10 @@ def stem2_orient_from_stem1_1(stem1_basis, (r, u, v)):
     @param twist1: The twist factor of stem1.
     @param (r,u,v): The orientation of stem2 wrt stem1
     '''
-    stem2 = spherical_polar_to_cartesian((r, u, v))
-    #stem1_basis = create_orthonormal_basis(stem1, twist1)
-    #stem2 = change_basis(stem2, standard_basis, stem1_basis)
-    stem2 = dot(stem1_basis, stem2)
+    stem2 = cuv.spherical_polar_to_cartesian((r, u, v))
+    #stem1_basis = cuv.create_orthonormal_basis(stem1, twist1)
+    #stem2 = cuv.change_basis(stem2, cuv.standard_basis, stem1_basis)
+    stem2 = np.dot(stem1_basis, stem2)
 
     return stem2
 
@@ -302,7 +289,7 @@ def get_centroid(chain, residue_num):
 
     vectors = [atom.get_vector().get_array() for atom in atoms]
 
-    return get_vector_centroid(vectors)
+    return cuv.get_vector_centroid(vectors)
 
 def get_bulge_centroid(chain, define):
     i = 0
@@ -338,11 +325,11 @@ def get_mids_core(chain, start1, start2, end1, end2):
 
 
     # a vector kind of pointing in the direction of the helix
-    start_norm_vec = Vector(cross(start_vec1.get_array(), start_vec2.get_array()))
+    start_norm_vec = bp.Vector(np.cross(start_vec1.get_array(), start_vec2.get_array()))
     start_norm_vec.normalize()
 
     # another vector kind of pointing in the directions of the helix
-    end_norm_vec = Vector(cross(end_vec2.get_array(), end_vec1.get_array()))
+    end_norm_vec = bp.Vector(np.cross(end_vec2.get_array(), end_vec1.get_array()))
     end_norm_vec.normalize()
 
     start_vec1 = -start_vec1
@@ -350,22 +337,22 @@ def get_mids_core(chain, start1, start2, end1, end2):
 
     # I guess we're converting them to Vector format in a weird sort of way...
     # otherwise these steps don't really make sense
-    start_axis_vec = start_vec1 + Vector([0.,0.,0.])
+    start_axis_vec = start_vec1 + bp.Vector([0.,0.,0.])
     start_axis_vec.normalize()
     
-    end_axis_vec = end_vec1 + Vector([0.,0.,0.])
+    end_axis_vec = end_vec1 + bp.Vector([0.,0.,0.])
     end_axis_vec.normalize()
 
     start_origin = chain[start1][catom_name].get_vector()
     end_origin = chain[end1][catom_name].get_vector()
 
-    start_y_vec = Vector(cross(start_norm_vec.get_array(), start_axis_vec.get_array()))
+    start_y_vec = bp.Vector(np.cross(start_norm_vec.get_array(), start_axis_vec.get_array()))
     start_y_vec.normalize()
     start_c_vec = (start_axis_vec + start_y_vec) / 2
     start_c_vec.normalize()
     start_c_norm = start_origin + start_c_vec / (1 / 8.4)
 
-    end_y_vec = Vector(cross(end_norm_vec.get_array(), end_axis_vec.get_array()))
+    end_y_vec = bp.Vector(np.cross(end_norm_vec.get_array(), end_axis_vec.get_array()))
     end_y_vec.normalize()
     end_c_vec = (end_axis_vec + end_y_vec) / 2
     end_c_vec.normalize()
@@ -401,16 +388,16 @@ def get_twists_core(chain, start1, start2, end1, end2):
     start_vec1a = chain[start2][catom_name].get_vector() - mids[0]
     end_vec1a = chain[end2][catom_name].get_vector() - mids[1]
 
-    notch1 = vector_rejection(start_vec1.get_array(), (mids[0] - mids[1]).get_array())
-    notch2 = vector_rejection(end_vec1.get_array(), (mids[1] - mids[0]).get_array())
+    notch1 = cuv.vector_rejection(start_vec1.get_array(), (mids[0] - mids[1]).get_array())
+    notch2 = cuv.vector_rejection(end_vec1.get_array(), (mids[1] - mids[0]).get_array())
 
-    notch1a = vector_rejection(start_vec1a.get_array(), (mids[0] - mids[1]).get_array())
-    notch2a = vector_rejection(end_vec1a.get_array(), (mids[1] - mids[0]).get_array())
+    notch1a = cuv.vector_rejection(start_vec1a.get_array(), (mids[0] - mids[1]).get_array())
+    notch2a = cuv.vector_rejection(end_vec1a.get_array(), (mids[1] - mids[0]).get_array())
 
     #print >>sys.stderr, "twist_angle_1:", cuv.vec_angle(notch1, notch1a)
     #print >>sys.stderr, "twist_angle_2:", cuv.vec_angle(notch2, notch2a)
 
-    return (normalize(notch1 + notch1a), normalize(notch2 + notch2a))
+    return (cuv.normalize(notch1 + notch1a), cuv.normalize(notch2 + notch2a))
     #return (normalize(notch1), normalize(notch2))
 
 
@@ -465,8 +452,8 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
 
     # the angle of the second twist with respect to the first
     if stem_inv == None:
-        stem_basis = create_orthonormal_basis(stem_vec, bg.twists[stem][0])
-        t2 = change_basis(bg.twists[stem][1], stem_basis, cuv.standard_basis)
+        stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.twists[stem][0])
+        t2 = cuv.change_basis(bg.twists[stem][1], stem_basis, cuv.standard_basis)
     else:
         t2 = np.dot(stem_inv, bg.twists[stem][1])
 
@@ -475,7 +462,7 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     # It is the minimum number of nucleotides needed to create
     # a full twist of the stem
     nts_per_2pi_twist = 11
-    ang += math.pi * (i / nts_per_2pi_twist)
+    ang += m.pi * (i / nts_per_2pi_twist)
 
     ang_per_nt = ang / float(stem_len-1)
     ang = ang_per_nt * i
@@ -486,7 +473,7 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     v = cuv.normalize(np.cross(stem_vec, bg.twists[stem][0]))
     
     # equation for a circle in 3-space
-    return (vres_stem_pos, u * cos(ang) + v * sin(ang))
+    return (vres_stem_pos, u * m.cos(ang) + v * m.sin(ang))
 
 def bg_virtual_residues(bg):
     vress = []
@@ -576,3 +563,27 @@ def get_residue_type(i, stem_len):
     assert(i < stem_len)
 
     return 0
+
+def add_virtual_residues(bg, stem):
+    '''
+    Create all of the virtual residues and the associated 
+    bases and inverses.
+
+    @param bg: The BulgeGraph containing the stem
+    @param stem: The name of the stem to be included
+    '''
+    stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
+    stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.twists[stem][0])
+    stem_inv = nl.inv(stem_basis.transpose())
+
+    bg.bases[stem] = stem_basis
+    bg.stem_invs[stem] = stem_inv
+
+    for i in range(bg.stem_length(stem)):
+        vpos = virtual_res_3d_pos(bg, stem, i, stem_inv = stem_inv)
+        vbasis = virtual_res_basis(bg, stem, i, vec=vpos[1])
+        vinv = nl.inv(vbasis.transpose())
+
+        bg.vposs[stem][i] = vpos[0] + vpos[1]
+        bg.vbases[stem][i] = vbasis
+        bg.vinvs[stem][i] = vinv

@@ -140,7 +140,6 @@ def define_to_stem_model(chain, define):
 
     return stem
 
-
 def get_stem_rotation_matrix(stem, (u, v, t)):
     twist1 = stem.twists[0]
 
@@ -164,7 +163,6 @@ def align_chain_to_stem(chain, define, stem2):
     rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t))
     rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
     translate_chain(chain, stem2.mids[0] - stem1.mids[0])
-
 
 def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     '''
@@ -506,21 +504,7 @@ class SpatialModel:
             self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
             self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
 
-            stem_vec = sm.mids[1] - sm.mids[0]
-            stem_basis = cgg.create_orthonormal_basis(stem_vec, sm.twists[0])
-            stem_inv = nl.inv(stem_basis.transpose())
-
-            self.bg.bases[stem] = stem_basis
-            self.bg.stem_invs[stem] = stem_inv
-
-            for i in range(self.bg.stem_length(stem)):
-                vpos = cgg.virtual_res_3d_pos(self.bg, stem, i, stem_inv = stem_inv)
-                vbasis = cgg.virtual_res_basis(self.bg, stem, i, vec=vpos[1])
-                vinv = nl.inv(vbasis.transpose())
-
-                self.bg.vposs[stem][i] = vpos[0] + vpos[1]
-                self.bg.vbases[stem][i] = vbasis
-                self.bg.vinvs[stem][i] = vinv
+            cgg.add_virtual_residues(self.bg, stem)
 
         for bulge in self.bulges.keys():
             bm = self.bulges[bulge]

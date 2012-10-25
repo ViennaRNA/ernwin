@@ -213,7 +213,7 @@ class TestHelixOrientationEnergy(unittest.TestCase):
 
 class TestImgHelixOrientationEnergy(unittest.TestCase):
     def test_eval(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1fg0/graph", "temp.comp"))
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         sm = SpatialModel(bg)
         sm.sample_native_stems()
 
