@@ -623,9 +623,12 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         for d in sm.bg.defines.keys():
             if d[0] == 's':
+                s = d
                 s_len = bg.defines[d][1] - bg.defines[d][0]
+                stem_inv = bg.stem_invs[s]
+
                 for i in range(s_len):
-                    (p, v) = cgg.virtual_res_3d_pos(bg, d, i)
+                    (p, v) = cgg.virtual_res_3d_pos(bg, d, i, stem_inv=stem_inv)
                     l += [p+ mult * v]
 
         #kk = ss.KDTree(np.array(l))
@@ -780,9 +783,10 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         s1_end = np.zeros(3)
         r2_spos = np.zeros(3)
 
-        vposs = c.defaultdict( dict )
-        vbasis = c.defaultdict( dict )
-        invs = c.defaultdict( dict )
+        vposs = sm.bg.vposs
+        vbasis = sm.bg.vbases
+        invs = sm.bg.vinvs
+
         starts = c.defaultdict( dict )
         ends = c.defaultdict( dict )
         points = []
@@ -791,16 +795,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         # pre-calculate all virtual positions and their change of basis matrices
         for s in stems:
-            s_len = bg.defines[s][1] - bg.defines[s][0] + 1
-            stem_vec = bg.coords[s][1] - bg.coords[s][0]
-            stem_basis = cgg.create_orthonormal_basis(stem_vec, bg.twists[s][0])
-            stem_inv = nl.inv(stem_basis.transpose())
+            #s_len = bg.defines[s][1] - bg.defines[s][0] + 1
+            #stem_inv = bg.stem_invs[s]
 
-            for i in range(s_len):
-                vpos = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
-                vposs[s][i] = vpos[0] + vpos[1]
-                vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vpos[1])
-                invs[s][i] = nl.inv(vbasis[s][i].transpose())
+            for i in range(bg.stem_length(s)):
+                #vpos = cgg.virtual_res_3d_pos(bg, s, i, stem_inv=stem_inv)
+                #vposs[s][i] = vpos[0] + vpos[1]
+                #vbasis[s][i] = cgg.virtual_res_basis(bg, s, i, vec=vpos[1])
+                #invs[s][i] = nl.inv(vbasis[s][i].transpose())
                 points += [[vposs[s][i], s, i]]
 
         # pre-calculate the start and end positions of each virtual res

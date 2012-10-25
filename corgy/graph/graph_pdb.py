@@ -482,7 +482,7 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
 
     # the basis vectors for the helix along which the
     # virtual residues will residue
-    u = cuv.normalize(bg.twists[stem][0])
+    u = bg.twists[stem][0]
     v = cuv.normalize(np.cross(stem_vec, bg.twists[stem][0]))
     
     # equation for a circle in 3-space

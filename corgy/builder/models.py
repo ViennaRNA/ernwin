@@ -3,6 +3,7 @@
 import Bio.PDB as bpdb
 import os
 import numpy as np
+import numpy.linalg as nl
 import math
 
 import corgy.builder.config as cbc
@@ -10,6 +11,7 @@ import corgy.visual.pymol as cvp
 import corgy.builder.stats as cbs
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.vector as cuv
+import corgy.utilities.debug as cud
 
 from random import choice, uniform
 from math import pi
@@ -447,18 +449,11 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
-        #print "bulge_params.r1:", stem_name, bulge_params.r1
 
         stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
-
         start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
-        #start_location = cgg.stem2_pos_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.position_params())
-
         stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
-        #stem_orientation = stem2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], [stem_params.phys_length] + list(bulge_params.orientation_params()))
-
         twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
-        #twist1 = twist2_orient_from_stem1(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e], bulge_params.twist_params())
     
         stem = StemModel(stem_name)
 
@@ -503,11 +498,29 @@ class SpatialModel:
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
         '''
 
-        for stem in self.stems.keys():
+        #for stem in self.stems.keys():
+        #cud.pv('self.newly_added_stems')
+        for stem in self.newly_added_stems:
             sm = self.stems[stem]
 
             self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
             self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
+
+            stem_vec = sm.mids[1] - sm.mids[0]
+            stem_basis = cgg.create_orthonormal_basis(stem_vec, sm.twists[0])
+            stem_inv = nl.inv(stem_basis.transpose())
+
+            self.bg.bases[stem] = stem_basis
+            self.bg.stem_invs[stem] = stem_inv
+
+            for i in range(self.bg.stem_length(stem)):
+                vpos = cgg.virtual_res_3d_pos(self.bg, stem, i, stem_inv = stem_inv)
+                vbasis = cgg.virtual_res_basis(self.bg, stem, i, vec=vpos[1])
+                vinv = nl.inv(vbasis.transpose())
+
+                self.bg.vposs[stem][i] = vpos[0] + vpos[1]
+                self.bg.vbases[stem][i] = vbasis
+                self.bg.vinvs[stem][i] = vinv
 
         for bulge in self.bulges.keys():
             bm = self.bulges[bulge]
@@ -575,12 +588,17 @@ class SpatialModel:
         #self.bulges = dict()
         self.sampled_bulges = []
         self.closed_bulges = []
+        self.newly_added_stems = []
 
         # the start node should be a loop region
         self.to_visit = [self.find_start_node()]
 
         counter = 0
+        '''
         self.bg.coords = dict()
+        self.bg.bases = dict()
+        self.bg.stem_invs = dict()
+        '''
         started = False
 
         if start == '':
@@ -624,6 +642,7 @@ class SpatialModel:
                     #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
                     #print "ps1b:", ps1b, "ps1e", ps1e
                     stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
+                    self.newly_added_stems += [curr_node]
 
                     # the following is done to maintain the invariant that mids[s1b] is
                     # always in the direction of the bulge from which s1b was obtained
@@ -649,7 +668,4 @@ class SpatialModel:
 
             counter += 1
         self.finish_building()
-
-
-            #print self.bg.sampled_stems[sd[0]]
 

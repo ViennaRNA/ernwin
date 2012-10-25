@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys, collections
+import collections as c
 import math
 import random
 import numpy as np
@@ -27,8 +28,15 @@ class BulgeGraph:
         self.sampled_stems = dict()
         self.coords = dict()
         self.twists = dict()
+        self.stem_invs = dict()
+        self.bases = dict()
         self.edges = dict()
         self.defines = dict()
+
+        self.vposs = c.defaultdict( dict )
+        self.vbases = c.defaultdict( dict )
+        self.vinvs = c.defaultdict( dict )
+
         self.weights = dict()
 
         # for creating new vertex indeces
