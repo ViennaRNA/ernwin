@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import corgy.graph.graph_pdb as cgg
 import corgy.builder.rmsd as cbr
 import corgy.builder.models as cbm
+import corgy.utilities.debug as cud
 
 import numpy as np
 
@@ -21,7 +22,7 @@ class StatisticsPlotter:
         self.fig = plt.figure(figsize=(9, 9))
 
         self.ax_hist = self.fig.add_subplot(2, 1, 1)
-        self.ax_plot = self.fig.add_subplot(2, 1, 2)
+        self.ax_plot = self.fig.add_subplot(2, 1, 2, sharex=self.ax_hist)
 
         self.energies = c.defaultdict(list)
         self.rmsds = c.defaultdict(list)
@@ -56,6 +57,10 @@ class StatisticsPlotter:
             ax.contourf(X, Y, Z, cmap=plt.cm.Blues,alpha=0.5)
         if color == 'r':
             ax.contourf(X, Y, Z, cmap=plt.cm.Reds,alpha=0.5)
+        if color == 'g':
+            ax.contourf(X, Y, Z, cmap=plt.cm.Greens, alpha=0.5)
+        if color == 'y':
+            ax.contourf(X, Y, Z, cmap=plt.cm.YlOrBr, alpha=0.5)
 
     def add_data(self, energy, rmsd, color):
         self.energies[color] += [energy]
@@ -84,13 +89,14 @@ class StatisticsPlotter:
 
             if len(sorted_energies) > 4:
                 ylim = (sorted_energies[0] - 5., sorted_energies[3 * len(sorted_energies) / 4] + 5.)
-                xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
+                #xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
+                xlim = (0, sorted_rmsds[-1] + 0.5)
 
                 self.xlim = xlim
                 self.ylim = ylim
 
                 self.ax_plot.set_ylim(ylim)
-                self.ax_plot.set_xlim(xlim)
+                #self.ax_plot.set_xlim(xlim)
 
             for i in range(min(5, len(sorted_energy_rmsds))):
                 self.ax_plot.plot(sorted_energy_rmsds[i][1], sorted_energy_rmsds[i][0], '%so' % (sorted_energy_rmsds[i][2]), alpha=0.5)
@@ -99,7 +105,12 @@ class StatisticsPlotter:
             if len(self.energies[color]) > 2. and len(sorted_energies) > 4:
                 for color in self.energies.keys():
                     try: 
-                        s = random.sample(sorted_energy_rmsds, min(len(sorted_energy_rmsds), 180))
+                        #s = random.sample(sorted_energy_rmsds, min(len(sorted_energy_rmsds), 180))
+                        #cud.pv('s')
+                        s = sorted_energy_rmsds[: 3 * len(sorted_energy_rmsds) / 4]
+                        s = random.sample(s, min(len(s), 180))
+
+                        #cud.pv('s2')
                         e = [s1[0] for s1 in s if s1[2] == color]
                         r = [s1[1] for s1 in s if s1[2] == color]
 
@@ -113,6 +124,8 @@ class StatisticsPlotter:
                 self.ax_plot.plot(self.rmsds[color], self.energies[color], '%so' % (color), alpha=0.05)
 
         for color in self.energies.keys():
+            xlim = (0, sorted_rmsds[-1] + 0.5)
+            self.ax_hist.set_xlim(xlim)
             self.ax_hist.hist(self.rmsds[color], color=color, alpha=0.5, normed=True)
         plt.draw()
 
@@ -129,7 +142,8 @@ class StatisticsPlotter:
         sorted_rmsds = sorted([s[1] for s in sorted_energy_rmsds])
 
         ylim = (sorted_energies[0] - 5., sorted_energies[3 * len(sorted_energies) / 4] + 5.)
-        xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
+        #xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
+        xlim = (0, sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
 
         self.xlim = xlim
         self.ylim = ylim
