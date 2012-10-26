@@ -553,7 +553,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
     @param sm: A SpatialModel structure
     @param ld: The name of the loop
     '''
-    samples = 2
+    #samples = 2
     bg = sm.bg
     seq = bg.get_flanking_sequence(ld, side)
     (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
@@ -672,11 +672,11 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
 
         #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
         
-        #if (contacts2, r) < min_contacts:
-        if (0, r) < min_contacts:
+        if (contacts2, r) < min_contacts:
+        #if (0, r) < min_contacts:
             best_loop_chain = copy.deepcopy(orig_loop_chain)
-            #min_contacts = (contacts2, r)
-            min_contacts = (0, r)
+            min_contacts = (contacts2, r)
+            #min_contacts = (0, r)
             #print "min_contacts:", min_contacts
 
         '''
