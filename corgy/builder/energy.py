@@ -790,6 +790,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         vbasis = sm.bg.vbases
         invs = sm.bg.vinvs
 
+        max_distance = 39.
+
         starts = c.defaultdict( dict )
         ends = c.defaultdict( dict )
         points = []
@@ -823,7 +825,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         kdt = bk.KDTree(3)
         kdt.set_coords(coords)
 
-        kdt.all_search(40.)
+        kdt.all_search(max_distance)
         indices = kdt.all_get_indices()
 
         energy1 = 0.
@@ -852,7 +854,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                    if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
+                    if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
                         point_score = self.get_img_score([r2_spos])
                         energy1 += point_score
                         #point_energy += point_score
