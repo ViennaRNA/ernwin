@@ -5,15 +5,19 @@ cdef extern from "rot_mat_c.h":
     void rotation_matrix_c(double *axis, double theta, double *mat)
     void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *F, double *out_rot_mat)
     void ccd_c(double *moving, int len_moving, double *fixed, long *points, int num_points, int moving_end, int iterations)
+    double c_dot(double *v1, double *v2)
 
 ctypedef np.double_t DTYPE_t
 #print dir(np)
 #from math import sin, cos, sqrt
 
-from libc.math cimport sin,cos, sqrt, acos, atan2
+from libc.math cimport sin,cos, sqrt, acos, atan2, pow
 
 def dot(np.ndarray[DTYPE_t, ndim=1] v1, np.ndarray[DTYPE_t, ndim=1] v2):
+    #print "yo yo"
     return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]
+
+def dot(np.ndarray[DTYPE_t, ndim=1] v1, np.ndarray[DTYPE_t, ndim=1] v2):
 
 def magnitude(np.ndarray[DTYPE_t, ndim=1] vec):
     cdef double x = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])

@@ -5,6 +5,7 @@ import pickle, os
 import pandas as pa
 import Bio.PDB as bpdb
 import Bio.KDTree as bk
+import copy
 
 import scipy.ndimage as sn
 import scipy.spatial as ss

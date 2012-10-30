@@ -205,6 +205,13 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
         #print "adding:", e.id
         new_chain.add(e)
 
+def orient_stem(stem1, stem2, angle_stat):
+    '''
+    Position stem2 so that its orientation with respect to stem1
+    is equal to that described in angle_stat.
+    '''
+    return
+
 class SpatialModel:
     '''
     A way of building RNA structures given angle statistics as well

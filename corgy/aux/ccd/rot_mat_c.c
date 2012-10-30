@@ -1,5 +1,9 @@
 #include "rot_mat_c.h"
 
+double c_dot(double *v1, double *v2) {
+    return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+}
+
 void rotation_matrix_c(double *axis1, double theta, double *mat1) {
     double *axis = (double *)axis1;
     double *mat = (double *)mat1;
