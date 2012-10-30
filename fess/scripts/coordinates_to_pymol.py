@@ -8,6 +8,8 @@ import corgy.builder.energy as cbe
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.visual.pymol import PymolPrinter
 
+import corgy.utilities.debug as cud
+
 def main():
     if len(sys.argv) < 2:
         print "Usage: ./coordinates_to_pymol temp.coordinates"
@@ -21,7 +23,7 @@ def main():
     parser.add_option('-t', '--twists', dest='add_twists', default=True, action='store_false', help='Hide the twist indicators')
     parser.add_option('-l', '--longrange', dest='add_longrange', default=False, action='store_true', help='Display the longrange interactions')
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
-    parser.add_option('-i', '--img_energy', dest='img_energy', default=False, help="Visualize the distance energy")
+    parser.add_option('-i', '--img_energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
 
     (options, args) = parser.parse_args()
     

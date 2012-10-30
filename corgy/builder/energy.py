@@ -924,15 +924,15 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
             if bl == 1:
                 if dist > 4.0:
-                    print >>sys.stderr, "here1 dist:", dist
+                    #print >>sys.stderr, "here1 dist:", dist
                     energy += 10000
             elif bl == 2:
                 if dist > 10.0:
-                    print >>sys.stderr, "here2 dist:", dist
+                    #print >>sys.stderr, "here2 dist:", dist
                     energy += 10000
             else:
                 if dist > (bl-1) * 7.0:
-                    print >>sys.stderr, "here3 dist:", dist, "bl:", bl, "(bl-1) * 7.0:", (bl-1) * 7.0
+                    #print >>sys.stderr, "here3 dist:", dist, "bl:", bl, "(bl-1) * 7.0:", (bl-1) * 7.0
                     energy += 10000
 
         return energy
