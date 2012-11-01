@@ -17,7 +17,10 @@ def dot(np.ndarray[DTYPE_t, ndim=1] v1, np.ndarray[DTYPE_t, ndim=1] v2):
     #print "yo yo"
     return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]
 
-def dot(np.ndarray[DTYPE_t, ndim=1] v1, np.ndarray[DTYPE_t, ndim=1] v2):
+def cross(np.ndarray[DTYPE_t, ndim=1] v1, np.ndarray[DTYPE_t, ndim=1] v2, np.ndarray[DTYPE_t, ndim=1] out):
+    out[0] = v1[1] * v2[2] - v1[2] * v2[1]
+    out[1] = v1[2] * v2[0] - v1[0] * v2[2]
+    out[2] = v1[0] * v2[1] - v1[1] * v2[0]
 
 def magnitude(np.ndarray[DTYPE_t, ndim=1] vec):
     cdef double x = sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
