@@ -105,8 +105,6 @@ def rotate_stem(stem, (u, v, t)):
 
     return stem2
 
-
-
 def reconstruct_stems(sm, stem_library=dict()):
     '''
     Reconstruct the stems around a Spatial Model.
@@ -543,7 +541,7 @@ show cartoon, all
     f.close()
 
 
-def reconstruct_loop(chain, sm, ld, side=0, samples=40):
+def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     '''
     Reconstruct a particular loop.
 
@@ -561,6 +559,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
     #print "ld:", ld, "(a,b,i1,i2)", a,b,i1,i2
     #print "seq:", seq
 
+    print "seq:", seq
     model = barn.Barnacle(seq)
     model.sample()
     s = model.structure
@@ -617,36 +616,6 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
         else:
             r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=500)
 
-        '''
-        sample_len = ss.poisson.rvs(2)
-
-        if sample_len == 0:
-            sample_len = 1
-
-        j = rand.randint(0, len(seq)-sample_len)
-        m1 = j
-        m2 = m1 + sample_len
-
-        model.sample(start=m1, end=m2)
-
-        # attempt to close the distance between the two stems with this loop and return
-        # the minimum distance achieved
-        r, loop_chain = close_fragment_loop(chain, list(model.structure.get_chains())[0], (a,b,i1,i2))
-
-        multiplier = .001 ** (1 / float(iterations))
-        temperature = 1. * (multiplier) ** i
-
-        if r > prev_r:
-            factor = -(r - prev_r) / ( temperature)
-            
-            p = np.exp (factor)
-            
-            if rand.random() > p:
-                model.undo()
-                continue
-
-        prev_r = r
-        '''
         #orig_loop_chain = copy.deepcopy(loop_chain)
         orig_loop_chain = loop_chain
 
@@ -671,13 +640,17 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
         sys.stdout.flush()
 
         #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
-        
-        if (contacts2, r) < min_contacts:
-        #if (0, r) < min_contacts:
-            best_loop_chain = copy.deepcopy(orig_loop_chain)
-            min_contacts = (contacts2, r)
-            #min_contacts = (0, r)
-            #print "min_contacts:", min_contacts
+        if consider_contacts: 
+            if (contacts2, r) < min_contacts:
+            #if (0, r) < min_contacts:
+                best_loop_chain = copy.deepcopy(orig_loop_chain)
+                min_contacts = (contacts2, r)
+                #min_contacts = (0, r)
+                #print "min_contacts:", min_contacts
+        else:
+            if (0, r) < min_contacts:
+                best_loop_chain = copy.deepcopy(orig_loop_chain)
+                min_contacts = (0, r)
 
         '''
         if contacts2 == 0:
@@ -695,6 +668,8 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40):
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
     sys.stdout.write('\n')
     sys.stdout.flush()
+
+    return min_contacts
 
 def reconstruct_loops(chain, sm, samples=40):
     '''
