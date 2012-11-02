@@ -205,12 +205,34 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
         #print "adding:", e.id
         new_chain.add(e)
 
-def orient_stem(stem1, stem2, angle_stat):
+def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e)):
     '''
-    Position stem2 so that its orientation with respect to stem1
-    is equal to that described in angle_stat.
+    Place a new stem with a particular orientation with respect
+    to the previous stem.
+
+    @param prev_stem: The already existing stem
+    @param stem_params: A description of the new stem (StemStat)
+    @param bulge_params: The AngleStat that specifies how the new stem will
+                         be oriented with respect to the first stem.
+    @param (s1b, s1e): Which side of the first stem to place the second on.
     '''
-    return
+    stem = StemModel()
+
+    stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
+    start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
+    stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
+    twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
+
+
+    mid1 = prev_stem.mids[s1e] + start_location
+    mid2 = mid1 + stem_orientation
+
+    stem.mids = (mid1, mid2)
+
+    twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
+    stem.twists = (twist1, twist2)
+
+    return stem
 
 class SpatialModel:
     '''
@@ -454,21 +476,8 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
-
-        stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
-        start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
-        stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
-        twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
-    
-        stem = StemModel(stem_name)
-
-        mid1 = prev_stem.mids[s1e] + start_location
-        mid2 = mid1 + stem_orientation
-
-        stem.mids = (mid1, mid2)
-
-        twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
-        stem.twists = (twist1, twist2)
+        stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e))
+        stem.name = stem_name
 
         if self.build_chain:
             reconstruct_stem(self, stem_name, self.chain, stem_library=cbc.Configuration.stem_library, stem=stem)
