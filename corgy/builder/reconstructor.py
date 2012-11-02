@@ -559,7 +559,6 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     #print "ld:", ld, "(a,b,i1,i2)", a,b,i1,i2
     #print "seq:", seq
 
-    print "seq:", seq
     model = barn.Barnacle(seq)
     model.sample()
     s = model.structure
@@ -594,7 +593,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
         dist2 = 0.
 
 
-    sys.stdout.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
+    sys.stderr.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
 
     for i in range(iterations):
         model.sample()
@@ -614,7 +613,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
             loop_chain = chain_loop
             r = 0.000
         else:
-            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=500)
+            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=5000)
 
         #orig_loop_chain = copy.deepcopy(loop_chain)
         orig_loop_chain = loop_chain
@@ -636,8 +635,8 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
         ns = bpdb.NeighborSearch(loop_atoms)
 
         contacts2 = len(ns.search_all(1.0))
-        sys.stdout.write('.')
-        sys.stdout.flush()
+        sys.stderr.write('.')
+        sys.stderr.flush()
 
         #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
         if consider_contacts: 
@@ -659,15 +658,15 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
 
         #trim_chain(loop_chain, i1, i2)
         
-    sys.stdout.write(str(min_contacts))
+    sys.stderr.write(str(min_contacts))
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
     trim_chain(best_loop_chain, i1, i2+1)
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
-    sys.stdout.write('\n')
-    sys.stdout.flush()
+    sys.stderr.write('\n')
+    sys.stderr.flush()
 
     return min_contacts
 
