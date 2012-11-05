@@ -912,6 +912,30 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     def eval_energy(self, sm, background=True):
         bg = sm.bg
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
+        energy = 0.
+        #closed_bulges = all_bulges.difference(sm.sampled_bulges)
+
+        for bulge in all_bulges:
+            bl = bg.defines[bulge][1] - bg.defines[bulge][0] - 1
+            dist = cgg.junction_virtual_res_distance(bg, bulge)
+            
+            # 
+            cutoff_distance = (bl - 1) * 5.94 + 13.4
+
+            #print "cutoff_distance:", cutoff_distance, "dist:", dist
+
+            if (dist > cutoff_distance):
+                energy += 10000.
+
+        return energy
+
+class OldRoughJunctionClosureEnergy(EnergyFunction):
+    def __init__(self):
+        pass
+
+    def eval_energy(self, sm, background=True):
+        bg = sm.bg
+        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         #closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
         energy = 0.
@@ -923,17 +947,9 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             dist = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
             #cud.pv('dist')
 
-            if bl == 1:
-                if dist > 4.0:
-                    #print >>sys.stderr, "here1 dist:", dist
-                    energy += 10000
-            elif bl == 2:
-                if dist > 10.0:
-                    #print >>sys.stderr, "here2 dist:", dist
-                    energy += 10000
-            else:
-                if dist > (bl-1) * 7.0:
-                    #print >>sys.stderr, "here3 dist:", dist, "bl:", bl, "(bl-1) * 7.0:", (bl-1) * 7.0
-                    energy += 10000
+
+            if dist > cutoff_distance:
+                energy += 10000
 
         return energy
+

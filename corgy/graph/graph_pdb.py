@@ -552,7 +552,7 @@ def get_residue_type(i, stem_len):
 
     This is important due to the fact that nucleotides at the end
     of a stem may have other stem nucleotides in the direction
-    of the stem vector. Nucleotides, in the middle should not due
+    of the stem vector. Nucleotides, in the middle shoubulge not due
     to the excluded volume of the stem they occupy.
 
     @param i: The position of the nucleotide.
@@ -563,6 +563,32 @@ def get_residue_type(i, stem_len):
     assert(i < stem_len)
 
     return 0
+
+def junction_virtual_res_distance(bg, bulge):
+    '''
+    Compute the distance between the two virtual residues flanking
+    a bulge region.
+
+    @param bg: The BulgeGraph containing the bulge.
+    @param bulge: The name of the bulge.
+    '''
+    connecting_stems = list(bg.edges[bulge])
+
+    (s1b, s1e) = bg.get_sides(connecting_stems[0], bulge)
+    (s2b, s2e) = bg.get_sides(connecting_stems[1], bulge)
+
+    if s1b == 1:
+        (vr1_p, vr1_v) = virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
+    else:
+        (vr1_p, vr1_v) = virtual_res_3d_pos(bg, connecting_stems[0], 0)
+
+    if s2b == 1:
+        (vr2_p, vr2_v) = virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
+    else:
+        (vr2_p, vr2_v) = virtual_res_3d_pos(bg, connecting_stems[1], 0)
+
+    dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
+    return dist2
 
 def add_virtual_residues(bg, stem):
     '''

@@ -116,22 +116,7 @@ def bulge_virtual_residue_distance(bg, ld):
              flanking the bulge region.
     '''
     if len(bg.edges[ld]) == 2:
-        connecting_stems = list(bg.edges[ld])
-
-        (s1b, s1e) = bg.get_sides(connecting_stems[0], ld)
-        (s2b, s2e) = bg.get_sides(connecting_stems[1], ld)
-
-        if s1b == 1:
-            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
-        else:
-            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], 0)
-
-        if s2b == 1:
-            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
-        else:
-            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], 0)
-
-        dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
+        dist2 = cgg.junction_virtual_res_distance(bg, ld)
     else:
         dist2 = 0.
 
@@ -184,7 +169,14 @@ def main():
 
             # Create a spatial model that will be used to create
             # the 3D model
-            sm = cbm.SpatialModel(bg)
+            try:
+                sm = cbm.SpatialModel(bg)
+            except IndexError as ie:
+                # This can be caused by trying to sample a junction region
+                # which is too long and we don't have statistics for
+                print >>sys.stderr, "Index error in cbm.SpatialModel(bg)"
+                print >>sys.stderr, ie
+                continue
 
             # Indiciate which statistics to use for the 3D model construction
             sm.stem_defs['s1'] = s1
@@ -206,7 +198,7 @@ def main():
                 print >>sys.stderr, ie
                 continue
             
-            c, min_dist = cbr.reconstruct_loop(chain, sm, 'b1', side=0, samples=10, 
+            c, min_dist = cbr.reconstruct_loop(chain, sm, 'b1', side=0, samples=40, 
                                  consider_contacts=False)
 
             # Calculate the distances in the coarse grain model

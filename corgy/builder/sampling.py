@@ -141,6 +141,9 @@ class StatisticsPlotter:
         sorted_energies = sorted([s[0] for s in sorted_energy_rmsds])
         sorted_rmsds = sorted([s[1] for s in sorted_energy_rmsds])
 
+        se = sorted_energies[:3 * len(sorted_energies) / 4]
+        sr = sorted_rmsds[:3 * len(sorted_rmsds) / 4]
+
         ylim = (sorted_energies[0] - 5., sorted_energies[3 * len(sorted_energies) / 4] + 5.)
         #xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
         xlim = (0, sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
