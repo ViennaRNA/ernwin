@@ -45,10 +45,18 @@ usage: %prog [options] temp.comp
 
     bg = cgb.BulgeGraph(args[0])
 
-    stems = [d for d in bg.defines.keys() if d[0] == 's']
+    #stems = [d for d in bg.defines.keys() if d[0] == 's']
+    stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
 
     for i in range(len(stems)):
-        s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+        if stems[i][0] != 's':
+            # the end nucleotides of bulges overlap those of stems
+            # so their length needs to be one less than that of stems
+            s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0]
+            k_start = 1
+        else:
+            s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+            k_start = 0
 
         for j in range(len(stems)):
             if i == j:
@@ -57,10 +65,15 @@ usage: %prog [options] temp.comp
             #if connected_stems(bg, stems[i], stems[j]):
             #    continue
 
-            s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
-            for k in range(s1_len):
+            if stems[j][0] != 's':
+                # see comment for s1_len above
+                s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0]
+                l_start = 1
+            else:
+                s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+                l_start = 0
 
-
+            for k in range(k_start, s1_len):
                 s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
                 s1_end = cgg.pos_to_spos(bg, stems[i], k, stems[i], s1_len - 1)
 
@@ -70,12 +83,11 @@ usage: %prog [options] temp.comp
                 '''
 
                 #print "s1_start:", s1_start, "s1_end:", s1_end
-
-                for l in range(s2_len):
+                for l in range(l_start, s2_len):
                     r1_type = cgg.get_residue_type(k, s1_len)
                     r2_spos = cgg.pos_to_spos(bg, stems[i], k, stems[j], l)
 
-                    if cuv.magnitude(r2_spos) < 400. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
+                    if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
                         print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
 
 

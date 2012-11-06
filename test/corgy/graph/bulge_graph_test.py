@@ -179,3 +179,14 @@ class TestBulgeGraph(unittest.TestCase):
             for j in xrange(i+1, len(stems)):
                 print stems[i], stems[j], bg.get_stem_angle(stems[i], stems[j])
 
+    def test_get_twists(self):
+        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+    
+        for node in bg.defines():
+            self.assertNotEqual(bg.get_twists(node), None)
+
+            if len(bg.edges[node]) == 2:
+                self.assertEqual(len(bg.get_twists(node)), 2)
+
+            if len(bg.edges[node]) == 1:
+                self.assertEqual(len(bg.get_twists(node)), 1)

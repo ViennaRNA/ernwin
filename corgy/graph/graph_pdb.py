@@ -452,10 +452,10 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
 
     # the angle of the second twist with respect to the first
     if stem_inv == None:
-        stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.twists[stem][0])
-        t2 = cuv.change_basis(bg.twists[stem][1], stem_basis, cuv.standard_basis)
+        stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.get_twists(stem)[0])
+        t2 = cuv.change_basis(bg.get_twists(stem)[1], stem_basis, cuv.standard_basis)
     else:
-        t2 = np.dot(stem_inv, bg.twists[stem][1])
+        t2 = np.dot(stem_inv, bg.get_twists(stem)[1])
 
     ang = cum.atan3(t2[2], t2[1])
     # the nts_per_2pi_twist need to be calculated separately 
@@ -469,8 +469,8 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
 
     # the basis vectors for the helix along which the
     # virtual residues will residue
-    u = bg.twists[stem][0]
-    v = cuv.normalize(np.cross(stem_vec, bg.twists[stem][0]))
+    u = bg.get_twists(stem)[0]
+    v = cuv.normalize(np.cross(stem_vec, bg.get_twists(stem)[0]))
     
     # equation for a circle in 3-space
     return (vres_stem_pos, u * m.cos(ang) + v * m.sin(ang))

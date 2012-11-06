@@ -73,6 +73,10 @@ class BulgeGraph:
 
     def stem_length(self, key):
         d = self.defines[key]
+
+        if key[0] != 's' and len(d) == 4:
+            return min(d[1] - d[0], d[3] - d[2])
+
         return (d[1] - d[0]) + 1
 
     def get_node_from_residue_num(self, base_num):
@@ -521,6 +525,39 @@ class BulgeGraph:
                 twists = self.twists[key]
                 new_twists = (np.dot(rotation, twists[0]), np.dot(rotation, twists[1]))
                 self.twists[key] = new_twists
+
+    def get_twists(self, node):
+        '''
+        Get the array of twists for this node. If the node is a stem,
+        then the twists will simply those stored in the array.
+
+        If the node is an interior loop or a junction segment, 
+        then the twists will be the ones that are adjacent to it.
+
+        If the node is a hairpin loop or a free end, then only
+        one twist will be returned.
+
+        @param node: The name of the node
+        '''
+        if node[0] == 's':
+            return self.twists[node]
+
+        connections = list(self.edges[node])
+        (s1b, s1e) = self.get_sides(connections[0], node)
+
+        if len(connections) == 1:
+            return (self.twists[connections[0]][s1b])
+
+        if len(connections) == 2:
+            # interior loop or junction segment
+            (s2b, s2e) = self.get_sides(connections[1], node)
+
+            return (self.twists[connections[0]][s1b],
+                    self.twists[connections[0]][s2b])
+
+        # uh oh, this shouldn't happen since every node
+        # should have either one or two edges
+        return None
 
     def translate_coords(self, translation):
         '''
