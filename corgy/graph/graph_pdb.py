@@ -443,7 +443,8 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
              and a vector away from that point in the direction of the 
              residue.
     '''
-    stem_len = bg.defines[stem][1] - bg.defines[stem][0] + 1
+    #stem_len = bg.defines[stem][1] - bg.defines[stem][0] + 1
+    stem_len = bg.stem_length(stem)
     stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
 
     # the position of the virtual residue along the axis of

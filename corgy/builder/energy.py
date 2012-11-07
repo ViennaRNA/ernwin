@@ -735,8 +735,8 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         self.res = 2.
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_all_nt.stats')
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_all_nt_sampled.stats')
         pass
 
     def load_stem_orientation_data(self, filename):
@@ -793,7 +793,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         vbasis = sm.bg.vbases
         invs = sm.bg.vinvs
 
-        max_distance = 39.
+        max_distance = 80.
 
         starts = c.defaultdict( dict )
         ends = c.defaultdict( dict )
@@ -858,13 +858,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                    if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
-                        point_score = self.get_img_score([r2_spos])
-                        #print "point_score:", point_score
-                        energy2 += point_score
-                        #point_energy += point_score
-                        stem_interactions[(s1,s2)] += point_score
-                        count += 1
+                    #if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
+
+                    point_score = self.get_img_score([r2_spos])
+                    #print "point_score:", point_score
+                    energy2 += point_score
+                    #point_energy += point_score
+                    stem_interactions[(s1,s2)] += point_score
+                    count += 1
                         #self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
 
         energy1 = 0.
@@ -878,37 +879,10 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             if abs(se) > 0.00001:
                 ses += [se]
 
-        #cud.pv('len(ses)')
-        #cud.pv('energy1 / (len(ses) + 1.)')
-
-        '''
-        t = time.time()
-        for s1 in stems:
-            s1_len = bg.defines[s1][1] - bg.defines[s1][0] + 1
-
-            for l in range(s1_len):
-                s1_pos = vposs[s1][l]
-                #s1_pos = sum(vposs[s1][l])
-
-                for s2 in stems:
-                    if s1 != s2:
-                        s2_len = bg.defines[s2][1] - bg.defines[s2][0] + 1
-
-                        for k in range(s2_len):
-                            s2_pos = vposs[s2][k]
-                            #s2_pos = sum(vposs[s2][k])
-                            s1_end = ends[s1][l]
-                            s1_start = starts[s1][l]
-
-                            np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
-
-                            if cuv.magnitude(r2_spos) < 40. and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
-                                point_score = self.get_img_score([r2_spos])
-                                score += point_score
-                                self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
-        '''
         #score = energy1
         score = energy2
+        if np.isnan(score):
+            return 100000
         return -score
 
 class RoughJunctionClosureEnergy(EnergyFunction):

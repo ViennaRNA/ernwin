@@ -75,7 +75,7 @@ class BulgeGraph:
         d = self.defines[key]
 
         if key[0] != 's' and len(d) == 4:
-            return min(d[1] - d[0], d[3] - d[2])
+            return min(d[1] - d[0], d[3] - d[2]) + 1
 
         return (d[1] - d[0]) + 1
 
@@ -551,14 +551,24 @@ class BulgeGraph:
         (s1b, s1e) = self.get_sides(connections[0], node)
 
         if len(connections) == 1:
-            return (self.twists[connections[0]][s1b])
+            return cuv.normalize(cuv.vector_rejection(
+                             self.twists[connections[0]][s1b],
+                             self.coords[connections[0]][1] - 
+                             self.coords[connections[0]][0]))
 
         if len(connections) == 2:
             # interior loop or junction segment
             (s2b, s2e) = self.get_sides(connections[1], node)
 
-            return (self.twists[connections[0]][s1b],
-                    self.twists[connections[1]][s2b])
+            bulge_vec = (self.coords[connections[0]][s1b] - 
+                         self.coords[connections[1]][s2b]) 
+
+            return (cuv.normalize(cuv.vector_rejection(
+                    self.twists[connections[0]][s1b],
+                    bulge_vec)),
+                    cuv.normalize(cuv.vector_rejection(
+                    self.twists[connections[1]][s2b],
+                    bulge_vec)))
 
         # uh oh, this shouldn't happen since every node
         # should have either one or two edges

@@ -10,6 +10,7 @@ import corgy.graph.graph_pdb as cgg
 
 import corgy.builder.config as cbc
 
+import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
 
 def connected_stems(bg, s1, s2):
@@ -57,7 +58,8 @@ usage: %prog [options] temp.comp
             k_start = 1
         else:
         '''
-        s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+        #s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+        s1_len = bg.stem_length(stems[i])
         k_start = 0
 
         for j in range(len(stems)):
@@ -79,7 +81,8 @@ usage: %prog [options] temp.comp
                 l_start = 1
             else:
             '''
-            s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+            #s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+            s2_len = bg.stem_length(stems[i])
             l_start = 0
 
             for k in range(k_start, s1_len):
@@ -96,8 +99,8 @@ usage: %prog [options] temp.comp
                     r1_type = cgg.get_residue_type(k, s1_len)
                     r2_spos = cgg.pos_to_spos(bg, stems[i], k, stems[j], l)
 
-                    if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
-                        print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
+                    #if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
+                    print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
 
 
 if __name__ == '__main__':
