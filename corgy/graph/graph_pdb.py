@@ -521,10 +521,16 @@ def pos_to_spos(bg, s1, i1, s2, i2):
     (s1_pos, s1_vec) = virtual_res_3d_pos(bg, s1, i1)
     (s2_pos, s2_vec) = virtual_res_3d_pos(bg, s2, i2)
 
-    rpos = (s2_pos + s2_vec) - (s1_pos + s1_vec)
+    #rpos = (s2_pos + 7. * s2_vec) - (s1_pos + 7 * s1_vec)
+    rpos = (s2_pos + 7. * s2_vec) - (s1_pos)
     #print "sbasis:", sbasis
 
-    spos = cuv.change_basis((s2_pos + s2_vec) - (s1_pos + s1_vec), sbasis, cuv.standard_basis)
+    spos = cuv.change_basis(rpos, sbasis, cuv.standard_basis)
+
+    '''
+    if spos[1] ** 2 + spos[2] ** 2 < 5 and spos[0] > -5 and spos[0] < 5:
+        print >>sys.stderr, "spos:", spos, s1, i1, s2, i2
+    '''
     return spos
 
 def spos_to_pos(bg, stem, i, spos):

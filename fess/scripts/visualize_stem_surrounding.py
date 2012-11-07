@@ -75,7 +75,7 @@ usage: %prog [options] data_file
             for p in points:
                 ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
                 img[ixs[0],ixs[1],ixs[2]] += 1
-            img = sn.gaussian_filter(img, (4,4,4))
+            img = sn.gaussian_filter(img, (3,3,3))
             img_sets += [img]
 
             min_dims_set += [min_dims]

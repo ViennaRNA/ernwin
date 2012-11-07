@@ -86,8 +86,8 @@ usage: %prog [options] temp.comp
             l_start = 0
 
             for k in range(k_start, s1_len):
-                s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
-                s1_end = cgg.pos_to_spos(bg, stems[i], k, stems[i], s1_len - 1)
+                #s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
+                #s1_end = cgg.pos_to_spos(bg, stems[i], k, stems[i], s1_len - 1)
 
                 '''
                 print >>sys.stderr, stems[i], k, s1_start, s1_end
@@ -100,7 +100,8 @@ usage: %prog [options] temp.comp
                     r2_spos = cgg.pos_to_spos(bg, stems[i], k, stems[j], l)
 
                     #if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
-                    print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
+                    if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > -3. and r2_spos[0] < 3.:
+                        print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
 
 
 if __name__ == '__main__':

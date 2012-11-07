@@ -772,6 +772,9 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                 val_real = np.log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
                 val_fake = np.log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
 
+                #cud.pv('val_real')
+                #cud.pv('val_fake')
+
                 score += val_real - val_fake
             except IndexError:
                 score += -350.
@@ -781,8 +784,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
-        #stems = [d for d in bg.defines.keys() if d[0] == 's']
-        stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
+        stems = [d for d in bg.defines.keys() if d[0] == 's']
+        #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
         score = 0.
         points = []
         s1_start = np.zeros(3)
@@ -793,7 +796,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         vbasis = sm.bg.vbases
         invs = sm.bg.vinvs
 
-        max_distance = 80.
+        max_distance = 800.
 
         starts = c.defaultdict( dict )
         ends = c.defaultdict( dict )
