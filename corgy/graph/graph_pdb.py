@@ -599,7 +599,7 @@ def add_virtual_residues(bg, stem):
     @param stem: The name of the stem to be included
     '''
     stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
-    stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.twists[stem][0])
+    stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.get_twists(stem)[0])
     stem_inv = nl.inv(stem_basis.transpose())
 
     bg.bases[stem] = stem_basis

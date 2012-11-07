@@ -233,13 +233,13 @@ class PymolPrinter:
         s += "cmd.load_cgo(obj, 'ss')" + '\n'
         return s
 
-    def add_stem(self, bg, key):
+    def add_stem_like(self, bg, key, color = 'green', width=2.4):
         (p, n) = bg.coords[key]
-        self.add_segment(p, n, 'green', 2.4, key)
+        self.add_segment(p, n, color, width, key)
 
         if self.add_twists:
-            twist1o = bg.twists[key][0]
-            twist2o = bg.twists[key][1]
+            twist1o = bg.get_twists(key)[0]
+            twist2o = bg.get_twists(key)[1]
 
             twist_rot_mat_l = cuv.rotation_matrix(n - p, -(1.45 / 2.))
             twist_rot_mat_r = cuv.rotation_matrix(n - p, (1.45 / 2.))
@@ -275,7 +275,7 @@ class PymolPrinter:
             (p, n) = bg.coords[key]
         
             if key[0] == 's':
-                self.add_stem(bg, key)
+                self.add_stem_like(bg, key)
 
             else:
                 if len(bg.edges[key]) == 1:
@@ -284,7 +284,8 @@ class PymolPrinter:
                     if bg.weights[key] == 1:
                         self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
                     else:
-                        self.add_segment(p, n, "yellow", 1.0, key)
+                        self.add_stem_like(bg, key, "yellow", 1.0)
+                        #self.add_segment(p, n, "yellow", 1.0, key)
 
         if self.add_longrange:
             for key1 in bg.longrange.keys():

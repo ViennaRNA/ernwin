@@ -387,6 +387,11 @@ class BulgeGraph:
         for d in self.defines.keys():
             if d[0] == 's':
                 yield d
+    
+    def stem_like(self):
+        for d in self.defines.keys():
+            if self.weights[d] == 2 or d[0] == 's':
+                yield d
 
     def get_centers(self):
         centers = []
@@ -553,7 +558,7 @@ class BulgeGraph:
             (s2b, s2e) = self.get_sides(connections[1], node)
 
             return (self.twists[connections[0]][s1b],
-                    self.twists[connections[0]][s2b])
+                    self.twists[connections[1]][s2b])
 
         # uh oh, this shouldn't happen since every node
         # should have either one or two edges

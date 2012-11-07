@@ -55,8 +55,9 @@ class EnergyFunction:
     def iterate_over_interaction_energies(self, bg, background):
         sm = cbm.SpatialModel(bg)
 
-        for stem in bg.stems():
+        for stem in bg.stem_like():
             cgg.add_virtual_residues(bg, stem)
+
 
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
@@ -734,8 +735,8 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         self.res = 2.
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_nt.stats')
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
         pass
 
     def load_stem_orientation_data(self, filename):
@@ -780,7 +781,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
-        stems = [d for d in bg.defines.keys() if d[0] == 's']
+        #stems = [d for d in bg.defines.keys() if d[0] == 's']
+        stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
         score = 0.
         points = []
         s1_start = np.zeros(3)
@@ -811,7 +813,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         # pre-calculate the start and end positions of each virtual res
         for s in stems:
-            s_len = bg.defines[s][1] - bg.defines[s][0] + 1
+            s_len = bg.stem_length(s) # bg.defines[s][1] - bg.defines[s][0] + 1
             s1_0_pos = vposs[s][0]
             s1_len_pos = vposs[s][s_len - 1]
 
@@ -830,6 +832,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         indices = kdt.all_get_indices()
 
         energy1 = 0.
+        energy2 = 0.
         stem_interactions = dict()
         count = 0
 
@@ -847,7 +850,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                 s1_pos = vposs[s1][l]
 
-                if s1 != s2:
+                if s1 != s2 and s2 not in bg.edges[s1]:
                     s2_pos = vposs[s2][k]
 
                     s1_end = ends[s1][l]
@@ -855,9 +858,10 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                    if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] >= s1_start[0] and r2_spos[0] <= s1_end[0]:
+                    if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
                         point_score = self.get_img_score([r2_spos])
-                        energy1 += point_score
+                        #print "point_score:", point_score
+                        energy2 += point_score
                         #point_energy += point_score
                         stem_interactions[(s1,s2)] += point_score
                         count += 1
@@ -873,6 +877,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             self.interaction_energies[tuple(sorted([s1,s2]))] = se
             if abs(se) > 0.00001:
                 ses += [se]
+
         #cud.pv('len(ses)')
         #cud.pv('energy1 / (len(ses) + 1.)')
 
@@ -902,7 +907,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                                 score += point_score
                                 self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
         '''
-        score = energy1
+        #score = energy1
+        score = energy2
         return -score
 
 class RoughJunctionClosureEnergy(EnergyFunction):

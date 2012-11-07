@@ -520,6 +520,10 @@ class SpatialModel:
             self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
             self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
 
+            for edge in self.bg.edges[stem]:
+                if self.bg.weights[edge] == 2:
+                    cgg.add_virtual_residues(self.bg, edge)
+
             cgg.add_virtual_residues(self.bg, stem)
 
         for bulge in self.bulges.keys():

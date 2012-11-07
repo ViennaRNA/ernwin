@@ -49,29 +49,38 @@ usage: %prog [options] temp.comp
     stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
 
     for i in range(len(stems)):
+        '''
         if stems[i][0] != 's':
             # the end nucleotides of bulges overlap those of stems
             # so their length needs to be one less than that of stems
             s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0]
             k_start = 1
         else:
-            s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
-            k_start = 0
+        '''
+        s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+        k_start = 0
 
         for j in range(len(stems)):
             if i == j:
                 continue
 
+            # ignore connected stems... that should be taken care of in the sampling
+            # potential
+            if stems[i] in bg.edges[stems[j]]:
+                continue
+
             #if connected_stems(bg, stems[i], stems[j]):
             #    continue
 
+            '''
             if stems[j][0] != 's':
                 # see comment for s1_len above
                 s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0]
                 l_start = 1
             else:
-                s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
-                l_start = 0
+            '''
+            s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+            l_start = 0
 
             for k in range(k_start, s1_len):
                 s1_start = cgg.pos_to_spos(bg, stems[i], k, stems[i], 0)
