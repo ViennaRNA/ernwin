@@ -6,6 +6,7 @@ import pandas as pa
 import Bio.PDB as bpdb
 import Bio.KDTree as bk
 import copy
+import itertools as it
 
 import scipy.ndimage as sn
 import scipy.spatial as ss
@@ -735,25 +736,26 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         self.res = 2.
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_all_nt.stats')
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_all_nt_sampled.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
         pass
 
     def load_stem_orientation_data(self, filename):
         stats = pa.read_csv(filename,header=None, sep=' ')
         points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
 
-
         cud.pv('points.shape')
         min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
         max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
 
         n_points = [int((max_dims[j] - min_dims[j]) / float(self.res))+1 for j in range(points.shape[1])]
+        cud.pv('n_points')
 
         img = np.zeros(n_points)
         for p in points:
             ixs = [int((p[j] - min_dims[j]) / self.res) for j in xrange(points.shape[1])]
             img[ixs[0],ixs[1],ixs[2]] += 1
+
         img = sn.gaussian_filter(img, (3,3,3))
 
         return (img, min_dims)
@@ -771,6 +773,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                 #val_fake = my_log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
                 val_real = np.log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
                 val_fake = np.log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
+                #val_fake = 0.
 
                 #cud.pv('val_real')
                 #cud.pv('val_fake')
@@ -784,8 +787,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
-        stems = [d for d in bg.defines.keys() if d[0] == 's']
-        #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
+        #stems = [d for d in bg.defines.keys() if d[0] == 's']
+        stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
         score = 0.
         points = []
         s1_start = np.zeros(3)
@@ -862,13 +865,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
                     #if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
-
-                    point_score = self.get_img_score([r2_spos])
-                    #print "point_score:", point_score
-                    energy2 += point_score
-                    #point_energy += point_score
-                    stem_interactions[(s1,s2)] += point_score
-                    count += 1
+                    #if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > -3 and r2_spos[0] < 3:
+                    if True:
+                        point_score = self.get_img_score([r2_spos])
+                        #print "point_score:", point_score
+                        energy2 += point_score
+                        #point_energy += point_score
+                        stem_interactions[(s1,s2)] += point_score
+                        count += 1
                         #self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
 
         energy1 = 0.
@@ -885,7 +889,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         #score = energy1
         score = energy2
         if np.isnan(score):
-            return 100000
+            return 1000000
         return -score
 
 class RoughJunctionClosureEnergy(EnergyFunction):
@@ -903,11 +907,11 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             dist = cgg.junction_virtual_res_distance(bg, bulge)
             
             # 
-            cutoff_distance = (bl - 1) * 5.94 + 13.4
+            cutoff_distance = (bl) * 5.94 + 13.4
 
-            #print "cutoff_distance:", cutoff_distance, "dist:", dist
 
             if (dist > cutoff_distance):
+                #print "bulge:", bulge, "bl:", bl, "cutoff_distance:", cutoff_distance, "dist:", dist
                 energy += 10000.
 
         return energy

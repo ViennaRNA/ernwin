@@ -178,6 +178,7 @@ class AngleStat:
         self.u1 = float(parts[8])
         self.v1 = float(parts[9])
 
+
     def orientation_params(self):
         '''
         Return a tuple containing the parameters which specify the orientation

@@ -25,14 +25,17 @@ def main():
         sys.exit(1)
 
     bg = cgb.BulgeGraph(args[0])
-    stems = [d for d in bg.defines.keys() if d[0] == 's']
+    #stems = [d for d in bg.defines.keys() if d[0] == 's']
+    stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
 
     mult = 7.
 
     for i in range(len(stems)):
-        s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+        #s1_len = bg.defines[stems[i]][1] - bg.defines[stems[i]][0] + 1
+        s1_len = bg.stem_length(stems[i])
         for j in range(i + 1, len(stems)):
-            s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+            #s2_len = bg.defines[stems[j]][1] - bg.defines[stems[j]][0] + 1
+            s2_len = bg.stem_length(stems[i])
             for k in range(s1_len):
                 for l in range(s2_len):
                     (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, stems[i], k)

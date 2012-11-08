@@ -1,21 +1,18 @@
 #!/bin/bash
 
-#set -x
-
 ROSETTA_TOOLS_DIR=/scr/plastilin/pkerp/apps/rosetta_TRUNK/rosetta_tools/
 MCANNOTATE_BIN=/scr/plastilin/pkerp/apps/mcannotate/MC-Annotate
-MCANNOTATE_TO_DOTPLOT=../assembly-tests/scripts/mcannotate-to-dot-plot.py
-SCRIPT_DIR=../../assembly-tests/scripts
-LOCAL_SCRIPT_DIR=scripts
+SCRIPT_DIR=../assembly-tests/scripts
+LOCAL_SCRIPT_DIR=fess/scripts
 K2N_PATH=/scr/plastilin/pkerp/apps/k2n_standalone/knotted2nested.py
 
 base=${1##*/}
 pdb=${base%\.*}
 
-OUTPUT_DIR=output/${pdb}/prepare
+OUTPUT_DIR=fess/output/${pdb}/prepare
 
 #echo PYTHONPATH, $PYTHONPATH
-export PYTHONPATH=$PYTHONPATH:/home/mescalin/pkerp/projects/fess
+#export PYTHONPATH=$PYTHONPATH:/home/mescalin/pkerp/projects/fess
 
 
 function convert_original_pdb_to_rosetta_ready {
@@ -66,6 +63,11 @@ if [ $# -ne 1 ]; then
     exit
 fi
 
+if [ ! -f $1 ]; then
+    echo "File not found"
+    exit
+fi
+
 if [ -f $OUTPUT_DIR/temp.pdb ]; then
     rm $OUTPUT_DIR/temp.pdb
 fi
@@ -86,7 +88,7 @@ res=`grep '[()]' $OUTPUT_DIR/temp.dotplot`
 echo $1, $(cat $OUTPUT_DIR/temp.dotplot) >&2
 
 mv $OUTPUT_DIR/temp.dotplot $OUTPUT_DIR/temp.dotplot.2
-./scripts/remove_length_one_stems.py $OUTPUT_DIR/temp.dotplot.2 > $OUTPUT_DIR/temp.dotplot
+./$LOCAL_SCRIPT_DIR/remove_length_one_stems.py $OUTPUT_DIR/temp.dotplot.2 > $OUTPUT_DIR/temp.dotplot
 
 rm $OUTPUT_DIR/temp.dotplot.2
 

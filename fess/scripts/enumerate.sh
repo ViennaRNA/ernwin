@@ -1,6 +1,6 @@
 #/bin/bash
 
-export PYTHONPATH=$PYTHONPATH:/home/mescalin/pkerp/projects/
+#export PYTHONPATH=$PYTHONPATH:/home/mescalin/pkerp/projects/
 
 if [ $# -ne 1 ]; then
     echo "Usage.sh: ./enumerate.sh pdb_file"
@@ -10,14 +10,14 @@ fi
 base=${1##*/}
 pdb=${base%\.*}
 
-if [ -d output/$pdb ]; then
-    rm -rf output/$pdb
+if [ -d fess/output/$pdb ]; then
+    rm -rf fess/output/$pdb
 fi
 
-mkdir -p output/${pdb}/{prepare,graph,neato,report,stats,pymol}
+mkdir -p fess/output/${pdb}/{prepare,graph,neato,report,stats,pymol}
 
-./scripts/prepare.sh $1
-./scripts/create_graph.sh $1
-./scripts/create_pymol.sh $1
-./scripts/create_stats.sh $1
+./fess/scripts/prepare.sh $1
+./fess/scripts/create_graph.sh $1
+./fess/scripts/create_pymol.sh $1
+./fess/scripts/create_stats.sh $1
 

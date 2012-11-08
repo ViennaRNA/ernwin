@@ -100,7 +100,8 @@ usage: %prog [options] temp.comp
                     r2_spos = cgg.pos_to_spos(bg, stems[i], k, stems[j], l)
 
                     #if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
-                    if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > -3. and r2_spos[0] < 3.:
+                    #if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > -3. and r2_spos[0] < 3.:
+                    if True:
                         print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
 
 

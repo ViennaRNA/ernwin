@@ -263,9 +263,6 @@ class PymolPrinter:
         stem_len = bg.stem_length(key)
 
         for i in range(stem_len):
-            if key == 'x5':
-                print >>sys.stderr, "i:", i
-
             (pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
             self.add_segment(pos, pos + mult * vec, "blue", width, '')
 

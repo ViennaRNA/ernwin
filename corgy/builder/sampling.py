@@ -215,7 +215,7 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            print "native_energy: %3d %5.2f  %5.2f | min: %5.2f %5.2f" % ( self.counter, energy, r , lowest_energy, lowest_rmsd)
+            print "native_energy: %3d %5.2f  %5.8f | min: %5.2f %5.2f" % ( self.counter, energy, r , lowest_energy, lowest_rmsd)
 
         self.update_plots(energy, r)
 

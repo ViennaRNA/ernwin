@@ -35,13 +35,22 @@ def get_dotplot(lines):
         residues += [parts[0]]
         residue_types += [parts[2]]
 
+    paired = set()
     for line in iterate_over_interactions(lines):
         parts = line.split(' ')
         bond_type = parts[3]
-        #if bond_type.find('Ww/Ww') >= 0 or bond_type.find('Ww/Ws') >= 0 or bond_type.find('Ws/Ww') >= 0:
-        if bond_type.find('Ww/Ww') >= 0:
+        if bond_type.find('Ww/Ww') >= 0 or bond_type.find('Ww/Ws') >= 0 or bond_type.find('Ws/Ww') >= 0:
+        #if bond_type.find('Ww/Ww') >= 0:
             parts1 = parts[0].split('-')
             #print line
+
+            if parts1[0] in paired or parts1[1] in paired:
+                print >>sys.stderr, "paired:", parts1[0], parts1[1]
+                continue
+
+            paired.add(parts1[0])
+            paired.add(parts1[1])
+
             bps[parts1[0]] = residues.index(parts1[1])
             bps[parts1[1]] = residues.index(parts1[0])
 
