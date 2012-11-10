@@ -2,8 +2,6 @@
 
 import sys, os
 from optparse import OptionParser
-import itertools as it
-import random as rand
 
 import numpy as np
 import scipy.stats as ss
@@ -57,20 +55,15 @@ usage: %prog [options] data_file
     kernels = []
 
     min_dims_set = []
-    max_points = 60000
 
     for i in range(len(args)):
         stats = pa.read_csv(args[i],header=None, sep=' ')
         points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
 
-        if len(points) > max_points:
-            points = np.array([p for p in points if rand.random() < max_points / float(len(points))])
-        #print "points:", points
-
         point_sets += [points]
 
         if options.image_filtering:
-            res = .5
+            res = 2.
 
             cud.pv('points.shape')
             min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
@@ -82,32 +75,7 @@ usage: %prog [options] data_file
             for p in points:
                 ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
                 img[ixs[0],ixs[1],ixs[2]] += 1
-
-                '''
-                diff_extent = 1
-                differences = it.product(range(diff_extent), range(diff_extent), range(diff_extent))
-                for d in differences:
-                    try:
-                        
-                        img[np.array(ixs) + np.array(d)] += 1
-                    except IndexError:
-                        continue
-                '''
-
-            new_img = np.zeros(n_points)
-            print >>sys.stderr, "n_points:", n_points
-            '''
-            for p in it.product(*[range(n) for n in n_points]):
-                differences = it.product(range(10), range(10), range(10))
-                cud.pv('p')
-                for d in differences:
-                    new_img[np.array(p)] += img[np.array(p) + np.array(d)]
-                print >>sys.stderr, "img[p]:", img[p], "new_img[p]:", new_img[p]
-                cud.pv('new_img[p]')
-            '''
-
-            img = sn.gaussian_filter(img, (1,1,1))
-
+            img = sn.gaussian_filter(img, (2,2,2))
             img_sets += [img]
 
             min_dims_set += [min_dims]
@@ -132,7 +100,7 @@ usage: %prog [options] data_file
                 except IndexError:
                     vals += [350.]
         else:
-            vals = cbe.my_log(kernels[0](point_sets[0])) - cbe.my_log(kernels[1](point_sets[0]))
+            vals = cbe.my_log(kernel_sets[0](point_sets[0])) - cbe.my_log(kernel_sets[1](point_sets[0]))
     else:
         if options.image_filtering:
             vals = []
@@ -141,7 +109,7 @@ usage: %prog [options] data_file
                 ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
                 vals += [np.log(img_sets[0][ixs[0], ixs[1], ixs[2]])]
         else:
-            vals = np.log(kernels[0](point_sets[0].T))
+            vals = np.log(kernel_sets[0](point_sets[0]))
 
     mi = ss.scoreatpercentile(vals, 10)
     mx = ss.scoreatpercentile(vals, 90)
