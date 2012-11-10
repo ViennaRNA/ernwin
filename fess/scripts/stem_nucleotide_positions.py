@@ -46,8 +46,8 @@ usage: %prog [options] temp.comp
 
     bg = cgb.BulgeGraph(args[0])
 
-    #stems = [d for d in bg.defines.keys() if d[0] == 's']
-    stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
+    stems = [d for d in bg.defines.keys() if d[0] == 's']
+    #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
 
     for i in range(len(stems)):
         '''

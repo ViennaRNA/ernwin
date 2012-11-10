@@ -3,6 +3,7 @@
 import sys, os
 from optparse import OptionParser
 import itertools as it
+import random as rand
 
 import numpy as np
 import scipy.stats as ss
@@ -56,15 +57,20 @@ usage: %prog [options] data_file
     kernels = []
 
     min_dims_set = []
+    max_points = 60000
 
     for i in range(len(args)):
         stats = pa.read_csv(args[i],header=None, sep=' ')
         points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
 
+        if len(points) > max_points:
+            points = np.array([p for p in points if rand.random() < max_points / float(len(points))])
+        #print "points:", points
+
         point_sets += [points]
 
         if options.image_filtering:
-            res = 2.
+            res = .5
 
             cud.pv('points.shape')
             min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
