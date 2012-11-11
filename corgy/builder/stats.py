@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
 import random as rand
+import scipy.stats as ss
+import numpy as np
+import collections as c
 
-from random import uniform
-from numpy import allclose
-from corgy.utilities.data_structures import DefaultDict
-from corgy.builder.config import Configuration
+import corgy.builder.config as cbc
+import corgy.utilities.debug as cud
 
 avg_stem_bp_length = 2.24
 avg_twist_rotation_per_bp = 360 / 11.
@@ -43,7 +44,7 @@ def get_loop_length(bg, key):
     else:
         loop_length = int(bg.defines[key][1]) - int(bg.defines[key][0])
 
-    return uniform(loop_lengths[loop_length][0], loop_lengths[loop_length][1])
+    return rand.uniform(loop_lengths[loop_length][0], loop_lengths[loop_length][1])
 
 
 class LoopStat:
@@ -149,17 +150,17 @@ class AngleStat:
             return False
         if self.dim2 != a_s.dim2:
             return False
-        if not allclose(self.u, a_s.u):
+        if not np.allclose(self.u, a_s.u):
             return False
-        if not allclose(self.v, a_s.v):
+        if not np.allclose(self.v, a_s.v):
             return False
-        if not allclose(self.t, a_s.t):
+        if not np.allclose(self.t, a_s.t):
             return False
-        if not allclose(self.r1, a_s.r1):
+        if not np.allclose(self.r1, a_s.r1):
             return False
-        if not allclose(self.u1, a_s.u1):
+        if not np.allclose(self.u1, a_s.u1):
             return False
-        if not allclose(self.v1, a_s.v1):
+        if not np.allclose(self.v1, a_s.v1):
             return False
 
         return True
@@ -215,12 +216,48 @@ class AngleStat:
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
         return str0 + str1 + str2
 
-class AngleStatsCollection:
+class ContinuousAngleStats():
     '''
     Store all of the angle stats.
     '''
-    def __init__(self):
-        pass
+    def __init__(self, discrete_angle_stats):
+        self.cont_stats = dict()
+        self.make_continuous(discrete_angle_stats)
+
+    def make_continuous(self, discrete_angle_stats):
+        '''
+        Create a kernel density estimation of the statistics
+        for each bulge dimension represented in the collection
+        of discrete angle statistics.
+
+        Each KDE will have six dimensions corresponding to the six
+        dimensions necessary for describing the orientation of one
+        helix with respect to another.
+
+        @param discrete_angle_statistics: A dictionary of dictionaries,
+            each one containing and AngleStats structure.
+        '''
+        for key1 in discrete_angle_stats.keys():
+            for key2 in discrete_angle_stats[key1].keys():
+                dims = (key1, key2)
+                data = []
+                for d in discrete_angle_stats[key1][key2]:
+                    data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
+
+                if len(data) < 3:
+                    continue
+                cud.pv('data')
+                cud.pv('dims')
+                self.cont_stats[dims] = ss.gaussian_kde(np.array(data).T)
+
+    def sample_stats(self, dims):
+        '''
+        Sample a set of statistics.
+
+        @param dims: The dimensions of the bulge for which to sample.
+        '''
+        new_stats = self.cont_stats[dims].resample(size=1)
+        cud.pv('new_stats')
 
     def stats_by_dimensions(dims, n):
         '''
@@ -232,18 +269,14 @@ class AngleStatsCollection:
             than the number of stats stored, then return the number of
             stats available.
         '''
-        if n > len(self.angle_stats[dims[0]][dims[1]]):
-            return self.angle_stats[dims[0]][dims[1]]
-        else:
-            return rand.sample(self.angle_stats[dims[0]][dims[1]], 1)
-
+        return self.angle_kdes[dims[0]][dims[1]].resample(size=n)
 
 class ConstructionStats:
     angle_stats = None
     stem_stats = None
     loop_stats = None
 
-def get_angle_stats(filename=Configuration.stats_file):
+def get_angle_stats(filename=cbc.Configuration.stats_file):
     '''
     Load the statistics about inter the helix-helix orientations from a file.
 
@@ -274,7 +307,8 @@ def get_angle_stats(filename=Configuration.stats_file):
     if ConstructionStats.angle_stats != None:
         return ConstructionStats.angle_stats
 
-    ConstructionStats.angle_stats = DefaultDict(DefaultDict([]))
+    ConstructionStats.angle_stats = c.defaultdict(lambda: c.defaultdict(list))
+    #DefaultDict(DefaultDict([]))
 
     f = open(filename, 'r')
 
@@ -289,7 +323,7 @@ def get_angle_stats(filename=Configuration.stats_file):
     return ConstructionStats.angle_stats
 
 
-def get_stem_stats(filename=Configuration.stats_file):
+def get_stem_stats(filename=cbc.Configuration.stats_file):
     '''
     Load the statistics from the file.
 
@@ -303,7 +337,7 @@ def get_stem_stats(filename=Configuration.stats_file):
     if ConstructionStats.stem_stats != None:
         return ConstructionStats.stem_stats
 
-    ConstructionStats.stem_stats = DefaultDict([])
+    ConstructionStats.stem_stats = c.defaultdict(list)
 
     f = open(filename, 'r')
 
@@ -317,7 +351,7 @@ def get_stem_stats(filename=Configuration.stats_file):
     return ConstructionStats.stem_stats
 
 
-def get_loop_stats(filename=Configuration.stats_file):
+def get_loop_stats(filename=cbc.Configuration.stats_file):
     '''
     Load the statistics from the file.
 
@@ -330,7 +364,7 @@ def get_loop_stats(filename=Configuration.stats_file):
     if ConstructionStats.loop_stats != None:
         return ConstructionStats.loop_stats
 
-    ConstructionStats.loop_stats = DefaultDict([])
+    ConstructionStats.loop_stats = c.defaultdict(list)
 
     f = open(filename, 'r')
 

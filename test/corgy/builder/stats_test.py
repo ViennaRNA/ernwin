@@ -1,6 +1,6 @@
 import unittest
 
-from corgy.builder.stats import get_loop_stats, get_angle_stats, get_stem_stats
+import corgy.builder.stats as cbs
 
 from numpy import pi
 
@@ -10,7 +10,7 @@ class TestStatsFunctions(unittest.TestCase):
     '''
 
     def test_loop_stats_loading(self):
-        loop_stats = get_loop_stats()
+        loop_stats = cbs.get_loop_stats()
 
         for dim1 in loop_stats.keys():
             for stat in loop_stats[dim1]:
@@ -18,11 +18,11 @@ class TestStatsFunctions(unittest.TestCase):
                 self.assertTrue(isinstance(stat.phys_length,  ( float )))
 
     def test_angle_stats_singleton(self):
-        angle_stats1 = get_angle_stats()
-        angle_stats2 = get_angle_stats()
+        angle_stats1 = cbs.get_angle_stats()
+        angle_stats2 = cbs.get_angle_stats()
 
     def test_angle_stats_loading(self):
-        angle_stats = get_angle_stats()
+        angle_stats = cbs.get_angle_stats()
 
         for dim1 in angle_stats.keys():
             for dim2 in angle_stats[dim1].keys():
@@ -57,7 +57,7 @@ class TestStatsFunctions(unittest.TestCase):
                     self.assertTrue(stat.v1 <= pi)
 
     def test_stem_stats_loading(self):
-        stem_stats = get_stem_stats()
+        stem_stats = cbs.get_stem_stats()
 
         for bp_length in stem_stats.keys():
             for stat in stem_stats[bp_length]:
@@ -74,3 +74,10 @@ class TestStatsFunctions(unittest.TestCase):
                 self.assertTrue(stat.define[0] < stat.define[1])
                 self.assertTrue(stat.define[2] < stat.define[3])
 
+
+class TestContinuousAngleStats(unittest.TestCase):
+    def test_load_from_file(self):
+        discrete_angle_stats = cbs.get_angle_stats() 
+
+        cont_stats = cbs.ContinuousAngleStats(discrete_angle_stats)
+        new_stats = cont_stats.sample_stats((2,2))
