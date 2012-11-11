@@ -245,9 +245,9 @@ class ContinuousAngleStats():
                     data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
 
                 if len(data) < 3:
+                    #cud.pv('dims')
                     continue
-                cud.pv('data')
-                cud.pv('dims')
+
                 self.cont_stats[dims] = ss.gaussian_kde(np.array(data).T)
 
     def sample_stats(self, dims):
@@ -257,7 +257,11 @@ class ContinuousAngleStats():
         @param dims: The dimensions of the bulge for which to sample.
         '''
         new_stats = self.cont_stats[dims].resample(size=1)
-        cud.pv('new_stats')
+        s = AngleStat()
+        (s.u, s.v, s.v, s.r1, s.u1, s.v1) = new_stats.T[0]
+        return s
+        #cud.pv('new_stats')
+        #cud.pv('s')
 
     def stats_by_dimensions(dims, n):
         '''

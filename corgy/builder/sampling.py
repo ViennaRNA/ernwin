@@ -8,6 +8,7 @@ import math
 
 import matplotlib.pyplot as plt
 
+import corgy.builder.stats as cbs
 import corgy.graph.graph_pdb as cgg
 import corgy.builder.rmsd as cbr
 import corgy.builder.models as cbm
@@ -193,10 +194,11 @@ class SamplingStatistics:
         @param sm: The spatial model that was sampled.
         '''
         self.counter += 1
-        sm.traverse_and_build()
+        #sm.traverse_and_build()
 
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
+        print "energy2:", energy
 
         centers_new = cgg.bg_virtual_residues(sm.bg)
         r = cbr.centered_rmsd(self.centers_orig, centers_new)
@@ -278,6 +280,7 @@ class MCMCSampler:
         self.energy_function = energy_function
         self.stats = stats
         self.prev_energy = 10000000.
+        self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
         sm.get_sampled_bulges()
 
@@ -287,14 +290,16 @@ class MCMCSampler:
 
         # pick a random bulge to vary
         bulge = self.sm.bg.get_random_bulge()
-        while bulge not in self.sm.closed_bulges:
+        while bulge not in self.sm.sampled_bulges:
             bulge = self.sm.bg.get_random_bulge()
 
         dims = self.sm.bg.get_bulge_dimensions(bulge)
 
         # What are the potential angle statistics for it
-        possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
-        pa = random.choice(possible_angles)
+        #possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
+        #pa = random.choice(possible_angles)
+
+        pa = self.cont_stats.sample_stats(dims)
 
         prev_angle = self.sm.angle_defs[bulge]
         self.sm.angle_defs[bulge] = pa
@@ -308,6 +313,7 @@ class MCMCSampler:
 
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.angle_defs[bulge] = prev_angle
+                #print "skipping:", energy, self.prev_energy
             else:
                 self.prev_energy = energy
                 self.stats.update_statistics(self.energy_function, self.sm)

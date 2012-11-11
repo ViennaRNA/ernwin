@@ -736,8 +736,10 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         self.res = 2.
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
+        #self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
+        #self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_truncated.stats')
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled_truncated.stats')
         pass
 
     def load_stem_orientation_data(self, filename):
