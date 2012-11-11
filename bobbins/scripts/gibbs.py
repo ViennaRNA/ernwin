@@ -5,6 +5,7 @@ from bisect import bisect
 import copy
 
 import corgy.utilities.debug as cud
+import corgy.builder.sampling as cbs
 
 from random import sample, random, seed
 from numpy import allclose, seterr
@@ -48,6 +49,7 @@ def main():
     parser.add_option('-c', '--constrained', dest='constrained_energy', default=False, action='store_true', help='Use the ConstrainedRandomEnergy energy')
     parser.add_option('-r', '--step-random', dest='step_random', default=False, action='store_true', help='Concurrently sample with a random energy.')
     parser.add_option('-o', '--helix_orientation', dest='helix_orientation', default=False, action='store_true', help='Sample using the helix orientation energy')
+    parser.add_option('-m', '--mcmc', dest='mcmc_sampler', default=False, action='store_true', help='Sample using the mcmc sampler.')
 
     (options, args) = parser.parse_args()
 
@@ -90,7 +92,10 @@ def main():
 
     for color,energy in zip(colors, energies_to_sample):
         stat = SamplingStatistics(sm, plotter, color, silent=silent) 
-        samplers += [GibbsBGSampler(copy.deepcopy(sm), energy, stat)]
+        if options.mcmc_sampler:
+            samplers += [cbs.MCMCSampler(copy.deepcopy(sm), energy, stat)]
+        else:
+            samplers += [GibbsBGSampler(copy.deepcopy(sm), energy, stat)]
         silent = True
 
     cud.pv('samplers')

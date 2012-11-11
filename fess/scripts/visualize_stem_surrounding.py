@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys, os
+import random as rand
 from optparse import OptionParser
 
 import numpy as np
@@ -55,10 +56,14 @@ usage: %prog [options] data_file
     kernels = []
 
     min_dims_set = []
+    max_points = 80000
 
     for i in range(len(args)):
         stats = pa.read_csv(args[i],header=None, sep=' ')
         points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
+
+        if len(points) > max_points:
+            points = np.array(rand.sample(points, max_points))
 
         point_sets += [points]
 

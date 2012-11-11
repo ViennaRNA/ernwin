@@ -640,7 +640,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
         kdt.set_coords(np.array(l))
-        kdt.all_search(4.)
+        kdt.all_search(3.)
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
 
@@ -787,8 +787,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
-        #stems = [d for d in bg.defines.keys() if d[0] == 's']
-        stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
+        stems = [d for d in bg.defines.keys() if d[0] == 's']
+        #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
         score = 0.
         points = []
         s1_start = np.zeros(3)

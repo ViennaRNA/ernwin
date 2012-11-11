@@ -4,6 +4,7 @@ import collections as c
 import sys, random, copy
 import numpy as np
 import scipy.stats as ss
+import math
 
 import matplotlib.pyplot as plt
 
@@ -208,6 +209,12 @@ class SamplingStatistics:
         lowest_energy = sorted_energies[0][0]
         lowest_rmsd = sorted_energies[0][1]
 
+        '''
+        if energy == lowest_energy:
+            for key in sm.angle_defs:
+                print >>sys.stderr, key, str(sm.angle_defs[key])
+        '''
+
         if not self.silent:
             if self.verbose:
                 '''
@@ -259,6 +266,54 @@ class SamplingStatistics:
         print "-------------------------"
         
 
+class MCMCSampler:
+    '''
+    Sample using tradition accept/reject sampling.
+    '''
+    def __init__(self, sm, energy_function, stats):
+        '''
+        param @sm: SpatialModel that will be used for sampling.
+        '''
+        self.sm = sm
+        self.energy_function = energy_function
+        self.stats = stats
+        self.prev_energy = 10000000.
+
+        sm.get_sampled_bulges()
+
+    def step(self):
+        self.sm.sample_loops()
+        self.sm.traverse_and_build()
+
+        # pick a random bulge to vary
+        bulge = self.sm.bg.get_random_bulge()
+        while bulge not in self.sm.closed_bulges:
+            bulge = self.sm.bg.get_random_bulge()
+
+        dims = self.sm.bg.get_bulge_dimensions(bulge)
+
+        # What are the potential angle statistics for it
+        possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
+        pa = random.choice(possible_angles)
+
+        prev_angle = self.sm.angle_defs[bulge]
+        self.sm.angle_defs[bulge] = pa
+        self.sm.traverse_and_build(start = bulge)
+        
+        energy = self.energy_function.eval_energy(self.sm, background=True)
+        if energy > self.prev_energy:
+            #cud.pv('self.prev_energy')
+            #cud.pv('energy')
+            #cud.pv('math.exp(self.prev_energy - energy)')
+
+            if random.random() > math.exp(self.prev_energy - energy):
+                self.sm.angle_defs[bulge] = prev_angle
+            else:
+                self.prev_energy = energy
+                self.stats.update_statistics(self.energy_function, self.sm)
+        else:
+            self.prev_energy = energy
+            self.stats.update_statistics(self.energy_function, self.sm)
 
 class GibbsBGSampler:
     '''
@@ -274,6 +329,8 @@ class GibbsBGSampler:
         self.stats = stats
 
         sm.get_sampled_bulges()
+
+
 
         #print >>stderr, "original native_energy:", energy_function.eval_energy(sm, background=True)
 

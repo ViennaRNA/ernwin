@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import random as rand
+
 from random import uniform
 from numpy import allclose
 from corgy.utilities.data_structures import DefaultDict
@@ -212,6 +214,29 @@ class AngleStat:
         str1 = "u: %f v: %f t: %f " % (self.u, self.v, self.t)
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
         return str0 + str1 + str2
+
+class AngleStatsCollection:
+    '''
+    Store all of the angle stats.
+    '''
+    def __init__(self):
+        pass
+
+    def stats_by_dimensions(dims, n):
+        '''
+        Return a set of n AngleStats for a bulge with a dimension
+        of of dims.
+
+        @param dims: The dimensions of the bulge (i.e. (1,2))
+        @params n: The number of angle stats to return. If n is greater
+            than the number of stats stored, then return the number of
+            stats available.
+        '''
+        if n > len(self.angle_stats[dims[0]][dims[1]]):
+            return self.angle_stats[dims[0]][dims[1]]
+        else:
+            return rand.sample(self.angle_stats[dims[0]][dims[1]], 1)
+
 
 class ConstructionStats:
     angle_stats = None
