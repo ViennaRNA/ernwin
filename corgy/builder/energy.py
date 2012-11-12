@@ -736,10 +736,12 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         self.res = 2.
-        #self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
-        #self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
+        '''
         self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_truncated.stats')
         self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled_truncated.stats')
+        '''
         pass
 
     def load_stem_orientation_data(self, filename):
@@ -801,7 +803,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         vbasis = sm.bg.vbases
         invs = sm.bg.vinvs
 
-        max_distance = 800.
+        max_distance = 500.
 
         starts = c.defaultdict( dict )
         ends = c.defaultdict( dict )
@@ -858,7 +860,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                 s1_pos = vposs[s1][l]
 
-                if s1 != s2 and s2 not in bg.edges[s1]:
+                if s1 != s2 and not bg.are_adjacent_stems(s1, s2):
                     s2_pos = vposs[s2][k]
 
                     s1_end = ends[s1][l]
@@ -882,14 +884,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         ses = []
         for (s1, s2) in stem_interactions:
             se = min(stem_interactions[(s1, s2)], stem_interactions[(s2, s1)])
-            se = (stem_interactions[(s1,s2)] + stem_interactions[(s2,s1)]) / 2
+            #se = (stem_interactions[(s1,s2)] + stem_interactions[(s2,s1)]) / 2
             energy1 += se
             self.interaction_energies[tuple(sorted([s1,s2]))] = se
             if abs(se) > 0.00001:
                 ses += [se]
 
-        #score = energy1
-        score = energy2
+        score = energy1
+        #score = energy2
         if np.isnan(score):
             return 1000000
         return -score

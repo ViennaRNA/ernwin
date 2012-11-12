@@ -179,6 +179,25 @@ class BulgeGraph:
 
         return (angle_stat1, angle_stat2)
 
+    def are_adjacent_stems(self, s1, s2):
+        '''
+        Check whether two stems are separated by one intermediate element.
+
+        For example.
+
+        True: s1-b-s2
+        False: s1-b-sx-b-s2
+
+        @param: s1 the name of the first stem
+        @param: s2 the name of the second stem
+        '''
+
+        for edge in self.edges[s1]:
+            if s2 in self.edges[edge]:
+                return True
+
+        return False
+
     def get_random_bulge(self):
         '''
         Return the name of a random bulge.
