@@ -244,7 +244,7 @@ class BulgeGraph:
             for i in defs:
                 for j in defs:
 
-                    # I don't even understand what's going on in here...
+                    # I don't even understand what's going on in here,
                     # but it seems to work
 
                     # essentially we want to make sure not to count
@@ -270,10 +270,6 @@ class BulgeGraph:
                     if dist[i][j] > dist[i][k] + inter_distance + dist[k][j]:
                         dist[i][j] = dist[i][k] + inter_distance + dist[k][j]
                         sides[i][j] = (s1b, s2b)
-
-                    if i == 'b5' and j == 's6':
-                        #print "i,k dist[%s][%s]: %d + %d + %d dist[%s][%s]: %d" % (i, k, dist[i][k], inter_distance, dist[k][j], k, j, dist[i][j])
-                        pass
 
         self.bp_distances = dist
 
@@ -551,10 +547,10 @@ class BulgeGraph:
         (s1b, s1e) = self.get_sides(connections[0], node)
 
         if len(connections) == 1:
-            return cuv.normalize(cuv.vector_rejection(
+            return (cuv.normalize(cuv.vector_rejection(
                              self.twists[connections[0]][s1b],
                              self.coords[connections[0]][1] - 
-                             self.coords[connections[0]][0]))
+                             self.coords[connections[0]][0])),)
 
         if len(connections) == 2:
             # interior loop or junction segment
