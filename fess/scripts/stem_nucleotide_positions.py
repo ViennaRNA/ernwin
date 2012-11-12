@@ -68,6 +68,8 @@ usage: %prog [options] temp.comp
 
             # ignore connected stems... that should be taken care of in the sampling
             # potential
+            if bg.are_adjacent_stems(stems[i], stems[j]):
+                continue
             if stems[i] in bg.edges[stems[j]]:
                 continue
 

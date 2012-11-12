@@ -198,7 +198,6 @@ class SamplingStatistics:
 
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
-        print "energy2:", energy
 
         centers_new = cgg.bg_virtual_residues(sm.bg)
         r = cbr.centered_rmsd(self.centers_orig, centers_new)
