@@ -2,6 +2,9 @@ import unittest, os
 
 import corgy.graph.graph_pdb as cgg
 import corgy.graph.bulge_graph as cgb
+import corgy.utilities.debug as cud
+
+import corgy.graph.graph_pdb as cgg
 
 from corgy.graph.graph_pdb import get_mids, get_twists, get_stem_orientation_parameters
 from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs, stem2_orient_from_stem1
@@ -130,6 +133,12 @@ class TestGraphPDBFunctions(unittest.TestCase):
     '''
     Tests for the functions in corgy.graph.graph_pdb.
     '''
+
+    def test_base_normals(self):
+        filename = os.path.join(Configuration.test_input_dir, "1gid/prepare/temp.pdb")
+
+        bn = cgg.base_normals(filename)
+        cud.pv('bn')
 
     def test_mids_and_twists(self):
         '''

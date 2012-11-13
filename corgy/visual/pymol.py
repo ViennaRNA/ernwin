@@ -3,6 +3,7 @@
 import sys
 
 import numpy as np
+import uuid
 
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.debug as cud
@@ -62,11 +63,20 @@ class PymolPrinter:
         self.new_spheres = []
 
     def add_segment(self, p, n, color='green', width=0.2, text=""):
+
+        # exaggerate the length of the stem
+        '''
+        new_p = p + 3 * cuv.normalize(p - n)
+        new_n = n + 3 * cuv.normalize(n - p)
+
+        p = new_p
+        n = new_n
+        '''
+
         if self.override_color != None:
             color = self.override_color
 
         #assert(not allclose(p, n))
-
         self.new_segments += [(np.array(p), np.array(n), color, width, text)]
 
     def transform_segments(self, translation, rotation):
@@ -125,12 +135,18 @@ class PymolPrinter:
     def pymol_text_string(self):
         counter = 0
         s = ''
+        uids = []
 
         for (p, n, color, width, text) in self.segments:
             if len(text) == 0:
                 continue
 
-            s +=  "cgox_%d = []" % (counter) + '\n'
+            # generate a unique identifier for every object so that other scripts
+            # can add others that don't clash
+            uid = str(uuid.uuid4()).replace('-','x')
+            uids += [uid]
+
+            s +=  "cgox_%s = []" % (uid) + '\n'
 
             comp1 = cuv.normalize(n - p)
 
@@ -146,12 +162,12 @@ class PymolPrinter:
 
             text = "%s: %.1f" % (text, cuv.magnitude(n-p))
 
-            s += "cyl_text(cgox_%d, plain, %s, \"%s\", 0.20, axes=%s)" % (counter, str(list(pos)), text, str(axes)) + '\n'
+            s += "cyl_text(cgox_%s, plain, %s, \"%s\", 0.20, axes=%s)" % (uid, str(list(pos)), text, str(axes)) + '\n'
             counter += 1
 
         s +=  "cmd.set(\"cgo_line_radius\",0.03)" + '\n'
         for i in range(counter):
-            s += "cmd.load_cgo(cgox_%d, \'cgox%d\')" % (i, i) + '\n'
+            s += "cmd.load_cgo(cgox_%s, \'cgox%s\')" % (uids[i], uids[i]) + '\n'
         s += "cmd.zoom(\"all\", 2.0)" + '\n'
 
         return s
@@ -222,15 +238,16 @@ class PymolPrinter:
         self.new_segments = []
 
     def pymol_intro_string(self):
+        self.cgo_uid = str(uuid.uuid4()).replace('-', 'x')
         s  = "from pymol.cgo import *" + '\n'
         s += "from pymol import cmd" + '\n'
         s += "from pymol.vfont import plain" + '\n'
-        s += "obj = [" + '\n'
+        s += "obj%s = [" % (self.cgo_uid) + '\n'
         return s
 
     def pymol_outro_string(self):
         s =  "]" + '\n'
-        s += "cmd.load_cgo(obj, 'ss')" + '\n'
+        s += "cmd.load_cgo(obj%s, 'ss%s')" % (self.cgo_uid, self.cgo_uid) + '\n'
         return s
 
     def add_stem_like(self, bg, key, color = 'green', width=2.4):

@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import sys
-from corgy.graph.bulge_graph import BulgeGraph
+
+import corgy.graph.bulge_graph as cgb
 
 def color_stems(bg):
     stems = bg.get_bulged_stem_names()
@@ -69,7 +70,7 @@ def main():
     print "set cartoon_ring_mode"
     print "set cartoon_tube_radius, .3"
 
-    bg = BulgeGraph(sys.argv[1])
+    bg = cgb.BulgeGraph(sys.argv[1])
     print "hide all"
     color_stems(bg)
     hide_stems(bg)

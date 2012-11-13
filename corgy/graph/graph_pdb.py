@@ -8,6 +8,7 @@ import math as m
 import numpy as np
 import numpy.linalg as nl
 import numpy.testing as nt
+import corgy.utilities.debug as cud
 import corgy.utilities.my_math as cum
 import corgy.utilities.vector as cuv
 
@@ -21,6 +22,39 @@ def get_stem_phys_length(coords):
     '''
 
     return cuv.magnitude(coords[1] - coords[0])
+
+def base_normals(pdb_filename):
+    '''
+    Return a list of the normals for each base in the structure.
+
+    As defined by the average of the cross products between the C2-C5 
+    and C2-C6 vectors and the N3-C6 and N3-C5 vectors. The origin of 
+    the vector will be the centroid of these four atoms.
+
+    @param pdb_filename: The name of the pdb file containing the structure
+    @return: A list of pairs containing the origin the normal as well as the 
+        normal itself.
+    '''
+    chain = list(bp.PDBParser().get_structure('t', pdb_filename).get_chains())[0]
+    origin_norms = []
+
+    for res in chain:
+        c2 = res['C2'].get_vector().get_array()
+        c5 = res['C5'].get_vector().get_array()
+        c6 = res['C6'].get_vector().get_array()
+        n3 = res['N3'].get_vector().get_array()
+
+        v1 = cuv.normalize(np.cross(c6-c2, c5-c2))
+        v2 = cuv.normalize(np.cross(c6-n3, c5-n3))
+
+        # take the average of the two, for accuracy or something
+        v_norm = (v1 + v2) / 2
+
+        origin = (c2 + c5 + c6 + n3) / 4
+        origin_norms += [(origin, v_norm)]
+
+    return origin_norms
+
 
 def get_twist_angle(coords, twists):
     ''' 
