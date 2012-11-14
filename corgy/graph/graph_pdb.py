@@ -14,6 +14,53 @@ import corgy.utilities.vector as cuv
 
 catom_name = 'C1*'
 
+def stem_stem_orientation(bg, s1, s2):
+    '''
+    Calculate the orientation of stem s2 in relation to stem s1
+    as described by 3 parameters:
+
+    1. The distance between the closest points of the two stems.
+    2. The angle between s1 and s2 in the plane formed by the axis of
+       the first stem and the vector between the two points closest
+       to each on both stems.
+    3. The angle of s2 out of the plane formed by their axes.
+
+    @param bg: The BulgeGraph containing the stems.
+    @param s1: The name of the first stem
+    @param s2: The name of the second stem
+    @return: (x,y,z) where x,y and z are the parameters described in
+        the description above.
+    '''
+    # shorten the names a little bit
+    s1_p0 = bg.coords[s1][0]
+    s1_p1 = bg.coords[s1][1]
+
+    s2_p0 = bg.coords[s2][0]
+    s2_p1 = bg.coords[s2][1]
+
+    # the minimum distance between the two stems, which are represented
+    # as line segments
+    (i1, i2) = cuv.line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1)
+    i_vec = i2 - i1
+
+    # The vectors of the axes of the cylinders
+    s1_vec = bg.coords[s1][1] - bg.coords[s1][0]
+    s2_vec = bg.coords[s2][1] - bg.coords[s2][0]
+
+    # the normal of the plane defined by the two stem vectors
+    plane_norm = np.cross(s1_vec, i_vec)
+
+    # the projects of s2_vec onto the plane
+    s2_proj = cuv.vector_rejection(s2_vec, plane_norm) 
+
+    # the angle out of the plane
+    ang1 = cuv.vec_angle(s2_proj, s2_vec)
+
+    # the angle in the plane
+    ang2 = cuv.vec_angle(s2_proj, s1_vec)
+
+    return (cuv.magnitude(i_vec), ang1, ang2, cuv.vec_angle(s1_vec, s2_vec))
+
 def get_stem_phys_length(coords):
     '''
     Return the physical length of a stem.
