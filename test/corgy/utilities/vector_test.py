@@ -1,4 +1,8 @@
 import unittest
+import numpy as np
+
+import corgy.utilities.debug as cud
+import corgy.utilities.vector as cuv
 
 from corgy.utilities.vector import normalize
 from corgy.utilities.vector import get_double_alignment_matrix, get_standard_basis, change_basis
@@ -16,7 +20,23 @@ class TestVectorFunctions(unittest.TestCase):
     '''
     Tests for some of the vector functions in corgy.utilities.vector.
     '''
+    def test_line_segment_intersection(self):
+        p1 = np.array([1., 0., 0.])
+        p2 = np.array([5., 0., 0.])
 
+        p3 = np.array([2., 0., 0.])
+        p4 = np.array([2., 5., 0.])
+
+        (i1, i2) = cuv.line_segment_distance(p1, p2, p3, p4)
+
+        self.assertTrue(np.allclose(cuv.magnitude(i2 - i1), 0.))
+
+        (i1, i2) = cuv.line_segment_distance(np.array([1,0,3]),
+                                             np.array([-1,0,5]),
+                                             np.array([2,0,2]),
+                                             np.array([-1,0,3]))
+
+        self.assertTrue(allclose(cuv.magnitude(i2 - i1), 1.414214))
 
     def test_get_random_vector_pair(self):
         for i in range(10):
