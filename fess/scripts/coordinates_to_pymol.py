@@ -24,6 +24,7 @@ def main():
     parser.add_option('-l', '--longrange', dest='add_longrange', default=False, action='store_true', help='Display the longrange interactions')
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
     parser.add_option('-i', '--img_energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
+    parser.add_option('-m', '--max_stem_distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
 
     (options, args) = parser.parse_args()
     
@@ -35,6 +36,7 @@ def main():
     pymol_printer.print_text = options.print_text
     pymol_printer.add_twists = options.add_twists
     pymol_printer.add_longrange = options.add_longrange
+    pymol_printer.max_stem_distances = options.max_stem_distances
 
     if len(options.energy) > 0:
         for bg in bgs:

@@ -2,6 +2,7 @@
 
 import sys
 
+import itertools as it
 import numpy as np
 import uuid
 
@@ -26,6 +27,7 @@ class PymolPrinter:
         self.add_twists = True
         self.add_longrange = False
         self.chain = None
+        self.max_stem_distances = 0
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -157,7 +159,7 @@ class PymolPrinter:
 
             #pos = (p + n) / 2.0 + 3 * comp2
             pos = p + (n - p) / 4.0 + 3 * comp2
-            font = 2
+            font = 1
             axes = [list(comp1 * 2), list(comp2 * 2), list(comp3 * 2)]
 
             text = "%s: %.1f" % (text, cuv.magnitude(n-p))
@@ -304,6 +306,17 @@ class PymolPrinter:
                     else:
                         self.add_stem_like(bg, key, "yellow", 1.0)
                         #self.add_segment(p, n, "yellow", 1.0, key)
+
+        if self.max_stem_distances > 0:
+            cud.pv('self.max_stem_distances')
+            for (s1, s2) in it.permutations(bg.stems(), r=2):
+                (i1, i2) = cuv.line_segment_distance(bg.coords[s1][0],
+                                                     bg.coords[s1][1],
+                                                     bg.coords[s2][0],
+                                                     bg.coords[s2][1])
+                if cuv.magnitude(i2 - i1) < self.max_stem_distances:
+                    cud.pv('cuv.magnitude(i2-i1)')
+                    self.add_segment(i1, i2, 'purple', 0.3, s1 + " " + s2)
 
         if self.add_longrange:
             for key1 in bg.longrange.keys():

@@ -57,6 +57,9 @@ def stem_stem_orientation(bg, s1, s2):
     ang1 = cuv.vec_angle(s2_proj, s2_vec)
 
     # the angle in the plane
+    #cud.pv('s2_proj')
+    #cud.pv('s1_vec')
+    #cud.pv('np.dot(cuv.normalize(s2_proj), cuv.normalize(s1_vec))')
     ang2 = cuv.vec_angle(s2_proj, s1_vec)
 
     return (cuv.magnitude(i_vec), ang1, ang2, cuv.vec_angle(s1_vec, s2_vec))

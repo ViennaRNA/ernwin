@@ -4,8 +4,9 @@ PDBNAME=
 DEBUG=
 TEXT=
 BASE_NORMALS=
+MAX_STEM_DISTANCE=0
 
-while getopts "xtbp:" OPTION
+while getopts "xtbm:p:" OPTION
 do
     case $OPTION in
         x)
@@ -17,6 +18,9 @@ do
             ;;
         b)
             BASE_NORMALS=-b
+            ;;
+        m)
+            MAX_STEM_DISTANCE=$OPTARG
             ;;
         p)
             PDBNAME=$OPTARG
@@ -33,9 +37,9 @@ fi
 
 if [[ -z $DEBUG ]]
 then
-    ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -p fess/structures/$PDBNAME.pdb
+    ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -m $MAX_STEM_DISTANCE -p fess/structures/$PDBNAME.pdb
 else
-    ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -xp fess/structures/$PDBNAME.pdb
+    ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -m $MAX_STEM_DISTANCE -xp fess/structures/$PDBNAME.pdb
 fi
 
 pymol fess/output/$PDBNAME/prepare/temp.pdb fess/output/$PDBNAME/pymol/cartoon.pml > /dev/null

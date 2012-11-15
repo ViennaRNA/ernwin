@@ -1,4 +1,5 @@
 import unittest
+import itertools as it
 import numpy as np
 
 import corgy.utilities.debug as cud
@@ -17,6 +18,14 @@ from math import asin
 from random import uniform
 
 class TestVectorFunctions(unittest.TestCase):
+
+    def is_correct_line_segment_intersection(self, points):
+        (i1, i2) = cuv.line_segment_distance(points[0], points[1], points[2], points[3])
+        dist = cuv.magnitude(i1-i2)
+
+        for (p1, p2) in it.combinations(points, 2):
+            self.assertTrue(dist <= cuv.magnitude(p2-p1))
+
     '''
     Tests for some of the vector functions in corgy.utilities.vector.
     '''
@@ -30,13 +39,31 @@ class TestVectorFunctions(unittest.TestCase):
         (i1, i2) = cuv.line_segment_distance(p1, p2, p3, p4)
 
         self.assertTrue(np.allclose(cuv.magnitude(i2 - i1), 0.))
-
-        (i1, i2) = cuv.line_segment_distance(np.array([1,0,3]),
-                                             np.array([-1,0,5]),
-                                             np.array([2,0,2]),
-                                             np.array([-1,0,3]))
+        points = np.array([np.array([1,0,3]),
+                             np.array([-1,0,5]),
+                             np.array([2,0,2]),
+                             np.array([-1,0,3])])
+        (i1, i2) = cuv.line_segment_distance(points[0], points[1], 
+                                             points[2], points[3])
 
         self.assertTrue(allclose(cuv.magnitude(i2 - i1), 1.414214))
+        self.is_correct_line_segment_intersection(points)
+
+        # example taken from the structure 1y26
+        # the distance between stems s0 and s2 should be equal
+        # to about 12.8
+
+        points = ([
+                np.array([30.0040144582, -15.5837796435, -0.81088714109]),
+                np.array([ 42.1882144873, -21.8571225645, -8.65941138651]),
+                np.array([2.80027096347, 2.67357402672, 3.08232193012]),
+                np.array([18.65996885, -11.404352872, 3.44946626076])])
+
+        (i1, i2) = cuv.line_segment_distance(points[0], points[1],
+                                             points[2], points[3])
+        cud.pv('cuv.magnitude(i1-i2)')
+        self.is_correct_line_segment_intersection(points)
+
 
     def test_get_random_vector_pair(self):
         for i in range(10):

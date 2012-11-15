@@ -3,8 +3,9 @@
 PDBNAME=
 TEXT=
 BASE_NORMALS=
+MAX_STEM_DISTANCE=0
 
-while getopts "xtbp:" OPTION
+while getopts "xtbm:p:" OPTION
 do
     case $OPTION in
         x)
@@ -15,6 +16,9 @@ do
             ;;
         b)
             BASENORMALS=1
+            ;;
+        m)
+            MAX_STEM_DISTANCE=$OPTARG
             ;;
         p)
             PDBNAME=$OPTARG
@@ -34,7 +38,7 @@ OUTPUT_PREPARE_DIR=${OUTPUT_DIR}/prepare
 
 LOCAL_SCRIPT_DIR=fess/scripts
 
-./$LOCAL_SCRIPT_DIR/coordinates_to_pymol.py $TEXT $OUTPUT_GRAPH_DIR/temp.comp > $OUTPUT_PYMOL_DIR/coarse_grain.pym 
+./$LOCAL_SCRIPT_DIR/coordinates_to_pymol.py -m $MAX_STEM_DISTANCE $TEXT $OUTPUT_GRAPH_DIR/temp.comp > $OUTPUT_PYMOL_DIR/coarse_grain.pym 
 ./$LOCAL_SCRIPT_DIR/graph_to_pymol.py $OUTPUT_GRAPH_DIR/temp.comp $OUTPUT_PYMOL_DIR/coarse_grain.pym > $OUTPUT_PYMOL_DIR/cartoon.pml
 
 if [[ ! -z $BASENORMALS ]]

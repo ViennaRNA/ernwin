@@ -503,6 +503,7 @@ def vec_angle(vec1, vec2):
     vec1n = normalize(vec1)
     vec2n = normalize(vec2)
 
+    cud.pv('dot(vec1n, vec2n)')
     angle = acos(dot(vec1n, vec2n))
     return angle
 
@@ -540,7 +541,7 @@ def line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1):
         closest to the point i2 on segment s2
     '''
     u = s1_p1 - s1_p0
-    v = s2_p1 - s1_p0
+    v = s2_p1 - s2_p0
     w = s1_p0 - s2_p0
     
     a = dot(u,u)        # always >= 0
@@ -601,6 +602,11 @@ def line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1):
     dP = w + (sc * u) - (tc * v)  # = S1(sc) - S2(tc)
 
     '''
+    cud.pv('u')
+    cud.pv('v')
+    cud.pv('sc')
+    cud.pv('tc')
+
     cud.pv('sc')
     cud.pv('tc')
 
