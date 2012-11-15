@@ -503,8 +503,17 @@ def vec_angle(vec1, vec2):
     vec1n = normalize(vec1)
     vec2n = normalize(vec2)
 
-    cud.pv('dot(vec1n, vec2n)')
-    angle = acos(dot(vec1n, vec2n))
+    d = dot(vec1n, vec2n)
+
+    # this shouldn't happen, but sometimes it does, presumably because
+    # of rounding errors
+    if d >= 1.:
+        d = 1.
+    if d <= -1.:
+        d = -1.
+
+    #cud.pv('dot(vec1n, vec2n)')
+    angle = acos(d)
     return angle
 
 def vec_dot(a, b):

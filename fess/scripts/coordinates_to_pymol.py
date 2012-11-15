@@ -24,6 +24,7 @@ def main():
     parser.add_option('-l', '--longrange', dest='add_longrange', default=False, action='store_true', help='Display the longrange interactions')
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
     parser.add_option('-i', '--img_energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
+    parser.add_option('-s', '--stem_stem_energy', dest='stem_stem_energy', default=False, action='store_true', help="Visualize the distance energy")
     parser.add_option('-m', '--max_stem_distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
 
     (options, args) = parser.parse_args()
@@ -45,6 +46,8 @@ def main():
 
     if options.img_energy:
         pymol_printer.energy_function = cbe.ImgHelixOrientationEnergy()
+    if options.stem_stem_energy:
+        pymol_printer.energy_function = cbe.StemStemOrientationEnergy()
 
 
     for i in range(len(bgs)):

@@ -304,8 +304,8 @@ class PymolPrinter:
                     if bg.weights[key] == 1:
                         self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
                     else:
-                        self.add_stem_like(bg, key, "yellow", 1.0)
-                        #self.add_segment(p, n, "yellow", 1.0, key)
+                        #self.add_stem_like(bg, key, "yellow", 1.0)
+                        self.add_segment(p, n, "yellow", 1.0, key)
 
         if self.max_stem_distances > 0:
             cud.pv('self.max_stem_distances')

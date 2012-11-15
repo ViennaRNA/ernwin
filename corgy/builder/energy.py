@@ -944,3 +944,36 @@ class OldRoughJunctionClosureEnergy(EnergyFunction):
 
         return energy
 
+class StemStemOrientationEnergy(EnergyFunction):
+    def __init__(self):
+        self.max_dist = 22
+
+        self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
+        self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
+
+        pass
+
+    def load_stem_stem_data(self, filename):
+        t = pa.read_csv(filename, header=None, sep=' ')
+        angles = t[t['X.1'] < self.max_dist]['X.3'].values
+
+        return cek.gaussian_kde(angles)
+
+    def eval_energy(self, sm, background=True):
+        energy = 0
+        self.interaction_energies = c.defaultdict(float)
+
+        for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
+            orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
+            if orientation[0] < self.max_dist:
+                real = my_log(
+                        self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[2])
+                fake = my_log(
+                        self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[2])
+
+                energy += (real - fake)
+
+                self.interaction_energies[tuple(sorted([s1,s2]))] += (real - fake)
+
+        return -energy
+                

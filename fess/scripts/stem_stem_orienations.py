@@ -9,8 +9,9 @@ import corgy.graph.graph_pdb as cgg
 import itertools as it
 
 def stem_stem_orientations(bg):
-    for (s1, s2) in it.permutations(bg.stems(), r=2):
-        print " ".join(map(str, cgg.stem_stem_orientation(bg, s1, s2)))
+    for (s1, s2) in it.combinations(bg.stems(), r=2):
+        if not bg.are_adjacent_stems(s1, s2):
+            print " ".join(map(str, cgg.stem_stem_orientation(bg, s1, s2)))
 
 def main():
     usage = './stem_stem_orientations.py temp.comp'

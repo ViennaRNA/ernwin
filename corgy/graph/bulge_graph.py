@@ -193,8 +193,10 @@ class BulgeGraph:
         '''
 
         for edge in self.edges[s1]:
-            if s2 in self.edges[edge]:
-                return True
+            # the intermediate element must be an interior loop
+            if self.weights[edge] == 2:
+                if s2 in self.edges[edge]:
+                    return True
 
         return False
 

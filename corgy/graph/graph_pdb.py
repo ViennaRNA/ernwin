@@ -546,10 +546,14 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     # the nts_per_2pi_twist need to be calculated separately 
     # It is the minimum number of nucleotides needed to create
     # a full twist of the stem
-    nts_per_2pi_twist = 11
-    ang += m.pi * (i / nts_per_2pi_twist)
-
+    nts_per_2pi_twist = 12
+    ang += 2 * m.pi * (stem_len / nts_per_2pi_twist)
     ang_per_nt = ang / float(stem_len-1)
+    '''
+    if stem_len == 2:
+        cud.pv('(stem, stem_len, ang_per_nt)')
+    '''
+
     ang = ang_per_nt * i
 
     # the basis vectors for the helix along which the
