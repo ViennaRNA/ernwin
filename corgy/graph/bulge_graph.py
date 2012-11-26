@@ -1514,4 +1514,5 @@ class BulgeGraph:
     def from_dotbracket_file(self, fn):
         f = open(fn, 'r')
         brackets = "".join(f.readlines()).replace('\n', '')
+        self.length = len(brackets)
         self.from_dotbracket(brackets)

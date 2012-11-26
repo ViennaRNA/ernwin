@@ -179,12 +179,18 @@ class SamplingStatistics:
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
         self.energy_rmsd_structs = []
-        self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
         self.counter = 0
         self.plotter = plotter
         self.plot_color = plot_color
         self.silent = silent
         self.verbose = False
+
+        try:
+            self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
+        except KeyError:
+            # if there are no coordinates provided in the original
+            # bulge graph file, then don't calculate rmsds
+            self.centers_orig = None
 
     def update_statistics(self, energy_function, sm):
         '''
@@ -199,8 +205,12 @@ class SamplingStatistics:
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
 
-        centers_new = cgg.bg_virtual_residues(sm.bg)
-        r = cbr.centered_rmsd(self.centers_orig, centers_new)
+        if self.centers_orig != None:
+            # no original coordinates provided so we can't calculate rmsds
+            centers_new = cgg.bg_virtual_residues(sm.bg)
+            r = cbr.centered_rmsd(self.centers_orig, centers_new)
+        else:
+            r = 0.
 
         self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]

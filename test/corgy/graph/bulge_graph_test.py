@@ -199,3 +199,4 @@ class TestBulgeGraph(unittest.TestCase):
         fn = os.path.join(Configuration.test_input_dir, "1gid/prepare", "temp.dotplot")
         bg = BulgeGraph()
         bg.from_dotbracket_file(fn)
+        bg.dump()
