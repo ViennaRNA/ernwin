@@ -194,3 +194,8 @@ class TestBulgeGraph(unittest.TestCase):
             if len(bg.edges[node]) == 1:
                 print bg.get_twists(node)
                 self.assertEqual(len(bg.get_twists(node)), 1)
+
+    def test_from_dotbracket(self):
+        fn = os.path.join(Configuration.test_input_dir, "1gid/prepare", "temp.dotplot")
+        bg = BulgeGraph()
+        bg.from_dotbracket_file(fn)
