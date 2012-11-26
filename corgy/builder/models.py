@@ -5,6 +5,7 @@ import os
 import numpy as np
 import numpy.linalg as nl
 import math
+import sys
 
 import corgy.builder.config as cbc
 import corgy.visual.pymol as cvp
@@ -293,7 +294,11 @@ class SpatialModel:
             if d[0] != 's': 
                 if len(self.bg.edges[d]) == 2:
                     size = self.bg.get_bulge_dimensions(d)
-                    stats = choice(self.angle_stats[size[0]][size[1]])
+                    try:
+                        stats = choice(self.angle_stats[size[0]][size[1]])
+                    except IndexError:
+                        print >>sys.stderr, "No statistics for bulge of size:", size
+                        sys.exit(1)
                 else:
                     stats = cbs.AngleStat()
 
@@ -520,9 +525,11 @@ class SpatialModel:
             self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
             self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
 
+            '''
             for edge in self.bg.edges[stem]:
                 if self.bg.weights[edge] == 2:
                     cgg.add_virtual_residues(self.bg, edge)
+            '''
 
             cgg.add_virtual_residues(self.bg, stem)
 

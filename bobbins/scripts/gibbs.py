@@ -51,7 +51,8 @@ def main():
     parser.add_option('-o', '--helix_orientation', dest='helix_orientation', default=False, action='store_true', help='Sample using the helix orientation energy')
     parser.add_option('-m', '--mcmc', dest='mcmc_sampler', default=False, action='store_true', help='Sample using the mcmc sampler.')
     parser.add_option('-s', '--stem-stem', dest='stem_stem', default=False, action='store_true', help='Use the stem-stem orientation energy')
-    parser.add_option('-ss', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
+    parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
+
 
     (options, args) = parser.parse_args()
 
@@ -60,6 +61,10 @@ def main():
         sys.exit(1)
 
     if options.secondary_structure:
+        print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
+        bg = BulgeGraph()
+        bg.from_dotbracket_file(args[0])
+    else:
         bg = BulgeGraph(args[0])
 
     sm = SpatialModel(bg)
