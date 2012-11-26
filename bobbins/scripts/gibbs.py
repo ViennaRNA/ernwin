@@ -51,6 +51,7 @@ def main():
     parser.add_option('-o', '--helix_orientation', dest='helix_orientation', default=False, action='store_true', help='Sample using the helix orientation energy')
     parser.add_option('-m', '--mcmc', dest='mcmc_sampler', default=False, action='store_true', help='Sample using the mcmc sampler.')
     parser.add_option('-s', '--stem-stem', dest='stem_stem', default=False, action='store_true', help='Use the stem-stem orientation energy')
+    parser.add_option('-ss', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
 
     (options, args) = parser.parse_args()
 
@@ -58,7 +59,9 @@ def main():
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
 
-    bg = BulgeGraph(args[0])
+    if options.secondary_structure:
+        bg = BulgeGraph(args[0])
+
     sm = SpatialModel(bg)
 
     energies_to_sample = []
