@@ -362,9 +362,13 @@ class GibbsBGSampler:
         bulge = self.sm.bg.get_random_bulge()
         dims = self.sm.bg.get_bulge_dimensions(bulge)
 
+        if dims == (1,7):
+            dims = (2,7)
         # What are the potential angle statistics for it
         possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
 
+        if len(possible_angles) == 0:
+            print >>sys.stder, "No available statistics for bulge %s of size %s" % (bulge, str(dims))
         # only choose 10 possible angles
         if len(possible_angles) > 20:
             possible_angles = random.sample(possible_angles, 20)
@@ -373,6 +377,7 @@ class GibbsBGSampler:
 
         # evaluate the energies of the structure when the original
         # angle is replaced by one of the 10 potential new ones
+        #cud.pv('possible_angles')
         for pa in possible_angles:
             self.sm.angle_defs[bulge] = pa
             self.sm.traverse_and_build(start=bulge)

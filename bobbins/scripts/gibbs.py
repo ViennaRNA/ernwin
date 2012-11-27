@@ -52,6 +52,7 @@ def main():
     parser.add_option('-m', '--mcmc', dest='mcmc_sampler', default=False, action='store_true', help='Sample using the mcmc sampler.')
     parser.add_option('-s', '--stem-stem', dest='stem_stem', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
+    parser.add_option('', '--seq', dest='seq', default=None, help='Provide the sequence of the structure being sampled. This is necessary if one wants to later reconstruct it.')
 
 
     (options, args) = parser.parse_args()
@@ -60,12 +61,18 @@ def main():
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
 
+
+
     if options.secondary_structure:
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
         bg = BulgeGraph()
         bg.from_dotbracket_file(args[0])
     else:
         bg = BulgeGraph(args[0])
+
+    if options.seq != None:
+        f = open(options.seq, 'r')
+        bg.seq = f.readlines()[0].strip()
 
     sm = SpatialModel(bg)
 

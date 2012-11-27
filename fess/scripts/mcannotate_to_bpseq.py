@@ -39,8 +39,8 @@ def get_dotplot(lines):
     for line in iterate_over_interactions(lines):
         parts = line.split(' ')
         bond_type = parts[3]
-        #if bond_type.find('Ww/Ww') >= 0 or bond_type.find('Ww/Ws') >= 0 or bond_type.find('Ws/Ww') >= 0:
-        if bond_type.find('Ww/Ww') >= 0:
+        if bond_type.find('Ww/Ww') >= 0 or bond_type.find('Ww/Ws') >= 0 or bond_type.find('Ws/Ww') >= 0:
+        #if bond_type.find('Ww/Ww') >= 0:
             parts1 = parts[0].split('-')
             #print line
 

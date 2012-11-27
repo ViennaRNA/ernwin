@@ -294,10 +294,16 @@ class SpatialModel:
             if d[0] != 's': 
                 if len(self.bg.edges[d]) == 2:
                     size = self.bg.get_bulge_dimensions(d)
+
+                    #HACK to overcome some sparse statistics
+                    #TODO: remove this
+                    if size == (1,7):
+                        size = (2,7)
+
                     try:
                         stats = choice(self.angle_stats[size[0]][size[1]])
                     except IndexError:
-                        print >>sys.stderr, "No statistics for bulge of size:", size
+                        print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
                         sys.exit(1)
                 else:
                     stats = cbs.AngleStat()
@@ -374,7 +380,12 @@ class SpatialModel:
                 length = abs(define[1] - define[0])
 
                 # retrieve a random entry from the StemStatsDict collection
-                ls = choice(self.loop_stats[length])
+                try:
+                    ls = choice(self.loop_stats[length])
+                except IndexError:
+                    print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
+                    sys.exit(1)
+
                 loop_defs[d] = ls
 
         self.loop_defs = loop_defs

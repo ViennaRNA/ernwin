@@ -18,6 +18,6 @@ mkdir -p fess/output/${pdb}/{prepare,graph,neato,report,stats,pymol}
 
 ./fess/scripts/prepare.sh $1
 ./fess/scripts/create_graph.sh $1
-./fess/scripts/create_pymol.sh $1
+#./fess/scripts/create_pymol.sh $1
 ./fess/scripts/create_stats.sh $1
 

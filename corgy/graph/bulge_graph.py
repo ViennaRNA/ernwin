@@ -403,6 +403,8 @@ class BulgeGraph:
         '''
         Check whether two stems are separated by one intermediate element.
 
+        The intermediate element must be an interior loop.
+
         For example.
 
         True: s1-b-s2
@@ -419,6 +421,26 @@ class BulgeGraph:
                     return True
 
         return False
+
+    def are_any_adjacent_stems(self, s1, s2):
+        '''
+        Check whether two stems are separated by one intermediate element.
+
+        For example.
+
+        True: s1-b-s2
+        False: s1-b-sx-b-s2
+
+        @param: s1 the name of the first stem
+        @param: s2 the name of the second stem
+        '''
+
+        for edge in self.edges[s1]:
+            if s2 in self.edges[edge]:
+                return True
+
+        return False
+
 
     def get_random_bulge(self):
         '''
@@ -623,6 +645,11 @@ class BulgeGraph:
     def stems(self):
         for d in self.defines.keys():
             if d[0] == 's':
+                yield d
+
+    def junctions(self):
+        for d in self.defines.keys():
+            if d[0] != 's' and self.weights[d] == 1 and len(self.edges[d]) == 2:
                 yield d
     
     def stem_like(self):
@@ -1004,6 +1031,7 @@ class BulgeGraph:
 
     def dump(self):
         print self.get_as_str()
+
     def create_stem_graph(self, stems, bulge_counter):
         '''
         Determine which stems are connected to each other. A stem can be connected to

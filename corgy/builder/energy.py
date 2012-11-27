@@ -626,6 +626,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
         l = []
         bg = sm.bg
         mult = 7
+        points = []
+        energy = 0.
 
         for d in sm.bg.defines.keys():
             if d[0] == 's':
@@ -635,16 +637,44 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
                 for i in range(s_len):
                     (p, v) = cgg.virtual_res_3d_pos(bg, d, i, stem_inv=stem_inv)
-                    l += [p+ mult * v]
+                    points += [(p+ mult * v, d, i)]
+
+        coords = np.vstack([p[0] for p in points])
 
         #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
-        kdt.set_coords(np.array(l))
-        kdt.all_search(3.)
+        kdt.set_coords(coords)
+        kdt.all_search(6)
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
 
-        energy = 100000 * len(kdt.all_get_indices())
+        indeces = kdt.all_get_indices()
+        for (ia,ib) in indeces:
+            (s1,i1) = (points[ia][1], points[ia][2])
+            (s2,i2) = (points[ib][1], points[ib][2])
+
+            if s1 == s2:
+                continue
+
+            if bg.are_any_adjacent_stems(s1,s2):
+                min_distance = 1.12
+            else:
+                min_distance = 3.74
+
+            (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, s1, i1)
+            (v2_p, v2_v) = cgg.virtual_res_3d_pos(bg, s2, i2)
+
+            closest_points = cuv.line_segment_distance(v1_p, 
+                                                       v1_p + mult * v1_v,
+                                                       v2_p,
+                                                       v2_p + mult * v2_v)
+
+            closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
+
+            if closest_distance < min_distance:
+                energy += 100000
+
+        #energy = 100000 * len(kdt.all_get_indices())
 
         #energy = 1000 * len(kdt.all_search(4.))
         #energy = 1000 * len(kd.query_pairs(4.))
