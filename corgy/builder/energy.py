@@ -606,6 +606,38 @@ class LongRangeInteractionCount(EnergyFunction):
         return contrib
         #return -(log(ss.norm.pdf(float(count), 89., 8.)) - log(skew(count, self.skew_fit[0], self.skew_fit[1], self.skew_fit[2])))
 
+class CoarseStemClashEnergy(EnergyFunction):
+    '''
+    Determine if two stems clash.
+    '''
+    
+    def __init__(self):
+        pass
+
+    def eval_energy(self, sm, background=False):
+        bg = sm.bg
+        min_distance = 8.45
+        energy = 0.
+        #print list(bg.stems())
+
+        for (s1, s2) in it.combinations(bg.stems(), 2):
+            #print s1, s2
+            if bg.are_any_adjacent_stems(s1, s2):
+                continue
+
+            closest_points = cuv.line_segment_distance(bg.coords[s1][0],
+                                                       bg.coords[s1][1],
+                                                       bg.coords[s2][0],
+                                                       bg.coords[s2][1])
+
+            closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
+            #print "s1, s2", s1, s2, closest_distance
+
+            if closest_distance < min_distance:
+                energy += 100000.0
+
+        return energy
+
 class StemVirtualResClashEnergy(EnergyFunction):
     '''
     Determine if the virtual residues clash.
