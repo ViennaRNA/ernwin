@@ -161,7 +161,7 @@ void print_rows(double *m, int n)
     }
 }
 
-void ccd_c(double *moving, int len_moving, double *fixed, long *points, int len_points, int moving_end, int iterations) {
+void ccd_c(double *moving, int len_moving, double *fixed, long *points, int len_points, int moving_end, int iterations, double rmsd_threshold) {
     double rot_mat[9], rmsd;
     int k, i, prev_i, j;
     //print_rows(&moving[(len_moving-3) * 3], 3);
@@ -183,5 +183,8 @@ void ccd_c(double *moving, int len_moving, double *fixed, long *points, int len_
         }
 
         rmsd = calc_rmsd_c( &moving[(moving_end - 3) * 3], fixed, 3);
+        
+        if (rmsd < rmsd_threshold)
+            return;
     }
 }

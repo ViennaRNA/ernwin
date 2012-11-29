@@ -4,7 +4,7 @@ cimport numpy as np
 cdef extern from "rot_mat_c.h":
     void rotation_matrix_c(double *axis, double theta, double *mat)
     void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *F, double *out_rot_mat)
-    void ccd_c(double *moving, int len_moving, double *fixed, long *points, int num_points, int moving_end, int iterations)
+    void ccd_c(double *moving, int len_moving, double *fixed, long *points, int num_points, int moving_end, int iterations, double rmsd_threshold)
     double c_dot(double *v1, double *v2)
 
 ctypedef np.double_t DTYPE_t
@@ -55,8 +55,8 @@ def get_closer_rotation_matrix_cython(np.ndarray[DTYPE_t, ndim=1] TH,np.ndarray[
         np.ndarray[DTYPE_t, ndim=2] M, np.ndarray[DTYPE_t, ndim=2] F,np.ndarray[DTYPE_t, ndim=2] out_rot_mat):
     get_closer_rotation_matrix_c(<double *> TH.data, <double *> point.data, <double *> M.data, <double *> F.data, <double *>out_rot_mat.data)
 
-def ccd_cython(np.ndarray[DTYPE_t, ndim=2] moving, np.ndarray[DTYPE_t, ndim=2] fixed, np.ndarray[np.int64_t, ndim=1] points, int moving_end, int iterations=10):
+def ccd_cython(np.ndarray[DTYPE_t, ndim=2] moving, np.ndarray[DTYPE_t, ndim=2] fixed, np.ndarray[np.int64_t, ndim=1] points, int moving_end, int iterations=10, double rmsd_threshold=0.8):
     cdef int len_points = len(points)
     cdef int len_moving = len(moving)
-    ccd_c(<double *> moving.data, len_moving, <double *> fixed.data, <long *> points.data, len_points, moving_end, iterations) 
+    ccd_c(<double *> moving.data, len_moving, <double *> fixed.data, <long *> points.data, len_points, moving_end, iterations, rmsd_threshold) 
 

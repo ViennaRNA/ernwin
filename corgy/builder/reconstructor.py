@@ -3,11 +3,13 @@ import corgy.builder.rmsd as brmsd
 
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.vector as cuv
+import corgy.utilities.debug as cud
 
 import corgy.builder.ccd as cbc
 import corgy.aux.ccd.cytvec as cv
 
-import corgy.aux.Barnacle as barn
+#import corgy.aux.Barnacle as barn
+import corgy.aux.CPDB.src.examples.BarnacleCPDB as barn
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
@@ -41,6 +43,7 @@ def get_measurement_vectors2(ress, r1, r2):
             ress[r2]['C2*'].get_vector().get_array())
 
 def get_measurement_vectors(ress, r1, r2):
+    #cud.pv('bpdb.Selection.unfold_entities(ress[r2], \'A\')')
     return( ress[r2]['C2*'].get_vector().get_array(), 
             ress[r2]['C3*'].get_vector().get_array(),
             ress[r2]['O3*'].get_vector().get_array())
@@ -443,7 +446,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     e = np.eye(3,3)
 
     (moving, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
-    (moving_names, indeces_names) = get_atom_name_array(chain_loop, handles[2], handles[3])
+    #(moving_names, indeces_names) = get_atom_name_array(chain_loop, handles[2], handles[3])
 
 
     fixed = np.array(get_measurement_vectors(chain_stems, handles[0], handles[1]))
@@ -458,7 +461,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     #points += [indeces[handles[2]+1]]
 
     #points += indeces[handles[2]+1] #O3* -> P bond
-    for i in range(handles[2]+1, handles[3]+1):
+    #for i in range(handles[2]+1, handles[3]+1):
+    for i in [handles[2]+1, handles[3]]:
         si = indeces[i]
 
         # 
@@ -556,10 +560,13 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     seq = bg.get_flanking_sequence(ld, side)
     (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
 
+    cud.pv('(a,b,i1,i2)')
     #print "ld:", ld, "(a,b,i1,i2)", a,b,i1,i2
     #print "seq:", seq
 
-    model = barn.Barnacle(seq)
+    #model = barn.Barnacle(seq)
+    model = barn.BarnacleCPDB(seq)
+
     model.sample()
     s = model.structure
 
@@ -596,7 +603,11 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     sys.stderr.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
 
     for i in range(iterations):
-        model.sample()
+        start = rand.randint(0, len(seq)-1)
+        end = rand.randint(start+1, len(seq))
+
+        #print "start:", start, "end:", end
+        model.sample(start=start, end=end)
         chain_loop = list(model.structure.get_chains())[0]
 
         loop_atoms = bpdb.Selection.unfold_entities(chain_loop, 'A') 
@@ -613,7 +624,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
             loop_chain = chain_loop
             r = 0.000
         else:
-            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=5000)
+            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=10000)
 
         #orig_loop_chain = copy.deepcopy(loop_chain)
         orig_loop_chain = loop_chain
@@ -650,6 +661,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
             if (0, r) < min_contacts:
                 best_loop_chain = copy.deepcopy(orig_loop_chain)
                 min_contacts = (0, r)
+                #print "r:", r
 
         '''
         if contacts2 == 0:
@@ -670,7 +682,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
 
     return min_contacts
 
-def reconstruct_loops(chain, sm, samples=40):
+def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
     '''
     Reconstruct the loops of a chain.
 
@@ -682,10 +694,10 @@ def reconstruct_loops(chain, sm, samples=40):
     for d in sm.bg.defines.keys():
         if d[0] != 's':
             if sm.bg.weights[d] == 2:
-                reconstruct_loop(chain, sm, d, 0, samples=samples)
-                reconstruct_loop(chain, sm, d, 1, samples=samples)
+                reconstruct_loop(chain, sm, d, 0, samples=samples, consider_contacts=consider_contacts)
+                reconstruct_loop(chain, sm, d, 1, samples=samples, consider_contacts=consider_contacts)
             else:
-                reconstruct_loop(chain, sm, d, 0, samples=samples)
+                reconstruct_loop(chain, sm, d, 0, samples=samples, consider_contacts=consider_contacts)
             
 
 def reconstruct(sm):

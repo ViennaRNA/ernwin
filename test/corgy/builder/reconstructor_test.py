@@ -326,7 +326,7 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loops(chain, sm, samples=5)
+        rtor.reconstruct_loops(chain, sm, samples=40, consider_contacts=False)
         '''
         rtor.reconstruct_loop(chain, sm, 'b15')
         #rtor.reconstruct_loop(chain, sm, 'b1')
@@ -341,23 +341,14 @@ class TestReconstructor(unittest.TestCase):
         rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
 
     def test_reconstruct_loop(self):
-        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         sm = cbm.SpatialModel(bg)
         sm.sample_native_stems()
         sm.create_native_stem_models()
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loop(chain, sm, 'b18')
-        #rtor.reconstruct_loop(chain, sm, 'x4', side=1)
-        '''
-        #rtor.reconstruct_loop(chain, sm, 'b1')
-        rtor.reconstruct_loop(chain, sm, 'b11')
-        rtor.reconstruct_loop(chain, sm, 'b18')
-        #rtor.reconstruct_loop(chain, sm, 'b16')
-        #rtor.reconstruct_loop(chain, sm, 'x2', 0)
-        #rtor.reconstruct_loop(chain, sm, 'x2', 1)
-        '''
+        rtor.reconstruct_loop(chain, sm, 'b1', samples=40, consider_contacts=False)
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
