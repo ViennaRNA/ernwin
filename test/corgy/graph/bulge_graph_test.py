@@ -1,14 +1,18 @@
 import unittest, os
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.config import Configuration
+import numpy as np
+
+import corgy.builder.config as cbc
+import corgy.graph.bulge_graph as cgb
+import corgy.utilities.debug as cud
+
 from numpy import allclose
 
 import copy, time
 
 class TestBulgeGraph(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        self.bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
     def test_loop_centroid(self):
         '''
@@ -21,7 +25,7 @@ class TestBulgeGraph(unittest.TestCase):
                 connect = list(bg.edges[d])[0]
 
                 (sb, se) = bg.get_sides(connect, d)
-                self.assertTrue(allclose(bg.coords[d][0], bg.coords[connect][sb]))
+                self.assertTrue(np.allclose(bg.coords[d][0], bg.coords[connect][sb]))
 
     def test_breadth_fist_traversal(self):
         '''
@@ -38,12 +42,27 @@ class TestBulgeGraph(unittest.TestCase):
         self.assertEqual(len(path), len(path_set))
 
     def test_bp_distance(self):
-        bg = self.bg
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         bg.calc_bp_distances()
 
+        '''
         for d1 in bg.defines.keys():
             self.assertTrue(bg.bp_distances[d1][d1] == 0)
 
+        for s1 in bg.defines.keys():
+            for s2 in bg.defines.keys():
+                #print s1, s2, bg.closest_sides[s1][s2], bg.closest_sides[s2][s1]
+                if s1[0] == 's' and s2[0] == 's':
+                    print s1, s2, bg.closest_sides[s1][s2]
+        print '-----------'
+
+        for key1 in bg.bp_distances.keys():
+            for key2 in bg.bp_distances[key1]:
+                print key1, key2, bg.bp_distances[key1][key2]
+        '''
+
+        #print bg.bp_distances
+        #cud.pv('bg.closest_sides')
         '''
         self.assertTrue(bg.bp_distances['b5']['b0'] == 0)
         self.assertTrue(bg.bp_distances['b5']['s6'] == 4)
@@ -122,7 +141,7 @@ class TestBulgeGraph(unittest.TestCase):
         self.assertEquals(bg.seq[def1[0]:def1[1]-1], 'AAG')
 
     def test_copy(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
         bg1 = copy.deepcopy(bg)
         bg2 = bg.copy()
@@ -173,7 +192,7 @@ class TestBulgeGraph(unittest.TestCase):
         self.assertEquals(i2, 11)
 
     def test_get_stem_angle(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
         stems = [d for d in bg.defines.keys() if d[0] == 's']
 
@@ -182,7 +201,7 @@ class TestBulgeGraph(unittest.TestCase):
                 print stems[i], stems[j], bg.get_stem_angle(stems[i], stems[j])
 
     def test_get_twists(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
     
         for node in bg.defines.keys():
             self.assertNotEqual(bg.get_twists(node), None)
@@ -196,7 +215,7 @@ class TestBulgeGraph(unittest.TestCase):
                 self.assertEqual(len(bg.get_twists(node)), 1)
 
     def test_from_dotbracket(self):
-        fn = os.path.join(Configuration.test_input_dir, "1gid/prepare", "temp.dotplot")
-        bg = BulgeGraph()
+        fn = os.path.join(cbc.Configuration.test_input_dir, "1gid/prepare", "temp.dotplot")
+        bg = cgb.BulgeGraph()
         bg.from_dotbracket_file(fn)
         bg.dump()

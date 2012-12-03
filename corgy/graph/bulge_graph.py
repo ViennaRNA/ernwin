@@ -492,49 +492,51 @@ class BulgeGraph:
 
         dist = cuds.DefaultDict(cuds.DefaultDict(0))
         sides = cuds.DefaultDict(cuds.DefaultDict((0,1)))
+        stem_sides = c.defaultdict(lambda: c.defaultdict(lambda: 0))
 
         defs = self.defines.keys()
 
         for i in defs:
             for j in defs:
                 dist[i][j] = 10000000
+                
                 if i == j:
                     dist[i][j] = 0
+
                 if j in self.edges[i]:
                     dist[i][j] = 0
+                    
+                    # stem_sides stores which side of stem i points
+                    # to stem j 
+                    # if i or j is a bulge, then the stored side is
+                    # for the stem
+                    if i[0] == 's':
+                        stem_sides[i][j] = self.get_sides(i, j)[0]
+                        stem_sides[j][i] = self.get_sides(i, j)[0]
+                    else:
+                        stem_sides[j][i] = self.get_sides(j, i)[0]
+                        stem_sides[i][j] = self.get_sides(j, i)[0]
 
         for k in defs:
             for i in defs:
                 for j in defs:
-
-                    # I don't even understand what's going on in here,
-                    # but it seems to work
-
-                    # essentially we want to make sure not to count
-                    # the lengths of stems used as intermediate nodes
-                    # when the two other nodes being connected
-                    # are on the same side of the given stem
                     inter_distance = self.get_length(k)
-                    (s1b, s1e) = sides[i][j]
-                    (s2b, s2e) = sides[j][k]
 
                     if k[0] == 's':
-                        # There's a bulge so we can assign a side to the stem
-                        if k in self.edges[i]:
-                            (s1b, s1e) = self.get_sides(k, i)
-                        if k in self.edges[j]:
-                            (s2b, s2e) = self.get_sides(k, j)
-
-                        # both paths are on the same side of the intermediate stem
-                        # so we don't count its length in the distance calculation
-                        if s1b == s2b:
+                        # if we want to go through a stem, we have to make sure
+                        # that the two nodes being connected are on opposide sides of it
+                        if stem_sides[i][k] == stem_sides[j][k]:
                             inter_distance = 0
                     
                     if dist[i][j] > dist[i][k] + inter_distance + dist[k][j]:
                         dist[i][j] = dist[i][k] + inter_distance + dist[k][j]
-                        sides[i][j] = (s1b, s2b)
+                        #sides[i][j] = (s1b, s2b)
+
+                        stem_sides[i][j] = stem_sides[i][k]
+                        stem_sides[j][i] = stem_sides[j][k]
 
         self.bp_distances = dist
+        self.closest_sides = stem_sides
 
     def breadth_first_traversal(self, start=None):
         '''
