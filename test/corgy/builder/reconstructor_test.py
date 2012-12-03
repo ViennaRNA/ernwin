@@ -3,6 +3,7 @@ import unittest
 import time
 import os
 import corgy.aux.Barnacle as barn
+import corgy.aux.CPDB.src.examples.BarnacleCPDB as cbarn
 
 import numpy as np
 import numpy.linalg as nl
@@ -340,6 +341,51 @@ class TestReconstructor(unittest.TestCase):
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
 
+    def test_align_and_close_loop(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = cbm.SpatialModel(bg)
+        sm.sample_native_stems()
+        sm.create_native_stem_models()
+        chain = rtor.reconstruct_stems(sm)
+
+        bg = sm.bg
+        ld = 'b3'
+        side = 0
+        seq = bg.get_flanking_sequence(ld, side)
+        (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
+
+        cud.pv('(a,b,i1,i2)')
+        #print "ld:", ld, "(a,b,i1,i2)", a,b,i1,i2
+        #print "seq:", seq
+
+        #model = barn.Barnacle(seq)
+        model = cbarn.BarnacleCPDB(seq, 2.0)
+        min_r = 100.
+
+        best_loop_chain = None
+
+        for i in range(20):
+            model.sample()
+            chain_loop = list(model.structure.get_chains())[0]
+            orig_chain_loop = copy.deepcopy(chain_loop)
+            (r, loop_chain) = rtor.align_and_close_loop(bg, chain, chain_loop, (a, b, i1, i2))
+            cud.pv('r')
+
+
+            if r < min_r:
+                best_loop_chain = copy.deepcopy(loop_chain)
+                min_r = r
+                rtor.output_chain(loop_chain, 'r_barnacle.pdb')
+                rtor.output_chain(orig_chain_loop, 'r_orig_barnacle.pdb')
+
+        real_struct = bp.PDBParser().get_structure('temp',
+                os.path.join(cbc.Configuration.test_input_dir, "1y26/prepare", "temp.pdb"))
+        chain_loop = list(real_struct.get_chains())[0]
+        (r, loop_chain) = rtor.align_and_close_loop(bg, chain, chain_loop, (a, b, a, b))
+        cud.pv('r')
+        rtor.output_chain(loop_chain, 'r_native.pdb')
+
+
     def test_reconstruct_loop(self):
         bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         sm = cbm.SpatialModel(bg)
@@ -348,7 +394,7 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loop(chain, sm, 'b1', samples=40, consider_contacts=False)
+        rtor.reconstruct_loop(chain, sm, 'b3', samples=20, consider_contacts=False)
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))

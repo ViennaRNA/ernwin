@@ -122,8 +122,7 @@ def reconstruct_stems(sm, stem_library=dict()):
 
     return new_chain
 
-
-def output_chain(chain, filename):
+def output_chain(chain, filename, fr=None, to=None):
     '''
     Dump a chain to an output file.
 
@@ -275,7 +274,17 @@ def get_atom_coord_array(chain, start_res, end_res):
         indeces[res.id[1]] = count
         #print 'res:', res.resname.strip()
         for aname in a_names[res.resname.strip()]:
-            coords += [res[aname].get_vector().get_array()]
+            try:
+                coords += [res[aname].get_vector().get_array()]
+            except KeyError:
+                #alternate name for the OP1 atoms
+                if aname == 'OP1':
+                    coords += [res['O1P'].get_vector().get_array()]
+                elif aname == 'OP2':
+                    coords += [res['O2P'].get_vector().get_array()]
+                else:
+                    raise
+                    
             count += 1
             continue
 
@@ -335,7 +344,15 @@ def set_atom_coord_array(chain, coords, start_res, end_res):
         for aname in a_names[res.resname.strip()]:
             #print "coords[count]:", coords[count]
             #chain[i][aname].coord = bpdb.Vector(coords[count])
-            chain[i][aname].coord = coords[count]
+            try:
+                chain[i][aname].coord = coords[count]
+            except KeyError:
+                if aname == 'OP1':
+                    chain[i]['O1P'].coord = coords[count]
+                elif aname == 'OP2':
+                    chain[i]['O2P'].coord = coords[count]
+                else:
+                    raise
             #print "coords2:", chain[i][aname].coord
             count += 1
     return chain
@@ -545,6 +562,41 @@ show cartoon, all
     f.close()
 
 
+def align_and_close_loop(bg, chain, chain_loop, (a,b,i1,i2)):
+    '''
+    Align chain_loop to the scaffold present in chain.
+
+    This means that nt i1 in chain_loop will be aligned
+    to nt a, and nt i2 will attempt to be aligned to nt b.
+
+    @param bg: The BulgeGraph that this structure is part of
+    @param chain: The scaffold containing the stems
+    @param chain_loop: The sampled loop region
+
+    @para (a,b,i1,i2): The handles indicating which nucleotides
+                       will be aligned
+
+    @return: (r, loop_chain), where r is the rmsd of the closed loop
+            and loop_chain is the closed loop
+    '''
+    loop_atoms = bpdb.Selection.unfold_entities(chain_loop, 'A') 
+    
+    ns = bpdb.NeighborSearch(loop_atoms)
+    contacts1 = len(ns.search_all(0.8))
+    
+    if a == 0:
+        align_starts(chain, chain_loop, (a,b,i1,i2), end=1)
+        loop_chain = chain_loop
+        r = 0.000
+    elif b == bg.length:
+        align_starts(chain, chain_loop, (a,b,i1,i2), end=0)
+        loop_chain = chain_loop
+        r = 0.000
+    else:
+        r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=10000)
+
+    return (r, loop_chain)
+
 def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     '''
     Reconstruct a particular loop.
@@ -560,12 +612,12 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     seq = bg.get_flanking_sequence(ld, side)
     (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
 
-    cud.pv('(a,b,i1,i2)')
+    #cud.pv('(a,b,i1,i2)')
     #print "ld:", ld, "(a,b,i1,i2)", a,b,i1,i2
     #print "seq:", seq
 
     #model = barn.Barnacle(seq)
-    model = barn.BarnacleCPDB(seq)
+    model = barn.BarnacleCPDB(seq, 2.)
 
     model.sample()
     s = model.structure
@@ -607,24 +659,12 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
         end = rand.randint(start+1, len(seq))
 
         #print "start:", start, "end:", end
-        model.sample(start=start, end=end)
+        #model.sample(start=start, end=end)
+
+        model.sample()
         chain_loop = list(model.structure.get_chains())[0]
 
-        loop_atoms = bpdb.Selection.unfold_entities(chain_loop, 'A') 
-        
-        ns = bpdb.NeighborSearch(loop_atoms)
-        contacts1 = len(ns.search_all(0.8))
-        
-        if a == 0:
-            align_starts(chain, chain_loop, (a,b,i1,i2), end=1)
-            loop_chain = chain_loop
-            r = 0.000
-        elif b == bg.length:
-            align_starts(chain, chain_loop, (a,b,i1,i2), end=0)
-            loop_chain = chain_loop
-            r = 0.000
-        else:
-            r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=10000)
+        (r, loop_chain) = align_and_close_loop(bg, chain, chain_loop, (a, b, i1, i2))
 
         #orig_loop_chain = copy.deepcopy(loop_chain)
         orig_loop_chain = loop_chain
@@ -662,7 +702,6 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
                 best_loop_chain = copy.deepcopy(orig_loop_chain)
                 min_contacts = (0, r)
                 #print "r:", r
-
         '''
         if contacts2 == 0:
             break
