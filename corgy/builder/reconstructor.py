@@ -597,6 +597,37 @@ def align_and_close_loop(bg, chain, chain_loop, (a,b,i1,i2)):
 
     return (r, loop_chain)
 
+def get_flanking_stem_vres_distance(bg, ld):
+    '''
+    Get the distance between the two virtual residues adjacent
+    to this bulge region.
+
+    @param bg: The BulgeGraph data structure
+    @param ld: The name of the linking bulge
+    '''
+
+    if len(bg.edges[ld]) == 2:
+        connecting_stems = list(bg.edges[ld])
+
+        (s1b, s1e) = bg.get_sides(connecting_stems[0], ld)
+        (s2b, s2e) = bg.get_sides(connecting_stems[1], ld)
+
+        if s1b == 1:
+            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
+        else:
+            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], 0)
+
+        if s2b == 1:
+            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
+        else:
+            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], 0)
+
+        dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
+    else:
+        dist2 = 0.
+
+    return dist2
+
 def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     '''
     Reconstruct a particular loop.
@@ -619,9 +650,6 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     #model = barn.Barnacle(seq)
     model = barn.BarnacleCPDB(seq, 2.)
 
-    model.sample()
-    s = model.structure
-
     prev_r = 1000.
     min_r = 1000.
     min_contacts = (1000, 100.)
@@ -631,27 +659,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
     dist = cuv.vec_distance(bg.coords[ld][1], bg.coords[ld][0])
 
-    if len(bg.edges[ld]) == 2:
-        connecting_stems = list(bg.edges[ld])
-
-        (s1b, s1e) = bg.get_sides(connecting_stems[0], ld)
-        (s2b, s2e) = bg.get_sides(connecting_stems[1], ld)
-
-        if s1b == 1:
-            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
-        else:
-            (vr1_p, vr1_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], 0)
-
-        if s2b == 1:
-            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
-        else:
-            (vr2_p, vr2_v) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], 0)
-
-        dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
-    else:
-        dist2 = 0.
-
-
+    dist2 = get_flanking_stem_vres_distance(bg, ld)
     sys.stderr.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
 
     for i in range(iterations):
