@@ -1,3 +1,4 @@
+import corgy.builder.loop_builder as cbl
 import corgy.builder.models as models
 import corgy.builder.rmsd as brmsd
 
@@ -648,10 +649,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     #print "seq:", seq
 
     #model = barn.Barnacle(seq)
-    model = barn.BarnacleCPDB(seq, 2.)
 
-    prev_r = 1000.
-    min_r = 1000.
     min_contacts = (1000, 100.)
     iterations = samples
     best_loop_chain = None
