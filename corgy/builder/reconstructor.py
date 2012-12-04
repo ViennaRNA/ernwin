@@ -166,62 +166,6 @@ def splice_stem(chain, define):
 
     return new_chain
 
-def add_residue_to_rosetta_chain(chain, residue):
-    '''
-    Add a residue and rename all of it's atoms to the Rosetta convention.
-
-    C1' -> C1*
-
-    @param chain: The chain to add to
-    @param residue: The residue to be added
-    '''
-    removed_atoms = []
-
-    for atom in residue.get_list():
-        removed_atoms += [atom]
-        residue.detach_child(atom.id)
-
-        atom.name = atom.name.replace('\'', '*')
-        atom.id = atom.name
-
-    for atom in removed_atoms:
-        residue.add(atom)
-
-    chain.add(residue)
-
-def add_loop_chain(chain, loop_chain, handles, length):
-    '''
-    Add all of the residues in loop_chain to chain.
-
-    @param chain: The target chain to which the residues will be added.
-    @param loop_chain: The source of the loop residues.
-    @param handles: The indeces of the adjacent stem regions as well as the indeces into the loop
-        chain which define which section is actually the loop and which is the additional linker
-        region.
-    '''
-    # detach the residues of the helix which are adjacent to the loop
-    #r1_id = chain[handles[0]].id
-    #chain.detach_child(r1_id)
-    #replace them with the residues of the loop
-    #loop_chain[handles[2]].id = r1_id
-    #add_residue_to_rosetta_chain(chain, loop_chain[handles[2]])
-
-    if handles[1] != length:
-        r2_id = chain[handles[1]].id
-        chain.detach_child(r2_id)
-        loop_chain[handles[3]].id = (' ', handles[1], ' ')
-        add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
-    else:
-        loop_chain[handles[3]].id = (' ', handles[1], ' ')
-        add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
-
-    # We won't replace the last residue
-    counter = 1
-    for i in range(handles[2]+1, handles[3]):
-        loop_chain[i].id = (' ', handles[0] + counter, ' ')
-        add_residue_to_rosetta_chain(chain, loop_chain[i])
-        counter += 1
-
 def print_alignment_pymol_file(handles):
     output_str = """
 select bb, /s2///%d/O4* | /s2///%d/C1* | /s2///%d/C1*
@@ -309,12 +253,10 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
-    trim_chain(best_loop_chain, i1, i2+1)
-    add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
+    cup.trim_chain(best_loop_chain, i1, i2+1)
+    cbl.add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
     sys.stderr.write('\n')
     sys.stderr.flush()
-
-    return min_contacts
 
 def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
     '''

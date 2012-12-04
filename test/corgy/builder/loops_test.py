@@ -22,7 +22,7 @@ class TestLoops(unittest.TestCase):
         seq = bg.get_flanking_sequence(ld, side)
         (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
 
-        best_loop_chain = cbl.build_loop(chain, seq, (a,b,i1,i2), bg.length, 5)
+        best_loop_chain = cbl.build_loop(chain, seq, (a,b,i1,i2), bg.length, 15, consider_contacts=True)
 
-        rtor.add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
+        cbl.add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
         rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))

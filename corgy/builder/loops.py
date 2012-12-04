@@ -10,6 +10,7 @@ import corgy.aux.CPDB.src.examples.BarnacleCPDB as barn
 import corgy.builder.ccd as cbc
 import corgy.builder.rmsd as brmsd
 
+import corgy.utilities.debug as cud
 import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
 
@@ -248,6 +249,61 @@ def get_adjacent_interatom_names(chain, start_res, end_res):
 
     return distances
 
+def add_residue_to_rosetta_chain(chain, residue):
+    '''
+    Add a residue and rename all of it's atoms to the Rosetta convention.
+
+    C1' -> C1*
+
+    @param chain: The chain to add to
+    @param residue: The residue to be added
+    '''
+    removed_atoms = []
+
+    for atom in residue.get_list():
+        removed_atoms += [atom]
+        residue.detach_child(atom.id)
+
+        atom.name = atom.name.replace('\'', '*')
+        atom.id = atom.name
+
+    for atom in removed_atoms:
+        residue.add(atom)
+
+    chain.add(residue)
+
+def add_loop_chain(chain, loop_chain, handles, length):
+    '''
+    Add all of the residues in loop_chain to chain.
+
+    @param chain: The target chain to which the residues will be added.
+    @param loop_chain: The source of the loop residues.
+    @param handles: The indeces of the adjacent stem regions as well as the indeces into the loop
+        chain which define which section is actually the loop and which is the additional linker
+        region.
+    '''
+    # detach the residues of the helix which are adjacent to the loop
+    #r1_id = chain[handles[0]].id
+    #chain.detach_child(r1_id)
+    #replace them with the residues of the loop
+    #loop_chain[handles[2]].id = r1_id
+    #add_residue_to_rosetta_chain(chain, loop_chain[handles[2]])
+
+    if handles[1] != length:
+        r2_id = chain[handles[1]].id
+        chain.detach_child(r2_id)
+        loop_chain[handles[3]].id = (' ', handles[1], ' ')
+        add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
+    else:
+        loop_chain[handles[3]].id = (' ', handles[1], ' ')
+        add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
+
+    # We won't replace the last residue
+    counter = 1
+    for i in range(handles[2]+1, handles[3]):
+        loop_chain[i].id = (' ', handles[0] + counter, ' ')
+        add_residue_to_rosetta_chain(chain, loop_chain[i])
+        counter += 1
 
 def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     '''
@@ -319,6 +375,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
 
 
     return (rmsd, chain_loop)
+
 def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2)):
     '''
     Align chain_loop to the scaffold present in chain.
@@ -380,8 +437,8 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
     best_loop_chain = None
     prev_r = 1000.
     min_r = 1000.
-    min_contacts = (1000., 1000.)
-
+    min_contacts = (10000000., 1000.)
+    cud.pv('cup.num_noncovalent_clashes(stem_chain)')
 
     for i in range(iterations):
         start = rand.randint(0, len(loop_seq)-1)
@@ -396,25 +453,13 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
 
         #orig_loop_chain = copy.deepcopy(loop_chain)
-        orig_loop_chain = loop_chain
+        orig_loop_chain = copy.deepcopy(loop_chain)
 
+        all_chain = copy.deepcopy(stem_chain)
         cup.trim_chain(loop_chain, i1, i2+1)
-        loop_atoms = bpdb.Selection.unfold_entities(loop_chain, 'A')
-        #loop_atoms += bpdb.Selection.unfold_entities(chain, 'A')
+        add_loop_chain(all_chain, loop_chain, (a,b,i1,i2), seq_len)
+        contacts2 = cup.num_noncovalent_clashes(all_chain)
 
-        if a != 0:
-            loop_atoms += bpdb.Selection.unfold_entities(stem_chain[a], 'A')
-        if b != seq_len:
-            loop_atoms += bpdb.Selection.unfold_entities(stem_chain[b], 'A')
-
-        if a != 0:
-            loop_atoms += bpdb.Selection.unfold_entities(stem_chain[a-1], 'A')
-        if b != seq_len:
-            loop_atoms += bpdb.Selection.unfold_entities(stem_chain[b+1], 'A')
-
-        ns = bpdb.NeighborSearch(loop_atoms)
-
-        contacts2 = len(ns.search_all(1.0))
         sys.stderr.write('.')
         sys.stderr.flush()
 
@@ -425,7 +470,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
                 best_loop_chain = copy.deepcopy(orig_loop_chain)
                 min_contacts = (contacts2, r)
                 #min_contacts = (0, r)
-                #print "min_contacts:", min_contacts
+                print "min_contacts:", min_contacts
         else:
             if (0, r) < min_contacts:
                 best_loop_chain = copy.deepcopy(orig_loop_chain)
