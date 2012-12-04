@@ -14,6 +14,7 @@ import corgy.utilities.vector as cuv
 
 catom_name = 'C1*'
 
+
 def stem_stem_orientation(bg, s1, s2):
     '''
     Calculate the orientation of stem s2 in relation to stem s1
