@@ -1,6 +1,8 @@
 import random as rand
 import numpy as np
 import copy
+import pdb
+import scipy.stats as ss
 
 import Bio.PDB as bpdb
 
@@ -16,12 +18,6 @@ import corgy.utilities.vector as cuv
 
 import sys
 
-class BarnacleEnergy:
-    def __init__(self):
-        self.prev_r = 1000.
-        self.min_r = 1000.
-        self.min_contacts = 1000.
-    
 a_5_names = ['P', 'OP1', 'OP2', 'P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
 a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
 
@@ -305,6 +301,29 @@ def add_loop_chain(chain, loop_chain, handles, length):
         add_residue_to_rosetta_chain(chain, loop_chain[i])
         counter += 1
 
+def get_initial_measurement_distance(chain_stems, chain_loop, handles):
+    '''
+    Calculate the rmsd between the measurement vectors after aligning
+    the starts.
+
+    @param chain_stems: The PDB coordinates of the chain with the stem.
+    @param chain_loop: The PDB coordinates of the sampled loop.
+    @param iterations: The number of iterations to use for the CCD loop closure.
+    '''
+    align_starts(chain_stems, chain_loop, handles)
+    c1_target = []
+    c1_sampled = []
+
+    for i in range(2):
+        '''
+        target = np.array(get_measurement_vectors(chain_stems, handles[0], handles[1]))
+        sampled = np.array(get_measurement_vectors(chain_loop, handles[2], handles[2]))
+        '''
+        c1_target += [chain_stems[handles[0] - i]['C1*'], chain_stems[handles[1] + i]['C1*']]
+        c1_sampled += [chain_loop[handles[2] - i]['C1*'], chain_loop[handles[3] + i]['C1*']]
+
+    return cbc.calc_rmsd(np.array(c1_target), np.array(c1_sampled))
+
 def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     '''
     Align the chain_loop so that it stretches from the end of one stem to the 
@@ -432,7 +451,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
     @return: A Bio.PDB.Chain structure containing the best sampled loop.
     '''
-    model = barn.BarnacleCPDB(loop_seq, 2.)
+    model = barn.BarnacleCPDB(loop_seq, 1.8)
 
     best_loop_chain = None
     prev_r = 1000.
@@ -441,18 +460,19 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
     cud.pv('cup.num_noncovalent_clashes(stem_chain)')
 
     for i in range(iterations):
-        start = rand.randint(0, len(loop_seq)-1)
-        end = rand.randint(start+1, len(loop_seq))
-
-        #print "start:", start, "end:", end
-        #model.sample(start=start, end=end)
+        sample_len = ss.poisson.rvs(2)
+        start = rand.randint(0, len(loop_seq) - sample_len)
+        end = rand.randint(start + sample_len, len(loop_seq))
+        cud.pv('(start,end)')
 
         model.sample()
         chain_loop = list(model.structure.get_chains())[0]
-
+        chain_unclosed_loop = copy.deepcoyp(chain_loop)
+        
+        r_start = get_initial_measurement_distance(stem_chain, chain_loop, (a,b,i1,i2))
+        #r_start = 0
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
 
-        #orig_loop_chain = copy.deepcopy(loop_chain)
         orig_loop_chain = copy.deepcopy(loop_chain)
 
         all_chain = copy.deepcopy(stem_chain)
@@ -463,24 +483,29 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         sys.stderr.write('.')
         sys.stderr.flush()
 
+        #energy = r_start * (r ** 2)
+        energy = r_start * r
+        #energy = r
+
         #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
         if consider_contacts: 
-            if (contacts2, r) < min_contacts:
+            if (contacts2, energy) < min_contacts:
             #if (0, r) < min_contacts:
                 best_loop_chain = copy.deepcopy(orig_loop_chain)
-                min_contacts = (contacts2, r)
-                #min_contacts = (0, r)
+                min_contacts = (contacts2, energy)
                 print "min_contacts:", min_contacts
         else:
-            if (0, r) < min_contacts:
+            if (0, energy) < min_contacts:
                 best_loop_chain = copy.deepcopy(orig_loop_chain)
-                min_contacts = (0, r)
-                #print "r:", r
+                min_contacts = (0, energy)
+                print "min_contacts:", min_contacts, r, r_start
+
         '''
-        if contacts2 == 0:
+        if min_contacts < (0, .1):
             break
         '''
 
         #trim_chain(loop_chain, i1, i2)
+
     sys.stderr.write(str(min_contacts))
     return best_loop_chain

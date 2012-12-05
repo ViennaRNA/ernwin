@@ -247,7 +247,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     dist2 = get_flanking_stem_vres_distance(bg, ld)
 
     sys.stderr.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
-    best_loop_chain = cbl.build_loop(chain, seq, (a,b,i1,i2), bg.length, samples)
+    best_loop_chain = cbl.build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts)
 
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))

@@ -89,6 +89,6 @@ def num_noncovalent_clashes(chain):
     all_atoms = bpdb.Selection.unfold_entities(chain, 'A')
     ns = bpdb.NeighborSearch(all_atoms)
 
-    contacts = ns.search_all(1.8)
+    contacts = ns.search_all(1.75)
 
     return len([c for c in contacts if not is_covalent(c)])
