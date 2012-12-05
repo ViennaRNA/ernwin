@@ -10,6 +10,7 @@ import corgy.builder.stats as cbs
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.data_structures as cuds
 import corgy.utilities.vector as cuv
+import corgy.utilities.debug as cud
 
 def error_exit(message):
     print >> sys.stderr, message
@@ -477,6 +478,34 @@ class BulgeGraph:
             else:
                 return dims[0]
 
+    def calc_vres_distance(self, s1, i1, s2, i2):
+        '''
+        Calculate the number of virtual residues that separate two
+        virtual residues.
+
+        @param s1: The first stem
+        @param i1: The index into the first stem
+        @param s2: The second stem
+        @param i2: The index into the second stem
+        '''
+        side1 = self.closest_sides[s1][s2]
+        side2 = self.closest_sides[s2][s1]
+
+        if s1 == s2:
+            return abs(i2 - i1)
+
+        if side1 == 0:
+            add1 = i1
+        else:
+            add1 = self.stem_length(s1) - i1
+
+        if side2 == 0:
+            add2 = i2
+        else:
+            add2 = self.stem_length(s2) - i2
+
+        return self.bp_distances[s1][s2] + add1 + add2
+
     def calc_bp_distances(self):
         '''
         Calculate the least number of bases that separate two elements.
@@ -517,7 +546,10 @@ class BulgeGraph:
                         stem_sides[j][i] = self.get_sides(j, i)[0]
                         stem_sides[i][j] = self.get_sides(j, i)[0]
 
+        sys.stderr.write('Calculating base pair distances')
         for k in defs:
+            sys.stderr.write('.')
+            sys.stderr.flush()
             for i in defs:
                 for j in defs:
                     inter_distance = self.get_length(k)
@@ -535,6 +567,7 @@ class BulgeGraph:
                         stem_sides[i][j] = stem_sides[i][k]
                         stem_sides[j][i] = stem_sides[j][k]
 
+        sys.stderr.write('Finished\n')
         self.bp_distances = dist
         self.closest_sides = stem_sides
 

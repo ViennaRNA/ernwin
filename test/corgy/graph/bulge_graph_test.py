@@ -1,4 +1,5 @@
 import unittest, os
+import itertools as it
 
 import numpy as np
 
@@ -41,6 +42,15 @@ class TestBulgeGraph(unittest.TestCase):
         path_set = set(path)
         self.assertEqual(len(path), len(path_set))
 
+    def test_calc_vres_distances(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        bg.calc_bp_distances()
+
+        print bg.calc_vres_distance('s0', 4, 's0', 5)
+        print bg.calc_vres_distance('s1', 0, 's2', 0)
+        print bg.calc_vres_distance('s0', 0, 's2', 0)
+
+
     def test_bp_distance(self):
         bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         bg.calc_bp_distances()
@@ -63,6 +73,9 @@ class TestBulgeGraph(unittest.TestCase):
 
         #print bg.bp_distances
         #cud.pv('bg.closest_sides')
+
+        for (k1, k2) in it.combinations(bg.defines.keys(), 2):
+            self.assertEquals(bg.bp_distances[k1][k2], bg.bp_distances[k2][k1])
         '''
         self.assertTrue(bg.bp_distances['b5']['b0'] == 0)
         self.assertTrue(bg.bp_distances['b5']['s6'] == 4)

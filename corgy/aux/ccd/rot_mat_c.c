@@ -171,6 +171,11 @@ void ccd_c(double *moving, int len_moving, double *fixed, long *points, int len_
             double TH[3];
             int l = points[i];
 
+            /*
+            if (rand() % len_points != i)
+                continue;
+                */
+
             TH[0] = moving[l*3 + 0] - moving[(l-1) * 3 + 0];
             TH[1] = moving[l*3 + 1] - moving[(l-1) * 3 + 1];
             TH[2] = moving[l*3 + 2] - moving[(l-1) * 3 + 2];

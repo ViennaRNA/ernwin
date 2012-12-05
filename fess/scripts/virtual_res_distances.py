@@ -26,6 +26,7 @@ def main():
         sys.exit(1)
 
     bg = cgb.BulgeGraph(args[0])
+    bg.calc_bp_distances()
     stems = bg.stems()
     adjacent = 0
 
@@ -51,8 +52,9 @@ def main():
                                                            v2_p + mult * v2_v)
 
                 closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
+                vres_distance = bg.calc_vres_distance(s1, k, s2, l)
 
-                print "dist:", cuv.magnitude((v2_p + mult * v2_v) - (v1_p + mult * v1_v)), closest_distance, adjacent, s1, k, s2, l
+                print "dist:", cuv.magnitude((v2_p + mult * v2_v) - (v1_p + mult * v1_v)), closest_distance, adjacent, s1, k, s2, l, vres_distance
 
             for l in range(k+1, s1_len):
                 (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, s1, k)
@@ -64,8 +66,9 @@ def main():
                                                            v2_p + mult * v2_v)
 
                 closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
+                vres_distance = bg.calc_vres_distance(s1, k, s2, l)
 
-                print "internal_dist:", cuv.magnitude((v2_p + mult * v2_v) - (v1_p + mult * v1_v)), closest_distance, 1, s1, k, s1, l
+                print "internal_dist:", cuv.magnitude((v2_p + mult * v2_v) - (v1_p + mult * v1_v)), closest_distance, 1, s1, k, s1, l, vres_distance
 
                         
 if __name__ == '__main__':
