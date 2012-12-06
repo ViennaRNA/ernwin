@@ -688,10 +688,26 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
+            vres_distance = bg.calc_vres_distance(s1, i1, s2, i2)
+            if vres_distance == 1:
+                min_distance = 2.49
+            elif vres_distance == 2:
+                min_distance = 1.12
+            elif vres_distance == 3:
+                min_distance = 3.00
+            elif vres_distance == 4:
+                min_distance = 2.14
+            elif vres_distance == 5:
+                min_distance = 3.74
+            else:
+                min_distance = 7.81
+
+            '''
             if bg.are_any_adjacent_stems(s1,s2):
                 min_distance = 1.12
             else:
                 min_distance = 3.74
+            '''
 
             (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, s1, i1)
             (v2_p, v2_v) = cgg.virtual_res_3d_pos(bg, s2, i2)

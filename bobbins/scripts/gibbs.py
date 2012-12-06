@@ -61,8 +61,6 @@ def main():
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
 
-
-
     if options.secondary_structure:
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
         bg = BulgeGraph()
@@ -74,6 +72,7 @@ def main():
         f = open(options.seq, 'r')
         bg.seq = f.readlines()[0].strip()
 
+    bg.calc_bp_distances()
     sm = SpatialModel(bg)
 
     energies_to_sample = []

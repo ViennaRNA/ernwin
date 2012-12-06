@@ -1,5 +1,6 @@
 import Bio.PDB as bpdb
 import corgy.utilities.debug as cud
+import corgy.utilities.vector as cuv
 
 interactions = [('P', 'O5*'),
                 ('P', 'OP1'),
@@ -89,6 +90,22 @@ def num_noncovalent_clashes(chain):
     all_atoms = bpdb.Selection.unfold_entities(chain, 'A')
     ns = bpdb.NeighborSearch(all_atoms)
 
-    contacts = ns.search_all(1.75)
+    contacts = ns.search_all(1.9)
 
     return len([c for c in contacts if not is_covalent(c)])
+
+def noncovalent_distances(chain, cutoff=0.3):
+    '''
+    Print out the distances between all non-covalently bonded atoms
+    which are closer than cutoff to each other.
+
+    @param chain: The Bio.PDB chain.
+    @param cutoff: The maximum distance
+    '''
+    all_atoms = bpdb.Selection.unfold_entities(chain, 'A')
+    ns = bpdb.NeighborSearch(all_atoms)
+
+    contacts = ns.search_all(cutoff)
+
+    return [cuv.magnitude(c[1] - c[0]) for c in contacts if not is_covalent(c)]
+

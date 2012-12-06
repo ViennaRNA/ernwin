@@ -524,9 +524,8 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
     c1_sampled = []
 
     for i in range(2):
-        '''
         target = np.array(get_measurement_vectors(chain_stems, handles[0], handles[1]))
-        sampled = np.array(get_measurement_vectors(chain_loop, handles[2], handles[2]))
+        sampled = np.array(get_measurement_vectors(chain_loop, handles[2], handles[3]))
         '''
         for a in backbone_atoms:
             c1_target += [cuv.magnitude(
@@ -536,12 +535,23 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
     
     c1_target = np.array(c1_target)
     c1_sampled = np.array(c1_sampled)
+        '''
 
-    cud.pv('handles')
+    #cud.pv('target')
+    #cud.pv('sampled')
+    #cud.pv('handles')
     #cud.pv('c1_target')
     #cud.pv('c1_sampled')
     #return cbc.calc_rmsd(np.array(c1_target), np.array(c1_sampled))
-    return math.sqrt(sum([c ** 2 for c in c1_sampled - c1_target]))
+    #return math.sqrt(sum([c ** 2 for c in c1_sampled - c1_target]))
+    distances = [cuv.magnitude((sampled - target)[i]) for i in range(len(sampled))]
+    rmsd = cuv.vector_set_rmsd(sampled, target)
+    #cud.pv('distances')
+    #dist = math.sqrt(sum([cuv.magnitude((sampled - target)[i]) ** 2 for i in range(len(sampled))]))
+    #cud.pv('(dist, rmsd)')
+    #cud.pv('rmsd')
+    return rmsd
+    #return cuv.magnitude(sampled - target)
 
 def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     '''
@@ -670,19 +680,19 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
     @return: A Bio.PDB.Chain structure containing the best sampled loop.
     '''
-    model = barn.BarnacleCPDB(loop_seq, 1.8)
+    model = barn.BarnacleCPDB(loop_seq, 1.9)
 
     best_loop_chain = None
-    prev_r = 1000.
-    min_r = 1000.
-    min_contacts = (10000000., 1000.)
+    min_energy = (1000000., 100000.)
+    prev_energy = min_energy
+    handles = (a,b,i1,i2)
+
     cud.pv('cup.num_noncovalent_clashes(stem_chain)')
 
     for i in range(iterations):
         sample_len = ss.poisson.rvs(2)
         start = rand.randint(0, len(loop_seq) - sample_len)
         end = rand.randint(start + sample_len, len(loop_seq))
-        cud.pv('(start,end)')
 
         model.sample()
         chain_loop = list(model.structure.get_chains())[0]
@@ -690,37 +700,35 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         align_starts(stem_chain, chain_unclosed_loop, (a,b,i1,i2), end=0)
         
         r_start = get_initial_measurement_distance(stem_chain, chain_loop, (a,b,i1,i2))
-        #r_start = 0
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
+        r_start = cuv.magnitude(loop_chain[handles[2]+2]['P'] - 
+                                 chain_unclosed_loop[handles[2]+2]['P'])
 
         orig_loop_chain = copy.deepcopy(loop_chain)
 
         all_chain = copy.deepcopy(stem_chain)
         cup.trim_chain(loop_chain, i1, i2+1)
         add_loop_chain(all_chain, loop_chain, (a,b,i1,i2), seq_len)
-        contacts2 = cup.num_noncovalent_clashes(all_chain)
+
+        if consider_contacts:
+            contacts2 = cup.num_noncovalent_clashes(all_chain)
+        else:
+            contacts2 = 0.
 
         sys.stderr.write('.')
         sys.stderr.flush()
 
-        #energy = r_start * (r ** 2)
-        energy = r_start * r
-        #energy = r
+        energy = (contacts2, r_start)
+        cud.pv('(start,end,energy)')
+        if energy > prev_energy:
+            model.undo()
 
-        #print "r:", r, "contacts1:", contacts1, "contacts2:",  contacts2
-        if consider_contacts: 
-            if (contacts2, energy) < min_contacts:
-            #if (0, r) < min_contacts:
-                best_loop_chain = copy.deepcopy(orig_loop_chain)
-                min_contacts = (contacts2, energy)
-                output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
-                cud.pv('(min_contacts, r_start)')
-        else:
-            if (0, energy) < min_contacts:
-                best_loop_chain = copy.deepcopy(orig_loop_chain)
-                min_contacts = (0, energy)
-                print "min_contacts:", min_contacts, r, r_start
-
+        prev_energy = energy
+        if energy < min_energy:
+            min_energy = energy
+            best_loop_chain = copy.deepcopy(orig_loop_chain)
+            output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
+            cud.pv('min_energy')
         '''
         if min_contacts < (0, .1):
             break
@@ -728,7 +736,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
         #trim_chain(loop_chain, i1, i2)
 
-    sys.stderr.write(str(min_contacts))
+    sys.stderr.write(str(min_energy))
     return best_loop_chain
 
 def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):

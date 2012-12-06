@@ -392,7 +392,7 @@ def vector_set_rmsd(set1, set2):
     rmsd = 0
     count = 0
     for i in range(len(set1)):
-        rmsd += magnitude(set2[i] - set1[i])
+        rmsd += magnitude(set2[i] - set1[i]) ** 2
         count += 1
     rmsd /= count
     return sqrt(rmsd)

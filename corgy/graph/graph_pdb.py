@@ -562,8 +562,14 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     u = bg.get_twists(stem)[0]
     v = cuv.normalize(np.cross(stem_vec, bg.get_twists(stem)[0]))
     
+    ang_offset = 1.0
     # equation for a circle in 3-space
-    return (vres_stem_pos, u * m.cos(ang) + v * m.sin(ang))
+    return (vres_stem_pos, 
+            u * m.cos(ang) + v * m.sin(ang))
+            '''
+            u * m.cos(ang + ang_offset) + v * m.sin(ang + ang_offset),
+            u * m.cos(ang - ang_offset) + v * m.sin(ang - ang_offset))
+            '''
 
 def bg_virtual_residues(bg):
     vress = []

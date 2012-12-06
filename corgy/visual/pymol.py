@@ -270,7 +270,7 @@ class PymolPrinter:
             twist4 = np.dot(twist_rot_mat_r, twist2o)
 
 
-            mult = 7.
+            mult = 11.
             width = .3
 
             self.add_segment(p, p + mult * twist1, "white", width, '')
@@ -282,8 +282,11 @@ class PymolPrinter:
         stem_len = bg.stem_length(key)
 
         for i in range(stem_len):
-            (pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
-            self.add_segment(pos, pos + mult * vec, "blue", width, '')
+            #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
+            (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos(bg, key, i)
+            self.add_segment(pos, pos + mult * vec_c, "blue", width, '')
+            #self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
+            #self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
 
         '''
         self.add_sphere(p + mult * twist1, "white", width, key)
