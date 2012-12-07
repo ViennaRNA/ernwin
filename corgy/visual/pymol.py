@@ -8,6 +8,7 @@ import uuid
 
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.debug as cud
+import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
 
 import Bio.PDB.Model as bpm
@@ -21,6 +22,7 @@ class PymolPrinter:
         self.segments = []
         self.spheres = []
         self.new_spheres = []
+        self.boxes = []
         self.override_color = None
         self.print_text = True
         self.energy_function = None
@@ -28,6 +30,7 @@ class PymolPrinter:
         self.add_longrange = False
         self.chain = None
         self.max_stem_distances = 0
+        self.pdb_file = None
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -184,11 +187,12 @@ class PymolPrinter:
         s = self.pymol_intro_string()
         s += self.pymol_segments_string()
         s += self.pymol_spheres_string()
-        s += self.pymol_axis_string()
+        #s += self.pymol_axis_string()
         s += self.pymol_outro_string()
 
         if self.print_text:
             s += self.pymol_text_string()
+        s += self.pymol_box_string()
 
         return s
 
@@ -251,6 +255,27 @@ class PymolPrinter:
         s =  "]" + '\n'
         s += "cmd.load_cgo(obj%s, 'ss%s')" % (self.cgo_uid, self.cgo_uid) + '\n'
         return s
+    
+    def pymol_box_string(self):
+        '''
+        Pring out the CGO text to describe the boxes.
+        '''
+        out_str = ''
+        for (box, color) in self.boxes:
+            uid = str(uuid.uuid4()).replace('-','x')
+            color_vec = [str(c) for c in self.get_color_vec(color)]
+            out_str += 'obj%s = [\n' % (uid)
+            out_str += "LINEWIDTH, .8, \n"
+            out_str += "BEGIN, LINES, \n"
+            out_str += "COLOR, %s," % (",  ".join([str(c) for c in color_vec])) + '\n'
+            for corner in box:
+                out_str += "VERTEX, %f, %f, %f, \n" % (corner[0], corner[1], corner[2])
+            out_str += 'END \n'
+            out_str += '] \n'
+            out_str += "cmd.load_cgo(obj%s, 'ss%s')\n" % (uid, uid)
+
+        return out_str
+
 
     def add_stem_like(self, bg, key, color = 'green', width=2.4):
         (p, n) = bg.coords[key]
@@ -283,7 +308,7 @@ class PymolPrinter:
 
         for i in range(stem_len):
             #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
-            (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos(bg, key, i)
+            (pos, vec_c) = cgg.virtual_res_3d_pos(bg, key, i)
             self.add_segment(pos, pos + mult * vec_c, "blue", width, '')
             #self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
             #self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
@@ -293,13 +318,79 @@ class PymolPrinter:
         self.add_sphere(n + mult * twist2, "white", width, key)
         '''
 
+    def draw_bounding_boxes(self, bg, s):
+        '''
+        Draw bounding boxes for all of the residues encompassed
+        by a stem. But only if there is a pdb file handy.
+
+        @param bg: The BulgeGraph
+        @param s: The name of the stem
+        '''
+        if self.pdb_file == None:
+            return
+
+        chain = list(bp.PDBParser().get_structure('temp', self.pdb_file).get_chains())[0]
+
+        for i in range(bg.stem_length(s)):
+            (basis, bb) = cgg.bounding_boxes(bg, chain, s, i)
+            for k in range(2):
+                (n, x) = bb[k]
+
+                corners = [
+                            [n[0], n[1], n[2]],
+                        [n[0], n[1], x[2]],
+
+                        [n[0], x[1], n[2]],
+                        [n[0], x[1], x[2]],
+
+                        [x[0], n[1], n[2]],
+                        [x[0], n[1], x[2]],
+
+                        [x[0], x[1], n[2]],
+                        [x[0], x[1], x[2]],
+
+                        [n[0], n[1], n[2]],
+                        [x[0], n[1], n[2]],
+
+                        [n[0], x[1], n[2]],
+                        [x[0], x[1], n[2]],
+
+                        [n[0], x[1], x[2]],
+                        [x[0], x[1], x[2]],
+
+                        [n[0], n[1], x[2]],
+                        [x[0], n[1], x[2]],
+
+                        [n[0], n[1], n[2]],
+                        [n[0], x[1], n[2]],
+
+                        [x[0], n[1], n[2]],
+                        [x[0], x[1], n[2]],
+
+                        [n[0], n[1], x[2]],
+                        [n[0], x[1], x[2]],
+
+                        [x[0], n[1], x[2]],
+                        [x[0], x[1], x[2]]]
+
+                new_corners = []
+                for corner in corners:
+                    new_corners += [cuv.change_basis(np.array(corner), cuv.standard_basis, basis)]
+                corners = np.array(new_corners)
+
+                #corners = vpos + cuv.change_basis(corners, cuv.standard_basis, basis)
+                if k == 0:
+                    self.boxes += [(corners, 'yellow')]
+                else:
+                    self.boxes += [(corners, 'purple')]
+
     def coordinates_to_pymol(self, bg):
         for key in bg.coords.keys():
             (p, n) = bg.coords[key]
         
             if key[0] == 's':
                 self.add_stem_like(bg, key)
-
+                self.draw_bounding_boxes(bg, key)
             else:
                 if len(bg.edges[key]) == 1:
                     self.add_segment(p, n, "blue", 1.0, key)

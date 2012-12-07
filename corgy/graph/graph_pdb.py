@@ -10,6 +10,7 @@ import numpy.linalg as nl
 import numpy.testing as nt
 import corgy.utilities.debug as cud
 import corgy.utilities.my_math as cum
+import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
 
 catom_name = 'C1*'
@@ -566,10 +567,8 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     # equation for a circle in 3-space
     return (vres_stem_pos, 
             u * m.cos(ang) + v * m.sin(ang))
-            '''
-            u * m.cos(ang + ang_offset) + v * m.sin(ang + ang_offset),
-            u * m.cos(ang - ang_offset) + v * m.sin(ang - ang_offset))
-            '''
+            #u * m.cos(ang + ang_offset) + v * m.sin(ang + ang_offset),
+            #u * m.cos(ang - ang_offset) + v * m.sin(ang - ang_offset))
 
 def bg_virtual_residues(bg):
     vress = []
@@ -715,3 +714,45 @@ def add_virtual_residues(bg, stem):
         bg.vposs[stem][i] = vpos[0] + vpos[1]
         bg.vbases[stem][i] = vbasis
         bg.vinvs[stem][i] = vinv
+
+def bounding_boxes(bg, chain, s, i):
+    '''
+    Return the bounding boxes of the two nucleotides at the
+    i'th position on the stem.
+
+    @param bg: The BulgeGraph
+    @param chain: The PDB representation of the chain
+    @param s: The stem identifier
+    @param i: The i'th base-pair in the stem
+
+    @return (basis, [(c1, c2), (c1, c2)]) The basis and the corners defining the bounding box
+            of the two nucleotides
+    '''
+    corners = []
+
+    for k in range(2):
+        vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+        (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
+        vec2 = cuv.normalize(vvec)
+
+        basis = cuv.create_orthonormal_basis(vec1, vec2)
+
+        min_c = [10000., 10000., 10000.]
+        max_c = [-10000., -10000., -10000.]
+
+        r = bg.defines[s][0 + 2*k] + i
+        for atom in cup.all_rna_atoms:
+            try:
+                c = chain[r][atom].coord
+
+                new_c =  cuv.change_basis(c, basis, cuv.standard_basis)
+
+                for j in range(3):
+                    min_c[j] = min(min_c[j], new_c[j])
+                    max_c[j] = max(max_c[j], new_c[j])
+            except KeyError:
+                continue
+        n = min_c
+        x = max_c
+        corners += [(n, x)]
+    return (basis, corners)
