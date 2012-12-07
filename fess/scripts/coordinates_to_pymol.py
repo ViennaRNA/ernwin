@@ -27,6 +27,7 @@ def main():
     parser.add_option('-s', '--stem_stem_energy', dest='stem_stem_energy', default=False, action='store_true', help="Visualize the distance energy")
     parser.add_option('-m', '--max_stem_distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
     parser.add_option('-p', '--pdb', dest='pdb_file', default=None, help='Include a pdb file for drawing bouding boxes.', type='string')
+    parser.add_option('', '--hide-cg', dest='hide_cg', default=False, action='store_true', help='Hide the coarse grain model.')
 
     (options, args) = parser.parse_args()
     
@@ -51,6 +52,8 @@ def main():
         pymol_printer.energy_function = cbe.StemStemOrientationEnergy()
     if options.pdb_file:
         pymol_printer.pdb_file = options.pdb_file
+    if options.hide_cg:
+        pymol_printer.draw_segments = False
 
     for i in range(len(bgs)):
         if len(bgs) > 1 and i == 0:

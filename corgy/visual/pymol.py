@@ -30,6 +30,8 @@ class PymolPrinter:
         self.add_longrange = False
         self.chain = None
         self.max_stem_distances = 0
+        self.draw_axes=False
+        self.draw_segments=True
         self.pdb_file = None
 
     def get_color_vec(self, color):
@@ -108,18 +110,18 @@ class PymolPrinter:
         return s
     
     def pymol_axis_string(self):
-        w = 0.42 # cylinder width 
-        l = 40.0 # cylinder length
+        w = 0.12 # cylinder width 
+        l = 10.0 # cylinder length
         h = 3.0 # cone hight
         d = w * 2.618 # cone base diameter
         s = ""
          
-        s += "CYLINDER, 0.0, 0.0, 0.0,   %f, 0.0, 0.0, %f, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0," % (l, w)
-        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0,   %f, 0.0, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0," % (l, w)
-        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0, 0.0,   %f, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0," % (l, w)
-        s += "CONE,   %f, 0.0, 0.0, %f, 0.0, 0.0, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0," % (l, h+l, d)
-        s += "CONE, 0.0, %f, 0.0, 0.0, %f, 0.0, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0," % (l, h+l, d)
-        s += "CONE, 0.0, 0.0, %f, 0.0, 0.0, %f, %f, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0," % (l, h+l, d)
+        s += "CYLINDER, 0.0, 0.0, 0.0,   %f, 0.0, 0.0, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0," % (l, w)
+        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0,   %f, 0.0, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0," % (l, w)
+        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0, 0.0,   %f, %f, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0," % (l, w)
+        s += "CONE,   %f, 0.0, 0.0, %f, 0.0, 0.0, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0," % (l, h+l, d)
+        s += "CONE, 0.0, %f, 0.0, 0.0, %f, 0.0, %f, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0," % (l, h+l, d)
+        s += "CONE, 0.0, 0.0, %f, 0.0, 0.0, %f, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0," % (l, h+l, d)
 
         return s
 
@@ -185,9 +187,15 @@ class PymolPrinter:
         '''
 
         s = self.pymol_intro_string()
-        s += self.pymol_segments_string()
+
+        if self.draw_segments:
+            s += self.pymol_segments_string()
+
         s += self.pymol_spheres_string()
-        #s += self.pymol_axis_string()
+
+        if self.draw_axes:
+            s += self.pymol_axis_string()
+
         s += self.pymol_outro_string()
 
         if self.print_text:
@@ -332,7 +340,7 @@ class PymolPrinter:
         chain = list(bp.PDBParser().get_structure('temp', self.pdb_file).get_chains())[0]
 
         for i in range(bg.stem_length(s)):
-            (basis, bb) = cgg.bounding_boxes(bg, chain, s, i)
+            (origin, bases, bb) = cgg.bounding_boxes(bg, chain, s, i)
             for k in range(2):
                 (n, x) = bb[k]
 
@@ -375,13 +383,17 @@ class PymolPrinter:
 
                 new_corners = []
                 for corner in corners:
-                    new_corners += [cuv.change_basis(np.array(corner), cuv.standard_basis, basis)]
+                    new_corners += [origin + cuv.change_basis(np.array(corner), cuv.standard_basis, bases[k])]
                 corners = np.array(new_corners)
 
                 #corners = vpos + cuv.change_basis(corners, cuv.standard_basis, basis)
                 if k == 0:
                     self.boxes += [(corners, 'yellow')]
+                    self.add_sphere(corners[0], 'yellow', 0.4, '', [238/255., 221/255., 130/255.])
+                    self.add_sphere(corners[7], 'yellow', 0.4, '', [184/255.,134/255.,11/255.])
                 else:
+                    self.add_sphere(corners[0], 'purple', 0.4, '', [238/255., 130/255., 238/255.])
+                    self.add_sphere(corners[7], 'purple', 0.4, '', [208/255., 32/255., 144/255.])
                     self.boxes += [(corners, 'purple')]
 
     def coordinates_to_pymol(self, bg):

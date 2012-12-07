@@ -725,27 +725,40 @@ def bounding_boxes(bg, chain, s, i):
     @param s: The stem identifier
     @param i: The i'th base-pair in the stem
 
-    @return (basis, [(c1, c2), (c1, c2)]) The basis and the corners defining the bounding box
+    @return (origin, bases, [(c1, c2), (c1, c2)]) The bases (one for each nucleotide) and the corners defining the bounding box
             of the two nucleotides
     '''
     corners = []
+    bases = []
+    out_str = ''
 
     for k in range(2):
-        vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+        if k == 0:
+            vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+        if k == 1:
+            vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+
         (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
         vec2 = cuv.normalize(vvec)
 
-        basis = cuv.create_orthonormal_basis(vec1, vec2)
+        bases += [cuv.create_orthonormal_basis(vec1, vec2)]
 
         min_c = [10000., 10000., 10000.]
         max_c = [-10000., -10000., -10000.]
 
-        r = bg.defines[s][0 + 2*k] + i
+        #r = bg.defines[s][0 + 2*k] + i
+        if k == 0:
+            r = bg.defines[s][0] + i
+        else:
+            r = bg.defines[s][3] - i
+
+        out_str += "%d " % r
+
         for atom in cup.all_rna_atoms:
             try:
                 c = chain[r][atom].coord
 
-                new_c =  cuv.change_basis(c, basis, cuv.standard_basis)
+                new_c =  cuv.change_basis(c - vpos, bases[k], cuv.standard_basis)
 
                 for j in range(3):
                     min_c[j] = min(min_c[j], new_c[j])
@@ -755,4 +768,4 @@ def bounding_boxes(bg, chain, s, i):
         n = min_c
         x = max_c
         corners += [(n, x)]
-    return (basis, corners)
+    return (vpos, bases, corners)
