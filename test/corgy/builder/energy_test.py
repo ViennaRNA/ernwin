@@ -85,7 +85,7 @@ class TestJunctionClosureEnergy(unittest.TestCase):
         jce.calibrate(self.sm, iterations=10)
 
 
-class TestCombinedEnergy(unittest.TestCase):
+class ATestCombinedEnergy(unittest.TestCase):
     def setUp(self):
         self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         self.sm = SpatialModel(self.bg)

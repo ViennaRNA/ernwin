@@ -77,15 +77,10 @@ def main():
 
     if options.stem_atoms:
         for (s,i) in bg.virtual_residues():
-            basis = cgg.virtual_res_basis(bg, s, i)
-            (vpos, vvec) = cgg.virtual_res_3d_pos(bg, s, i)
-
-            rs = (bg.seq[bg.defines[s][0] + i - 1], bg.seq[bg.defines[s][3] - i -1 ])
+            vra = cgg.virtual_residue_atoms(bg, s, i)
             for i in range(2):
-                for a in cua.avg_stem_vres_atom_coords[i][rs[i]].items():
-                    coords = a[1]
-                    new_coords = cuv.change_basis(coords, cuv.standard_basis, basis) + vpos
-                    pymol_printer.add_sphere(new_coords, 'purple', 0.3)
+                for a in vra[i].values():
+                    pymol_printer.add_sphere(a, 'purple', 0.3)
 
     pymol_printer.output_pymol_file()
 

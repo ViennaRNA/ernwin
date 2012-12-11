@@ -13,6 +13,7 @@ import corgy.utilities.debug as cud
 import corgy.utilities.my_math as cum
 import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
+import corgy.utilities.average_stem_vres_atom_positions as cua
 
 catom_name = 'C1*'
 
@@ -792,4 +793,26 @@ def bounding_boxes(bg, chain, s, i):
         x = max_c
         corners += [(n, x)]
     return (vpos, bases, corners)
+
+def virtual_residue_atoms(bg, s, i):
+    '''
+    Return two sets of atoms for the virtual residue. One for the nucleotide
+    on each strand.
+
+    @param bg: The BulgeGraph
+    @param s: The stem
+    @param i: The virtual residue number
+    '''
+    basis = virtual_res_basis(bg, s, i)
+    (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
+    rs = (bg.seq[bg.defines[s][0] + i - 1], bg.seq[bg.defines[s][3] - i -1 ])
+
+    new_atoms = [dict(), dict()]
+
+    for i in range(2):
+        for a in cua.avg_stem_vres_atom_coords[i][rs[i]].items():
+            coords = a[1]
+            new_coords = cuv.change_basis(coords, cuv.standard_basis, basis) + vpos
+            new_atoms[i][a[0]] = new_coords
+    return new_atoms
 

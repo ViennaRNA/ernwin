@@ -646,6 +646,24 @@ class StemVirtualResClashEnergy(EnergyFunction):
     def __init__(self):
         pass
 
+    def virtual_residue_atom_clashes(self, bg, s1, i1, s2, i2):
+        '''
+        Check if any of the virtual residue atoms clash.
+        '''
+        vra1 = cgg.virtual_residue_atoms(bg, s1, i1)
+        vra2 = cgg.virtual_residue_atoms(bg, s2, i2)
+
+        clashes = 0
+
+        for atoms1 in vra1:
+            for atoms2 in vra2:
+                for a1 in atoms1.values():
+                    for a2 in atoms2.values():
+                        if cuv.magnitude(a1 - a2) < 2.0:
+                            clashes += 1
+
+        return clashes
+
     def eval_energy(self, sm, background=False):
         '''
         Cound how many clashes of virtual residues there are.
@@ -676,7 +694,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
         kdt.set_coords(coords)
-        kdt.all_search(6)
+        kdt.all_search(14.)
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
 
@@ -688,46 +706,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
-            vres_distance = bg.calc_vres_distance(s1, i1, s2, i2)
-            if vres_distance == 1:
-                min_distance = 2.49
-            elif vres_distance == 2:
-                min_distance = 1.12
-            elif vres_distance == 3:
-                min_distance = 3.00
-            elif vres_distance == 4:
-                min_distance = 2.14
-            elif vres_distance == 5:
-                min_distance = 3.74
-            else:
-                min_distance = 7.81
-
-            '''
-            if bg.are_any_adjacent_stems(s1,s2):
-                min_distance = 1.12
-            else:
-                min_distance = 3.74
-            '''
-
-            (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, s1, i1)
-            (v2_p, v2_v) = cgg.virtual_res_3d_pos(bg, s2, i2)
-
-            closest_points = cuv.line_segment_distance(v1_p, 
-                                                       v1_p + mult * v1_v,
-                                                       v2_p,
-                                                       v2_p + mult * v2_v)
-
-            closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
-
-            if closest_distance < min_distance:
-                energy += 100000
-
-        #energy = 100000 * len(kdt.all_get_indices())
-
-        #energy = 1000 * len(kdt.all_search(4.))
-        #energy = 1000 * len(kd.query_pairs(4.))
-
-        #print >>sys.stderr, "energy:", energy
+            energy = 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, s2, i2)
 
         return energy
 
@@ -1033,7 +1012,7 @@ class StemStemOrientationEnergy(EnergyFunction):
 
     def load_stem_stem_data(self, filename):
         t = pa.read_csv(filename, header=None, sep=' ')
-        angles = t[t['X.1'] < self.max_dist]['X.3'].values
+        angles = t[t['X1'] < self.max_dist]['X3'].values
 
         return cek.gaussian_kde(angles)
 
