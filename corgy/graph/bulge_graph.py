@@ -349,13 +349,16 @@ class BulgeGraph:
         '''
         (stem1, twist1, stem2, twist2, bulge) = cgg.get_stem_twist_and_bulge_vecs(self, define, connections)
 
+        (s1b, s1e) = self.get_sides(connections[0], define)
+        (s2b, s1e) = self.get_sides(connections[1], define)
+
         # Get the orientations for orienting these two stems
         (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
         (r1, u1, v1) = cgg.get_stem_separation_parameters(stem1, twist1, bulge)
 
         dims =self.get_bulge_dimensions(define)
 
-        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1)
+        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, s1b, s2b)
 
         return angle_stat
 

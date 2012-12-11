@@ -6,6 +6,7 @@ import numpy as np
 import numpy.linalg as nl
 import math
 import sys
+import collections as c
 
 import corgy.builder.config as cbc
 import corgy.visual.pymol as cvp
@@ -277,6 +278,7 @@ class SpatialModel:
 
         if loop_defs == None:
             self.sample_loops()
+            pass
         else:
             self.loop_defs = loop_defs
 
@@ -287,8 +289,9 @@ class SpatialModel:
         @return: A dictionary where the key is the name of a bulge and the value is a 
             statistic for the angles of that bulge.
         '''
-        angle_defs = dict()
-        angle_defs['start'] = cbs.AngleStat()
+        angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
+        angle_defs['start'][0][1] = cbs.AngleStat()
+        angle_defs['start'][1][0] = cbs.AngleStat()
 
         for d in self.bg.defines.keys():
             if d[0] != 's': 
@@ -300,15 +303,18 @@ class SpatialModel:
                     if size == (1,7):
                         size = (2,7)
 
+                    connections = list(self.bg.edges[d])
+                    (s1b, s1e) = self.bg.get_sides(connections[0], d)
+                    (s2b, s2e) = self.bg.get_sides(connections[1], d)
+
                     try:
-                        stats = choice(self.angle_stats[size[0]][size[1]])
+                        angle_defs[d][s1b][s2b] = choice(self.angle_stats[size[0]][size[1]][s1b][s2b])
+                        angle_defs[d][s2b][s1b] = choice(self.angle_stats[size[0]][size[1]][s2b][s1b])
                     except IndexError:
                         print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
-                        sys.exit(1)
                 else:
-                    stats = cbs.AngleStat()
-
-                angle_defs[d] = stats
+                    angle_defs[d][0][0] = cbs.AngleStat()
+                    pass
 
         self.angle_defs = angle_defs
 
@@ -372,6 +378,7 @@ class SpatialModel:
 
         @return: A dictionary containing statistics about the loops in the structure.
         '''
+        return
         loop_defs = dict()
 
         for d in self.bg.defines.keys():
@@ -472,12 +479,11 @@ class SpatialModel:
 
         return self.stem_defs[name]
 
-    def get_random_bulge_stats(self, name):
+    def get_random_bulge_stats(self, name, (s1b, s2b)):
         '''
         Return a random set of parameters with which to create a bulge.
         '''
-
-        return self.angle_defs[name]
+        return self.angle_defs[name][s1b][s2b]
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
@@ -504,8 +510,9 @@ class SpatialModel:
         for d in self.bg.defines.keys():
             if d[0] != 's':
                 if len(self.bg.edges[d]) == 1:
-                    self.add_loop(d, list(self.bg.edges[d])[0])
+                    #self.add_loop(d, list(self.bg.edges[d])[0])
                     # add loop
+                    pass
                 else:
                     connections = list(self.bg.edges[d])
 
@@ -609,6 +616,7 @@ class SpatialModel:
         #self.stems = dict()
         #self.bulges = dict()
         self.sampled_bulges = []
+        self.sampled_bulge_sides = []
         self.closed_bulges = []
         self.newly_added_stems = []
 
@@ -653,11 +661,13 @@ class SpatialModel:
 
 
                 # get some parameters for the previous bulge
-                prev_params = self.get_random_bulge_stats(prev_node)
-                self.sampled_bulges += [prev_node]
-
                 #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
                 (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
+
+                prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b))
+                self.sampled_bulges += [prev_node]
+                if len(self.bg.edges[prev_node]) == 2:
+                    self.sampled_bulge_sides += [(prev_node, (ps1b, s1b))]
 
                 # the previous stem should always be in the direction(0, 1) 
                 if started:

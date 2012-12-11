@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import sys
+
 import random as rand
 import scipy.stats as ss
 import numpy as np
@@ -126,7 +128,7 @@ class AngleStat:
     Class for storing an individual statistic about inter-helical angles.
     '''
 
-    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0):
+    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, s1b=0, s2b=0):
         self.pdb_name = pdb_name
         self.dim1 = dim1
         self.dim2 = dim2
@@ -138,6 +140,9 @@ class AngleStat:
         self.r1 = r1
         self.u1 = u1
         self.v1 = v1
+
+        self.s1b = s1b
+        self.s2b = s2b
 
     def __hash__(self):
         return id(self)
@@ -181,6 +186,8 @@ class AngleStat:
         self.u1 = float(parts[8])
         self.v1 = float(parts[9])
 
+        self.s1b = float(parts[10])
+        self.s2b = float(parts[11])
 
     def orientation_params(self):
         '''
@@ -214,7 +221,8 @@ class AngleStat:
         str0 = "d1: %d d2: %d " % (self.dim1, self.dim2)
         str1 = "u: %f v: %f t: %f " % (self.u, self.v, self.t)
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
-        return str0 + str1 + str2
+        str3 = "s1b: %d s2b: %d" % (s1b, s2b)
+        return str0 + str1 + str2 + str3
 
 class ContinuousAngleStats():
     '''
@@ -286,7 +294,7 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
 
     The file format should be as follows:
 
-    angle pdb_name dim1 dim2 r u v t r1 u1 v1
+    angle pdb_name dim1 dim2 r u v t r1 u1 v1 s1b s2b
 
     Where the parameters are as follows:
 
@@ -303,6 +311,8 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
         stem helix
     u1: the polar angle of the separation vector of the two helices
     v1: the azimuth of the separation vector of the two helices
+    s1b: The side of the first stem closest to the bulge
+    s2b: The side of the second stem closest to the bulge
 
     The azimuth is always defined with respect to the coordinate system defined
     by the stem1 helix axis vector and it's twist vector (the one adjacent to the
@@ -311,7 +321,10 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
     if ConstructionStats.angle_stats != None:
         return ConstructionStats.angle_stats
 
-    ConstructionStats.angle_stats = c.defaultdict(lambda: c.defaultdict(list))
+    ConstructionStats.angle_stats = c.defaultdict(
+                                    lambda: c.defaultdict(
+                                        lambda: c.defaultdict(
+                                            lambda: c.defaultdict(list))))
     #DefaultDict(DefaultDict([]))
 
     f = open(filename, 'r')
@@ -320,7 +333,7 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
         if line.strip().find('angle') == 0:
             angle_stat = AngleStat()
             angle_stat.parse_line(line)
-            ConstructionStats.angle_stats[angle_stat.dim1][angle_stat.dim2] += [angle_stat]
+            ConstructionStats.angle_stats[angle_stat.dim1][angle_stat.dim2][angle_stat.s1b][angle_stat.s2b] += [angle_stat]
 
     f.close()
 

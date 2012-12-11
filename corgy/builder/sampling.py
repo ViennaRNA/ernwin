@@ -359,16 +359,19 @@ class GibbsBGSampler:
         self.sm.traverse_and_build()
 
         # pick a random bulge to vary
-        bulge = self.sm.bg.get_random_bulge()
+        #bulge = self.sm.bg.get_random_bulge()
+        (bulge, (s1b, s2b)) = random.choice(self.sm.sampled_bulge_sides)
         dims = self.sm.bg.get_bulge_dimensions(bulge)
+        
 
         if dims == (1,7):
             dims = (2,7)
         # What are the potential angle statistics for it
-        possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
+        possible_angles = self.sm.angle_stats[dims[0]][dims[1]][s1b][s2b]
 
         if len(possible_angles) == 0:
-            print >>sys.stder, "No available statistics for bulge %s of size %s" % (bulge, str(dims))
+            print >>sys.stderr, "No available statistics for bulge %s of size %s" % (bulge, str(dims))
+            print >>sys.stderr, "s1b", s1b, "s2b", s2b
         # only choose 10 possible angles
         if len(possible_angles) > 20:
             possible_angles = random.sample(possible_angles, 20)
@@ -379,7 +382,7 @@ class GibbsBGSampler:
         # angle is replaced by one of the 10 potential new ones
         #cud.pv('possible_angles')
         for pa in possible_angles:
-            self.sm.angle_defs[bulge] = pa
+            self.sm.angle_defs[bulge][s1b][s2b] = pa
             self.sm.traverse_and_build(start=bulge)
             energy = self.energy_function.eval_energy(self.sm, background=True)
             energies[pa] = energy
@@ -421,7 +424,7 @@ class GibbsBGSampler:
         prob_remaining = 1.
         for key in energy_probs.keys():
             if random.random() < energy_probs[key] / prob_remaining:
-                self.sm.angle_defs[bulge] = key
+                self.sm.angle_defs[bulge][s1b][s2b] = key
                 break
 
             prob_remaining -= energy_probs[key]

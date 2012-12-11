@@ -715,6 +715,57 @@ def add_virtual_residues(bg, stem):
         bg.vbases[stem][i] = vbasis
         bg.vinvs[stem][i] = vinv
 
+def stem_vres_reference_atoms(bg, chain, s, i):
+    '''
+    Calculate the position of each atom in the reference of the
+    stem and virtual residue.
+
+    @param bg: The BulgeGraph
+    @param chain: The PDB representation of the chain
+    @param s: The stem identifier
+    @param i: The i'th base-pair in the stem
+
+    @return (origin, bases, [dict(atoms), dict(atoms)]) 
+        The origin of the coordinate system (vpos)
+        The basises (one for each nucleotide)
+        Two dictionaries containing the positions of each atom in its respective
+            coordinate system.
+    '''
+    coords = [dict(), dict()]
+    bases = []
+    out_str = ''
+
+    for k in range(2):
+        if k == 0:
+            vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+        if k == 1:
+            vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+
+        (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
+        vec2 = cuv.normalize(vvec)
+
+        bases += [cuv.create_orthonormal_basis(vec1, vec2)]
+
+        #r = bg.defines[s][0 + 2*k] + i
+        if k == 0:
+            r = bg.defines[s][0] + i
+        else:
+            r = bg.defines[s][3] - i
+
+        out_str += "%d " % r
+
+        for atom in cup.all_rna_atoms:
+            try:
+                c = chain[r][atom].coord
+
+                new_c =  cuv.change_basis(c - vpos, bases[k], cuv.standard_basis)
+                coords[k][atom] = new_c
+
+            except KeyError:
+                continue
+
+    return (vpos, bases, atoms)
+
 def bounding_boxes(bg, chain, s, i):
     '''
     Return the bounding boxes of the two nucleotides at the
@@ -769,3 +820,6 @@ def bounding_boxes(bg, chain, s, i):
         x = max_c
         corners += [(n, x)]
     return (vpos, bases, corners)
+
+
+

@@ -1,21 +1,20 @@
 import unittest, os, copy
 
-from corgy.builder.config import Configuration
-from corgy.builder.models import SpatialModel
-from corgy.builder.stats import AngleStat
-from corgy.graph.bulge_graph import BulgeGraph
-
 from numpy import allclose, pi
 from random import uniform
 
 import numpy as np
 import random, time
 import corgy.utilities.vector as cuv
+import corgy.graph.bulge_graph as cgb
+import corgy.builder.config as cbc
 import corgy.builder.models as cbm
+import corgy.builder.stats as cbs
+import corgy.utilities.debug as cud
 
 class TestSpatialModel(unittest.TestCase):
     def setUp(self):
-        self.bg = BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        self.bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
     def check_side_integrity(self, bg):
         '''
@@ -41,12 +40,16 @@ class TestSpatialModel(unittest.TestCase):
             if len(sm.bg.edges[b]) == 2:
                 angle_stat = sm.bg.get_bulge_angle_stats(b)
 
+                connections = list(sm.bg.edges[b])
+                (s1b, s1e) = sm.bg.get_sides(connections[0], b)
+                (s2b, s2e) = sm.bg.get_sides(connections[1], b)
+
                 #print "b:", b, "angle_stat:", str(angle_stat[0])
                 #print "b1:", b, "angle_stat:", str(angle_stat[1])
 
                 #print "ad:", b, "sm.angle_defs:", str(sm.angle_defs[b])
 
-                self.assertTrue((angle_stat[0] == sm.angle_defs[b]) or (angle_stat[1] == sm.angle_defs[b]))
+                self.assertTrue((angle_stat[0] == sm.angle_defs[b][s1b][s2b]) or (angle_stat[1] == sm.angle_defs[b][s1b][s2b]) or (angle_stat[0] == sm.angle_defs[b][s2b][s1b]) or (angle_stat[1] == sm.angle_defs[b][s2b][s1b]))
 
     def check_angle_composition(self, bg, angle_stats):
         for define in bg.defines.keys():
@@ -61,7 +64,7 @@ class TestSpatialModel(unittest.TestCase):
 
                 dims = bg.get_bulge_dimensions(define)
 
-                this_stat = AngleStat('', dims[0], dims[1], u, v, t, r1, u1, v1)
+                this_stat = cbs.AngleStat('', dims[0], dims[1], u, v, t, r1, u1, v1)
                 stats_list = angle_stats[dims[0]][dims[1]]
 
                 found = False
@@ -89,9 +92,9 @@ class TestSpatialModel(unittest.TestCase):
             u1 = uniform(0., pi)
             v1 = uniform(-pi, pi)
 
-            a_s1 = AngleStat('', 0, 0, u, v, t, r1, u1, v1)
-            a_s2 = AngleStat('', 0, 0, u, v, t, r1, u1, v1)
-            a_s3 = AngleStat('', 0, 0, v, u, t, r1, u1, v1)
+            a_s1 = cbs.AngleStat('', 0, 0, u, v, t, r1, u1, v1)
+            a_s2 = cbs.AngleStat('', 0, 0, u, v, t, r1, u1, v1)
+            a_s3 = cbs.AngleStat('', 0, 0, v, u, t, r1, u1, v1)
 
             self.assertTrue(a_s1 == a_s2)
 
@@ -107,9 +110,9 @@ class TestSpatialModel(unittest.TestCase):
 
     def test_spatial_model_construction(self):
         bg = self.bg
-        #bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
+        #bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, '1y26/graph/temp.comp'))
 
-        sm = SpatialModel(bg)
+        sm = cbm.SpatialModel(bg)
         sm.traverse_and_build()
         sm.bg.output('this.coords')
 
@@ -121,20 +124,20 @@ class TestSpatialModel(unittest.TestCase):
 
         #self.check_angle_composition(bg, angle_stats)
 
-        sm = SpatialModel(bg)
+        sm = cbm.SpatialModel(bg)
         sm.traverse_and_build()
 
         bg1 = copy.deepcopy(sm.bg)
         angle_defs = sm.angle_defs
         stem_defs = sm.stem_defs
 
-        sm1 = SpatialModel(bg, angle_defs = angle_defs, stem_defs = stem_defs)
+        sm1 = cbm.SpatialModel(bg, angle_defs = angle_defs, stem_defs = stem_defs)
         sm1.traverse_and_build()
         self.compare_models(bg1, sm1.bg)
 
     def test_sampled_bulges(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
-        sm = SpatialModel(copy.deepcopy(bg))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, '1gid/graph/temp.comp'))
+        sm = cbm.SpatialModel(copy.deepcopy(bg))
 
         sm.traverse_and_build()
         sb1 = sm.sampled_bulges
@@ -148,11 +151,11 @@ class TestSpatialModel(unittest.TestCase):
         self.assertEqual(sb1, sb2)
 
     def long_bulge_check(self, bg):
-        sm = SpatialModel(bg)
+        sm = cbm.SpatialModel(bg)
         
         sm.traverse_and_build()
 
-        sm.bg.output(os.path.join(Configuration.test_output_dir, 'long_bulges.comp'))
+        sm.bg.output(os.path.join(cbc.Configuration.test_output_dir, 'long_bulges.comp'))
         print 'sm.sampled_bulges:', sm.sampled_bulges
 
         for key in sm.sampled_bulges:
@@ -174,14 +177,23 @@ class TestSpatialModel(unittest.TestCase):
             c2 = sm.bg.coords[e2][s2b]
 
             print "e1:", e1, "key:", key, "e2:", e2
-            self.assertTrue(np.allclose(sm.angle_defs[key].r1, cuv.magnitude(np.array(c1) - np.array(c2))))
+            cud.pv('sm.angle_defs[key][s1b][s2b].r1')
+            cud.pv('cuv.magnitude(np.array(c1) - np.array(c2))')
+            self.assertTrue(
+                    np.allclose(sm.angle_defs[key][s1b][s2b].r1, 
+                        cuv.magnitude(np.array(c1) - np.array(c2)))
+                    or 
+                    np.allclose(sm.angle_defs[key][s2b][s1b].r1, 
+                        cuv.magnitude(np.array(c1) - np.array(c2)))
+                    
+                    )
             #print 'key:', key, 'dist:', cuv.magnitude(np.array(c1) - np.array(c2))
 
 
 
     def test_long_bulges(self):
-        bg1 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
-        bg2 = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, '1y26/graph/temp.comp'))
+        bg2 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, '1gid/graph/temp.comp'))
 
         self.long_bulge_check(bg1)
         self.long_bulge_check(bg2)
@@ -200,8 +212,8 @@ class TestSpatialModel(unittest.TestCase):
         return True
 
     def test_resample_bulge(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1gid/graph/temp.comp'))
-        sm = SpatialModel(copy.deepcopy(bg))
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, '1gid/graph/temp.comp'))
+        sm = cbm.SpatialModel(copy.deepcopy(bg))
 
         sm.sample_stems()
         sm.sample_angles()
@@ -210,7 +222,12 @@ class TestSpatialModel(unittest.TestCase):
 
         bulge = sm.bg.get_random_bulge()
         dims = sm.bg.get_bulge_dimensions(bulge)
-        possible_angles = sm.angle_stats[dims[0]][dims[1]]
+
+        connections = list(sm.bg.edges[bulge])
+        (s1b, s1e) = sm.bg.get_sides(connections[0], bulge)
+        (s2b, s2e) = sm.bg.get_sides(connections[1], bulge)
+
+        possible_angles = sm.angle_stats[dims[0]][dims[1]][s1b][s2b]
 
         new_angle =  random.choice(possible_angles)
         print "bulge:", bulge
@@ -225,8 +242,8 @@ class TestSpatialModel(unittest.TestCase):
 
         self.assertTrue(self.are_stem_models_equal(sm1, sm2))
 
-        sm1.angle_defs[bulge] = new_angle
-        sm2.angle_defs[bulge] = new_angle
+        sm1.angle_defs[bulge][s1b][s2b] = new_angle
+        sm2.angle_defs[bulge][s1b][s2b] = new_angle
 
         time1 = time.time()
         for i in range(100):
@@ -255,8 +272,8 @@ class TestSpatialModel(unittest.TestCase):
             self.assertEqual(stem, sm.stems[stem_name])
 
     def test_construct_allatom_stems(self):
-        bg = BulgeGraph(os.path.join(Configuration.test_input_dir, '1y26/graph/temp.comp'))
-        sm = SpatialModel(bg)
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, '1y26/graph/temp.comp'))
+        sm = cbm.SpatialModel(bg)
 
         sm.build_chain = True
         sm.traverse_and_build()
