@@ -8,7 +8,10 @@ import corgy.builder.energy as cbe
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.visual.pymol import PymolPrinter
 
+import corgy.graph.graph_pdb as cgg
 import corgy.utilities.debug as cud
+import corgy.utilities.vector as cuv
+import corgy.utilities.average_stem_vres_atom_positions as cua
 
 def main():
     if len(sys.argv) < 2:
@@ -28,6 +31,7 @@ def main():
     parser.add_option('-m', '--max_stem_distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
     parser.add_option('-p', '--pdb', dest='pdb_file', default=None, help='Include a pdb file for drawing bouding boxes.', type='string')
     parser.add_option('', '--hide-cg', dest='hide_cg', default=False, action='store_true', help='Hide the coarse grain model.')
+    parser.add_option('', '--stem-atoms', dest='stem_atoms', default=False, action='store_true', help='Display the approximate locations of the atoms of the nucleotides that are parts of stems.')
 
     (options, args) = parser.parse_args()
     
@@ -70,6 +74,18 @@ def main():
             pymol_printer.flex_to_pymol(bg, options.flex)
         
         pymol_printer.coordinates_to_pymol(bg)
+
+    if options.stem_atoms:
+        for (s,i) in bg.virtual_residues():
+            basis = cgg.virtual_res_basis(bg, s, i)
+            (vpos, vvec) = cgg.virtual_res_3d_pos(bg, s, i)
+
+            rs = (bg.seq[bg.defines[s][0] + i - 1], bg.seq[bg.defines[s][3] - i -1 ])
+            for i in range(2):
+                for a in cua.avg_stem_vres_atom_coords[i][rs[i]].items():
+                    coords = a[1]
+                    new_coords = cuv.change_basis(coords, cuv.standard_basis, basis) + vpos
+                    pymol_printer.add_sphere(new_coords, 'purple', 0.3)
 
     pymol_printer.output_pymol_file()
 

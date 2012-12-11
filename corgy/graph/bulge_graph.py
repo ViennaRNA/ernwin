@@ -362,6 +362,14 @@ class BulgeGraph:
 
         return angle_stat
 
+    def virtual_residues(self):
+        '''
+        Iterate over every virtual residue in the structure.
+        '''
+        for s in self.stems():
+            for i in range(self.stem_length(s)):
+                yield((s,i))
+
     def get_long_range_constraints(self):
         seen = collections.defaultdict(set)
         constr = []

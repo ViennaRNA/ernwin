@@ -4,6 +4,7 @@ import Bio.PDB as bp
 import sys
 
 import math as m
+import collections as co
 
 import numpy as np
 import numpy.linalg as nl
@@ -733,13 +734,9 @@ def stem_vres_reference_atoms(bg, chain, s, i):
     '''
     coords = [dict(), dict()]
     bases = []
-    out_str = ''
 
     for k in range(2):
-        if k == 0:
-            vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
-        if k == 1:
-            vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+        vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
 
         (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
         vec2 = cuv.normalize(vvec)
@@ -752,8 +749,6 @@ def stem_vres_reference_atoms(bg, chain, s, i):
         else:
             r = bg.defines[s][3] - i
 
-        out_str += "%d " % r
-
         for atom in cup.all_rna_atoms:
             try:
                 c = chain[r][atom].coord
@@ -764,7 +759,7 @@ def stem_vres_reference_atoms(bg, chain, s, i):
             except KeyError:
                 continue
 
-    return (vpos, bases, atoms)
+    return (vpos, bases, coords)
 
 def bounding_boxes(bg, chain, s, i):
     '''
@@ -779,47 +774,22 @@ def bounding_boxes(bg, chain, s, i):
     @return (origin, bases, [(c1, c2), (c1, c2)]) The bases (one for each nucleotide) and the corners defining the bounding box
             of the two nucleotides
     '''
+
+    (vpos, bases, atoms) = stem_vres_reference_atoms(bg, chain, s, i)
     corners = []
-    bases = []
-    out_str = ''
 
     for k in range(2):
-        if k == 0:
-            vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
-        if k == 1:
-            vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
-
-        (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
-        vec2 = cuv.normalize(vvec)
-
-        bases += [cuv.create_orthonormal_basis(vec1, vec2)]
+        basis = bases[k]
 
         min_c = [10000., 10000., 10000.]
         max_c = [-10000., -10000., -10000.]
 
-        #r = bg.defines[s][0 + 2*k] + i
-        if k == 0:
-            r = bg.defines[s][0] + i
-        else:
-            r = bg.defines[s][3] - i
-
-        out_str += "%d " % r
-
-        for atom in cup.all_rna_atoms:
-            try:
-                c = chain[r][atom].coord
-
-                new_c =  cuv.change_basis(c - vpos, bases[k], cuv.standard_basis)
-
-                for j in range(3):
-                    min_c[j] = min(min_c[j], new_c[j])
-                    max_c[j] = max(max_c[j], new_c[j])
-            except KeyError:
-                continue
+        for atom in atoms[k].values():
+            for j in range(3):
+                min_c[j] = min(min_c[j], atom[j])
+                max_c[j] = max(max_c[j], atom[j])
         n = min_c
         x = max_c
         corners += [(n, x)]
     return (vpos, bases, corners)
-
-
 

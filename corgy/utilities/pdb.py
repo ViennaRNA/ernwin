@@ -3,6 +3,7 @@ import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
 
 backbone_atoms = ['P', 'O5*', 'C5*', 'C4*', 'C3*', 'O3*']
+ring_atoms = ['C4*', 'C3*', 'C2*', 'C1*', 'O4*']
 
 side_chain_atoms = dict()
 side_chain_atoms['U'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6']
@@ -11,7 +12,7 @@ side_chain_atoms['C'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6']
 side_chain_atoms['A'] = ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9']
 side_chain_atoms['G'] = ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9']
 
-all_rna_atoms = backbone_atoms
+all_rna_atoms = backbone_atoms + ring_atoms
 for v in side_chain_atoms.values():
     all_rna_atoms += v
 all_rna_atoms = set(all_rna_atoms)
