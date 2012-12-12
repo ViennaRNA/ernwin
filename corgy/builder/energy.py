@@ -650,6 +650,12 @@ class StemVirtualResClashEnergy(EnergyFunction):
         '''
         Check if any of the virtual residue atoms clash.
         '''
+        (p1, v1) = cgg.virtual_res_3d_pos(bg, s1, i1)
+        (p2, v2) = cgg.virtual_res_3d_pos(bg, s2, i2)
+
+        #cud.pv('(s1,i1,s2,i2)')
+        #cud.pv('cuv.magnitude((p1 + 7 * v1) - (p2 + 7 * v2))')
+
         vra1 = cgg.virtual_residue_atoms(bg, s1, i1)
         vra2 = cgg.virtual_residue_atoms(bg, s2, i2)
 
@@ -682,7 +688,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         for d in sm.bg.defines.keys():
             if d[0] == 's':
                 s = d
-                s_len = bg.defines[d][1] - bg.defines[d][0]
+                s_len = bg.stem_length(s)
                 stem_inv = bg.stem_invs[s]
 
                 for i in range(s_len):
@@ -694,7 +700,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #kk = ss.KDTree(np.array(l))
         kdt = kd.KDTree(3)
         kdt.set_coords(coords)
-        kdt.all_search(14.)
+        kdt.all_search(10.)
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
 
@@ -706,7 +712,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
-            energy = 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, s2, i2)
+            energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, s2, i2)
 
         return energy
 

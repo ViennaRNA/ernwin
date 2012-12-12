@@ -305,7 +305,7 @@ class PymolPrinter:
             twist4 = np.dot(twist_rot_mat_r, twist2o)
 
 
-            mult = 11.
+            mult = 7.
             width = .3
 
             self.add_segment(p, p + mult * twist1, "white", width, '')

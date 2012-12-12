@@ -7,6 +7,8 @@ import copy
 import corgy.utilities.debug as cud
 import corgy.builder.sampling as cbs
 
+import corgy.graph.graph_pdb as cgg
+
 from random import sample, random, seed
 from numpy import allclose, seterr
 
@@ -53,6 +55,7 @@ def main():
     parser.add_option('-s', '--stem-stem', dest='stem_stem', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
     parser.add_option('', '--seq', dest='seq', default=None, help='Provide the sequence of the structure being sampled. This is necessary if one wants to later reconstruct it.')
+    parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
 
 
     (options, args) = parser.parse_args()
@@ -94,6 +97,13 @@ def main():
         bg.calc_bp_distances()
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
     '''
+    if options.eval_energy:
+        for s in sm.bg.stems():
+            cgg.add_virtual_residues(sm.bg, s)
+
+        for energy in energies_to_sample:
+            cud.pv('energy.eval_energy(sm)')
+        sys.exit(1)
 
     if options.plot:
         plotter = StatisticsPlotter()
