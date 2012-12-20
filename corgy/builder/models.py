@@ -300,8 +300,12 @@ class SpatialModel:
 
                     #HACK to overcome some sparse statistics
                     #TODO: remove this
+                    '''
                     if size == (1,7):
                         size = (2,7)
+                    '''
+                    if size == (2,7):
+                        size = (3,7)
 
                     connections = list(self.bg.edges[d])
                     (s1b, s1e) = self.bg.get_sides(connections[0], d)
@@ -611,6 +615,7 @@ class SpatialModel:
         are added.
         '''
 
+        #print >>sys.stderr, "traverse_and_build"
         self.visited = set()
         self.to_visit = []
         #self.stems = dict()
@@ -636,6 +641,8 @@ class SpatialModel:
 
 
         while len(self.to_visit) > 0:
+            self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            #cud.pv('self.to_visit')
             (curr_node, prev_node, prev_stem) = self.to_visit.pop()
 
             while curr_node in self.visited:
@@ -695,6 +702,7 @@ class SpatialModel:
                 #self.stems[curr_node] = stem
 
             for edge in self.bg.edges[curr_node]:
+
                 if edge not in self.visited:
                     self.to_visit.append((edge, curr_node, stem))
 

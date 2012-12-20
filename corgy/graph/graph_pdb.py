@@ -565,12 +565,12 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
     u = bg.get_twists(stem)[0]
     v = cuv.normalize(np.cross(stem_vec, bg.get_twists(stem)[0]))
     
-    ang_offset = 1.0
+    ang_offset = 0.9
     # equation for a circle in 3-space
     return (vres_stem_pos, 
-            u * m.cos(ang) + v * m.sin(ang))
-            #u * m.cos(ang + ang_offset) + v * m.sin(ang + ang_offset),
-            #u * m.cos(ang - ang_offset) + v * m.sin(ang - ang_offset))
+            u * m.cos(ang) + v * m.sin(ang),
+            u * m.cos(ang + ang_offset) + v * m.sin(ang + ang_offset),
+            u * m.cos(ang - ang_offset) + v * m.sin(ang - ang_offset))
 
 def bg_virtual_residues(bg):
     vress = []
@@ -596,7 +596,7 @@ def virtual_res_basis(bg, stem, i, vec = None):
     '''
 
     if vec == None:
-        (pos, vec) = virtual_res_3d_pos(bg, stem, i)
+        (pos, vec, vec_l, vec_r) = virtual_res_3d_pos(bg, stem, i)
 
     stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
 
@@ -614,8 +614,8 @@ def pos_to_spos(bg, s1, i1, s2, i2):
     @param i2: The nucleotide to be converted position
     '''
     sbasis = virtual_res_basis(bg, s1, i1)
-    (s1_pos, s1_vec) = virtual_res_3d_pos(bg, s1, i1)
-    (s2_pos, s2_vec) = virtual_res_3d_pos(bg, s2, i2)
+    (s1_pos, s1_vec, s1_vec_l, s1_vec_r) = virtual_res_3d_pos(bg, s1, i1)
+    (s2_pos, s2_vec, s2_vec_l, s2_vec_r) = virtual_res_3d_pos(bg, s2, i2)
 
     #rpos = (s2_pos + 7. * s2_vec) - (s1_pos + 7 * s1_vec)
     rpos = (s2_pos + 7. * s2_vec) - (s1_pos)
@@ -643,7 +643,7 @@ def spos_to_pos(bg, stem, i, spos):
         rest of the model.
     '''
     sbasis = virtual_res_basis(bg, stem, i)
-    (s1_pos, s1_vec) = virtual_res_3d_pos(bg, stem, i)
+    (s1_pos, s1_vec, s1_vec_l, s1_vec_r) = virtual_res_3d_pos(bg, stem, i)
     pos = cuv.change_basis(spos, cuv.standard_basis, sbasis)
     return pos + (s1_pos + s1_vec)
 
@@ -681,14 +681,14 @@ def junction_virtual_res_distance(bg, bulge):
     (s2b, s2e) = bg.get_sides(connecting_stems[1], bulge)
 
     if s1b == 1:
-        (vr1_p, vr1_v) = virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
+        (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
     else:
-        (vr1_p, vr1_v) = virtual_res_3d_pos(bg, connecting_stems[0], 0)
+        (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = virtual_res_3d_pos(bg, connecting_stems[0], 0)
 
     if s2b == 1:
-        (vr2_p, vr2_v) = virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
+        (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
     else:
-        (vr2_p, vr2_v) = virtual_res_3d_pos(bg, connecting_stems[1], 0)
+        (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = virtual_res_3d_pos(bg, connecting_stems[1], 0)
 
     dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
     return dist2
@@ -739,7 +739,7 @@ def stem_vres_reference_atoms(bg, chain, s, i):
     for k in range(2):
         vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
 
-        (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
+        (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
         vec2 = cuv.normalize(vvec)
 
         bases += [cuv.create_orthonormal_basis(vec1, vec2)]
@@ -794,7 +794,7 @@ def bounding_boxes(bg, chain, s, i):
         corners += [(n, x)]
     return (vpos, bases, corners)
 
-def virtual_residue_atoms(bg, s, i):
+def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None):
     '''
     Return two sets of atoms for the virtual residue. One for the nucleotide
     on each strand.
@@ -802,17 +802,24 @@ def virtual_residue_atoms(bg, s, i):
     @param bg: The BulgeGraph
     @param s: The stem
     @param i: The virtual residue number
+    @param strand: The strand for which to get the virtual atoms
     '''
     basis = virtual_res_basis(bg, s, i)
-    (vpos, vvec) = virtual_res_3d_pos(bg, s, i)
+    (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
     rs = (bg.seq[bg.defines[s][0] + i - 1], bg.seq[bg.defines[s][3] - i -1 ])
 
-    new_atoms = [dict(), dict()]
+    new_atoms = dict()
 
-    for i in range(2):
-        for a in cua.avg_stem_vres_atom_coords[i][rs[i]].items():
-            coords = a[1]
-            new_coords = cuv.change_basis(coords, cuv.standard_basis, basis) + vpos
-            new_atoms[i][a[0]] = new_coords
+    for a in cua.avg_stem_vres_atom_coords[strand][rs[strand]].items():
+        coords = a[1]
+        #new_coords = cuv.change_basis(coords, cuv.standard_basis, basis) + vpos
+
+        new_coords = np.dot(basis.transpose(), coords) + vpos
+        #new_coords2 = cuv.change_basis(coords, cuv.standard_basis, basis)
+
+        #cud.pv('new_coords1')
+        #cud.pv('new_coords2')
+
+        new_atoms[a[0]] = new_coords
     return new_atoms
 

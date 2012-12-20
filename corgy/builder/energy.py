@@ -646,27 +646,30 @@ class StemVirtualResClashEnergy(EnergyFunction):
     def __init__(self):
         pass
 
-    def virtual_residue_atom_clashes(self, bg, s1, i1, s2, i2):
+    def virtual_residue_atom_clashes(self, bg, s1,i1,a1, s2, i2, a2):
         '''
         Check if any of the virtual residue atoms clash.
         '''
-        (p1, v1) = cgg.virtual_res_3d_pos(bg, s1, i1)
-        (p2, v2) = cgg.virtual_res_3d_pos(bg, s2, i2)
+        #(p1, v1, v1_l, v1_r) = cgg.virtual_res_3d_pos(bg, s1, i1)
+        #(p2, v2, v2_l, v2_r) = cgg.virtual_res_3d_pos(bg, s2, i2)
 
         #cud.pv('(s1,i1,s2,i2)')
         #cud.pv('cuv.magnitude((p1 + 7 * v1) - (p2 + 7 * v2))')
 
-        vra1 = cgg.virtual_residue_atoms(bg, s1, i1)
-        vra2 = cgg.virtual_residue_atoms(bg, s2, i2)
+        vra1 = cgg.virtual_residue_atoms(bg, s1, i1, a1)
+        vra2 = cgg.virtual_residue_atoms(bg, s2, i2, a2)
 
         clashes = 0
 
-        for atoms1 in vra1:
-            for atoms2 in vra2:
-                for a1 in atoms1.values():
-                    for a2 in atoms2.values():
-                        if cuv.magnitude(a1 - a2) < 2.0:
-                            clashes += 1
+        atoms1 = vra1
+        atoms2 = vra2
+
+        #for atoms1 in vra1:
+            #for atoms2 in vra2:
+        for a1 in atoms1.values():
+            for a2 in atoms2.values():
+                if cuv.magnitude(a1 - a2) < 2.0:
+                    clashes += 1
 
         return clashes
 
@@ -681,7 +684,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         '''
         l = []
         bg = sm.bg
-        mult = 7
+        mult = 8
         points = []
         energy = 0.
 
@@ -692,8 +695,9 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 stem_inv = bg.stem_invs[s]
 
                 for i in range(s_len):
-                    (p, v) = cgg.virtual_res_3d_pos(bg, d, i, stem_inv=stem_inv)
-                    points += [(p+ mult * v, d, i)]
+                    (p, v, v_l, v_r) = cgg.virtual_res_3d_pos(bg, d, i, stem_inv=stem_inv)
+                    points += [(p+ mult * v_l, d, i, 0)]
+                    points += [(p+ mult * v_r, d, i, 1)]
 
         coords = np.vstack([p[0] for p in points])
 
@@ -706,13 +710,13 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         indeces = kdt.all_get_indices()
         for (ia,ib) in indeces:
-            (s1,i1) = (points[ia][1], points[ia][2])
-            (s2,i2) = (points[ib][1], points[ib][2])
+            (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
+            (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
 
             if s1 == s2:
                 continue
 
-            energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, s2, i2)
+            energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
 
         return energy
 
@@ -979,7 +983,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
             if (dist > cutoff_distance):
                 #print "bulge:", bulge, "bl:", bl, "cutoff_distance:", cutoff_distance, "dist:", dist
-                energy += 10000.
+                energy += (dist - cutoff_distance) * 10000.
 
         return energy
 

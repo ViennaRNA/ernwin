@@ -253,10 +253,10 @@ class TestGraphPDBFunctions(unittest.TestCase):
             if d[0] == 's':
                 stem = d
                 stem_len = bg.defines[d][1] - bg.defines[d][0] + 1
-                (pos, vec) = cgg.virtual_res_3d_pos(bg, stem, 0)
+                (pos, vec, vec_l, vec_r) = cgg.virtual_res_3d_pos(bg, stem, 0)
 
                 self.assertTrue(allclose(bg.twists[d][0] + bg.coords[d][0], pos + vec))
-                (pos, vec) = cgg.virtual_res_3d_pos(bg, stem, stem_len - 1)
+                (pos, vec, vec_l, vec_r) = cgg.virtual_res_3d_pos(bg, stem, stem_len - 1)
 
                 self.assertTrue(allclose(bg.twists[d][1] + bg.coords[d][1], pos + vec))
     def test_bg_virtual_residues(self):
@@ -293,7 +293,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
                                                stems[j], l)
 
                         # get the actual position of (stems[j], l) in cartesian space
-                        (vpos1, vvec1) = cgg.virtual_res_3d_pos(bg, stems[j], l)
+                        (vpos1, vvec1, vvec1_l, vvec1_r) = cgg.virtual_res_3d_pos(bg, stems[j], l)
                         vpos1 = vpos1 + vvec1
 
                         # convert the spos back to the real coordinate system and see

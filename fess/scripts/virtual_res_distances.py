@@ -43,8 +43,8 @@ def main():
 
         for k in range(s1_len):
             for l in range(s2_len):
-                (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, s1, k)
-                (v2_p, v2_v) = cgg.virtual_res_3d_pos(bg, s2, l)
+                (v1_p, v1_v, v1_l, v1_r) = cgg.virtual_res_3d_pos(bg, s1, k)
+                (v2_p, v2_v, v2_l, v2_r) = cgg.virtual_res_3d_pos(bg, s2, l)
 
                 closest_points = cuv.line_segment_distance(v1_p, 
                                                            v1_p + mult * v1_v,
@@ -57,8 +57,8 @@ def main():
                 print "dist:", cuv.magnitude((v2_p + mult * v2_v) - (v1_p + mult * v1_v)), closest_distance, adjacent, s1, k, s2, l, vres_distance
 
             for l in range(k+1, s1_len):
-                (v1_p, v1_v) = cgg.virtual_res_3d_pos(bg, s1, k)
-                (v2_p, v2_v) = cgg.virtual_res_3d_pos(bg, s2, l)
+                (v1_p, v1_v, v1_l, v1_r) = cgg.virtual_res_3d_pos(bg, s1, k)
+                (v2_p, v2_v, v2_l, v2_r) = cgg.virtual_res_3d_pos(bg, s2, l)
 
                 closest_points = cuv.line_segment_distance(v1_p, 
                                                            v1_p + mult * v1_v,
