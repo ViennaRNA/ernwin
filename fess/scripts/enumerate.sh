@@ -10,14 +10,20 @@ fi
 base=${1##*/}
 pdb=${base%\.*}
 
-if [ -d fess/output/$pdb ]; then
-    rm -rf fess/output/$pdb
+echo pwd
+echo $(pwd)
+
+OUTPUT_DIR=~/data/ernwin/processed/${pdb}
+
+if [ -d $OUTPUT_DIR ]; then
+    rm -rf $OUTPUT_DIR
 fi
 
-mkdir -p fess/output/${pdb}/{prepare,graph,neato,report,stats,pymol}
+mkdir -p ${OUTPUT_DIR}/{prepare,graph,neato,report,stats,pymol}
 
 ./fess/scripts/prepare.sh $1
+exit
 ./fess/scripts/create_graph.sh $1
-#./fess/scripts/create_pymol.sh $1
+./fess/scripts/create_pymol.sh $1
 ./fess/scripts/create_stats.sh $1
 

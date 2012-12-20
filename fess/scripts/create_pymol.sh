@@ -30,7 +30,7 @@ done
 base=${PDBNAME##*/}
 pdb=${base%\.*}
 
-OUTPUT_DIR=fess/output/${pdb}
+OUTPUT_DIR=~/data/ernwin/processed/${pdb}
 
 OUTPUT_GRAPH_DIR=${OUTPUT_DIR}/graph
 OUTPUT_PYMOL_DIR=${OUTPUT_DIR}/pymol

@@ -3,7 +3,7 @@
 base=${1##*/}
 pdb=${base%\.*}
 
-OUTPUT_DIR=fess/output/${pdb}
+OUTPUT_DIR=~/data/ernwin/processed/${pdb}
 
 OUTPUT_PREPARE_DIR=${OUTPUT_DIR}/prepare
 OUTPUT_GRAPH_DIR=${OUTPUT_DIR}/graph

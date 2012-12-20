@@ -9,7 +9,8 @@ K2N_PATH=/scr/plastilin/pkerp/apps/k2n_standalone/knotted2nested.py
 base=${1##*/}
 pdb=${base%\.*}
 
-OUTPUT_DIR=fess/output/${pdb}/prepare
+#OUTPUT_DIR=fess/output/${pdb}/prepare
+OUTPUT_DIR=~/data/ernwin/processed/${pdb}/prepare
 
 #echo PYTHONPATH, $PYTHONPATH
 #export PYTHONPATH=$PYTHONPATH:/home/mescalin/pkerp/projects/fess
