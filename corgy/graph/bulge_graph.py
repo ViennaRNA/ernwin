@@ -255,6 +255,8 @@ class BulgeGraph:
         self.defines = dict()
 
         self.vposs = c.defaultdict( dict )
+        self.vvecs = c.defaultdict( dict )
+        self.v3dposs = c.defaultdict( dict )
         self.vbases = c.defaultdict( dict )
         self.vinvs = c.defaultdict( dict )
 

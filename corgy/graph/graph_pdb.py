@@ -681,14 +681,14 @@ def junction_virtual_res_distance(bg, bulge):
     (s2b, s2e) = bg.get_sides(connecting_stems[1], bulge)
 
     if s1b == 1:
-        (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
+        (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = bg.v3dposs[connecting_stems[0]][bg.stem_length(connecting_stems[0]) - 1]
     else:
-        (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = virtual_res_3d_pos(bg, connecting_stems[0], 0)
+        (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = bg.v3dposs[connecting_stems[0]][0]
 
     if s2b == 1:
-        (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
+        (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = bg.v3dposs[connecting_stems[1]][bg.stem_length(connecting_stems[1]) - 1]
     else:
-        (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = virtual_res_3d_pos(bg, connecting_stems[1], 0)
+        (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = bg.v3dposs[connecting_stems[1]][0]
 
     dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
     return dist2
@@ -713,7 +713,9 @@ def add_virtual_residues(bg, stem):
         vbasis = virtual_res_basis(bg, stem, i, vec=vpos[1])
         vinv = nl.inv(vbasis.transpose())
 
-        bg.vposs[stem][i] = vpos[0] + vpos[1]
+        bg.vposs[stem][i] = vpos[0]
+        bg.vvecs[stem][i] = vpos[1]
+        bg.v3dposs[stem][i] = vpos
         bg.vbases[stem][i] = vbasis
         bg.vinvs[stem][i] = vinv
 
@@ -794,7 +796,7 @@ def bounding_boxes(bg, chain, s, i):
         corners += [(n, x)]
     return (vpos, bases, corners)
 
-def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None):
+def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None, vvec=None):
     '''
     Return two sets of atoms for the virtual residue. One for the nucleotide
     on each strand.
@@ -804,8 +806,16 @@ def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None):
     @param i: The virtual residue number
     @param strand: The strand for which to get the virtual atoms
     '''
-    basis = virtual_res_basis(bg, s, i).transpose()
-    (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
+    '''
+    if vpos == None or vvec == None:
+        (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
+    if basis == None:
+        basis = virtual_res_basis(bg, s, i, vvec).transpose()
+    '''
+
+    vpos = bg.vposs[s][i]
+    basis = bg.vbases[s][i].transpose()
+
     rs = (bg.seq[bg.defines[s][0] + i - 1], bg.seq[bg.defines[s][3] - i -1 ])
 
     new_atoms = dict()

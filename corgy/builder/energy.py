@@ -651,14 +651,18 @@ class StemVirtualResClashEnergy(EnergyFunction):
         Check if any of the virtual residue atoms clash.
         '''
         virtual_atoms = []
+        coords = []
         for key1 in self.vras.keys():
             for key2 in self.vras[key1].keys():
                 virtual_atoms += [(self.vras[key1][key2], key1)]
+                coords += [self.vras[key1][key2]]
 
         if len(virtual_atoms) == 0:
             return 0
 
-        coords = np.vstack([p[0] for p in virtual_atoms])
+        #coords = np.vstack([p[0] for p in virtual_atoms])
+        #coords = np.array([ line for line in np.array(virtual_atoms)[:,0]])
+        coords = np.array(coords)
         #cud.pv('coords')
         kdt2 = kd.KDTree(3)
         kdt2.set_coords(coords)
@@ -666,6 +670,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         clashes = 0
         indeces = kdt2.all_get_indices()
+        #cud.pv('len(indeces)')
         for (ia,ib) in indeces:
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
                 continue
@@ -718,6 +723,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                            of any other energies.
         '''
         self.vras = dict()
+        self.bases = dict()
         l = []
         bg = sm.bg
         mult = 8
@@ -728,10 +734,10 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if d[0] == 's':
                 s = d
                 s_len = bg.stem_length(s)
-                stem_inv = bg.stem_invs[s]
+                #stem_inv = bg.stem_invs[s]
 
                 for i in range(s_len):
-                    (p, v, v_l, v_r) = cgg.virtual_res_3d_pos(bg, d, i, stem_inv=stem_inv)
+                    (p, v, v_l, v_r) = bg.v3dposs[d][i]
                     points += [(p+ mult * v_l, d, i, 0)]
                     points += [(p+ mult * v_r, d, i, 1)]
 
@@ -756,7 +762,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 self.vras[(s1,i1,a1)] = cgg.virtual_residue_atoms(bg, s1, i1, a1)
             if (s2,i2,a2) not in self.vras.keys():
                 self.vras[(s2,i2,a2)] = cgg.virtual_residue_atoms(bg, s2, i2, a2) 
-
 
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()

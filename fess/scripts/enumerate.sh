@@ -23,6 +23,6 @@ mkdir -p ${OUTPUT_DIR}/{prepare,graph,neato,report,stats,pymol}
 
 ./fess/scripts/prepare.sh $1
 ./fess/scripts/create_graph.sh $1
-./fess/scripts/create_pymol.sh $1
+./fess/scripts/create_pymol.sh -p $1
 ./fess/scripts/create_stats.sh $1
 

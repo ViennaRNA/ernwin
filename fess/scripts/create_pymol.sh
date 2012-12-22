@@ -32,6 +32,9 @@ pdb=${base%\.*}
 
 OUTPUT_DIR=~/data/ernwin/processed/${pdb}
 
+echo output_dir $OUTPUT_DIR
+echo $PDBNAME
+
 OUTPUT_GRAPH_DIR=${OUTPUT_DIR}/graph
 OUTPUT_PYMOL_DIR=${OUTPUT_DIR}/pymol
 OUTPUT_PREPARE_DIR=${OUTPUT_DIR}/prepare
