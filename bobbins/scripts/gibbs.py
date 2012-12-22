@@ -120,9 +120,9 @@ def main():
     for color,energy in zip(colors, energies_to_sample):
         stat = SamplingStatistics(sm, plotter, color, silent=silent) 
         if options.mcmc_sampler:
-            samplers += [cbs.MCMCSampler(copy.deepcopy(sm), energy, stat)]
+            samplers += [cbs.MCMCSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
         else:
-            samplers += [GibbsBGSampler(copy.deepcopy(sm), energy, stat)]
+            samplers += [GibbsBGSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
         silent = True
 
     cud.pv('samplers')

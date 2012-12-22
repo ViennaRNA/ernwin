@@ -367,7 +367,7 @@ class GibbsBGSampler:
             dims = (3,7)
         # What are the potential angle statistics for it
         possible_angles = self.sm.angle_stats[dims[0]][dims[1]][s1b][s2b]
-        print >>sys.stderr, bulge, dims, len(possible_angles)
+        #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:
             print >>sys.stderr, "No available statistics for bulge %s of size %s" % (bulge, str(dims))

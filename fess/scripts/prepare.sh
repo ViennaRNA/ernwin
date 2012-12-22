@@ -1,10 +1,9 @@
 #!/bin/bash
 
-ROSETTA_TOOLS_DIR=/scr/plastilin/pkerp/apps/rosetta_TRUNK/rosetta_tools/
-MCANNOTATE_BIN=/scr/plastilin/pkerp/apps/mcannotate/MC-Annotate
+MCANNOTATE_BIN=MC-Annotate
 SCRIPT_DIR=../assembly-tests/scripts
 LOCAL_SCRIPT_DIR=fess/scripts
-K2N_PATH=/scr/plastilin/pkerp/apps/k2n_standalone/knotted2nested.py
+K2N_PATH=./$LOCAL_SCRIPT_DIR/k2n_standalone/knotted2nested.py
 
 base=${1##*/}
 pdb=${base%\.*}
@@ -21,14 +20,14 @@ function convert_original_pdb_to_rosetta_ready {
     pdb=${base%\.*}
 
     # convert the regular pdb structure to rosetta's RNA pdb format
-    $SCRIPT_DIR/make_rna_rosetta_ready.py $1 2> $OUTPUT_DIR/out.err > $OUTPUT_DIR/temp.pdb
+    ./$LOCAL_SCRIPT_DIR/make_rna_rosetta_ready.py $1 2> $OUTPUT_DIR/out.err > $OUTPUT_DIR/temp.pdb
 
     # extract the sequence
     #${SCRIPT_DIR}/pdb_to_seq.py ${1}_RNA.pdb > tests/${1}/rosetta_inputs/add.fasta
 
     #We're only interested in the first chain of the molecule
     ./$LOCAL_SCRIPT_DIR/get_biggest_chain.py $OUTPUT_DIR/temp.pdb $OUTPUT_DIR/temp.pdb.1
-    $SCRIPT_DIR/make_rna_rosetta_ready.py $OUTPUT_DIR/temp.pdb.1 2> $OUTPUT_DIR/out.err > $OUTPUT_DIR/temp.pdb
+    $LOCAL_SCRIPT_DIR/make_rna_rosetta_ready.py $OUTPUT_DIR/temp.pdb.1 2> $OUTPUT_DIR/out.err > $OUTPUT_DIR/temp.pdb
 }
 
 

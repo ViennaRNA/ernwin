@@ -35,6 +35,10 @@ then
     exit 1
 fi
 
+OUTPUT_DIR=~/data/ernwin/processed/${PDBNAME}
+OUTPUT_PYMOL_DIR=${OUTPUT_DIR}/pymol
+OUTPUT_PREPARE_DIR=${OUTPUT_DIR}/prepare
+
 if [[ -z $DEBUG ]]
 then
     ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -m $MAX_STEM_DISTANCE -p fess/structures/$PDBNAME.pdb
@@ -42,4 +46,4 @@ else
     ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -m $MAX_STEM_DISTANCE -xp fess/structures/$PDBNAME.pdb
 fi
 
-pymol fess/output/$PDBNAME/prepare/temp.pdb fess/output/$PDBNAME/pymol/cartoon.pml > /dev/null
+pymol $OUTPUT_PREPARE_DIR/temp.pdb $OUTPUT_PYMOL_DIR/cartoon.pml 

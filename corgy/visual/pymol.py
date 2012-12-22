@@ -406,8 +406,8 @@ class PymolPrinter:
                 self.add_stem_like(bg, key)
                 self.draw_bounding_boxes(bg, key)
             else:
-                if len(bg.edges[key]) == 1:
-                    self.add_segment(p, n, "blue", 1.0, key)
+                #if len(bg.edges[key]) == 1:
+                #    self.add_segment(p, n, "blue", 1.0, key)
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
                         self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")

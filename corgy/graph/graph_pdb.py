@@ -804,7 +804,7 @@ def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None):
     @param i: The virtual residue number
     @param strand: The strand for which to get the virtual atoms
     '''
-    basis = virtual_res_basis(bg, s, i)
+    basis = virtual_res_basis(bg, s, i).transpose()
     (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
     rs = (bg.seq[bg.defines[s][0] + i - 1], bg.seq[bg.defines[s][3] - i -1 ])
 
@@ -814,7 +814,7 @@ def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None):
         coords = a[1]
         #new_coords = cuv.change_basis(coords, cuv.standard_basis, basis) + vpos
 
-        new_coords = np.dot(basis.transpose(), coords) + vpos
+        new_coords = np.dot(basis, coords) + vpos
         #new_coords2 = cuv.change_basis(coords, cuv.standard_basis, basis)
 
         #cud.pv('new_coords1')

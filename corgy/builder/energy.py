@@ -646,6 +646,37 @@ class StemVirtualResClashEnergy(EnergyFunction):
     def __init__(self):
         pass
 
+    def virtual_residue_atom_clashes_kd(self):
+        '''
+        Check if any of the virtual residue atoms clash.
+        '''
+        virtual_atoms = []
+        for key1 in self.vras.keys():
+            for key2 in self.vras[key1].keys():
+                virtual_atoms += [(self.vras[key1][key2], key1)]
+
+        if len(virtual_atoms) == 0:
+            return 0
+
+        coords = np.vstack([p[0] for p in virtual_atoms])
+        #cud.pv('coords')
+        kdt2 = kd.KDTree(3)
+        kdt2.set_coords(coords)
+        kdt2.all_search(1.8)
+
+        clashes = 0
+        indeces = kdt2.all_get_indices()
+        for (ia,ib) in indeces:
+            if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
+                continue
+            if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
+                continue
+            #cud.pv('(virtual_atoms[ia][1], virtual_atoms[ib][1])')
+            clashes += 1
+
+        #cud.pv('clashes')
+        return clashes
+
     def virtual_residue_atom_clashes(self, bg, s1,i1,a1, s2, i2, a2):
         '''
         Check if any of the virtual residue atoms clash.
@@ -656,8 +687,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #cud.pv('(s1,i1,s2,i2)')
         #cud.pv('cuv.magnitude((p1 + 7 * v1) - (p2 + 7 * v2))')
 
-        vra1 = cgg.virtual_residue_atoms(bg, s1, i1, a1)
-        vra2 = cgg.virtual_residue_atoms(bg, s2, i2, a2)
+        vra1 = self.vras[(s1,i1,a1)]
+        vra2 = self.vras[(s2,i2,a2)]
 
         clashes = 0
 
@@ -666,11 +697,15 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         #for atoms1 in vra1:
             #for atoms2 in vra2:
+        cud.pv('((s1,i1,a1),(s2,i2,a2))')
+
         for a1 in atoms1.values():
             for a2 in atoms2.values():
-                if cuv.magnitude(a1 - a2) < 2.0:
+                if np.dot(a1-a2, a1-a2) < 1.8 ** 2:
+                #if cuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
+        print >>sys.stderr, "clashes1", clashes
         return clashes
 
     def eval_energy(self, sm, background=False):
@@ -682,6 +717,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                            This should always be false since clashes are independent
                            of any other energies.
         '''
+        self.vras = dict()
         l = []
         bg = sm.bg
         mult = 8
@@ -716,7 +752,14 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
-            energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
+            if (s1,i1,a1) not in self.vras.keys():
+                self.vras[(s1,i1,a1)] = cgg.virtual_residue_atoms(bg, s1, i1, a1)
+            if (s2,i2,a2) not in self.vras.keys():
+                self.vras[(s2,i2,a2)] = cgg.virtual_residue_atoms(bg, s2, i2, a2) 
+
+
+            #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
+        energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
         return energy
 
@@ -1022,7 +1065,8 @@ class StemStemOrientationEnergy(EnergyFunction):
 
     def load_stem_stem_data(self, filename):
         t = pa.read_csv(filename, header=None, sep=' ')
-        angles = t[t['X1'] < self.max_dist]['X3'].values
+        #cud.pv('t')
+        angles = t[t['X.1'] < self.max_dist]['X.3'].values
 
         return cek.gaussian_kde(angles)
 
