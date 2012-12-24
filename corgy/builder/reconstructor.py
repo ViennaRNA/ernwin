@@ -784,9 +784,28 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     print_alignment_pymol_file((a,b,i1,i2))
 
     cup.trim_chain(best_loop_chain, i1, i2+1)
+    return ((a,b,i1,i2), best_loop_chain)
+    
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
+
     sys.stderr.write('\n')
     sys.stderr.flush()
+
+from multiprocessing import Process, Pipe
+from itertools import izip
+
+def spawn(f):
+    def fun(pipe,x):
+        pipe.send(f(*x))
+        pipe.close()
+    return fun
+
+def parmap(f,X):
+    pipe=[Pipe() for x in X]
+    proc=[Process(target=spawn(f),args=(c,x)) for x,(p,c) in izip(X,pipe)]
+    [p.start() for p in proc]
+    [p.join() for p in proc]
+    return [p.recv() for (p,c) in pipe]
 
 def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
     '''
@@ -797,27 +816,21 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
     @param chain: A Bio.PDB.Chain chain.
     @param sm: The SpatialModel from which to reconstruct the loops.
     '''
-    processes = []
+    args = []
     for d in sm.bg.defines.keys():
         if d[0] != 's':
             if sm.bg.weights[d] == 2:
-                processes += [mp.Process(target=reconstruct_loop, args=(chain, sm, d, 0, samples, consider_contacts))]
-                processes += [mp.Process(target=reconstruct_loop, args=(chain, sm, d, 1, samples, consider_contacts))]
-                '''
-                reconstruct_loop(chain, sm, d, 0, samples=samples, consider_contacts=consider_contacts)
-                reconstruct_loop(chain, sm, d, 1, samples=samples, consider_contacts=consider_contacts)
-                '''
+                args += [(chain, sm, d, 0, samples, consider_contacts)]
+                args += [(chain, sm, d, 1, samples, consider_contacts)]
             else:
-                processes += [mp.Process(target=reconstruct_loop, args=(chain, sm, d, 0, samples, consider_contacts))]
-                '''
-                reconstruct_loop(chain, sm, d, 0, samples=samples, consider_contacts=consider_contacts)
-                '''
+                args += [(chain, sm, d, 0, samples, consider_contacts)]
 
-    for p in processes:
-        p.start()
-   
-    for p in processes:
-        p.join()
+    #pool = mp.Pool(processes=4)
+    r = parmap(reconstruct_loop, args)
+    for ((a,b,i1,i2), best_loop_chain) in r:
+        add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), sm.bg.length)
+
+    cud.pv('r')
 
 def reconstruct(sm):
     '''
