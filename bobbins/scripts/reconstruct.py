@@ -32,7 +32,7 @@ def main():
     if options.loops:
         try:
             #rtor.reconstruct_loop(chain, sm, 'b6', 0)
-            rtor.reconstruct_loops(chain, sm)
+            rtor.reconstruct_loops(chain, sm, samples=40, consider_contacts=True)
         except Exception as e:
             if options.drop_into_debugger:
                 pdb.post_mortem()

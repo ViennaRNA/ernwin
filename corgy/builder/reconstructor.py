@@ -1,3 +1,5 @@
+import multiprocessing as mp
+
 import corgy.builder.models as models
 import corgy.builder.rmsd as brmsd
 
@@ -795,14 +797,27 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
     @param chain: A Bio.PDB.Chain chain.
     @param sm: The SpatialModel from which to reconstruct the loops.
     '''
+    processes = []
     for d in sm.bg.defines.keys():
         if d[0] != 's':
             if sm.bg.weights[d] == 2:
+                processes += [mp.Process(target=reconstruct_loop, args=(chain, sm, d, 0, samples, consider_contacts))]
+                processes += [mp.Process(target=reconstruct_loop, args=(chain, sm, d, 1, samples, consider_contacts))]
+                '''
                 reconstruct_loop(chain, sm, d, 0, samples=samples, consider_contacts=consider_contacts)
                 reconstruct_loop(chain, sm, d, 1, samples=samples, consider_contacts=consider_contacts)
+                '''
             else:
+                processes += [mp.Process(target=reconstruct_loop, args=(chain, sm, d, 0, samples, consider_contacts))]
+                '''
                 reconstruct_loop(chain, sm, d, 0, samples=samples, consider_contacts=consider_contacts)
-            
+                '''
+
+    for p in processes:
+        p.start()
+   
+    for p in processes:
+        p.join()
 
 def reconstruct(sm):
     '''

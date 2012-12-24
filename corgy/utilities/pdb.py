@@ -78,6 +78,9 @@ def is_covalent(contact):
     r1a = (r1, contact[0])
     r2a = (r2, contact[1])
 
+    if contact[0].name.find('H') >= 0 or contact[1].name.find('H') >= 0:
+        return True
+
     ((r1, c1), (r2, c2)) = sorted((r1a, r2a), key=lambda x: x[0].id[1])
     
     if r1.id == r2.id:

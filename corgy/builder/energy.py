@@ -1071,7 +1071,7 @@ class StemStemOrientationEnergy(EnergyFunction):
     def load_stem_stem_data(self, filename):
         t = pa.read_csv(filename, header=None, sep=' ')
         cud.pv('t')
-        angles = t[t[1] < self.max_dist][3].values
+        angles = t[t['X.1'] < self.max_dist]['X.3'].values
 
         return cek.gaussian_kde(angles)
 
