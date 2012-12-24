@@ -1074,7 +1074,22 @@ class BulgeGraph:
         def1 = self.defines[bulge_name]
         f1 = self.get_flanking_region(bulge_name, side)
 
-        return (def1[side*2], def1[side*2+1], def1[side*2] - f1[0], def1[side*2 + 1] - f1[0])
+        a = def1[side*2]
+        b = def1[side*2+1]
+
+        i1 = def1[side*2] - f1[0]
+        i2 = def1[side*2 + 1] - f1[0]
+
+        #cud.pv('i1')
+        #cud.pv('i2')
+        '''
+        if b == self.length:
+            b -= 1
+            i2 -= 1
+
+        #return (def1[side*2], def1[side*2+1], def1[side*2] - f1[0], def1[side*2 + 1] - f1[0])
+        '''
+        return (a, b, i1, i2)
 
 
     def dump(self):

@@ -2,7 +2,7 @@ import os
 
 class Configuration:
     base_dir = os.path.expanduser('~/projects/ernwin')
-    data_base_dir = os.path.expanduser('~/projects/ernwin/fess/output')
+    data_base_dir = os.path.expanduser('~/data/ernwin/processed')
     stats_file = os.path.join(base_dir, 'fess/stats/temp.stats')
     stem_fragment_dir = os.path.join(base_dir, 'fess/stats/stems')
     lric_stats_fn = os.path.join(base_dir, 'fess/stats/temp.energy')

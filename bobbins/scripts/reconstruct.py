@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys
+import sys, pdb
 from optparse import OptionParser
 
 import corgy.builder.reconstructor as rtor 
@@ -13,6 +13,7 @@ def main():
 
     #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
     parser.add_option('-l', '--loops', dest='loops', default=True, action='store_false', help='Toggle loop reconstruction')
+    parser.add_option('','--drop-into-debugger', dest='drop_into_debugger', default=False, action='store_true')
 
     (options, args) = parser.parse_args()
 
@@ -29,7 +30,16 @@ def main():
     rtor.replace_bases(chain, sm.bg.seq)
 
     if options.loops:
-        rtor.reconstruct_loops(chain, sm)
+        try:
+            #rtor.reconstruct_loop(chain, sm, 'b6', 0)
+            rtor.reconstruct_loops(chain, sm)
+        except Exception as e:
+            if options.drop_into_debugger:
+                pdb.post_mortem()
+            else:
+                raise e
+
+        #rtor.reconstruct_loops(chain, sm)
 
     rtor.output_chain(chain, 'out.pdb')
 

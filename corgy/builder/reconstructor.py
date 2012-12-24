@@ -697,12 +697,16 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         model.sample()
         chain_loop = list(model.structure.get_chains())[0]
         chain_unclosed_loop = copy.deepcopy(chain_loop)
-        align_starts(stem_chain, chain_unclosed_loop, (a,b,i1,i2), end=0)
+
+        if handles[0] != 0 and handles[1] != seq_len:
+            align_starts(stem_chain, chain_unclosed_loop, (a,b,i1,i2), end=0)
         
-        r_start = get_initial_measurement_distance(stem_chain, chain_loop, (a,b,i1,i2))
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
-        r_start = cuv.magnitude(loop_chain[handles[2]+2]['P'] - 
-                                 chain_unclosed_loop[handles[2]+2]['P'])
+        if handles[0] == 0 or handles[1] == seq_len:
+            r_start = 0.
+        else:
+            r_start = cuv.magnitude(loop_chain[handles[2]+2]['P'] - 
+                                     chain_unclosed_loop[handles[2]+2]['P'])
 
         orig_loop_chain = copy.deepcopy(loop_chain)
 
@@ -760,6 +764,17 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     dist2 = get_flanking_stem_vres_distance(bg, ld)
 
     sys.stderr.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
+    '''
+    if a == 0 and b == 1:
+        # the loop is just a placeholder and doesn't
+        # have a length.
+
+        # This should be taken care of in a more elegant
+        # manner, but it'll have to wait until it causes
+        # a problem
+        return
+    '''
+
     best_loop_chain = build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts)
 
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
