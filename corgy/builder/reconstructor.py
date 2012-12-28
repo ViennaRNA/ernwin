@@ -584,8 +584,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     #points += [indeces[handles[2]+1]]
 
     #points += indeces[handles[2]+1] #O3* -> P bond
-    #for i in range(handles[2]+1, handles[3]+1):
-    for i in [handles[2]+1, handles[3]]:
+    for i in range(handles[2]+1, handles[3]+1):
+    #for i in [handles[2]+1, handles[3]]:
         si = indeces[i]
 
         # 
@@ -682,7 +682,10 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
     @return: A Bio.PDB.Chain structure containing the best sampled loop.
     '''
-    model = barn.BarnacleCPDB(loop_seq, 1.9)
+    if consider_contacts:
+        model = barn.BarnacleCPDB(loop_seq, 1.9)
+    else:
+        model = barn.BarnacleCPDB(loop_seq, 0.)
 
     best_loop_chain = None
     min_energy = (1000000., 100000.)
@@ -704,6 +707,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
             align_starts(stem_chain, chain_unclosed_loop, (a,b,i1,i2), end=0)
         
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
+        cud.pv('r')
         if handles[0] == 0 or handles[1] == seq_len:
             r_start = 0.
         else:
@@ -724,7 +728,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         sys.stderr.write('.')
         sys.stderr.flush()
 
-        energy = (contacts2, r_start)
+        energy = (contacts2, r_start * r)
         cud.pv('(start,end,energy)')
         if energy > prev_energy:
             model.undo()
@@ -732,6 +736,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         prev_energy = energy
         if energy < min_energy:
             min_energy = energy
+            min_r = r
             best_loop_chain = copy.deepcopy(orig_loop_chain)
             output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
             cud.pv('min_energy')
@@ -743,7 +748,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         #trim_chain(loop_chain, i1, i2)
 
     sys.stderr.write(str(min_energy))
-    return best_loop_chain
+    return (best_loop_chain, min_r)
 
 def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     '''
@@ -777,14 +782,14 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
         return
     '''
 
-    best_loop_chain = build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts)
+    (best_loop_chain, min_r) = build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts)
 
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
     cup.trim_chain(best_loop_chain, i1, i2+1)
-    return ((a,b,i1,i2), best_loop_chain)
+    return ((a,b,i1,i2), best_loop_chain, min_r)
     
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
 
@@ -827,7 +832,7 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
 
     #pool = mp.Pool(processes=4)
     r = parmap(reconstruct_loop, args)
-    for ((a,b,i1,i2), best_loop_chain) in r:
+    for ((a,b,i1,i2), best_loop_chain, min_r) in r:
         add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), sm.bg.length)
 
     cud.pv('r')

@@ -693,6 +693,62 @@ def junction_virtual_res_distance(bg, bulge):
     dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
     return dist2
 
+def get_strand_atom_vrn(bg, s, i):
+    '''
+    Return the strand and which atom to use for the adjacent
+    nucleotide distance calculation.
+    '''
+    if i == 0:
+        return (1, 'P', 0)
+    if i == 1:
+        return (1, 'O3*', bg.stem_length(s)-1)
+    if i == 2:
+        return (0, 'P', bg.stem_length(s) - 1)
+    if i == 3:
+        return (0, 'O3*', 0)
+
+def junction_virtual_atom_distance(bg, bulge):
+    '''
+    Compute the distance between the O3' atom and P' atom
+    of the two residues that flank the junction segment.
+
+    @param bg: The BulgeGraph containing the bulge.
+    @param bulge: The name of the bulge
+
+    @return: A single number corresponding to the distance above.
+    '''
+    connecting_stems = list(bg.edges[bulge])
+
+    (i1, k1) = bg.get_sides_plus(connecting_stems[0], bulge)
+    (i2, k2) = bg.get_sides_plus(connecting_stems[1], bulge)
+
+    r1 = bg.seq[bg.defines[connecting_stems[0]][i1] - 1]
+    r2 = bg.seq[bg.defines[connecting_stems[0]][i2] - 1]
+
+    (strand1, a1, vrn1) = get_strand_atom_vrn(bg, connecting_stems[0], i1)
+    (strand2, a2, vrn2) = get_strand_atom_vrn(bg, connecting_stems[1], i2)
+
+    '''
+    cud.pv('connecting_stems[0]')
+    cud.pv('(strand1, a1, vrn1)')
+    cud.pv('connecting_stems[1]')
+    cud.pv('(strand2, a2, vrn2)')
+    '''
+
+    a1_pos = cua.avg_stem_vres_atom_coords[strand1][r1][a1]
+    a2_pos = cua.avg_stem_vres_atom_coords[strand2][r2][a2]
+
+    vpos1 = bg.vposs[connecting_stems[0]][vrn1]
+    vbasis1 = bg.vbases[connecting_stems[0]][vrn1].transpose()
+
+    vpos2 = bg.vposs[connecting_stems[1]][vrn2]
+    vbasis2 = bg.vbases[connecting_stems[1]][vrn2].transpose()
+
+    a1_npos = np.dot(vbasis1, a1_pos) + vpos1
+    a2_npos = np.dot(vbasis2, a2_pos) + vpos2
+
+    return cuv.magnitude(a1_npos - a2_npos)
+
 def add_virtual_residues(bg, stem):
     '''
     Create all of the virtual residues and the associated 

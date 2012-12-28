@@ -274,7 +274,16 @@ class TestGraphPDBFunctions(unittest.TestCase):
                 for i in range(stem_len):
                     b1 = cgg.virtual_res_basis(bg, d, i)
 
+    def test_junction_virtual_atom_distance(self):
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        for s in bg.stems():
+            cgg.add_virtual_residues(bg, s)
+
+        cgg.junction_virtual_atom_distance(bg, 'b5')
+        cgg.junction_virtual_atom_distance(bg, 'b0')
+
     def test_surrounding_pos_to_cartesian(self):
+        return
         bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
         stems = [d for d in bg.defines.keys() if d[0] == 's']
         print
@@ -300,16 +309,5 @@ class TestGraphPDBFunctions(unittest.TestCase):
                         # make sure it matches the one calculated above
                         r_vpos1 = cgg.spos_to_pos(bg, stems[i], k, spos)
                         self.assertTrue(allclose(vpos1, r_vpos1))
-
-    def test_get_residue_type(self):
-        self.assertEquals(cgg.get_residue_type(0, 10), 1)
-        self.assertEquals(cgg.get_residue_type(1, 10), 2)
-        self.assertEquals(cgg.get_residue_type(2, 10), 3)
-        self.assertEquals(cgg.get_residue_type(3, 10), 3)
-
-        self.assertEquals(cgg.get_residue_type(9, 10), -1)
-        self.assertEquals(cgg.get_residue_type(8, 10), -2)
-        self.assertEquals(cgg.get_residue_type(7, 10), -3)
-        self.assertEquals(cgg.get_residue_type(6, 10), -3)
 
 

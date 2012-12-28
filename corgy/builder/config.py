@@ -9,7 +9,7 @@ class Configuration:
     template_residue_fn = os.path.join(base_dir, 'fess/stats/residue_template.pdb')
     longrange_contact_stats_fn = os.path.join(base_dir, 'fess/stats/temp.longrange.contact')
 
-    test_input_dir = os.path.join(base_dir, "fess/output")
+    test_input_dir = os.path.expanduser('~/data/ernwin/processed/')
     test_output_dir = os.path.join(base_dir, "test_output")
     barnacle_dir = '/scr/plastilin/pkerp/apps/Barnacle'
     stem_library = dict()

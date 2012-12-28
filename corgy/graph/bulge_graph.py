@@ -742,6 +742,28 @@ class BulgeGraph:
             return (coords[0] + coords[1]) / 2.0
 
 
+    def get_sides_plus(self, s1, b):
+        '''
+        Get the side of s1 that is next to b.
+
+        s1e -> s1b -> b
+
+        @param s1: The stem.
+        @param b: The bulge.
+        @return: A tuple indicating which side is the one next to the bulge
+                 and which is away from the bulge.
+        '''
+        s1d = self.defines[s1]
+        bd = self.defines[b]
+
+        #print >>sys.stderr, "s1: %s b: %s" % (s1, b)
+
+        for i in xrange(4):
+            for k in xrange(len(bd)):
+                if s1d[i] == bd[k]:
+                    return (i, k)
+        return None
+
     def get_sides(self, s1, b):
         '''
         Get the side of s1 that is next to b.

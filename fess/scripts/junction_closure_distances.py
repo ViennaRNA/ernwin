@@ -122,6 +122,24 @@ def bulge_virtual_residue_distance(bg, ld):
 
     return dist2
 
+def bulge_virtual_atom_distance(bg, ld):
+    '''
+    Calculate the distance between the O3' atom and the P
+    atom of the two strands that need to be closed.
+
+    @param bg: The BulgeGraph data structure
+    @param ld: The name of the bulge region
+
+    @return: The distance between the O3' and P' virtual atoms
+             of the flanking residues
+    '''
+    if len(bg.edges[ld]) == 2:
+        dist2 = cgg.junction_virtual_atom_distance(bg, ld)
+    else:
+        dist2 = 0.
+
+    return dist2
+
 def bulge_length(bg, ld):
     '''
     Calculate the physical length of a bulge region. This is equal to
@@ -147,6 +165,8 @@ def main():
     parser.add_option('-a', '--all_lengths', dest='all_lengths', default=False,
                       action='store_true', help='Try all nucleotide lengths up \
                       to the value specified by the --nucleotides parameter.')
+    parser.add_option('-o', '--output_file', dest='output_file', default=None,
+                    help="The file to dump the output to", type='string')
 
 
     (options, args) = parser.parse_args()
@@ -155,6 +175,11 @@ def main():
         start_len = 1
     else:
         start_len = options.num_nucleotides
+
+    if options.output_file != None:
+        output = open(options.output_file, 'w')
+    else:
+        output = sys.stdout
 
     for k in xrange(start_len, options.num_nucleotides+1):
         for i in xrange(options.iterations):
@@ -181,7 +206,10 @@ def main():
             # Indiciate which statistics to use for the 3D model construction
             sm.stem_defs['s1'] = s1
             sm.stem_defs['s2'] = s2
-            sm.angle_defs['b1'] = ang_stat
+            sm.angle_defs['b1'][0][0] = ang_stat
+            sm.angle_defs['b1'][0][1] = ang_stat
+            sm.angle_defs['b1'][1][0] = ang_stat
+            sm.angle_defs['b1'][1][1] = ang_stat
 
             # Create the model
             sm.traverse_and_build()
@@ -198,14 +226,23 @@ def main():
                 print >>sys.stderr, ie
                 continue
             
-            c, min_dist = cbr.reconstruct_loop(chain, sm, 'b1', side=0, samples=40, 
-                                 consider_contacts=False)
+            try:
+                ((a,b,i1,i2), best_loop_chain, min_dist) = cbr.reconstruct_loop(chain, sm, 'b1', side=0, samples=3, 
+                                     consider_contacts=False)
 
-            # Calculate the distances in the coarse grain model
-            dist1 = bulge_length(bg, 'b1')
-            dist2 = bulge_virtual_residue_distance(bg, 'b1')
+                # Calculate the distances in the coarse grain model
+                dist1 = bulge_length(bg, 'b1')
+                dist2 = bulge_virtual_residue_distance(bg, 'b1')
+                dist3 = bulge_virtual_atom_distance(bg, 'b1')
 
-            print k, dist1, dist2, min_dist
+                print >>sys.stderr, "PRINTING"
+                output.write("%d %f %f %f %f\n" % (k, dist1, dist2, dist3, min_dist))
+                output.flush()
+                #print k, dist1, dist2, dist3, min_dist
+            except Exception as e:
+                print >>sys.stderr, "BOOGAAWOOGA"
+                print >>sys.stderr, e
+                continue
 
 if __name__ == "__main__":
     main()

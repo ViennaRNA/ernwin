@@ -1023,10 +1023,12 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         for bulge in all_bulges:
             bl = bg.defines[bulge][1] - bg.defines[bulge][0] - 1
-            dist = cgg.junction_virtual_res_distance(bg, bulge)
+            #dist = cgg.junction_virtual_res_distance(bg, bulge)
+            dist = cgg.junction_virtual_atom_distance(bg, bulge)
             
             # 
-            cutoff_distance = (bl) * 5.94 + 13.4
+            #cutoff_distance = (bl) * 5.9 + 13.4
+            cutoff_distance = (bl) * 5.908 + 10.309
 
 
             if (dist > cutoff_distance):
@@ -1071,7 +1073,7 @@ class StemStemOrientationEnergy(EnergyFunction):
     def load_stem_stem_data(self, filename):
         t = pa.read_csv(filename, header=None, sep=' ')
         cud.pv('t')
-        angles = t[t['X.1'] < self.max_dist]['X.3'].values
+        angles = t[t[1] < self.max_dist][3].values
 
         return cek.gaussian_kde(angles)
 
