@@ -6,6 +6,7 @@ import copy
 
 import corgy.utilities.debug as cud
 import corgy.builder.sampling as cbs
+import corgy.builder.config as cbc
 
 import corgy.graph.graph_pdb as cgg
 
@@ -56,6 +57,7 @@ def main():
     parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
     parser.add_option('', '--seq', dest='seq', default=None, help='Provide the sequence of the structure being sampled. This is necessary if one wants to later reconstruct it.')
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
+    parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
 
 
     (options, args) = parser.parse_args()
@@ -77,6 +79,11 @@ def main():
 
     bg.calc_bp_distances()
     sm = SpatialModel(bg)
+
+    if not os.path.exists(options.output_dir):
+        os.makedirs(options.output_dir)
+
+    cbc.Configuration.sampling_output_dir = options.output_dir
 
     energies_to_sample = []
     

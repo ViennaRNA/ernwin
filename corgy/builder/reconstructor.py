@@ -584,8 +584,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     #points += [indeces[handles[2]+1]]
 
     #points += indeces[handles[2]+1] #O3* -> P bond
-    for i in range(handles[2]+1, handles[3]+1):
-    #for i in [handles[2]+1, handles[3]]:
+    #for i in range(handles[2]+1, handles[3]+1):
+    for i in [handles[2]+1, handles[3]]:
         si = indeces[i]
 
         # 
@@ -696,6 +696,9 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
     for i in range(iterations):
         sample_len = ss.poisson.rvs(2)
+        while sample_len > (len(loop_seq) - 1):
+            sample_len = ss.poisson.rvs(2)
+
         start = rand.randint(0, len(loop_seq) - sample_len)
         end = rand.randint(start + sample_len, len(loop_seq))
 
@@ -831,7 +834,8 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
                 args += [(chain, sm, d, 0, samples, consider_contacts)]
 
     #pool = mp.Pool(processes=4)
-    r = parmap(reconstruct_loop, args)
+    #r = parmap(reconstruct_loop, args)
+    r = [reconstruct_loop(*arg) for arg in args]
     for ((a,b,i1,i2), best_loop_chain, min_r) in r:
         add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), sm.bg.length)
 

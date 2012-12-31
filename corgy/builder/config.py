@@ -11,5 +11,6 @@ class Configuration:
 
     test_input_dir = os.path.expanduser('~/data/ernwin/processed/')
     test_output_dir = os.path.join(base_dir, "test_output")
+    sampling_output_dir = 'best'
     barnacle_dir = '/scr/plastilin/pkerp/apps/Barnacle'
     stem_library = dict()

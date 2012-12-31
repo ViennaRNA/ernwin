@@ -4,10 +4,11 @@ import collections as c
 import sys, random, copy
 import numpy as np
 import scipy.stats as ss
-import math
+import math, os
 
 import matplotlib.pyplot as plt
 
+import corgy.builder.config as cbc
 import corgy.builder.stats as cbs
 import corgy.graph.graph_pdb as cgg
 import corgy.builder.rmsd as cbr
@@ -132,7 +133,6 @@ class StatisticsPlotter:
         plt.draw()
 
     def diagnose_energy(self, energy_function, bgs):
-
         energies = [energy_function.eval_energy(cbm.SpatialModel(bg), background=True) for bg in bgs]
 
 
@@ -251,7 +251,7 @@ class SamplingStatistics:
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
 
         for i in range(n):
-            sorted_energies[i][2].output('best/best%d.coord' % (i))
+            sorted_energies[i][2].output(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
 
     def update_plots(self, energy, rmsd):
         '''
