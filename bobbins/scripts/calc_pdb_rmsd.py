@@ -25,7 +25,8 @@ def main():
     c1 = list(s1.get_chains())[0]
     c2 = list(s2.get_chains())[0]
 
-    print rtor.pdb_rmsd(c1, c2)
+    (num_atoms, rmsd) = rtor.pdb_rmsd(c1, c2)
+    print num_atoms, rmsd
 
 if __name__ == '__main__':
     main()

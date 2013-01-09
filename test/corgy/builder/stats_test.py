@@ -1,4 +1,5 @@
 import unittest
+import nose.tools as nt
 
 import corgy.builder.stats as cbs
 
@@ -21,6 +22,7 @@ class TestStatsFunctions(unittest.TestCase):
         angle_stats1 = cbs.get_angle_stats()
         angle_stats2 = cbs.get_angle_stats()
 
+    @nt.nottest
     def test_angle_stats_loading(self):
         angle_stats = cbs.get_angle_stats()
 
@@ -81,3 +83,5 @@ class TestContinuousAngleStats(unittest.TestCase):
 
         cont_stats = cbs.ContinuousAngleStats(discrete_angle_stats)
         new_stats = cont_stats.sample_stats((2,2))
+
+        self.assertTrue(True)

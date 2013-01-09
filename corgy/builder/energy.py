@@ -820,8 +820,11 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
         pass
 
     def load_stem_orientation_data(self, filename):
+        cud.pv('filename')
         stats = pa.read_csv(filename,header=None, sep=' ')
-        points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
+        t = stats
+        cud.pv('stats')
+        points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
         
         return cek.gaussian_kde(points.T)
 
@@ -861,7 +864,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
     def load_stem_orientation_data(self, filename):
         stats = pa.read_csv(filename,header=None, sep=' ')
-        points = stats[['X.3', 'X.4', 'X.5']].as_matrix()
+        t = stats
+        points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
 
         cud.pv('points.shape')
         min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])

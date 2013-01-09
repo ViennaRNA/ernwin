@@ -24,6 +24,10 @@ class TestSpatialModel(unittest.TestCase):
         for d in bg.defines.keys():
             if d[0] == 's':
                 for edge in bg.edges[d]:
+                    if len(bg.edges[edge]) == 1:
+                        # skip loops because those aren't reconstructed
+                        continue
+
                     (s1b, s1e) = bg.get_sides(d, edge)
 
                     stem_mid = bg.coords[d][s1b]

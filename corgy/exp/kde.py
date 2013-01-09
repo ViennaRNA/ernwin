@@ -134,7 +134,6 @@ class gaussian_kde(object):
             # there are more points than data, so loop over data
 
             for i in range(self.n):
-                print >>sys.stderr, "here..."
                 diff = self.dataset[:,i,newaxis] - points
                 tdiff = dot(self.inv_cov, diff)
                 energy = sum(diff*tdiff,axis=0)/2.0

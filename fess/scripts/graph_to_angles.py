@@ -1,18 +1,10 @@
 #!/usr/bin/python
 
 import sys
-from numpy import array, cross, dot
-from math import pi
-from Bio.PDB import calc_dihedral, Vector
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.vector import vec_distance, vec_angle, magnitude, vector_rejection
-from corgy.utilities.vector import change_basis, get_standard_basis
-from corgy.graph.graph_pdb import get_stem_orientation_parameters
-from corgy.graph.graph_pdb import get_stem_separation_parameters
-
-from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs
-from corgy.graph.graph_pdb import get_twist_angle
+import corgy.graph.bulge_graph as cgb
+import corgy.utilities.vector as cuv
+import corgy.graph.graph_pdb as cgg
 
 def print_new_bulge_angles(bg):
     '''
@@ -30,11 +22,9 @@ def print_new_bulge_angles(bg):
 def print_stem_stats(bg):
     for d in bg.defines.keys():
         if d[0] == 's':
-            base_pair_length = abs(bg.defines[d][0] - bg.defines[d][1])
-            phys_length = magnitude(bg.coords[d][1] - bg.coords[d][0])
-            twist_angle = get_twist_angle(bg.coords[d], bg.twists[d])
+            ss = bg.get_stem_stats(d)
 
-            print "stem", bg.name, base_pair_length, phys_length, twist_angle, " ".join(map(str, bg.defines[d]))
+            print "stem", ss.pdb_name, ss.bp_length, ss.phys_length, ss.twist_angle, " ".join(map(str, ss.define))
 
 def print_loop_stats(bg):
     for d in bg.defines.keys():
@@ -42,7 +32,7 @@ def print_loop_stats(bg):
             if bg.weights[d] == 1 and len(bg.edges[d]) == 1:
                 # unpaired region
                 base_pair_length = abs(bg.defines[d][0] - bg.defines[d][1])
-                phys_length = magnitude(bg.coords[d][1] - bg.coords[d][0])
+                phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
                 
                 print "loop", bg.name, base_pair_length, phys_length
 
@@ -59,7 +49,7 @@ def main():
     else:
         f = open(sys.argv[1], 'r')
 
-    bg = BulgeGraph(sys.argv[1])
+    bg = cgb.BulgeGraph(sys.argv[1])
     print_new_bulge_angles(bg)
     print_stem_stats(bg)
     print_loop_stats(bg)

@@ -1,5 +1,7 @@
 import unittest
 
+import nose.tools as nt
+
 import time
 import os
 import corgy.aux.Barnacle as barn
@@ -238,6 +240,7 @@ class TestReconstructor(unittest.TestCase):
         '''
         bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
         sm = cbm.SpatialModel(bg)
+        sm.sample_native_stems()
         sm.traverse_and_build()
         sm.bg.output(os.path.join(cbc.Configuration.test_output_dir, 'sampled.coords'))
 
@@ -327,7 +330,7 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loops(chain, sm, samples=40, consider_contacts=True)
+        rtor.reconstruct_loops(chain, sm, samples=3, consider_contacts=True)
         '''
         rtor.reconstruct_loop(chain, sm, 'b15')
         #rtor.reconstruct_loop(chain, sm, 'b1')
@@ -394,7 +397,7 @@ class TestReconstructor(unittest.TestCase):
 
         #sm.traverse_and_build()
         chain = rtor.reconstruct_stems(sm)
-        rtor.reconstruct_loop(chain, sm, 'b2', samples=40, consider_contacts=True)
+        rtor.reconstruct_loop(chain, sm, 'b2', samples=4, consider_contacts=True)
 
         #self.check_reconstructed_stems(sm, chain, sm.stem_defs.keys())
         rtor.output_chain(chain, os.path.join(cbc.Configuration.test_output_dir, 'r1.pdb'))
@@ -460,6 +463,7 @@ class TestReconstructor(unittest.TestCase):
 
         rtor.get_alignment_vectors(chain, a, b)
 
+    @nt.nottest
     def test_pdb_rmsd1(self):
         s1 = bp.PDBParser().get_structure('t', os.path.join(cbc.Configuration.test_input_dir, '1gid/prepare/temp.pdb'))
         s2 = bp.PDBParser().get_structure('t', os.path.join(cbc.Configuration.test_input_dir, '1gid/prepare/temp_sampled.pdb'))

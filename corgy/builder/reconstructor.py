@@ -84,11 +84,11 @@ def pdb_rmsd(c1, c2):
         all_atoms1 += atoms1
         all_atoms2 += atoms2
 
-    print "rmsd len:", len(all_atoms1), len(all_atoms2)
+    #print "rmsd len:", len(all_atoms1), len(all_atoms2)
     sup = bpdb.Superimposer()
     sup.set_atoms(all_atoms1, all_atoms2)
 
-    return sup.rms
+    return (len(all_atoms1), sup.rms)
 
 def rotate_stem(stem, (u, v, t)):
     '''

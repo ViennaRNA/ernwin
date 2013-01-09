@@ -344,9 +344,6 @@ class GibbsBGSampler:
         self.stats = stats
 
         sm.get_sampled_bulges()
-
-
-
         #print >>stderr, "original native_energy:", energy_function.eval_energy(sm, background=True)
 
     def step(self):

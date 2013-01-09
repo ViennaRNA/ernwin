@@ -578,7 +578,8 @@ def bg_virtual_residues(bg):
     for s in bg.stems():
         for i in range(bg.stem_length(s)):
             vres = virtual_res_3d_pos(bg, s, i)
-            vress += [vres[0] + vres[1]]
+            vress += [vres[0] + vres[2], vres[0] + vres[3]]
+
     return np.array(vress)
 
 def virtual_res_basis(bg, stem, i, vec = None):

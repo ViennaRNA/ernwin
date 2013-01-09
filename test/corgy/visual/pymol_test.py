@@ -22,6 +22,7 @@ class TestPymolPrinter(unittest.TestCase):
         self.assertGreaterEqual(s.find('vfont'), 0)
 
     def test_pymol_outro_string(self):
+        s1 = self.pp.pymol_intro_string()
         s = self.pp.pymol_outro_string()
 
         self.assertNotEquals(len(s), 0)

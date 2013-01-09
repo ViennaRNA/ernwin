@@ -249,14 +249,19 @@ class ContinuousAngleStats():
             for key2 in discrete_angle_stats[key1].keys():
                 dims = (key1, key2)
                 data = []
-                for d in discrete_angle_stats[key1][key2]:
-                    data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
+                for i in range(2):
+                    for j in range(2):
+                        for d in discrete_angle_stats[key1][key2][i][j]:
+                            data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
 
-                if len(data) < 3:
-                    #cud.pv('dims')
-                    continue
+                        if len(data) < 3:
+                            #cud.pv('dims')
+                            continue
 
-                self.cont_stats[dims] = ss.gaussian_kde(np.array(data).T)
+                        try:
+                            self.cont_stats[dims] = ss.gaussian_kde(np.array(data).T)
+                        except np.linalg.LinAlgError as lae:
+                            print >>sys.stderr, "Singular matrix, dimensions:", dims, i, j
 
     def sample_stats(self, dims):
         '''

@@ -413,6 +413,26 @@ class BulgeGraph:
 
         return (angle_stat1, angle_stat2)
 
+    def get_stem_stats(self, stem):
+        '''
+        Calculate the statistics for a stem and return them. These statistics will describe the
+        length of the stem as well as how much it twists.
+
+        @param stem: The name of the stem.
+
+        @return: A StemStat structure containing the above information.
+        '''
+
+        ss = cbs.StemStat()
+
+        ss.pdb_name = self.name
+        ss.bp_length = abs(self.defines[stem][0] - self.defines[stem][1])
+        ss.phys_length = cuv.magnitude(self.coords[stem][0] - self.coords[stem][1])
+        ss.twist_angle = cgg.get_twist_angle(self.coords[stem], self.twists[stem])
+        ss.define = self.defines[stem]
+
+        return ss
+
     def are_adjacent_stems(self, s1, s2):
         '''
         Check whether two stems are separated by one intermediate element.

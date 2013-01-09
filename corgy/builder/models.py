@@ -176,6 +176,7 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     stem_def = sm.stem_defs[stem_name]
 
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+    cud.pv('filename')
     #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
@@ -303,9 +304,9 @@ class SpatialModel:
                     '''
                     if size == (1,7):
                         size = (2,7)
-                    '''
                     if size == (2,7):
                         size = (3,7)
+                    '''
 
                     connections = list(self.bg.edges[d])
                     (s1b, s1e) = self.bg.get_sides(connections[0], d)
@@ -350,6 +351,11 @@ class SpatialModel:
         '''
         stem_defs = dict()
 
+        '''
+        for d in self.bg.sampled_stems.keys():
+            stem_defs[d] = self.bg.get_stem_stats(d) 
+
+        '''
         for stats in self.stem_stats.values():
             for stat in stats:
                 for d in self.bg.sampled_stems.keys():
@@ -421,7 +427,6 @@ class SpatialModel:
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
         end_mid = start_mid + direction
         self.bulges[name] = BulgeModel((start_mid, end_mid))
-
 
     def find_start_node(self):
         '''
@@ -540,7 +545,6 @@ class SpatialModel:
         '''
 
         #for stem in self.stems.keys():
-        #cud.pv('self.newly_added_stems')
         for stem in self.newly_added_stems:
             sm = self.stems[stem]
 
@@ -565,8 +569,8 @@ class SpatialModel:
         Do a breadth first traversal and return the bulges which are
         sampled. This will be used to determine which ones are closed.
         '''
-        visited = []
-        prev_visited = []
+        visited = set()
+        prev_visited = set()
 
         first_node = self.find_start_node()[:2]
         self.sampled_bulges = []
@@ -575,6 +579,7 @@ class SpatialModel:
         to_visit = [first_node]
 
         while len(to_visit) > 0:
+            to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
             (curr_node, prev_node) = to_visit.pop()
 
             while curr_node in visited:
@@ -586,8 +591,8 @@ class SpatialModel:
 
             #print curr_node, prev_node
 
-            visited.append(curr_node)
-            prev_visited.append(prev_node)
+            visited.add(curr_node)
+            prev_visited.add(prev_node)
 
             if curr_node[0] == 's':
                 self.sampled_bulges += [prev_node]
@@ -642,7 +647,6 @@ class SpatialModel:
 
         while len(self.to_visit) > 0:
             self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
-            #cud.pv('self.to_visit')
             (curr_node, prev_node, prev_stem) = self.to_visit.pop()
 
             while curr_node in self.visited:
@@ -693,16 +697,12 @@ class SpatialModel:
                     else:
                         self.stems[curr_node] = stem
                 else:
-                    pass
                     if s1b == 1:
                         stem = self.stems[curr_node].reverse()
                     else:
                         stem = self.stems[curr_node]
 
-                #self.stems[curr_node] = stem
-
             for edge in self.bg.edges[curr_node]:
-
                 if edge not in self.visited:
                     self.to_visit.append((edge, curr_node, stem))
 
