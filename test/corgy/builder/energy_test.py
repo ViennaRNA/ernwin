@@ -229,3 +229,17 @@ class TestImgHelixOrientationEnergy(unittest.TestCase):
 
         #energy = cbe.ImgHelixOrientationEnergy()
         cud.pv('energy.eval_energy(sm)')
+
+class TestStemCoverageEnergy(unittest.TestCase):
+    def test_eval_energy(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1fg0/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        for s in sm.bg.stems():
+            cgg.add_virtual_residues(sm.bg, s)
+
+        sce = cbe.StemCoverageEnergy()
+
+        cud.pv('sce.eval_energy(sm)')
+
+        
+

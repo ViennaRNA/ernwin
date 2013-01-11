@@ -32,6 +32,7 @@ def main():
     parser.add_option('-p', '--pdb', dest='pdb_file', default=None, help='Include a pdb file for drawing bouding boxes.', type='string')
     parser.add_option('', '--hide-cg', dest='hide_cg', default=False, action='store_true', help='Hide the coarse grain model.')
     parser.add_option('', '--stem-atoms', dest='stem_atoms', default=False, action='store_true', help='Display the approximate locations of the atoms of the nucleotides that are parts of stems.')
+    parser.add_option('', '--stem-atom-distances', dest='stem_atom_distances', default=False, action='store_true', help='Check the distances between the stem atoms.')
 
     (options, args) = parser.parse_args()
     
@@ -76,7 +77,11 @@ def main():
         pymol_printer.coordinates_to_pymol(bg)
 
     if options.stem_atoms:
+        for s in bg.stems():
+            cgg.add_virtual_residues(bg, s)
+
         for (s,i) in bg.virtual_residues():
+
             cud.pv('(s,i)')
             vra = []
             vra += [cgg.virtual_residue_atoms(bg, s, i,0)]
@@ -86,6 +91,9 @@ def main():
             for i in range(2):
                 for a in vra[i].values():
                     pymol_printer.add_sphere(a, 'purple', 0.3)
+
+            if not options.stem_atom_distances:
+                continue
 
             for (s2, i2) in bg.virtual_residues():
                 vra2 = []

@@ -6,7 +6,7 @@ import numpy as np
 import scipy.stats as ss
 import math, os
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 import corgy.builder.config as cbc
 import corgy.builder.stats as cbs
@@ -22,6 +22,10 @@ class StatisticsPlotter:
     Plot a histogram of the rmsd as well as a plot of the energy vs. the rmsd.
     '''
     def __init__(self):
+        import matplotlib.pyplot as plt
+        import pylab as pl
+        pl.ion()
+
         self.fig = plt.figure(figsize=(9, 9))
 
         self.ax_hist = self.fig.add_subplot(2, 1, 1)
@@ -37,6 +41,7 @@ class StatisticsPlotter:
         plt.ion()
 
     def create_contour_plot(self, m1, m2, ax, xlim, ylim, color):
+        import matplotlib.pyplot as plt
         new_m1 = []
         new_m2 = []
 
@@ -130,6 +135,8 @@ class StatisticsPlotter:
             xlim = (0, sorted_rmsds[-1] + 0.5)
             self.ax_hist.set_xlim(xlim)
             self.ax_hist.hist(self.rmsds[color], color=color, alpha=0.5, normed=True)
+
+        import matplotlib.pyplot as plt
         plt.draw()
 
     def diagnose_energy(self, energy_function, bgs):
@@ -233,7 +240,8 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            print "native_energy: %3d %5.2f  %5.8f | min: %5.2f %5.2f" % ( self.counter, energy, r , lowest_energy, lowest_rmsd)
+            print "native_energy [%s %d]: %3d %5.2f  %5.8f | min: %5.2f %5.2f" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, lowest_rmsd)
+            sys.stdout.flush()
 
         self.update_plots(energy, r)
 
@@ -294,6 +302,7 @@ class MCMCSampler:
         sm.get_sampled_bulges()
 
     def step(self):
+        self.sm.sample_stems()
         self.sm.sample_loops()
         self.sm.traverse_and_build()
 
@@ -351,7 +360,7 @@ class GibbsBGSampler:
         Perform another step in the simulation.
         '''
 
-        #self.sm.sample_stems()
+        self.sm.sample_stems()
         self.sm.sample_loops()
         self.sm.traverse_and_build()
 

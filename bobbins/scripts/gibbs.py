@@ -31,7 +31,6 @@ import pickle, pdb
 from math import exp
 
 from sys import stderr
-from pylab import plot,show, hist, xlabel, ylabel, xlim, ylim, ion, draw, ioff, clf
 
 def draw_helper():
     draw()
@@ -39,7 +38,6 @@ def draw_helper():
 
 def main():
     seed(2)
-    ion()
     #seterr(all='ignore')
     #seterr(all='raise')
     parser = OptionParser()
@@ -88,7 +86,7 @@ def main():
     energies_to_sample = []
     
     if options.stem_stem:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy(), cbe.StemCoverageEnergy()])]
     if options.helix_orientation:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.ImgHelixOrientationEnergy()])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.StemVirtualResClashEnergy(), cbe.ImgHelixOrientationEnergy()])]

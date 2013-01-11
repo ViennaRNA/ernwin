@@ -2,16 +2,14 @@
 
 import time
 import pickle, os
-import pandas as pa
 import Bio.PDB as bpdb
-import Bio.KDTree as bk
 import copy
 import itertools as it
+import math
 
 import scipy.ndimage as sn
 import scipy.spatial as ss
 import Bio.KDTree as kd
-import sys
 import numpy as np
 import numpy.linalg as nl
 import random as rand
@@ -28,7 +26,6 @@ import corgy.builder.sampling as cbs
 import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
 
-import pylab as pl
 import scipy.stats as ss
 import sys
 
@@ -39,13 +36,13 @@ class MissingTargetException(Exception):
     def __init__(self, message):
         Exception.__init__(self, message)
 
-class EnergyFunction:
+class EnergyFunction(object):
     '''
     The base class for energy functions.
     '''
 
     def __init__(self):
-        pass
+        self.interaction_energies = None
 
     def eval_energy(self, sm, background=True):
         '''
@@ -103,7 +100,7 @@ class EnergyFunction:
             bg_energy = EnergyFunction()
         
         gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, stats)
-        for i in range(iterations):
+        for _ in range(iterations):
             gs.step()
 
         # Get the set of sampled structures
@@ -121,7 +118,7 @@ class RandomEnergy(EnergyFunction):
     An energy function that always just returns a random value.
     '''
     def __init__(self):
-        pass
+        super(RandomEnergy, self).__init__()
 
     def eval_energy(self, sm, background=True):
         return rand.uniform(-5, 3)
@@ -228,6 +225,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
     the total energy will be the sum of log probabilities for the interactions.
     '''
     def __init__(self):
+        super(SkewNormalInteractionEnergy, self).__init__()
         self.fg = None
         self.bgs = dict()
 
@@ -239,9 +237,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         f = open(long_range_stats_fn, 'r')
         lengths = []
 
-
-        length = list(np.linspace(0, 200, 200))
-
+        #length = list(np.linspace(0, 200, 200))
         for line in f:
             parts = line.strip().split(' ')
             lengths += [float(parts[2])]
@@ -288,6 +284,8 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         '''
         Make plots of the foreground and background energies.
         '''
+        import pylab as pl
+
         for interaction in self.bgs.keys():
             bg = self.bgs[interaction]
             fg = self.fg
@@ -300,7 +298,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             pl.plot(distance_range, fg(distance_range) - bg(distance_range), 'go')
             pl.plot(distance_range, bg(distance_range), 'bo')
             figname = 'figs/%s.png' % ("-".join(interaction))
-            print >>sys.stderr, "saving: %s..." % (figname)
+            print >> sys.stderr, "saving: %s..." % (figname)
 
             pl.savefig(figname, bbox_inches=0)
 
@@ -322,7 +320,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             try:
                 fgp = fg(distance)
                 #print "distance: ", distance, "fgp:", fgp, "interaction:", interaction
-            except FloatingPointError as fpe:
+            except FloatingPointError:
                 fgp = 1e-200
             bgp = bgf(distance)
         else:
@@ -389,16 +387,11 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                 energy_counts[interaction[1]] += 1
                 new_energies[interaction] = energies[interaction]
 
-        new_energies
-
         return new_energies
-
         
     def eval_energy(self, sm, background=True):
         energy_total = 0.
-        interactions = 1.
         bg = sm.bg
-
 
         energies = dict()
 
@@ -410,13 +403,12 @@ class SkewNormalInteractionEnergy(EnergyFunction):
 
         for energy in new_energies.values():
             energy_total += energy
-            interactions += 1
 
-        #return -(energy_total / (2. * interactions))
         return -energy_total
 
 class JunctionClosureEnergy(EnergyFunction):
     def __init__(self):
+        super(JunctionClosureEnergy, self).__init__()
         self.name = 'jce'
         self.fgs = dict()
         self.bgs = dict()
@@ -532,6 +524,7 @@ class LongRangeInteractionCount(EnergyFunction):
     '''
 
     def __init__(self, di = lri_iter):
+        super(LongRangeInteractionCount, self).__init__()
         self.distance_iterator = di
         self.target_interactions = None
 
@@ -612,7 +605,7 @@ class CoarseStemClashEnergy(EnergyFunction):
     '''
     
     def __init__(self):
-        pass
+        super(CoarseStemClashEnergy, self).__init__()
 
     def eval_energy(self, sm, background=False):
         bg = sm.bg
@@ -644,7 +637,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
     '''
 
     def __init__(self):
-        pass
+        super(StemVirtualResClashEnergy, self).__init__()
 
     def virtual_residue_atom_clashes_kd(self):
         '''
@@ -774,9 +767,8 @@ class StemClashEnergy(EnergyFunction):
     '''
 
     def __init__(self):
+        super(StemClashEnergy, self).__init__()
         self.stem_library = dict()
-
-        pass
 
     def eval_energy(self, sm, background=True):
         '''
@@ -794,10 +786,9 @@ class StemClashEnergy(EnergyFunction):
 class DistanceEnergy(EnergyFunction):
 
     def __init__(self, distance_constraints, multiplier= 10):
+        super(DistanceEnergy, self).__init__()
         self.distance_constraints = distance_constraints
         self.multiplier = multiplier
-
-        pass
 
     def eval_energy(self, sm, background=True):
         energy = 0.
@@ -815,12 +806,13 @@ class DistanceEnergy(EnergyFunction):
 
 class GaussianHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
+        super(GaussianHelixOrientationEnergy, self).__init__()
         self.real_kde = self.load_stem_orientation_data('fess/stats/stem_nt.stats')
         self.fake_kde = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
-        pass
 
     def load_stem_orientation_data(self, filename):
         cud.pv('filename')
+        import pandas as pa
         stats = pa.read_csv(filename,header=None, sep=' ')
         t = stats
         cud.pv('stats')
@@ -853,6 +845,7 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 
 class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
+        super(ImgHelixOrientationEnergy).__init__()
         self.res = 2.
         self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
         self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
@@ -860,9 +853,9 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_truncated.stats')
         self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled_truncated.stats')
         '''
-        pass
 
     def load_stem_orientation_data(self, filename):
+        import pandas as pa
         stats = pa.read_csv(filename,header=None, sep=' ')
         t = stats
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
@@ -954,7 +947,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         coords = np.vstack([p[0] for p in points])
 
-        kdt = bk.KDTree(3)
+        kdt = kd.KDTree(3)
         kdt.set_coords(coords)
 
         kdt.all_search(max_distance)
@@ -1017,7 +1010,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
 class RoughJunctionClosureEnergy(EnergyFunction):
     def __init__(self):
-        pass
+        super(RoughJunctionClosureEnergy, self).__init__()
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
@@ -1032,7 +1025,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             
             # 
             #cutoff_distance = (bl) * 5.9 + 13.4
-            cutoff_distance = (bl) * 5.908 + 10.309
+            cutoff_distance = (bl) * 5.908 + 11.309
 
 
             if (dist > cutoff_distance):
@@ -1041,40 +1034,16 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         return energy
 
-class OldRoughJunctionClosureEnergy(EnergyFunction):
-    def __init__(self):
-        pass
-
-    def eval_energy(self, sm, background=True):
-        bg = sm.bg
-        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
-        #closed_bulges = all_bulges.difference(sm.sampled_bulges)
-
-        energy = 0.
-
-        #for bulge in closed_bulges:
-        for bulge in all_bulges:
-            bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
-
-            dist = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
-            #cud.pv('dist')
-
-
-            if dist > cutoff_distance:
-                energy += 10000
-
-        return energy
-
 class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self):
+        super(StemStemOrientationEnergy, self).__init__()
         self.max_dist = 22
 
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
-        pass
-
     def load_stem_stem_data(self, filename):
+        import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
         cud.pv('t')
         angles = t[t[1] < self.max_dist][3].values
@@ -1099,3 +1068,31 @@ class StemStemOrientationEnergy(EnergyFunction):
 
         return -energy
                 
+class StemCoverageEnergy(EnergyFunction):
+    def __init__(self):
+        self.max_dist = 22
+
+    def eval_energy(self, sm, background=True):
+        covered = set()
+        bg = sm.bg
+
+        for (s1, s2) in it.permutations(bg.stems(), 2):
+            if bg.are_any_adjacent_stems(s1, s2):
+                continue
+
+            for i in range(bg.stem_length(s1)):
+                basis = bg.vbases[s1][i]
+
+                for j in range(bg.stem_length(s2)):
+                    np = bg.vposs[s2][j] - bg.vposs[s1][i]
+                    new_pos = cuv.change_basis(np, basis, cuv.standard_basis)
+
+                    if abs(new_pos[0]) >= 2.:
+                        continue
+
+                    if cuv.magnitude([0, new_pos[1], new_pos[2]]) < self.max_dist:
+                        covered.add((s1, i))
+
+        return -math.log(len(covered) + 1)
+
+

@@ -9,7 +9,6 @@ import sys
 import collections as c
 
 import corgy.builder.config as cbc
-import corgy.visual.pymol as cvp
 import corgy.builder.stats as cbs
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.vector as cuv
@@ -262,7 +261,6 @@ class SpatialModel:
         self.build_chain = False
 
         self.bg = bg
-        self.pymol_printer = cvp.PymolPrinter()
 
         if self.angle_stats == None:
             return
@@ -587,7 +585,7 @@ class SpatialModel:
                     (curr_node, prev_node) = to_visit.pop()
                 else:
                     self.visit_order = visited
-                    return
+                    return self.sampled_bulges
 
             #print curr_node, prev_node
 
@@ -602,6 +600,8 @@ class SpatialModel:
                     to_visit.append((edge, curr_node))
 
         self.visit_order = visited
+        return self.sampled_bulges
+
         #self.prev_visit_order = prev_visited
 
     def finish_building(self):

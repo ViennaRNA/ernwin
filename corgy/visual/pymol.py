@@ -10,6 +10,7 @@ import corgy.graph.graph_pdb as cgg
 import corgy.utilities.debug as cud
 import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
+import corgy.builder.models as cbm
 
 import Bio.PDB.Model as bpm
 import Bio.PDB.Chain as bpc
@@ -399,6 +400,9 @@ class PymolPrinter:
                     self.boxes += [(corners, 'purple')]
 
     def coordinates_to_pymol(self, bg):
+        sm = cbm.SpatialModel(bg)
+        sampled_bulges = sm.get_sampled_bulges()
+
         for key in bg.coords.keys():
             (p, n) = bg.coords[key]
         
@@ -410,7 +414,10 @@ class PymolPrinter:
                 #    self.add_segment(p, n, "blue", 1.0, key)
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
-                        self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
+                        if key in sampled_bulges:
+                            self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
+                        else:
+                            self.add_segment(p, n, "orange", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
                     else:
                         #self.add_stem_like(bg, key, "yellow", 1.0)
                         self.add_segment(p, n, "yellow", 1.0, key)

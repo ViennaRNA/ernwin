@@ -834,8 +834,8 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
                 args += [(chain, sm, d, 0, samples, consider_contacts)]
 
     #pool = mp.Pool(processes=4)
-    #r = parmap(reconstruct_loop, args)
-    r = [reconstruct_loop(*arg) for arg in args]
+    r = parmap(reconstruct_loop, args)
+    #r = [reconstruct_loop(*arg) for arg in args]
     for ((a,b,i1,i2), best_loop_chain, min_r) in r:
         add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), sm.bg.length)
 
