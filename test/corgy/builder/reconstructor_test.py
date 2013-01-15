@@ -568,4 +568,6 @@ class TestReconstructor(unittest.TestCase):
             chain1 = list(bp.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         print "file load time:", time.time() - t1
 
+    def test_reconstruct_bulges_with_fragments(self):
+
 
