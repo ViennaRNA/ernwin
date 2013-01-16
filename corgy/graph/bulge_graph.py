@@ -360,7 +360,7 @@ class BulgeGraph:
 
         dims =self.get_bulge_dimensions(define)
 
-        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, s1b, s2b)
+        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, s1b, s2b, self.defines[define])
 
         return angle_stat
 
@@ -723,6 +723,11 @@ class BulgeGraph:
     def stem_like(self):
         for d in self.defines.keys():
             if self.weights[d] == 2 or d[0] == 's':
+                yield d
+
+    def interior_loops(self):
+        for d in self.defines.keys():
+            if d[0] != 's' and self.weights[d] == 2:
                 yield d
 
     def get_centers(self):

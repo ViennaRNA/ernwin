@@ -128,7 +128,7 @@ class AngleStat:
     Class for storing an individual statistic about inter-helical angles.
     '''
 
-    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, s1b=0, s2b=0):
+    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, s1b=0, s2b=0, define=[]):
         self.pdb_name = pdb_name
         self.dim1 = dim1
         self.dim2 = dim2
@@ -143,6 +143,8 @@ class AngleStat:
 
         self.s1b = s1b
         self.s2b = s2b
+
+        self.define = define
 
     def __hash__(self):
         return id(self)
@@ -188,6 +190,8 @@ class AngleStat:
 
         self.s1b = float(parts[10])
         self.s2b = float(parts[11])
+
+        self.define = map(int(parts[12:]))
 
     def orientation_params(self):
         '''

@@ -568,6 +568,29 @@ class TestReconstructor(unittest.TestCase):
             chain1 = list(bp.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         print "file load time:", time.time() - t1
 
-    def test_reconstruct_bulges_with_fragments(self):
 
+    def test_reconstruct_bulge_fragment(self):
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
 
+        bg2 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
+
+        sampled_stems = dict()
+        for s1 in bg1.stems():
+            for s2 in bg2.stems():
+                if bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]:
+                    sampled_stems[s1] = s2
+
+        sampled_bulges = dict()
+        for s1 in bg1.interior_loops():
+            for s2 in bg2.interior_loops():
+                if ((bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]) 
+                        and (bg1.defines[s1][3] - bg1.defines[s1][2] == bg2.defines[s2][3] - bg2.defines[s2][2])):
+                    sampled_bulges[s1] = s2
+
+        for s1 in bg1.junctions():
+            for s2 in bg2.junctions():
+                if bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]:
+                    sampled_bulges[s1] = s2
+
+        cud.pv('sampled_stems')
+        cud.pv('sampled_bulges')
