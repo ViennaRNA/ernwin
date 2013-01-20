@@ -82,7 +82,7 @@ def main():
 
         for (s,i) in bg.virtual_residues():
 
-            cud.pv('(s,i)')
+            #cud.pv('(s,i)')
             vra = []
             vra += [cgg.virtual_residue_atoms(bg, s, i,0)]
             vra += [cgg.virtual_residue_atoms(bg, s, i,1)]

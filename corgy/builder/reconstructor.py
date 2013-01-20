@@ -942,13 +942,32 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
     @param angle_def: The define containing the residue numbers in source_chain
     @param ld: The name of the fragment.
     '''
-    connections = list(sm.bg.edges[ld])
+    connections = sm.bg.connections(ld)
 
     (s1b, s1e) = sm.bg.get_sides(connections[0], ld)
     (s2b, s2e) = sm.bg.get_sides(connections[1], ld)
 
+    (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
+
+    t_v1 = target_chain[sm.bg.defines[connections[0]][sd]]['C3*'].get_vector().get_array()
+    t_v2 = target_chain[sm.bg.defines[connections[0]][sd]]['C4*'].get_vector().get_array()
+    t_v3 = target_chain[sm.bg.defines[connections[0]][sd]]['O4*'].get_vector().get_array()
+
+    s_v1 = source_chain[angle_def.define[bd]]['C3*'].get_vector().get_array()
+    s_v2 = source_chain[angle_def.define[bd]]['C4*'].get_vector().get_array()
+    s_v3 = source_chain[angle_def.define[bd]]['O4*'].get_vector().get_array()
+
+    cud.pv('t_v1')
+    cud.pv('t_v2')
+    cud.pv('t_v3')
+
+    cud.pv('s_v1')
+    cud.pv('s_v2')
+    cud.pv('s_v3')
+
     cud.pv('(s1b, s2b)')
     cud.pv('(angle_def.s1b, angle_def.s2b)')
+    cud.pv('(sd, bd)')
 
     cud.pv('angle_def.define')
 
