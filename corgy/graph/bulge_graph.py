@@ -391,6 +391,15 @@ class BulgeGraph:
 
         return constr
 
+    def connections(self, bulge):
+        '''
+        Return the edges that connect to a bulge in a list form,
+        sorted by lowest res number of the connection.
+        '''
+        connections = list(self.edges[bulge])
+        connections.sort(key=lambda x: self.defines[x][0])
+
+        return connections
 
     def get_bulge_angle_stats(self, bulge):
         '''
@@ -406,7 +415,7 @@ class BulgeGraph:
             return (cbs.AngleStat(), cbs.AngleStat())
 
         #print "bulge:", bulge
-        connections = list(self.edges[bulge])
+        connections = self.connections(bulge)
 
         angle_stat1 = self.get_bulge_angle_stats_core(bulge, connections)
         angle_stat2 = self.get_bulge_angle_stats_core(bulge, list(reversed(connections)))
@@ -714,6 +723,10 @@ class BulgeGraph:
         for d in self.defines.keys():
             if d[0] == 's':
                 yield d
+
+    def elements(self):
+        for d in self.defines.keys():
+            yield d
 
     def junctions(self):
         for d in self.defines.keys():

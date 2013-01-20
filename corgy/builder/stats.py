@@ -77,6 +77,7 @@ class LoopStat:
 
         self.bp_length = int(parts[2])
         self.phys_length = float(parts[3])
+        self.define = map(int, parts[4:])
 
     def __str__(self):
         return "pdb_name: %s bp: %d phys_length: %f define: %s" % (self.pdb_name, self.bp_length, self.phys_length)
@@ -191,7 +192,7 @@ class AngleStat:
         self.s1b = float(parts[10])
         self.s2b = float(parts[11])
 
-        self.define = map(int(parts[12:]))
+        self.define = map(int,parts[12:])
 
     def orientation_params(self):
         '''

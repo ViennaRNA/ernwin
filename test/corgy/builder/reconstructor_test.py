@@ -42,6 +42,7 @@ def get_random_translation():
 
 class TestReconstructor(unittest.TestCase):
     def setUp(self):
+        return
         self.bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "2b3j/graph", "temp.comp"))
         s = bp.PDBParser().get_structure('temp', os.path.join(cbc.Configuration.test_input_dir, "2b3j/prepare", "temp.pdb"))
 
@@ -574,11 +575,14 @@ class TestReconstructor(unittest.TestCase):
 
         bg2 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
 
+        sm1 = cbm.SpatialModel(bg1)
+
         sampled_stems = dict()
         for s1 in bg1.stems():
             for s2 in bg2.stems():
                 if bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]:
                     sampled_stems[s1] = s2
+                    sm1.stem_defs[s1] = bg2.get_stem_stats(s2)
 
         sampled_bulges = dict()
         for s1 in bg1.interior_loops():
@@ -586,11 +590,32 @@ class TestReconstructor(unittest.TestCase):
                 if ((bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]) 
                         and (bg1.defines[s1][3] - bg1.defines[s1][2] == bg2.defines[s2][3] - bg2.defines[s2][2])):
                     sampled_bulges[s1] = s2
+                    (ada, adb) = bg2.get_bulge_angle_stats(s2)
+
+                    sm1.angle_defs[s1][ada.s1b][ada.s2b] = ada
+                    sm1.angle_defs[s1][adb.s1b][adb.s2b] = adb
 
         for s1 in bg1.junctions():
             for s2 in bg2.junctions():
                 if bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]:
                     sampled_bulges[s1] = s2
+                    (ada, adb) = bg2.get_bulge_angle_stats(s2)
+
+                    sm1.angle_defs[s1][ada.s1b][ada.s2b] = ada
+                    sm1.angle_defs[s1][adb.s1b][adb.s2b] = adb
+
+        sm1.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm1)
+        rtor.replace_bases(chain, sm1.bg.seq)
+
+        for b in sampled_bulges.keys():
+            rtor.reconstruct_loop_with_fragment(chain, sm1, b)
+            break
+
+        rtor.output_chain(chain, 'out.pdb')
+        sm1.bg.output('out.coord')
 
         cud.pv('sampled_stems')
         cud.pv('sampled_bulges')
+
+        # create stem stats

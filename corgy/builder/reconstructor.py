@@ -931,4 +931,72 @@ def replace_bases(chain, seq):
         ress[i].child_dict = new_res.child_dict
         '''
 
-        
+def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, ld):
+    '''
+    Align a PDB chain to the position where it is supposed to
+    bridge the gap between two stems.
+
+    @param target_chain: The chain the fragment is to be inserted into
+    @param source_chain: The chain from which the fragment comes
+    @param sm: The SpatialModel being reconstructed
+    @param angle_def: The define containing the residue numbers in source_chain
+    @param ld: The name of the fragment.
+    '''
+    connections = list(sm.bg.edges[ld])
+
+    (s1b, s1e) = sm.bg.get_sides(connections[0], ld)
+    (s2b, s2e) = sm.bg.get_sides(connections[1], ld)
+
+    cud.pv('(s1b, s2b)')
+    cud.pv('(angle_def.s1b, angle_def.s2b)')
+
+    cud.pv('angle_def.define')
+
+    pass
+
+def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
+    '''
+    Reconstruct a loop with the fragment its statistics were derived from.
+
+    @param chain: The chain containing the reconstructed stems.
+    @param sm: The SpatialModel containing the information about the sampled
+        stems and angles
+    @param ld: The name of the loop to reconstruct.
+    '''
+
+    #find some potential sides
+    #both ways should work
+    #i.e. if [0][1] is present, [0][1] should also be present
+    for key1 in sm.angle_defs[ld].keys():
+        for key2 in sm.angle_defs[ld][key1].keys():
+            break
+
+    angle_def = sm.angle_defs[ld][key1][key2]
+
+    # the file containing the pdb coordinates of this fragment
+    filename = '%s_%s.pdb' % (angle_def.pdb_name, "_".join(map(str, angle_def.define)))
+    filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+    cud.pv('filename')
+
+    # do some caching while loading the filename
+    if filename in fragment_library.keys():
+        source_chain = fragment_library[filename].copy()
+    else:
+        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        fragment_library[filename] = source_chain
+
+    align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
+
+    # add the new chain to the old one
+    for j in range(0, len(angle_def.define), 2):
+        for k in range(angle_def.define[j], angle_def.define[j+1]+1):
+            target_index = sm.bg.defines[ld][j] + k - angle_def.define[j]
+
+            if target_index in chain:
+                chain.detach_child(chain[target_index].id)
+
+            e = source_chain[k]
+            e.id = (e.id[0], target_index, e.id[2])
+
+            chain.add(e)
+    pass
