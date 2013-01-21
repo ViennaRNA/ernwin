@@ -949,21 +949,25 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
 
     (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
 
-    t_v1 = target_chain[sm.bg.defines[connections[0]][sd]]['C3*'].get_vector().get_array()
-    t_v2 = target_chain[sm.bg.defines[connections[0]][sd]]['C4*'].get_vector().get_array()
-    t_v3 = target_chain[sm.bg.defines[connections[0]][sd]]['O4*'].get_vector().get_array()
+    t_v = (target_chain[sm.bg.defines[connections[0]][sd]]['C3*'].get_vector().get_array(),
+           target_chain[sm.bg.defines[connections[0]][sd]]['C4*'].get_vector().get_array(), 
+           target_chain[sm.bg.defines[connections[0]][sd]]['O4*'].get_vector().get_array())
 
-    s_v1 = source_chain[angle_def.define[bd]]['C3*'].get_vector().get_array()
-    s_v2 = source_chain[angle_def.define[bd]]['C4*'].get_vector().get_array()
-    s_v3 = source_chain[angle_def.define[bd]]['O4*'].get_vector().get_array()
+    s_v = (source_chain[angle_def.define[bd]]['C3*'].get_vector().get_array(),
+           source_chain[angle_def.define[bd]]['C4*'].get_vector().get_array(),
+           source_chain[angle_def.define[bd]]['O4*'].get_vector().get_array())
 
-    cud.pv('t_v1')
-    cud.pv('t_v2')
-    cud.pv('t_v3')
+    t_centroid = cuv.get_vector_centroid(t_v)
+    s_centroid = cuv.get_vector_centroid(s_v)
 
-    cud.pv('s_v1')
-    cud.pv('s_v2')
-    cud.pv('s_v3')
+    t_v1 = t_v - t_centroid
+    s_v1 = s_v - s_centroid
+
+    sup = brmsd.optimal_superposition(s_v1, t_v1)
+
+    for atom in bpdb.Selection.unfold_entities(source_chain, 'A'):
+        atom.transform(np.eye(3,3), -s_centroid)
+        atom.transform(sup, t_centroid)
 
     cud.pv('(s1b, s2b)')
     cud.pv('(angle_def.s1b, angle_def.s2b)')
@@ -1012,6 +1016,7 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
             target_index = sm.bg.defines[ld][j] + k - angle_def.define[j]
 
             if target_index in chain:
+                print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]

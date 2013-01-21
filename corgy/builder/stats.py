@@ -226,7 +226,7 @@ class AngleStat:
         str0 = "d1: %d d2: %d " % (self.dim1, self.dim2)
         str1 = "u: %f v: %f t: %f " % (self.u, self.v, self.t)
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
-        str3 = "s1b: %d s2b: %d" % (s1b, s2b)
+        str3 = "s1b: %d s2b: %d" % (self.s1b, self.s2b)
         return str0 + str1 + str2 + str3
 
 class ContinuousAngleStats():

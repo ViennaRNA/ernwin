@@ -265,6 +265,7 @@ class SpatialModel:
         if self.angle_stats == None:
             return
 
+    def sample_stats():
         if angle_defs == None:
             self.sample_angles()
         else:

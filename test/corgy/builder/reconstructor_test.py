@@ -595,6 +595,7 @@ class TestReconstructor(unittest.TestCase):
                     sm1.angle_defs[s1][ada.s1b][ada.s2b] = ada
                     sm1.angle_defs[s1][adb.s1b][adb.s2b] = adb
 
+        count = 0
         for s1 in bg1.junctions():
             for s2 in bg2.junctions():
                 if bg1.defines[s1][1] - bg1.defines[s1][0] == bg2.defines[s2][1] - bg2.defines[s2][0]:
@@ -608,9 +609,13 @@ class TestReconstructor(unittest.TestCase):
         chain = rtor.reconstruct_stems(sm1)
         rtor.replace_bases(chain, sm1.bg.seq)
 
+        '''
         for b in sampled_bulges.keys():
+            print >> sys.stderr, "reconstructing....", b
             rtor.reconstruct_loop_with_fragment(chain, sm1, b)
-            break
+        '''
+        cud.pv('sm1.angle_defs["b0"][0]')
+        rtor.reconstruct_loop_with_fragment(chain, sm1, 'b0')
 
         rtor.output_chain(chain, 'out.pdb')
         sm1.bg.output('out.coord')

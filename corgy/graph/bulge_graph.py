@@ -661,14 +661,17 @@ class BulgeGraph:
         '''
 
         bd = self.defines[bulge]
+        prev_stem = self.connections(bulge)[0]
 
         if len(bd) == 2:
-            dims = (0, abs(bd[1] - bd[0]))
+            dims = (abs(bd[1] - bd[0]), 0)
         else:
             dims = (abs(bd[1] - bd[0]), abs(bd[3] - bd[2]))
 
-        return (min(dims), max(dims))
-
+        if bd[0] == self.defines[prev_stem][1]:
+            return dims
+        else:
+            return (dims[1], dims[0])
 
     # internal function for creating the forward
     # and reverse edge between two vertices
