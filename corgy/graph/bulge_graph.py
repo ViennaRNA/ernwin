@@ -662,16 +662,36 @@ class BulgeGraph:
 
         bd = self.defines[bulge]
         prev_stem = self.connections(bulge)[0]
+        c = self.connections(bulge)
+
+        (s1b, s1e) = self.get_sides(c[0], bulge)
+        (s2b, s2e) = self.get_sides(c[1], bulge)
 
         if len(bd) == 2:
             dims = (abs(bd[1] - bd[0]), 0)
         else:
             dims = (abs(bd[1] - bd[0]), abs(bd[3] - bd[2]))
 
-        if bd[0] == self.defines[prev_stem][1]:
-            return dims
+        if s1b == s2b:
+            assert(s1b == 0)
+            if bd[0] == self.defines[prev_stem][0]:
+                return dims
+            else:
+                assert(bd[0] == self.defines[prev_stem][3])
+                return (dims[1], dims[0])
         else:
-            return (dims[1], dims[0])
+            if bd[0] == self.defines[prev_stem][1]:
+                return dims
+            else:
+                '''
+                cud.pv('bulge')
+                cud.pv('(bd[0], bd[1])')
+                cud.pv('self.defines[c[0]]')
+                cud.pv('self.defines[c[1]]')
+                cud.pv('(s1b, s2b)')
+                '''
+                assert(bd[1] == self.defines[prev_stem][2])
+                return (dims[1], dims[0])
 
     # internal function for creating the forward
     # and reverse edge between two vertices
