@@ -513,12 +513,16 @@ class BulgeGraph:
         if vertex[0] == 's':
             return abs(self.defines[vertex][1] - self.defines[vertex][0]) + 1
         else:
-            dims = self.get_bulge_dimensions(vertex)
-
-            if dims[0] == 0:
-                return dims[1]
+            if len(self.edges[vertex]) == 1:
+                return self.defines[vertex][1] - self.defines[vertex][0]
             else:
-                return dims[0]
+                dims = list(self.get_bulge_dimensions(vertex))
+                dims.sort()
+
+                if dims[0] == 0:
+                    return dims[1]
+                else:
+                    return dims[0]
 
     def calc_vres_distance(self, s1, i1, s2, i2):
         '''

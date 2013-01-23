@@ -352,6 +352,7 @@ class GibbsBGSampler:
         self.energy_function = energy_function
         self.stats = stats
 
+        sm.sample_stats()
         sm.get_sampled_bulges()
         #print >>stderr, "original native_energy:", energy_function.eval_energy(sm, background=True)
 
