@@ -15,7 +15,7 @@ def print_new_bulge_angles(bg):
             (as1, as2) = bg.get_bulge_angle_stats(define)
 
             print "angle", as1.pdb_name, as1.dim1, as1.dim2, as1.u, as1.v, as1.t, as1.r1, as1.u1, as1.v1, as1.s1b, as1.s2b, " ".join(map(str, as2.define))
-            #print "angle", as2.pdb_name, as2.dim1, as2.dim2, as2.u, as2.v, as2.t, as2.r1, as2.u1, as2.v1, as2.s1b, as2.s2b, " ".join(map(str, as2.define))
+            print "angle", as2.pdb_name, as2.dim1, as2.dim2, as2.u, as2.v, as2.t, as2.r1, as2.u1, as2.v1, as2.s1b, as2.s2b, " ".join(map(str, as2.define))
 
         else:
             continue

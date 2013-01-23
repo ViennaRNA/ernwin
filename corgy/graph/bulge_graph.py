@@ -764,6 +764,11 @@ class BulgeGraph:
         for d in self.defines.keys():
             if self.weights[d] == 2 or d[0] == 's':
                 yield d
+    
+    def bulges(self):
+        for d in self.defines.keys():
+            if len(self.edges[d]) == 2:
+                yield d
 
     def interior_loops(self):
         for d in self.defines.keys():

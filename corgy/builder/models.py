@@ -265,22 +265,10 @@ class SpatialModel:
         if self.angle_stats == None:
             return
 
-    def sample_stats():
-        if angle_defs == None:
-            self.sample_angles()
-        else:
-            self.angle_defs = angle_defs
-
-        if stem_defs == None:
-            self.sample_stems()
-        else:
-            self.stem_defs = stem_defs
-
-        if loop_defs == None:
-            self.sample_loops()
-            pass
-        else:
-            self.loop_defs = loop_defs
+    def sample_stats(self):
+        self.sample_angles()
+        self.sample_stems()
+        self.sample_loops()
 
     def sample_angles(self):
         '''
