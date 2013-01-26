@@ -246,7 +246,8 @@ class BulgeGraph:
         self.length = 0
 
         # Look up tables
-        self.sampled_stems = dict()
+        self.sampled = dict()
+
         self.coords = dict()
         self.twists = dict()
         self.stem_invs = dict()
@@ -770,6 +771,16 @@ class BulgeGraph:
             if len(self.edges[d]) == 2:
                 yield d
 
+    def loops(self):
+        for d in self.defines.keys():
+            if len(self.edges[d]) == 1 and self.defines[d][0] != 0 and self.defines[d][1] != self.length:
+                yield d
+
+    def five_prime(self):
+        for d in self.defines.keys():
+            if len(self.edges[d]) == 1 and self.defines[d][0] == 0:
+                yield d
+
     def interior_loops(self):
         for d in self.defines.keys():
             if d[0] != 's' and self.weights[d] == 2:
@@ -1004,8 +1015,8 @@ class BulgeGraph:
 
     def get_sampled_stems_str(self):
         out_str = ''
-        for key in self.sampled_stems.keys():
-            out_str += 'sampled %s %s\n' % (key, " ".join(map(str, self.sampled_stems[key])))
+        for key in self.sampled.keys():
+            out_str += 'sampled %s %s\n' % (key, " ".join(map(str, self.sampled[key])))
         return out_str
 
     def get_coord_str(self):
@@ -1625,7 +1636,7 @@ class BulgeGraph:
 
             if line.strip().find('sampled') == 0:
                 parts = line.strip().split(' ')
-                self.sampled_stems[parts[1]] = [parts[2], int(parts[3]), int(parts[4]), int(parts[5]), int(parts[6])]
+                self.sampled[parts[1]] = [parts[2]] + map(int, parts[3:])
 
             if line.strip().find('coord') == 0:
                 parts = line.strip().split(' ')

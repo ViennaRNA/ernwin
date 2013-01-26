@@ -30,12 +30,30 @@ def print_stem_stats(bg):
 def print_loop_stats(bg):
     for d in bg.defines.keys():
         if d[0] != 's':
-            if bg.weights[d] == 1 and len(bg.edges[d]) == 1:
+            if bg.weights[d] == 1 and len(bg.edges[d]) == 1 and bg.defines[d][0] != 0 and bg.defines[d][1] != bg.length:
                 # unpaired region
                 base_pair_length = abs(bg.defines[d][0] - bg.defines[d][1])
                 phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
                 
                 print "loop", bg.name, base_pair_length, phys_length, " ".join(map(str, bg.defines[d]))
+
+def print_5prime_unpaired(bg):
+    for d in bg.defines.keys():
+        if d[0] != 's':
+            if len(bg.edges[d]) == 1 and bg.defines[d][0] == 0:
+                base_pair_length = abs(bg.defines[d][0] - bg.defines[d][1])
+                phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
+                
+                print "5prime", bg.name, base_pair_length, phys_length, " ".join(map(str, bg.defines[d]))
+
+def print_3prime_unpaired(bg):
+    for d in bg.defines.keys():
+        if d[0] != 's':
+            if len(bg.edges[d]) == 1 and bg.defines[d][1] == bg.length:
+                base_pair_length = abs(bg.defines[d][0] - bg.defines[d][1])
+                phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
+                
+                print "3prime", bg.name, base_pair_length, phys_length, " ".join(map(str, bg.defines[d]))
 
 def main():
     if len(sys.argv) < 2:
@@ -54,6 +72,8 @@ def main():
     print_new_bulge_angles(bg)
     print_stem_stats(bg)
     print_loop_stats(bg)
+    print_5prime_unpaired(bg)
+    print_3prime_unpaired(bg)
 
 if __name__=="__main__":
     main()

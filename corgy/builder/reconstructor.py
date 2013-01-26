@@ -945,9 +945,11 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
     connections = sm.bg.connections(ld)
 
     (s1b, s1e) = sm.bg.get_sides(connections[0], ld)
-    (s2b, s2e) = sm.bg.get_sides(connections[1], ld)
+    #(s2b, s2e) = sm.bg.get_sides(connections[1], ld)
 
     (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
+
+    cud.pv('(ld, sd, bd)')
 
     t_v = (target_chain[sm.bg.defines[connections[0]][sd]]['C3*'].get_vector().get_array(),
            target_chain[sm.bg.defines[connections[0]][sd]]['C4*'].get_vector().get_array(), 
@@ -969,15 +971,12 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
         atom.transform(np.eye(3,3), -s_centroid)
         atom.transform(sup, t_centroid)
 
-    cud.pv('(s1b, s2b)')
-    cud.pv('(angle_def.s1b, angle_def.s2b)')
     cud.pv('(sd, bd)')
-
     cud.pv('angle_def.define')
 
     pass
 
-def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
+def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''
     Reconstruct a loop with the fragment its statistics were derived from.
 
@@ -1014,6 +1013,52 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     for j in range(0, len(angle_def.define), 2):
         for k in range(angle_def.define[j], angle_def.define[j+1]+1):
             target_index = sm.bg.defines[ld][j] + k - angle_def.define[j]
+
+            if target_index in chain:
+                print >> sys.stderr, "detaching...", target_index
+                chain.detach_child(chain[target_index].id)
+
+            e = source_chain[k]
+            e.id = (e.id[0], target_index, e.id[2])
+
+            chain.add(e)
+    pass
+
+def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
+    '''
+    Reconstruct a loop with the fragment its statistics were derived from.
+
+    @param chain: The chain containing the reconstructed stems.
+    @param sm: The SpatialModel containing the information about the sampled
+        stems and angles
+    @param ld: The name of the loop to reconstruct.
+    '''
+
+    loop_def = sm.loop_defs[ld]
+
+    if loop_def.define[1] - loop_def.define[0] == 1:
+        return
+
+    cud.pv('loop_def.define')
+
+    # the file containing the pdb coordinates of this fragment
+    filename = '%s_%s.pdb' % (loop_def.pdb_name, "_".join(map(str, loop_def.define)))
+    filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+    cud.pv('filename')
+
+    # do some caching while loading the filename
+    if filename in fragment_library.keys():
+        source_chain = fragment_library[filename].copy()
+    else:
+        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        fragment_library[filename] = source_chain
+
+    align_source_to_target_fragment(chain, source_chain, sm, loop_def, ld)
+
+    # add the new chain to the old one
+    for j in range(0, len(loop_def.define), 2):
+        for k in range(loop_def.define[j], loop_def.define[j+1]+1):
+            target_index = sm.bg.defines[ld][j] + k - loop_def.define[j]
 
             if target_index in chain:
                 print >> sys.stderr, "detaching...", target_index
