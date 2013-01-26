@@ -29,7 +29,6 @@ def main():
     sm.create_native_stem_models()
 
     chain = rtor.reconstruct_stems(sm)
-    rtor.replace_bases(chain, sm.bg.seq)
 
 
     if options.loops:
@@ -40,6 +39,10 @@ def main():
                 rtor.reconstruct_bulge_with_fragment(chain, sm, b)
             for l in sm.bg.loops():
                 rtor.reconstruct_loop_with_fragment(chain, sm, l)
+            for f in sm.bg.fiveprime():
+                rtor.reconstruct_fiveprime_with_fragment(chain, sm, f)
+            for t in sm.bg.threeprime():
+                rtor.reconstruct_threeprime_with_fragment(chain, sm, t)
         else:
             try:
                 #rtor.reconstruct_loop(chain, sm, 'b17', 0)
@@ -52,6 +55,7 @@ def main():
 
         #rtor.reconstruct_loops(chain, sm)
 
+    rtor.replace_bases(chain, sm.bg.seq)
     rtor.output_chain(chain, options.output_file)
 
 if __name__ == '__main__':

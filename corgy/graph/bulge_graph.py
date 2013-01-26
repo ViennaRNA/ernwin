@@ -776,9 +776,14 @@ class BulgeGraph:
             if len(self.edges[d]) == 1 and self.defines[d][0] != 0 and self.defines[d][1] != self.length:
                 yield d
 
-    def five_prime(self):
+    def fiveprime(self):
         for d in self.defines.keys():
             if len(self.edges[d]) == 1 and self.defines[d][0] == 0:
+                yield d
+
+    def threeprime(self):
+        for d in self.defines.keys():
+            if len(self.edges[d]) == 1 and self.defines[d][1] == self.length:
                 yield d
 
     def interior_loops(self):

@@ -104,7 +104,6 @@ class StemStat:
         if len(line) > 0:
             self.parse_line(line)
 
-
     def parse_line(self, line):
         '''
         Parse a line containing statistics about the shape of a stem.
@@ -297,6 +296,8 @@ class ConstructionStats:
     angle_stats = None
     stem_stats = None
     loop_stats = None
+    fiveprime_stats = None
+    threeprime_stats = None
 
 def get_angle_stats(filename=cbc.Configuration.stats_file):
     '''
@@ -377,6 +378,58 @@ def get_stem_stats(filename=cbc.Configuration.stats_file):
 
     return ConstructionStats.stem_stats
 
+
+def get_fiveprime_stats(filename=cbc.Configuration.stats_file):
+    '''
+    Load the statistics from the file.
+
+    format:
+
+    fiveprime pdb_name bp_length phys_length
+
+    @param filename: The name of the file.
+    '''
+    if ConstructionStats.fiveprime_stats != None:
+        return ConstructionStats.fiveprime_stats
+
+    ConstructionStats.fiveprime_stats = c.defaultdict(list)
+
+    f = open(filename, 'r')
+
+    for line in f:
+        if line.strip().find('5prime') == 0:
+            fiveprime_stat = LoopStat(line)
+            ConstructionStats.fiveprime_stats[fiveprime_stat.bp_length] += [fiveprime_stat]
+
+    f.close()
+
+    return ConstructionStats.fiveprime_stats
+
+def get_threeprime_stats(filename=cbc.Configuration.stats_file):
+    '''
+    Load the statistics from the file.
+
+    format:
+
+    threeprime pdb_name bp_length phys_length
+
+    @param filename: The name of the file.
+    '''
+    if ConstructionStats.threeprime_stats != None:
+        return ConstructionStats.threeprime_stats
+
+    ConstructionStats.threeprime_stats = c.defaultdict(list)
+
+    f = open(filename, 'r')
+
+    for line in f:
+        if line.strip().find('3prime') == 0:
+            threeprime_stat = LoopStat(line)
+            ConstructionStats.threeprime_stats[threeprime_stat.bp_length] += [threeprime_stat]
+
+    f.close()
+
+    return ConstructionStats.threeprime_stats
 
 def get_loop_stats(filename=cbc.Configuration.stats_file):
     '''

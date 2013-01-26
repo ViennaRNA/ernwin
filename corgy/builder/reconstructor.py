@@ -1069,3 +1069,95 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
 
             chain.add(e)
     pass
+
+def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
+    '''
+    Reconstruct a 5' unpaired region with the fragment its statistics were derived from.
+
+    @param chain: The chain containing the reconstructed stems.
+    @param sm: The SpatialModel containing the information about the sampled
+        stems and angles
+    @param ld: The name of the loop to reconstruct.
+    '''
+
+    fiveprime_def = sm.fiveprime_defs[ld]
+
+    if fiveprime_def.define[1] - fiveprime_def.define[0] == 1:
+        return
+
+    cud.pv('fiveprime_def.define')
+
+    # the file containing the pdb coordinates of this fragment
+    filename = '%s_%s.pdb' % (fiveprime_def.pdb_name, "_".join(map(str, fiveprime_def.define)))
+    filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+    cud.pv('filename')
+
+    # do some caching while loading the filename
+    if filename in fragment_library.keys():
+        source_chain = fragment_library[filename].copy()
+    else:
+        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        fragment_library[filename] = source_chain
+
+    align_source_to_target_fragment(chain, source_chain, sm, fiveprime_def, ld)
+
+    # add the new chain to the old one
+    for j in range(0, len(fiveprime_def.define), 2):
+        for k in range(fiveprime_def.define[j], fiveprime_def.define[j+1]+1):
+            target_index = sm.bg.defines[ld][j] + k - fiveprime_def.define[j]
+
+            if target_index in chain:
+                print >> sys.stderr, "detaching...", target_index
+                chain.detach_child(chain[target_index].id)
+
+            e = source_chain[k]
+            e.id = (e.id[0], target_index, e.id[2])
+
+            chain.add(e)
+    pass
+
+def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict()):
+    '''
+    Reconstruct a 5' unpaired region with the fragment its statistics were derived from.
+
+    @param chain: The chain containing the reconstructed stems.
+    @param sm: The SpatialModel containing the information about the sampled
+        stems and angles
+    @param ld: The name of the loop to reconstruct.
+    '''
+
+    threeprime_def = sm.threeprime_defs[ld]
+
+    if threeprime_def.define[1] - threeprime_def.define[0] == 1:
+        return
+
+    cud.pv('threeprime_def.define')
+
+    # the file containing the pdb coordinates of this fragment
+    filename = '%s_%s.pdb' % (threeprime_def.pdb_name, "_".join(map(str, threeprime_def.define)))
+    filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+    cud.pv('filename')
+
+    # do some caching while loading the filename
+    if filename in fragment_library.keys():
+        source_chain = fragment_library[filename].copy()
+    else:
+        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        fragment_library[filename] = source_chain
+
+    align_source_to_target_fragment(chain, source_chain, sm, threeprime_def, ld)
+
+    # add the new chain to the old one
+    for j in range(0, len(threeprime_def.define), 2):
+        for k in range(threeprime_def.define[j], threeprime_def.define[j+1]+1):
+            target_index = sm.bg.defines[ld][j] + k - threeprime_def.define[j]
+
+            if target_index in chain:
+                print >> sys.stderr, "detaching...", target_index
+                chain.detach_child(chain[target_index].id)
+
+            e = source_chain[k]
+            e.id = (e.id[0], target_index, e.id[2])
+
+            chain.add(e)
+    pass

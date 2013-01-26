@@ -255,6 +255,9 @@ class SpatialModel:
         self.angle_stats = cbs.get_angle_stats()
         self.stem_stats = cbs.get_stem_stats()
         self.loop_stats = cbs.get_loop_stats()
+        self.fiveprime_stats = cbs.get_fiveprime_stats()
+        self.threeprime_stats = cbs.get_threeprime_stats()
+
         self.stems = dict()
         self.bulges = dict()
         self.chain = bpdb.Chain.Chain(' ')
@@ -269,6 +272,8 @@ class SpatialModel:
         self.sample_angles()
         self.sample_stems()
         self.sample_loops()
+        self.sample_fiveprime()
+        self.sample_threeprime()
 
     def sample_angles(self):
         '''
@@ -386,6 +391,19 @@ class SpatialModel:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.loop_defs[l] = ls
 
+        self.fiveprime_defs = dict()
+        for l in self.bg.fiveprime():
+            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            for ls in self.fiveprime_stats[sl]:
+                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
+                    self.fiveprime_defs[l] = ls
+
+        self.threeprime_defs = dict()
+        for l in self.bg.threeprime():
+            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            for ls in self.threeprime_stats[sl]:
+                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
+                    self.threeprime_defs[l] = ls
 
     def create_native_stem_models(self):
         '''
@@ -424,6 +442,52 @@ class SpatialModel:
             loop_defs[d] = ls
 
         self.loop_defs = loop_defs
+
+    def sample_fiveprime(self):
+        '''
+        Sample statistics for the 5' unpaired region.
+
+        @return: A dictionary containing statistics about the 5' unpaired regions in the structure.
+        '''
+        fiveprime_defs = dict()
+
+        for d in self.bg.fiveprime():
+            define = self.bg.defines[d]
+            length = abs(define[1] - define[0])
+
+            # retrieve a random entry from the StemStatsDict collection
+            try:
+                ls = choice(self.fiveprime_stats[length])
+            except IndexError:
+                print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
+                sys.exit(1)
+
+            fiveprime_defs[d] = ls
+
+        self.fiveprime_defs = fiveprime_defs
+
+    def sample_threeprime(self):
+        '''
+        Sample statistics for the 3' unpaired region.
+
+        @return: A dictionary containing statistics about the 3' unpaired regions in the structure.
+        '''
+        threeprime_defs = dict()
+
+        for d in self.bg.threeprime():
+            define = self.bg.defines[d]
+            length = abs(define[1] - define[0])
+
+            # retrieve a random entry from the StemStatsDict collection
+            try:
+                ls = choice(self.threeprime_stats[length])
+            except IndexError:
+                print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
+                sys.exit(1)
+
+            threeprime_defs[d] = ls
+
+        self.threeprime_defs = threeprime_defs
 
     def add_loop(self, name, prev_stem_node, params=None):
         '''
@@ -474,6 +538,14 @@ class SpatialModel:
 
     def save_sampled_loops(self):
         for sd in self.loop_defs.items():
+            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
+
+    def save_sampled_fiveprimes(self):
+        for sd in self.fiveprime_defs.items():
+            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
+
+    def save_sampled_threeprimes(self):
+        for sd in self.threeprime_defs.items():
             self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
 
     def get_transform(self, edge):
@@ -643,6 +715,8 @@ class SpatialModel:
         self.save_sampled_stems()
         self.save_sampled_angles()
         self.save_sampled_loops()
+        self.save_sampled_fiveprimes()
+        self.save_sampled_threeprimes()
 
     def traverse_and_build(self, start=''):
         '''
