@@ -29,7 +29,7 @@ def output_stems(bg, chain):
 
             bg.coords[d] = (mids[0], mids[1])
             bg.twists[d] = (twists[0], twists[1])
-            bg.sampled_stems[d] = [bg.name] + bg.defines[d]
+            bg.sampled[d] = [bg.name] + bg.defines[d]
             #print_segment(mids[0].get_array(), mids[1].get_array(), "green", 2.4, d)
 
 def output_bulges(bg, chain):

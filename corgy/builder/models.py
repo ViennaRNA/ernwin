@@ -165,18 +165,12 @@ def align_chain_to_stem(chain, define, stem2):
     rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
     translate_chain(chain, stem2.mids[0] - stem1.mids[0])
 
-def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
+def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), stem=None):
     '''
     Reconstruct a particular stem.
     '''
-    if stem is None:
-        stem = sm.stems[stem_name]
-
-    stem_def = sm.stem_defs[stem_name]
-
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
     cud.pv('filename')
-    #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
     #print len(stem_library.keys())
@@ -191,21 +185,30 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
 
     for i in range(stem_def.bp_length+1):
         #print "i:", i
-        if sm.bg.defines[stem_name][0] + i in new_chain:
-            new_chain.detach_child(new_chain[sm.bg.defines[stem_name][0] + i].id)
+        if orig_def[0] + i in new_chain:
+            new_chain.detach_child(new_chain[orig_def[0] + i].id)
 
         e = chain[stem_def.define[0] + i]
-        e.id = (e.id[0], sm.bg.defines[stem_name][0] + i, e.id[2])
+        e.id = (e.id[0], orig_def[0] + i, e.id[2])
         #print "adding:", e.id
         new_chain.add(e)
 
-        if sm.bg.defines[stem_name][2] + i in new_chain:
-            new_chain.detach_child(new_chain[sm.bg.defines[stem_name][2] + i].id)
+        if orig_def[2] + i in new_chain:
+            new_chain.detach_child(new_chain[orig_def[2] + i].id)
 
         e = chain[stem_def.define[2] + i]
-        e.id = (e.id[0], sm.bg.defines[stem_name][2] + i, e.id[2])
+        e.id = (e.id[0], orig_def[2] + i, e.id[2])
         #print "adding:", e.id
         new_chain.add(e)
+
+def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
+    if stem is None:
+        stem = sm.stems[stem_name]
+
+    stem_def = sm.stem_defs[stem_name]
+    orig_def = sm.bg.defines[stem_name]
+
+    return reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library, stem)
 
 def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e)):
     '''

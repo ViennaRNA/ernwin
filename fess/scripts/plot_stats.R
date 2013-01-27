@@ -7,14 +7,15 @@ tb1 <- tb[tb$V1=='angle',]
 
 unique(t1[t1$V3==3,]$V4)
 
-s1=2
-s2=2
+s1=4
+s2=5
+
 ta2 <- ta1[ta1$V3 == s1 & ta1$V4 == s2,]
 tb2 <- tb1[tb1$V3 == s1 & tb1$V4 == s2,]
 
-plot(ta2$V5, ta2$V6, xlim=c(0, 3.14), ylim=c(-3.14, 3.14), col='red')
+plot(ta2$V5 ~ ta2$V6, ylim=c(0, 3.14), xlim=c(-3.14, 3.14), col='red')
 par(new=T)
-plot(tb2$V5, tb2$V6, xlim=c(0, 3.14), ylim=c(-3.14, 3.14), col='blue')
+plot(tb2$V5 ~ tb2$V6, ylim=c(0, 3.14), xlim=c(-3.14, 3.14), col='blue')
 
 foo <- t2$V8
 max(foo)

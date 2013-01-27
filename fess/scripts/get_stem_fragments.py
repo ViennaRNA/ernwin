@@ -69,10 +69,8 @@ def main():
 
     for stat in stats:
         for sl in stat.values():
-            cud.pv('type(sl)')
             t = sl
             if type(sl) == c.defaultdict:
-                print >> sys.stderr, "YO"
                 t = []
                 #pdb.set_trace()
                 for k1 in sl.keys():

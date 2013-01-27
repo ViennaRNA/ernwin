@@ -40,7 +40,7 @@ def get_measurement_vectors2(ress, r1, r2):
             ress[r2]['C1*'].get_vector().get_array(),
             ress[r2]['C2*'].get_vector().get_array())
 
-def pdb_rmsd(c1, c2):
+def pdb_rmsd(c1, c2, backbone=True, superimpose=True):
     '''
     Calculate the all-atom rmsd between two RNA chains.
 
@@ -66,8 +66,12 @@ def pdb_rmsd(c1, c2):
         print >>sys.stderr, "Chains of different length"
         raise Exception("Chains of different length.")
 
-    for i in range(1, len(list(c1.get_list()))+1):
-        anames = a_5_names + a_names[c1[i].resname.strip()] + a_3_names
+    #for i in range(1, len(list(c1.get_list()))+1):
+    for i in [r.id[1] for r in c1.get_residues()]:
+        if backbone:
+            anames = a_5_names + a_names[c1[i].resname.strip()] + a_3_names
+        else:
+            anames = a_5_names + a_3_names
         #anames = a_5_names + a_3_names
 
         try:
@@ -85,10 +89,18 @@ def pdb_rmsd(c1, c2):
         all_atoms2 += atoms2
 
     #print "rmsd len:", len(all_atoms1), len(all_atoms2)
-    sup = bpdb.Superimposer()
-    sup.set_atoms(all_atoms1, all_atoms2)
+    if superimpose:
+        sup = bpdb.Superimposer()
+        sup.set_atoms(all_atoms1, all_atoms2)
 
-    return (len(all_atoms1), sup.rms)
+        sup.apply(c2.get_atoms())
+
+        return (len(all_atoms1), sup.rms)
+    else:
+        crvs1 = np.array([a.get_vector().get_array() for a in all_atoms1])
+        crvs2 = np.array([a.get_vector().get_array() for a in all_atoms2])
+
+        return (len(all_atoms1), brmsd.rmsd(crvs1, crvs2))
 
 def rotate_stem(stem, (u, v, t)):
     '''
