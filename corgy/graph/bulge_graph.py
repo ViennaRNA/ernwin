@@ -669,6 +669,8 @@ class BulgeGraph:
         prev_stem = self.connections(bulge)[0]
         c = self.connections(bulge)
 
+        #cud.pv('bulge')
+
         (s1b, s1e) = self.get_sides(c[0], bulge)
         (s2b, s2e) = self.get_sides(c[1], bulge)
 
@@ -688,13 +690,6 @@ class BulgeGraph:
             if bd[0] == self.defines[prev_stem][1]:
                 return dims
             else:
-                '''
-                cud.pv('bulge')
-                cud.pv('(bd[0], bd[1])')
-                cud.pv('self.defines[c[0]]')
-                cud.pv('self.defines[c[1]]')
-                cud.pv('(s1b, s2b)')
-                '''
                 assert(bd[1] == self.defines[prev_stem][2])
                 return (dims[1], dims[0])
 
@@ -768,7 +763,7 @@ class BulgeGraph:
     
     def bulges(self):
         for d in self.defines.keys():
-            if len(self.edges[d]) == 2:
+            if d[0] != 's' and len(self.edges[d]) == 2:
                 yield d
 
     def loops(self):

@@ -63,6 +63,8 @@ def pdb_rmsd(c1, c2):
     all_atoms2 = []
 
     if len(c1.get_list()) != len(c2.get_list()):
+        cud.pv('len(c1.get_list())')
+        cud.pv('len(c2.get_list())')
         print >>sys.stderr, "Chains of different length"
         raise Exception("Chains of different length.")
 
@@ -538,20 +540,11 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
     c1_target = np.array(c1_target)
     c1_sampled = np.array(c1_sampled)
         '''
-
-    #cud.pv('target')
-    #cud.pv('sampled')
-    #cud.pv('handles')
-    #cud.pv('c1_target')
-    #cud.pv('c1_sampled')
     #return cbc.calc_rmsd(np.array(c1_target), np.array(c1_sampled))
     #return math.sqrt(sum([c ** 2 for c in c1_sampled - c1_target]))
     distances = [cuv.magnitude((sampled - target)[i]) for i in range(len(sampled))]
     rmsd = cuv.vector_set_rmsd(sampled, target)
-    #cud.pv('distances')
     #dist = math.sqrt(sum([cuv.magnitude((sampled - target)[i]) ** 2 for i in range(len(sampled))]))
-    #cud.pv('(dist, rmsd)')
-    #cud.pv('rmsd')
     return rmsd
     #return cuv.magnitude(sampled - target)
 
@@ -949,8 +942,6 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
 
     (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
 
-    cud.pv('(ld, sd, bd)')
-
     t_v = (target_chain[sm.bg.defines[connections[0]][sd]]['C3*'].get_vector().get_array(),
            target_chain[sm.bg.defines[connections[0]][sd]]['C4*'].get_vector().get_array(), 
            target_chain[sm.bg.defines[connections[0]][sd]]['O4*'].get_vector().get_array())
@@ -970,9 +961,6 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
     for atom in bpdb.Selection.unfold_entities(source_chain, 'A'):
         atom.transform(np.eye(3,3), -s_centroid)
         atom.transform(sup, t_centroid)
-
-    cud.pv('(sd, bd)')
-    cud.pv('angle_def.define')
 
     pass
 
@@ -998,7 +986,6 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (angle_def.pdb_name, "_".join(map(str, angle_def.define)))
     filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
-    cud.pv('filename')
 
     # do some caching while loading the filename
     if filename in fragment_library.keys():
@@ -1009,13 +996,26 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
 
     align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
 
+    connections = sm.bg.connections(ld)
+    (s1b, s1e) = sm.bg.get_sides(connections[0], ld)
+    (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
+
+    d = angle_def.define
+    d1 = sm.bg.defines[ld]
+
     # add the new chain to the old one
     for j in range(0, len(angle_def.define), 2):
+        #bd = sm.bg.get_bulge_dimensions(ld)
+        if len(d) == 4:
+            bd = (d1[1] - d1[0], d1[3] - d1[2])
         for k in range(angle_def.define[j], angle_def.define[j+1]+1):
             target_index = sm.bg.defines[ld][j] + k - angle_def.define[j]
+            if len(d) == 4:
+                if bd != (d[1] - d[0], d[3] - d[2]):
+                    target_index = sm.bg.defines[ld][(j+2) % 4] + k - angle_def.define[j]
 
             if target_index in chain:
-                print >> sys.stderr, "detaching...", target_index
+                #print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]
@@ -1039,12 +1039,9 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     if loop_def.define[1] - loop_def.define[0] == 1:
         return
 
-    cud.pv('loop_def.define')
-
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (loop_def.pdb_name, "_".join(map(str, loop_def.define)))
     filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
-    cud.pv('filename')
 
     # do some caching while loading the filename
     if filename in fragment_library.keys():
@@ -1061,7 +1058,7 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
             target_index = sm.bg.defines[ld][j] + k - loop_def.define[j]
 
             if target_index in chain:
-                print >> sys.stderr, "detaching...", target_index
+                #print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]
@@ -1085,12 +1082,10 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
     if fiveprime_def.define[1] - fiveprime_def.define[0] == 1:
         return
 
-    cud.pv('fiveprime_def.define')
 
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (fiveprime_def.pdb_name, "_".join(map(str, fiveprime_def.define)))
     filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
-    cud.pv('filename')
 
     # do some caching while loading the filename
     if filename in fragment_library.keys():
@@ -1103,11 +1098,11 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
 
     # add the new chain to the old one
     for j in range(0, len(fiveprime_def.define), 2):
-        for k in range(fiveprime_def.define[j], fiveprime_def.define[j+1]+1):
+        for k in range(max(fiveprime_def.define[j],1), fiveprime_def.define[j+1]+1):
             target_index = sm.bg.defines[ld][j] + k - fiveprime_def.define[j]
 
             if target_index in chain:
-                print >> sys.stderr, "detaching...", target_index
+                #print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]
@@ -1128,15 +1123,9 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
 
     threeprime_def = sm.threeprime_defs[ld]
 
-    if threeprime_def.define[1] - threeprime_def.define[0] == 1:
-        return
-
-    cud.pv('threeprime_def.define')
-
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (threeprime_def.pdb_name, "_".join(map(str, threeprime_def.define)))
     filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
-    cud.pv('filename')
 
     # do some caching while loading the filename
     if filename in fragment_library.keys():
@@ -1153,7 +1142,7 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
             target_index = sm.bg.defines[ld][j] + k - threeprime_def.define[j]
 
             if target_index in chain:
-                print >> sys.stderr, "detaching...", target_index
+                #print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]

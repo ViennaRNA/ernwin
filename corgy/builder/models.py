@@ -2,6 +2,7 @@
 
 import Bio.PDB as bpdb
 import os
+import warnings
 import numpy as np
 import numpy.linalg as nl
 import math
@@ -175,7 +176,6 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     stem_def = sm.stem_defs[stem_name]
 
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-    cud.pv('filename')
     #print "stem_name:", stem_name, "stem_def:", stem_def, "filename:", filename
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
@@ -184,7 +184,9 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     #if False:
         chain = stem_library[filename].copy()
     else:
-        chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         stem_library[filename] = chain.copy()
 
     align_chain_to_stem(chain, stem_def.define, stem)
@@ -381,6 +383,7 @@ class SpatialModel:
 
             sb = self.bg.sampled[b]
             for ang_s in self.angle_stats[size[0]][size[1]][sb[1]][sb[2]]:
+                #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[3:]:
                     self.angle_defs[b][sb[1]][sb[2]] = ang_s
 

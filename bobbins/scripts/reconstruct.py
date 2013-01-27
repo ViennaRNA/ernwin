@@ -6,6 +6,8 @@ from optparse import OptionParser
 import corgy.builder.reconstructor as rtor 
 import corgy.builder.models as models
 
+import corgy.utilities.debug as cud
+
 from corgy.graph.bulge_graph import BulgeGraph
 
 def main():
@@ -30,12 +32,12 @@ def main():
 
     chain = rtor.reconstruct_stems(sm)
 
-
     if options.loops:
         if options.fragments:
             sm.sampled_from_bg()
 
             for b in sm.bg.bulges():
+                print >>sys.stderr, "reconstructing...", b
                 rtor.reconstruct_bulge_with_fragment(chain, sm, b)
             for l in sm.bg.loops():
                 rtor.reconstruct_loop_with_fragment(chain, sm, l)

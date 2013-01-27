@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 import sys
+import warnings
+
 from optparse import OptionParser
 
 import Bio.PDB as bpdb
@@ -19,8 +21,11 @@ def main():
         print >>sys.stderr, "Usage: ./calc_pdb_rmsd.py pdb_file1 pdb_file2"
         sys.exit(1)
 
-    s1= bpdb.PDBParser().get_structure('t', args[0])
-    s2= bpdb.PDBParser().get_structure('t', args[1])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        s1= bpdb.PDBParser().get_structure('t', args[0])
+        s2= bpdb.PDBParser().get_structure('t', args[1])
 
     c1 = list(s1.get_chains())[0]
     c2 = list(s2.get_chains())[0]
