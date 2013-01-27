@@ -8,6 +8,8 @@ import corgy.builder.config as cbc
 import corgy.builder.models as cbm
 import corgy.builder.reconstructor as rtor
 import corgy.utilities.debug as cud
+import corgy.visual.pymol as cvp
+
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
 
@@ -48,6 +50,11 @@ def main():
     cud.pv('rtor.pdb_rmsd(chain, new_chain, backbone=False, superimpose=True)')
     rtor.output_chain(new_chain, 'out2.pdb')
 
+    pp = cvp.PymolPrinter()
+    (p,n) = m.mids
+    pp.add_stem_like_core(m.mids, m.twists, stem_length+1, '')
+    pp.stem_atoms(m.mids, m.twists, stem_length+1)
+    pp.dump_pymol_file('ss')
 
 if __name__ == '__main__':
     main()

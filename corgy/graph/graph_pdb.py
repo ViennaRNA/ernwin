@@ -516,7 +516,7 @@ def get_helix_vector(chain, start1, start2, end1, end2):
     (mid1, mid2) = get_mids(chain, start1, start2, end1, end2)
     return mid2 - mid1
 
-def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
+def virtual_res_3d_pos_core(coords, twists, i, stem_len, stem_inv = None):
     '''
     Calculate the virtual position of the i'th nucleotide in the stem.
 
@@ -532,19 +532,18 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
              residue.
     '''
     #stem_len = bg.defines[stem][1] - bg.defines[stem][0] + 1
-    stem_len = bg.stem_length(stem)
-    stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
+    stem_vec = coords[1] - coords[0]
 
     # the position of the virtual residue along the axis of
     # the stem
-    vres_stem_pos = bg.coords[stem][0] + (i / float(stem_len-1)) * stem_vec
+    vres_stem_pos = coords[0] + (i / float(stem_len-1)) * stem_vec
 
     # the angle of the second twist with respect to the first
     if stem_inv == None:
-        stem_basis = cuv.create_orthonormal_basis(stem_vec, bg.get_twists(stem)[0])
-        t2 = cuv.change_basis(bg.get_twists(stem)[1], stem_basis, cuv.standard_basis)
+        stem_basis = cuv.create_orthonormal_basis(stem_vec, twists[0])
+        t2 = cuv.change_basis(twists[1], stem_basis, cuv.standard_basis)
     else:
-        t2 = np.dot(stem_inv, bg.get_twists(stem)[1])
+        t2 = np.dot(stem_inv, twists[1])
 
     ang = cum.atan3(t2[2], t2[1])
     # the nts_per_2pi_twist need to be calculated separately 
@@ -562,8 +561,8 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
 
     # the basis vectors for the helix along which the
     # virtual residues will residue
-    u = bg.get_twists(stem)[0]
-    v = cuv.normalize(np.cross(stem_vec, bg.get_twists(stem)[0]))
+    u = twists[0]
+    v = cuv.normalize(np.cross(stem_vec, twists[0]))
     
     ang_offset = 0.9
     # equation for a circle in 3-space
@@ -571,6 +570,9 @@ def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
             u * m.cos(ang) + v * m.sin(ang),
             u * m.cos(ang + ang_offset) + v * m.sin(ang + ang_offset),
             u * m.cos(ang - ang_offset) + v * m.sin(ang - ang_offset))
+
+def virtual_res_3d_pos(bg, stem, i, stem_inv = None):
+    return virtual_res_3d_pos_core(bg.coords[stem], bg.twists[stem], i, bg.stem_length(stem), stem_inv)
 
 def bg_virtual_residues(bg):
     vress = []
@@ -582,7 +584,7 @@ def bg_virtual_residues(bg):
 
     return np.array(vress)
 
-def virtual_res_basis(bg, stem, i, vec = None):
+def virtual_res_basis_core(coords, twists, i, stem_len, vec = None):
     '''
     Define a basis based on the location of a virtual stem residue.
 
@@ -597,11 +599,15 @@ def virtual_res_basis(bg, stem, i, vec = None):
     '''
 
     if vec == None:
-        (pos, vec, vec_l, vec_r) = virtual_res_3d_pos(bg, stem, i)
+        (pos, vec, vec_l, vec_r) = virtual_res_3d_pos_core(coords, twists, i, stem_len)
 
-    stem_vec = bg.coords[stem][1] - bg.coords[stem][0]
+    stem_vec = coords[1] - coords[0]
 
     return cuv.create_orthonormal_basis(stem_vec, vec)
+
+def virtual_res_basis(bg, stem, i, vec = None):
+    return virtual_res_basis_core(bg.coords[stem], bg.twists[stem], i, bg.stem_length(stem), vec)
+
 
 def pos_to_spos(bg, s1, i1, s2, i2):
     '''

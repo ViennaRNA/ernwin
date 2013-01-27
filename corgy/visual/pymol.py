@@ -7,6 +7,7 @@ import numpy as np
 import uuid
 
 import corgy.graph.graph_pdb as cgg
+import corgy.utilities.average_stem_vres_atom_positions as cua
 import corgy.utilities.debug as cud
 import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
@@ -288,13 +289,15 @@ class PymolPrinter:
         return out_str
 
 
-    def add_stem_like(self, bg, key, color = 'green', width=2.4):
-        (p, n) = bg.coords[key]
+    def add_stem_like_core(self, coords, twists, stem_len, key, color = 'green', width=2.4):
+        (p, n) = coords
+        (twist1o, twist2o) = twists
+
         self.add_segment(p, n, color, width, key)
 
         if self.add_twists:
-            twist1o = bg.get_twists(key)[0]
-            twist2o = bg.get_twists(key)[1]
+            #twist1o = bg.get_twists(key)[0]
+            #twist2o = bg.get_twists(key)[1]
 
             twist_rot_mat_l = cuv.rotation_matrix(n - p, -(1.45 / 2.))
             twist_rot_mat_r = cuv.rotation_matrix(n - p, (1.45 / 2.))
@@ -315,11 +318,11 @@ class PymolPrinter:
             self.add_segment(p, p + mult * twist3, "red", width, '')
             self.add_segment(n, n + mult * twist4, "red", width, '')
 
-        stem_len = bg.stem_length(key)
+        #stem_len = bg.stem_length(key)
 
         for i in range(stem_len):
             #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
-            (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos(bg, key, i)
+            (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos_core((p,n), twists, i, stem_len)
             self.add_segment(pos, pos + mult * vec_c, "blue", width, '')
             self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
             self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
@@ -328,6 +331,9 @@ class PymolPrinter:
         self.add_sphere(p + mult * twist1, "white", width, key)
         self.add_sphere(n + mult * twist2, "white", width, key)
         '''
+
+    def add_stem_like(self, bg, key, color = 'green', width=2.4):
+        return self.add_stem_like_core(bg.coords[key], bg.twists[key], bg.stem_length(key), key, color, width)
 
     def draw_bounding_boxes(self, bg, s):
         '''
@@ -528,6 +534,33 @@ class PymolPrinter:
                     else:
                         self.add_sphere(p, "yellow", 1.5, key)
 
+    def stem_atoms(self, coords, twists, stem_len):
+        '''
+        Add the locations of the virtual atoms as spheres.
+
+        @param coords: The start and end coordinates of the stem.
+        @param twists: The two twists of the stem.
+        @param stem_len: The length of the stem.
+        '''
+        prev_p = [None, None]
+        colors = ['yellow', 'purple']
+
+        for i in range(stem_len):
+            vbasis = cgg.virtual_res_basis_core(coords, twists, i, stem_len)
+            vpos = cgg.virtual_res_3d_pos_core(coords, twists, i, stem_len)
+
+            # iterate once for each strand
+            for j in range(2):
+                # just use A for now
+                for a in cua.avg_stem_vres_atom_coords[j]['A'].items():
+                    c = a[1]
+                    new_coords = np.dot(vbasis.transpose(), c) + vpos[0]
+                    #self.add_sphere(new_coords, colors[j], 0.3)
+
+                    if a[0] == 'P':
+                        if prev_p[j] != None:
+                            self.add_segment(prev_p[j], new_coords, colors[j], 0.7)
+                        prev_p[j] = new_coords
 
 def print_angle_stats():
     angles = []
