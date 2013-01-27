@@ -63,6 +63,7 @@ def main():
     if len(args) < 1:
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
+    cud.pv('args')
 
     if options.secondary_structure:
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"

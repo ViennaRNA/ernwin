@@ -570,10 +570,8 @@ class TestReconstructor(unittest.TestCase):
         print "file load time:", time.time() - t1
 
 
-    def test_reconstruct_bulge_fragment(self):
+    def test_reconstruct_bulge_with_fragment(self):
         bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
-
-        bg2 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
 
         sm1 = cbm.SpatialModel(bg1)
 
@@ -584,7 +582,7 @@ class TestReconstructor(unittest.TestCase):
 
         for b in sm1.bg.bulges():
             print >> sys.stderr, "reconstructing....", b
-            rtor.reconstruct_loop_with_fragment(chain, sm1, b)
+            rtor.reconstruct_bulge_with_fragment(chain, sm1, b)
         '''
         cud.pv('sm1.angle_defs["b0"][0]')
         rtor.reconstruct_loop_with_fragment(chain, sm1, 'b0')
@@ -594,3 +592,67 @@ class TestReconstructor(unittest.TestCase):
         sm1.bg.output('out.coord')
 
         # create stem stats
+
+    def test_reconstruct_loop_with_fragment(self):
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+
+        sm1 = cbm.SpatialModel(bg1)
+
+        sm1.sample_stats()
+        sm1.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm1)
+        rtor.replace_bases(chain, sm1.bg.seq)
+
+        for b in sm1.bg.loops():
+            print >> sys.stderr, "reconstructing....", b
+            rtor.reconstruct_loop_with_fragment(chain, sm1, b)
+        '''
+        cud.pv('sm1.angle_defs["b0"][0]')
+        rtor.reconstruct_loop_with_fragment(chain, sm1, 'b0')
+        '''
+
+        rtor.output_chain(chain, 'out.pdb')
+        sm1.bg.output('out.coord')
+
+    def test_reconstruct_fiveprime_with_fragment(self):
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+
+        sm1 = cbm.SpatialModel(bg1)
+
+        sm1.sample_stats()
+        sm1.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm1)
+        rtor.replace_bases(chain, sm1.bg.seq)
+
+        for b in sm1.bg.fiveprime():
+            print >> sys.stderr, "reconstructing....", b
+            rtor.reconstruct_fiveprime_with_fragment(chain, sm1, b)
+        '''
+        cud.pv('sm1.angle_defs["b0"][0]')
+        rtor.reconstruct_loop_with_fragment(chain, sm1, 'b0')
+        '''
+
+        rtor.output_chain(chain, 'out.pdb')
+        sm1.bg.output('out.coord')
+
+    def test_reconstruct_threeprime_with_fragment(self):
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+
+        sm1 = cbm.SpatialModel(bg1)
+
+        sm1.sample_stats()
+        sm1.traverse_and_build()
+        chain = rtor.reconstruct_stems(sm1)
+        rtor.replace_bases(chain, sm1.bg.seq)
+
+        for b in sm1.bg.threeprime():
+            print >> sys.stderr, "reconstructing....", b
+            rtor.reconstruct_threeprime_with_fragment(chain, sm1, b)
+        '''
+        cud.pv('sm1.angle_defs["b0"][0]')
+        rtor.reconstruct_loop_with_fragment(chain, sm1, 'b0')
+        '''
+
+        rtor.output_chain(chain, 'out.pdb')
+        sm1.bg.output('out.coord')
+

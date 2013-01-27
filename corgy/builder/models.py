@@ -2,6 +2,7 @@
 
 import Bio.PDB as bpdb
 import os
+import warnings
 import numpy as np
 import numpy.linalg as nl
 import math
@@ -170,7 +171,6 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     Reconstruct a particular stem.
     '''
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-    cud.pv('filename')
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
     #print len(stem_library.keys())
@@ -178,7 +178,9 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     #if False:
         chain = stem_library[filename].copy()
     else:
-        chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         stem_library[filename] = chain.copy()
 
     align_chain_to_stem(chain, stem_def.define, stem)
@@ -258,6 +260,9 @@ class SpatialModel:
         self.angle_stats = cbs.get_angle_stats()
         self.stem_stats = cbs.get_stem_stats()
         self.loop_stats = cbs.get_loop_stats()
+        self.fiveprime_stats = cbs.get_fiveprime_stats()
+        self.threeprime_stats = cbs.get_threeprime_stats()
+
         self.stems = dict()
         self.bulges = dict()
         self.chain = bpdb.Chain.Chain(' ')
@@ -272,6 +277,8 @@ class SpatialModel:
         self.sample_angles()
         self.sample_stems()
         self.sample_loops()
+        self.sample_fiveprime()
+        self.sample_threeprime()
 
     def sample_angles(self):
         '''
@@ -281,8 +288,10 @@ class SpatialModel:
             statistic for the angles of that bulge.
         '''
         angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
+        '''
         angle_defs['start'][0][1] = cbs.AngleStat()
         angle_defs['start'][1][0] = cbs.AngleStat()
+        '''
 
         for d in self.bg.defines.keys():
             if d[0] != 's': 
@@ -307,9 +316,11 @@ class SpatialModel:
                         angle_defs[d][s2b][s1b] = choice(self.angle_stats[size[0]][size[1]][s2b][s1b])
                     except IndexError:
                         print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
+                '''
                 else:
                     angle_defs[d][0][0] = cbs.AngleStat()
                     pass
+                '''
 
         self.angle_defs = angle_defs
 
@@ -348,14 +359,57 @@ class SpatialModel:
         '''
         for stats in self.stem_stats.values():
             for stat in stats:
-                for d in self.bg.sampled_stems.keys():
+                for d in self.bg.sampled.keys():
                     if d[0] == 's':
-                        if stat.pdb_name == self.bg.sampled_stems[d][0]:
+                        if stat.pdb_name == self.bg.sampled[d][0]:
                             #define = " ".join(map(str,self.bg.defines[d]))
-                            if stat.define == self.bg.sampled_stems[d][1:]:
+                            if stat.define == self.bg.sampled[d][1:]:
                                 stem_defs[d] = stat
 
         self.stem_defs = stem_defs
+
+    def sampled_from_bg(self):
+        '''
+        Get the information about the sampled elements from the underlying BulgeGraph.
+        '''
+        # get the stem defs
+        self.stem_defs = dict()
+        for s in self.bg.stems():
+            sl = self.bg.stem_length(s)
+            for ss in self.stem_stats[sl]:
+                if ss.pdb_name == self.bg.sampled[s][0] and ss.define == self.bg.sampled[s][1:]:
+                    self.stem_defs[s] = ss
+
+        self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
+        for b in self.bg.bulges():
+            size = self.bg.get_bulge_dimensions(b)
+
+            sb = self.bg.sampled[b]
+            for ang_s in self.angle_stats[size[0]][size[1]][sb[1]][sb[2]]:
+                #print >>sys.stderr, "some stuff", b
+                if ang_s.pdb_name == sb[0] and ang_s.define == sb[3:]:
+                    self.angle_defs[b][sb[1]][sb[2]] = ang_s
+
+        self.loop_defs = dict()
+        for l in self.bg.loops():
+            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            for ls in self.loop_stats[sl]:
+                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
+                    self.loop_defs[l] = ls
+
+        self.fiveprime_defs = dict()
+        for l in self.bg.fiveprime():
+            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            for ls in self.fiveprime_stats[sl]:
+                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
+                    self.fiveprime_defs[l] = ls
+
+        self.threeprime_defs = dict()
+        for l in self.bg.threeprime():
+            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            for ls in self.threeprime_stats[sl]:
+                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
+                    self.threeprime_defs[l] = ls
 
     def create_native_stem_models(self):
         '''
@@ -378,24 +432,68 @@ class SpatialModel:
 
         @return: A dictionary containing statistics about the loops in the structure.
         '''
-        return
         loop_defs = dict()
 
-        for d in self.bg.defines.keys():
-            if d[0] != 's' and len(self.bg.edges[d]) == 1:
-                define = self.bg.defines[d]
-                length = abs(define[1] - define[0])
+        for d in self.bg.loops():
+            define = self.bg.defines[d]
+            length = abs(define[1] - define[0])
 
-                # retrieve a random entry from the StemStatsDict collection
-                try:
-                    ls = choice(self.loop_stats[length])
-                except IndexError:
-                    print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
-                    sys.exit(1)
+            # retrieve a random entry from the StemStatsDict collection
+            try:
+                ls = choice(self.loop_stats[length])
+            except IndexError:
+                print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
+                sys.exit(1)
 
-                loop_defs[d] = ls
+            loop_defs[d] = ls
 
         self.loop_defs = loop_defs
+
+    def sample_fiveprime(self):
+        '''
+        Sample statistics for the 5' unpaired region.
+
+        @return: A dictionary containing statistics about the 5' unpaired regions in the structure.
+        '''
+        fiveprime_defs = dict()
+
+        for d in self.bg.fiveprime():
+            define = self.bg.defines[d]
+            length = abs(define[1] - define[0])
+
+            # retrieve a random entry from the StemStatsDict collection
+            try:
+                ls = choice(self.fiveprime_stats[length])
+            except IndexError:
+                print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
+                sys.exit(1)
+
+            fiveprime_defs[d] = ls
+
+        self.fiveprime_defs = fiveprime_defs
+
+    def sample_threeprime(self):
+        '''
+        Sample statistics for the 3' unpaired region.
+
+        @return: A dictionary containing statistics about the 3' unpaired regions in the structure.
+        '''
+        threeprime_defs = dict()
+
+        for d in self.bg.threeprime():
+            define = self.bg.defines[d]
+            length = abs(define[1] - define[0])
+
+            # retrieve a random entry from the StemStatsDict collection
+            try:
+                ls = choice(self.threeprime_stats[length])
+            except IndexError:
+                print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
+                sys.exit(1)
+
+            threeprime_defs[d] = ls
+
+        self.threeprime_defs = threeprime_defs
 
     def add_loop(self, name, prev_stem_node, params=None):
         '''
@@ -429,14 +527,32 @@ class SpatialModel:
                     if self.bg.get_sides(edge, define)[0] == 0:
                         return (edge, define, StemModel(edge))
 
-
     def save_sampled_stems(self):
         '''
         Save the information about the sampled stems to the bulge graph file.
         '''
         for sd in self.stem_defs.items():
-            self.bg.sampled_stems[sd[0]] = [sd[1].pdb_name] + sd[1].define
+            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
             #print "self.bg.sampled_stems[sd[0]]:", self.bg.sampled_stems[sd[0]]
+
+    def save_sampled_angles(self):
+        for key0 in self.angle_defs.keys():
+            for key1 in self.angle_defs[key0].keys():
+                for key2 in self.angle_defs[key0][key1].keys():
+                    ad = self.angle_defs[key0][key1][key2]
+                    self.bg.sampled[key0] = [ad.pdb_name] + [key1,key2] + ad.define
+
+    def save_sampled_loops(self):
+        for sd in self.loop_defs.items():
+            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
+
+    def save_sampled_fiveprimes(self):
+        for sd in self.fiveprime_defs.items():
+            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
+
+    def save_sampled_threeprimes(self):
+        for sd in self.threeprime_defs.items():
+            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
 
     def get_transform(self, edge):
         '''
@@ -482,6 +598,9 @@ class SpatialModel:
         '''
         Return a random set of parameters with which to create a bulge.
         '''
+        if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
+            return cbs.AngleStat()
+
         return self.angle_defs[name][s1b][s2b]
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
@@ -600,6 +719,10 @@ class SpatialModel:
         self.fill_in_bulges_and_loops()
         self.elements_to_coords()
         self.save_sampled_stems()
+        self.save_sampled_angles()
+        self.save_sampled_loops()
+        self.save_sampled_fiveprimes()
+        self.save_sampled_threeprimes()
 
     def traverse_and_build(self, start=''):
         '''
@@ -635,7 +758,6 @@ class SpatialModel:
 
         if start == '':
             started = True
-
 
         while len(self.to_visit) > 0:
             self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
