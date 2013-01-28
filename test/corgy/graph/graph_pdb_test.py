@@ -314,10 +314,15 @@ class TestGraphPDBFunctions(unittest.TestCase):
         Test the calculation of the coarse-grain stem model by fitting a circle onto the orthogonal
         rejection of the PDB file onto the stem
         '''
-        s = PDBParser().get_structure('test', os.path.join(Configuration.test_input_dir, "1y26/prepare", "temp.pdb"))
+        s = PDBParser().get_structure('test', os.path.join(Configuration.test_input_dir, "1gid/prepare", "temp.pdb"))
         chain = list(s.get_chains())[0]
-        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
 
-        cgg.stem_vec_from_circle_fit(bg, chain)
+        #cgg.stem_vec_from_circle_fit(bg, chain, stem_name='s8')
+        #return
+
+        for s in bg.stems():
+            cud.pv('(s, bg.stem_length(s))')
+            cgg.stem_vec_from_circle_fit(bg, chain, stem_name=s)
 

@@ -17,6 +17,8 @@ import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
 import corgy.utilities.average_stem_vres_atom_positions as cua
 
+import scipy.optimize as so
+
 catom_name = 'C1*'
 
 def stem_stem_orientation(bg, s1, s2):
@@ -898,33 +900,84 @@ def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None, vvec=None):
         new_atoms[a[0]] = new_coords
     return new_atoms
 
-def calc_R(xc, yc):
+def calc_R(xc, yc, p):
     """ calculate the distance of each 2D points from the center (xc, yc) """
-    return m.sqrt((x - xc) ** 2 + (y - yc)**2)
+    return np.sqrt((p[:,0] - xc) ** 2 + (p[:,1] - yc)**2)
 
-def f_2(c):
+def f_2(c, p):
     """ calculate the algebraic distance between the data points and the mean circle centered at c=(xc, yc) """
-    Ri = calc_R(*c)
+    Ri = calc_R(*c, p=p)
     return Ri - Ri.mean()
 
-def fit_circle(vec, points):
+def circle_error(c, p):
+    errors = f_2(c,p)
+    return sum([e ** 2 for e in errors])
+
+def sum_square(nums):
+    return sum([n ** 2 for n in nums])
+
+def f_3(vec, points, est):
+    """ calculate the optimal circle for the points (p) projected onto
+    the plane orthogonal to v """
+    basis = cuv.create_orthonormal_basis(vec)
+    new_points = cuv.change_basis(points.T, basis, cuv.standard_basis).T
+    p = new_points[:,1:]
+
+    center_estimate = est
+    center_2, ier=so.leastsq(f_2, center_estimate,args=p)
+    r = np.mean(calc_R(*center_2, p=p))
+    #cud.pv('(center_2, r)')
+
+    #cud.pv('circle_error(center_2, p)')
+    return f_2(center_2, p)
+
+def fit_circle(mids, points):
     '''
     Calculate the projection of points on the plane normal to
     vec and fit a circle to them.
     '''
+    vec = mids[1] - mids[0]
     basis = cuv.create_orthonormal_basis(vec)
     new_points = cuv.change_basis(points.T, basis, cuv.standard_basis).T
+    p = new_points[:,1:]
+    f_3(mids[1] - mids[0], points, mids[0][1:]) 
 
-    #cud.pv('points')
-    cud.pv('new_points')
-    cud.pv('new_points[:,1:]')
+    v1, ier=so.leastsq(f_3, mids[1] - mids[0], args=(points, mids[0][1:]), maxfev=10000)
+    #cud.pv('v1')
+    #cud.pv('vec')
+    #cud.pv('sum_square(f_3(v1,  points))')
+    ss1 = sum_square(f_3(v1, points, mids[0][1:]))
+    center_estimate = mids[0][1:]
+    center_2, ier=so.leastsq(f_2, center_estimate,args=(p))
+    r = np.mean(calc_R(*center_2, p=p))
+    #cud.pv('(center_2, r, ier)')
+    #cud.pv('f_2(center_2, p=p)')
+    #cud.pv('f_2(mids[0][1:], p=p)')
+    #cud.pv('f_2(center_2, p=p)')
+    ss2 = sum_square(f_2(center_2, p))
+    ss3 = sum_square(f_2(mids[0][1:], p))
+
+    #cud.pv('sum_square(f_2(center_2, p))')
+    #cud.pv('sum_square(f_2(mids[0][1:], p))')
+    cud.pv('(ss1, ss2, ss3)')
 
     import matplotlib.pyplot as plt
     import pylab as pl
-    plt.plot(new_points[:,1], new_points[:,2])
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1, adjustable='box', aspect=1)
+    ax.plot(new_points[:,1], new_points[:,2], "o")
+    #ax.plot(center_2[0], center_2[1], 'ro')
+
+    mids = cuv.change_basis(np.array(mids).T, basis, cuv.standard_basis).T
+
+    #ax.plot(mids[0][1], mids[0][2], 'go')
+    circle1=plt.Circle(center_2, r,color='r',alpha=0.5)
+    circle2=plt.Circle(mids[0][1:], r,color='y',alpha=0.5)
+    fig.gca().add_artist(circle1)
+    fig.gca().add_artist(circle2)
     plt.show()
 
-def stem_vec_from_circle_fit(bg, chain):
+def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     '''
     Attempt to find the stem direcion vector given a set of atom positions.
 
@@ -938,10 +991,17 @@ def stem_vec_from_circle_fit(bg, chain):
     '''
     start_vec = nr.random(3)
     atom_poss = []
-    stem_name = 's0'
+    #stem_name = 's0'
     for rn in bg.stem_res_numbers(stem_name):
-        atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
+        #atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
+        atom_poss += [chain[rn]['P'].get_vector().get_array()]
+        atom_poss += [chain[rn]['O3*'].get_vector().get_array()]
+        atom_poss += [chain[rn]['C3*'].get_vector().get_array()]
+        atom_poss += [chain[rn]['C4*'].get_vector().get_array()]
+        atom_poss += [chain[rn]['C5*'].get_vector().get_array()]
+        atom_poss += [chain[rn]['O5*'].get_vector().get_array()]
     mids = get_mids(chain, bg.defines[stem_name])
+    # use the original calculation to provide an estimate for the
+    # optimized stem position calculation
     mids = (mids[0].get_array(), mids[1].get_array())
-    cud.pv('mids[1] - mids[0]')
-    fit_circle(mids[1] - mids[0], np.array(atom_poss))
+    fit_circle(mids, np.array(atom_poss))
