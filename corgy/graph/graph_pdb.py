@@ -9,6 +9,8 @@ import collections as co
 import numpy as np
 import numpy.linalg as nl
 import numpy.testing as nt
+import numpy.random as nr
+
 import corgy.utilities.debug as cud
 import corgy.utilities.my_math as cum
 import corgy.utilities.pdb as cup
@@ -16,7 +18,6 @@ import corgy.utilities.vector as cuv
 import corgy.utilities.average_stem_vres_atom_positions as cua
 
 catom_name = 'C1*'
-
 
 def stem_stem_orientation(bg, s1, s2):
     '''
@@ -897,3 +898,50 @@ def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None, vvec=None):
         new_atoms[a[0]] = new_coords
     return new_atoms
 
+def calc_R(xc, yc):
+    """ calculate the distance of each 2D points from the center (xc, yc) """
+    return m.sqrt((x - xc) ** 2 + (y - yc)**2)
+
+def f_2(c):
+    """ calculate the algebraic distance between the data points and the mean circle centered at c=(xc, yc) """
+    Ri = calc_R(*c)
+    return Ri - Ri.mean()
+
+def fit_circle(vec, points):
+    '''
+    Calculate the projection of points on the plane normal to
+    vec and fit a circle to them.
+    '''
+    basis = cuv.create_orthonormal_basis(vec)
+    new_points = cuv.change_basis(points.T, basis, cuv.standard_basis).T
+
+    #cud.pv('points')
+    cud.pv('new_points')
+    cud.pv('new_points[:,1:]')
+
+    import matplotlib.pyplot as plt
+    import pylab as pl
+    plt.plot(new_points[:,1], new_points[:,2])
+    plt.show()
+
+def stem_vec_from_circle_fit(bg, chain):
+    '''
+    Attempt to find the stem direcion vector given a set of atom positions.
+
+    This will be done by solving for the stem_vector, then using that
+    to project the atoms onto a plane orthogonal to that vector. On that plane,
+    a circle will be fit to the positions of the atoms. The stem vector that
+    gives a circle with the least residuals will be considered the ideal
+    stem vector.
+
+    @return: stem_vector
+    '''
+    start_vec = nr.random(3)
+    atom_poss = []
+    stem_name = 's0'
+    for rn in bg.stem_res_numbers(stem_name):
+        atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
+    mids = get_mids(chain, bg.defines[stem_name])
+    mids = (mids[0].get_array(), mids[1].get_array())
+    cud.pv('mids[1] - mids[0]')
+    fit_circle(mids[1] - mids[0], np.array(atom_poss))

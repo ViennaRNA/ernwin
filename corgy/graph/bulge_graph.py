@@ -795,6 +795,16 @@ class BulgeGraph:
 
         return centers
 
+    def stem_res_numbers(self, stem):
+        '''
+        Iterate over the residue numbers in the stem.
+        '''
+        for d in range(self.defines[stem][0], self.defines[stem][1]+1):
+            yield d
+
+        for d in range(self.defines[stem][2], self.defines[stem][3]+1):
+            yield d
+
     def get_name_str(self):
         return "name " + self.name + '\n'
 

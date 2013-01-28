@@ -17,7 +17,6 @@ from corgy.utilities.vector import rotation_matrix, vec_angle
 
 from corgy.builder.config import Configuration
 
-import corgy.graph.graph_pdb as cggp
 import corgy.utilities.vector as cuv
 import random, time
 import numpy as np
@@ -43,7 +42,7 @@ class TestGraphToAngles(unittest.TestCase):
         and the twist is placed on the x-y plane.
         '''
 
-        (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
         stem1_basis = create_orthonormal_basis(stem1, twist1)
 
         twist2_new_basis = change_basis(twist2, stem1_basis, get_standard_basis(3))
@@ -81,7 +80,7 @@ class TestGraphToAngles(unittest.TestCase):
             if define[0] != 's' and len(bg.edges[define]) == 2:
                 connections = list(bg.edges[define])
 
-                (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(bg, define, connections)
+                (stem1, twist1, stem2, twist2, bulge) = cgg.get_stem_twist_and_bulge_vecs(bg, define, connections)
 
                 self.assertTrue(allclose(dot(stem1, twist1), 0.))
                 self.assertTrue(allclose(dot(stem2, twist2), 0.))
@@ -91,7 +90,7 @@ class TestGraphToAngles(unittest.TestCase):
 
         for d in bg.defines.keys():
             if d[0] == 's':
-                twist_angle = get_twist_angle(bg.coords[d], bg.twists[d])
+                twist_angle = cgg.get_twist_angle(bg.coords[d], bg.twists[d])
 
                 self.assertTrue(twist_angle <= pi)
                 self.assertTrue(twist_angle >= -pi)
@@ -119,11 +118,11 @@ class TestGraphToAngles(unittest.TestCase):
             if define[0] != 's' and len(bg.edges[define]) == 2:
                 connections = list(bg.edges[define])
 
-                (stem1, twist1, stem2, twist2, bulge) = get_stem_twist_and_bulge_vecs(bg, define, connections)
-                (r, u, v, t) = get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
-                (r1, u1, v1) = get_stem_separation_parameters(stem1, twist1, bulge)
+                (stem1, twist1, stem2, twist2, bulge) = cgg.get_stem_twist_and_bulge_vecs(bg, define, connections)
+                (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1, twist1, stem2, twist2)
+                (r1, u1, v1) = cgg.get_stem_separation_parameters(stem1, twist1, bulge)
 
-                stem2_new = stem2_orient_from_stem1(stem1, twist1, (r, u, v))
+                stem2_new = cgg.stem2_orient_from_stem1(stem1, twist1, (r, u, v))
                 self.assertTrue(allclose(stem2_new, stem2))
 
                 twist2_new = twist2_orient_from_stem1(stem1, twist1, (u, v, t))
@@ -152,8 +151,8 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
         for d in bg.defines.keys():
             if d[0] == 's':
-                mids = get_mids(chain, bg.defines[d])
-                twists = get_twists(chain, bg.defines[d])
+                mids = cgg.get_mids(chain, bg.defines[d])
+                twists = cgg.get_twists(chain, bg.defines[d])
 
                 stem_vec = (mids[1] - mids[0]).get_array()
 
@@ -184,11 +183,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
         print
         t1 = time.time()
         for i in range(100):
-            sp1 = cggp.stem2_pos_from_stem1(stem1, twist1, (r,u,v))
+            sp1 = cgg.stem2_pos_from_stem1(stem1, twist1, (r,u,v))
         print "t1:", time.time() - t1
         t1 = time.time()
         for i in range(100):
-            sp2 = cggp.stem2_pos_from_stem1_1(stem1_basis, (r,u,v))
+            sp2 = cgg.stem2_pos_from_stem1_1(stem1_basis, (r,u,v))
         print "t2:", time.time() - t1
 
         print
@@ -209,11 +208,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
         print
         t1 = time.time()
         for i in range(100):
-            sp1 = cggp.stem2_orient_from_stem1(stem1, twist1, (r,u,v))
+            sp1 = cgg.stem2_orient_from_stem1(stem1, twist1, (r,u,v))
         print "t1:", time.time() - t1
         t1 = time.time()
         for i in range(100):
-            sp2 = cggp.stem2_orient_from_stem1_1(stem1_basis, (r,u,v))
+            sp2 = cgg.stem2_orient_from_stem1_1(stem1_basis, (r,u,v))
         print "t2:", time.time() - t1
 
         print
@@ -234,11 +233,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
         print
         t1 = time.time()
         for i in range(100):
-            sp1 = cggp.twist2_orient_from_stem1(stem1, twist1, (r,u,v))
+            sp1 = cgg.twist2_orient_from_stem1(stem1, twist1, (r,u,v))
         print "t1:", time.time() - t1
         t1 = time.time()
         for i in range(100):
-            sp2 = cggp.twist2_orient_from_stem1_1(stem1_basis, (r,u,v))
+            sp2 = cgg.twist2_orient_from_stem1_1(stem1_basis, (r,u,v))
         print "t2:", time.time() - t1
 
         print
@@ -310,4 +309,15 @@ class TestGraphPDBFunctions(unittest.TestCase):
                         r_vpos1 = cgg.spos_to_pos(bg, stems[i], k, spos)
                         self.assertTrue(allclose(vpos1, r_vpos1))
 
+    def test_fit_circle(self):
+        '''
+        Test the calculation of the coarse-grain stem model by fitting a circle onto the orthogonal
+        rejection of the PDB file onto the stem
+        '''
+        s = PDBParser().get_structure('test', os.path.join(Configuration.test_input_dir, "1y26/prepare", "temp.pdb"))
+        chain = list(s.get_chains())[0]
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+
+
+        cgg.stem_vec_from_circle_fit(bg, chain)
 
