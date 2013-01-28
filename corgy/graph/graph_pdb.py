@@ -549,6 +549,9 @@ def virtual_res_3d_pos_core(coords, twists, i, stem_len, stem_inv = None):
     # the nts_per_2pi_twist need to be calculated separately 
     # It is the minimum number of nucleotides needed to create
     # a full twist of the stem
+    if stem_len == 11 and ang < 1.:
+        ang += 2 * m.pi
+
     nts_per_2pi_twist = 12
     ang += 2 * m.pi * (stem_len / nts_per_2pi_twist)
     ang_per_nt = ang / float(stem_len-1)
@@ -799,15 +802,13 @@ def stem_vres_reference_atoms(bg, chain, s, i):
             coordinate system.
     '''
     coords = [dict(), dict()]
-    bases = []
+    (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
+    vec1 = cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
+    vec2 = cuv.normalize(vvec)
+    basis = cuv.create_orthonormal_basis(vec1, vec2)
 
     for k in range(2):
-        vec1 = -cuv.normalize(bg.coords[s][1] - bg.coords[s][0])
 
-        (vpos, vvec, vvec_l, vvec_r) = virtual_res_3d_pos(bg, s, i)
-        vec2 = cuv.normalize(vvec)
-
-        bases += [cuv.create_orthonormal_basis(vec1, vec2)]
 
         #r = bg.defines[s][0 + 2*k] + i
         if k == 0:
@@ -819,13 +820,13 @@ def stem_vres_reference_atoms(bg, chain, s, i):
             try:
                 c = chain[r][atom].coord
 
-                new_c =  cuv.change_basis(c - vpos, bases[k], cuv.standard_basis)
+                new_c =  cuv.change_basis(c - vpos, basis, cuv.standard_basis)
                 coords[k][atom] = new_c
 
             except KeyError:
                 continue
 
-    return (vpos, bases, coords)
+    return (vpos, basis, coords)
 
 def bounding_boxes(bg, chain, s, i):
     '''

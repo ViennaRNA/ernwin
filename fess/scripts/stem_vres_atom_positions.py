@@ -2,6 +2,7 @@
 
 import sys
 import numpy as np
+import warnings
 import collections as co
 
 import Bio.PDB as bp
@@ -83,7 +84,10 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    chain = list(bp.PDBParser().get_structure('temp', args[1]).get_chains())[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        chain = list(bp.PDBParser().get_structure('temp', args[1]).get_chains())[0]
+
     bg = cgb.BulgeGraph(args[0])
 
     pp = cvp.PymolPrinter()
@@ -101,6 +105,8 @@ def main():
                     continue
 
             (origin, basis, coords) = cgg.stem_vres_reference_atoms(bg, chain, s, i)
+
+            # subtract one because the sequence is 0-based
             (p1, p2) = (bg.defines[s][0] + i - 1, bg.defines[s][3] - i - 1)
             (r1, r2) = (bg.seq[p1], bg.seq[p2])
 
@@ -118,11 +124,16 @@ def main():
     if options.averages:
         if options.pymol:
             print_average_atom_positions(all_coords, list(options.residue), pp)
+            pp.output_pymol_file()
         else:
             print_average_atom_positions(all_coords, list(options.residue), None)
+    else:
+        for i, c in enumerate(all_coords):
+            for k in c.keys():
+                for coords in c[k]:
+                    for atom in coords.keys():
+                        print i, k, atom, " ".join(map(str, coords[atom]))
 
-    if options.pymol:
-        pp.output_pymol_file()
 
 if __name__ == '__main__':
     main()

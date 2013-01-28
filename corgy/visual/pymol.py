@@ -543,6 +543,10 @@ class PymolPrinter:
         @param stem_len: The length of the stem.
         '''
         prev_p = [None, None]
+        first_p = [None, None]
+        last_o3 = [None, None]
+        first_o3 = [None, None]
+
         colors = ['yellow', 'purple']
 
         for i in range(stem_len):
@@ -557,10 +561,19 @@ class PymolPrinter:
                     new_coords = np.dot(vbasis.transpose(), c) + vpos[0]
                     #self.add_sphere(new_coords, colors[j], 0.3)
 
+                    if a[0] == 'P' and i == 0:
+                        first_p[j] = new_coords
                     if a[0] == 'P':
                         if prev_p[j] != None:
                             self.add_segment(prev_p[j], new_coords, colors[j], 0.7)
                         prev_p[j] = new_coords
+                    if a[0] == 'O3*' and i == 0:
+                        first_o3[j] = new_coords
+                    if a[0] == 'O3*':
+                        last_o3[j] = new_coords
+
+        self.add_segment(prev_p[0], last_o3[0], colors[0], 0.7)
+        self.add_segment(first_p[1], first_o3[1], colors[1], 0.7)
 
 def print_angle_stats():
     angles = []
