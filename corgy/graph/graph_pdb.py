@@ -18,6 +18,7 @@ import corgy.utilities.vector as cuv
 import corgy.utilities.average_stem_vres_atom_positions as cua
 
 import scipy.optimize as so
+import numpy.linalg as nl
 
 catom_name = 'C1*'
 
@@ -909,6 +910,43 @@ def f_2(c, p):
     Ri = calc_R(*c, p=p)
     return Ri - Ri.mean()
 
+def circle_fit(p):
+    x = p[:,0]
+    y = p[:,1]
+    x_m = np.mean(x)
+    y_m = np.mean(y)
+    
+    u = x - x_m
+    v = y - y_m
+
+        # linear system defining the center (uc, vc) in reduced coordinates:
+    #    Suu * uc +  Suv * vc = (Suuu + Suvv)/2
+    #    Suv * uc +  Svv * vc = (Suuv + Svvv)/2
+    Suv  = sum(u*v)
+    Suu  = sum(u**2)
+    Svv  = sum(v**2)
+    Suuv = sum(u**2 * v)
+    Suvv = sum(u * v**2)
+    Suuu = sum(u**3)
+    Svvv = sum(v**3)
+
+    # Solving the linear system
+    A = np.array([ [ Suu, Suv ], [Suv, Svv]])
+    B = np.array([ Suuu + Suvv, Svvv + Suuv ])/2.0
+    uc, vc = nl.solve(A, B)
+
+    xc_1 = x_m + uc
+    yc_1 = y_m + vc
+
+    return (xc_1, yc_1)
+    '''
+    Ri_1     = sqrt((x-xc_1)**2 + (y-yc_1)**2)
+    R_1      = mean(Ri_1)
+    residu_1 = sum((Ri_1-R_1)**2)
+
+    return (xc_1, yc_1, R_1)
+    '''
+
 def circle_error(c, p):
     errors = f_2(c,p)
     return sum([e ** 2 for e in errors])
@@ -924,7 +962,8 @@ def f_3(vec, points, est):
     p = new_points[:,1:]
 
     center_estimate = est
-    center_2, ier=so.leastsq(f_2, center_estimate,args=p)
+    #center_2, ier=so.leastsq(f_2, center_estimate,args=p)
+    center_2 = circle_fit(p) 
     r = np.mean(calc_R(*center_2, p=p))
     #cud.pv('(center_2, r)')
 
@@ -949,30 +988,40 @@ def fit_circle(mids, points):
     ss1 = sum_square(f_3(v1, points, mids[0][1:]))
     center_estimate = mids[0][1:]
     center_2, ier=so.leastsq(f_2, center_estimate,args=(p))
-    r = np.mean(calc_R(*center_2, p=p))
+    center_4 = circle_fit(p)
+    r2 = np.mean(calc_R(*center_2, p=p))
+    r4 = np.mean(calc_R(*center_4, p=p))
     #cud.pv('(center_2, r, ier)')
     #cud.pv('f_2(center_2, p=p)')
     #cud.pv('f_2(mids[0][1:], p=p)')
     #cud.pv('f_2(center_2, p=p)')
+    nmids = cuv.change_basis(np.array(mids).T, basis, cuv.standard_basis).T
+
     ss2 = sum_square(f_2(center_2, p))
-    ss3 = sum_square(f_2(mids[0][1:], p))
+    ss3 = sum_square(f_2(nmids[0][1:], p))
+    ss4 = sum_square(f_2(center_4, p))
 
     #cud.pv('sum_square(f_2(center_2, p))')
     #cud.pv('sum_square(f_2(mids[0][1:], p))')
-    cud.pv('(ss1, ss2, ss3)')
+    cud.pv('(ss4, ss1, ss2, ss3)')
+    cud.pv('(r2, r4)')
 
+    center_x = center_4
+    rx = r4
     import matplotlib.pyplot as plt
     import pylab as pl
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1, adjustable='box', aspect=1)
     ax.plot(new_points[:,1], new_points[:,2], "o")
-    #ax.plot(center_2[0], center_2[1], 'ro')
+    ax.plot(center_x[0], center_x[1], 'ro')
 
     mids = cuv.change_basis(np.array(mids).T, basis, cuv.standard_basis).T
+    ax.plot(mids[0][1],mids[0][2], 'yo')
 
     #ax.plot(mids[0][1], mids[0][2], 'go')
-    circle1=plt.Circle(center_2, r,color='r',alpha=0.5)
-    circle2=plt.Circle(mids[0][1:], r,color='y',alpha=0.5)
+    circle1=plt.Circle(center_x, rx,color='r',alpha=0.5)
+    circle2=plt.Circle(mids[0][1:],rx,color='y',alpha=0.5)
+
     fig.gca().add_artist(circle1)
     fig.gca().add_artist(circle2)
     plt.show()
