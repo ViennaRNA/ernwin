@@ -318,9 +318,8 @@ class TestGraphPDBFunctions(unittest.TestCase):
         chain = list(s.get_chains())[0]
         bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
 
-
         '''
-        cgg.stem_vec_from_circle_fit(bg, chain, stem_name='s5')
+        cgg.stem_vec_from_circle_fit(bg, chain, stem_name='s3')
         return
         '''
 

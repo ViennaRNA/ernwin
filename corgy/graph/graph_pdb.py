@@ -982,8 +982,12 @@ def fit_circle(mids, points):
     f_3(mids[1] - mids[0], points, mids[0][1:]) 
 
     v1, ier=so.leastsq(f_3, mids[1] - mids[0], args=(points, mids[0][1:]), maxfev=10000)
-    #cud.pv('v1')
-    #cud.pv('vec')
+    basis1 = cuv.create_orthonormal_basis(v1)
+    points1 = cuv.change_basis(points.T, basis1, cuv.standard_basis).T
+    center_5 = circle_fit(points1[:,1:])
+    cud.pv('v1')
+    cud.pv('vec')
+    cud.pv('cuv.vec_angle(v1, vec)')
     #cud.pv('sum_square(f_3(v1,  points))')
     ss1 = sum_square(f_3(v1, points, mids[0][1:]))
     center_estimate = mids[0][1:]
@@ -1013,6 +1017,7 @@ def fit_circle(mids, points):
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1, adjustable='box', aspect=1)
     ax.plot(new_points[:,1], new_points[:,2], "o")
+    ax.plot(points1[:,1], points1[:,2], "go")
     ax.plot(center_x[0], center_x[1], 'ro')
 
     mids = cuv.change_basis(np.array(mids).T, basis, cuv.standard_basis).T
@@ -1024,7 +1029,7 @@ def fit_circle(mids, points):
 
     fig.gca().add_artist(circle1)
     fig.gca().add_artist(circle2)
-    plt.show()
+    #plt.show()
 
 def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     '''
@@ -1049,6 +1054,8 @@ def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
         atom_poss += [chain[rn]['C4*'].get_vector().get_array()]
         atom_poss += [chain[rn]['C5*'].get_vector().get_array()]
         atom_poss += [chain[rn]['O5*'].get_vector().get_array()]
+        atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
+
     mids = get_mids(chain, bg.defines[stem_name])
     # use the original calculation to provide an estimate for the
     # optimized stem position calculation
