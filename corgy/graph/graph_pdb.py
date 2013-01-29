@@ -1029,6 +1029,8 @@ def fit_circle(mids, points):
 
     fig.gca().add_artist(circle1)
     fig.gca().add_artist(circle2)
+
+    return v1
     #plt.show()
 
 def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
@@ -1060,4 +1062,5 @@ def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     # use the original calculation to provide an estimate for the
     # optimized stem position calculation
     mids = (mids[0].get_array(), mids[1].get_array())
-    fit_circle(mids, np.array(atom_poss))
+    return fit_circle(mids, np.array(atom_poss))
+    

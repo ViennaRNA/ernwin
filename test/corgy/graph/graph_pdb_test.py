@@ -3,6 +3,7 @@ import unittest, os
 import corgy.graph.graph_pdb as cgg
 import corgy.graph.bulge_graph as cgb
 import corgy.utilities.debug as cud
+import corgy.visual.pymol as cvp
 
 import corgy.graph.graph_pdb as cgg
 
@@ -325,5 +326,11 @@ class TestGraphPDBFunctions(unittest.TestCase):
 
         for s in bg.stems():
             cud.pv('(s, bg.stem_length(s))')
-            cgg.stem_vec_from_circle_fit(bg, chain, stem_name=s)
+            vec = cgg.stem_vec_from_circle_fit(bg, chain, stem_name=s)
+            dist = cuv.magnitude(bg.coords[s][1] - bg.coords[s][0])
+            bg.coords[s][1] = bg.coords[s][0] + dist * cuv.normalize(vec)
+
+        pp = cvp.PymolPrinter()
+        pp.coordinates_to_pymol(bg)
+        pp.dump_pymol_file('ss')
 
