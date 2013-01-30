@@ -51,6 +51,8 @@ class PymolPrinter:
             return [1.0, 0.0, 1.0]
         elif color == 'white':
             return [1.0, 1.0, 1.0]
+        elif color == 'cyan':
+            return [0.0, 1.0, 1.0]
         else:
             return [0.0, 0.0, 0.0]
 

@@ -163,8 +163,8 @@ def align_chain_to_stem(chain, define, stem2):
 
     (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
     rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t))
-    rotate_chain(chain, np.linalg.inv(rot_mat), stem1.mids[0])
-    translate_chain(chain, stem2.mids[0] - stem1.mids[0])
+    rotate_chain(chain, np.linalg.inv(rot_mat), (stem1.mids[0] + stem1.mids[1]) / 2.)
+    translate_chain(chain, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
 
 def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), stem=None):
     '''

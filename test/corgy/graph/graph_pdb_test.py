@@ -315,22 +315,27 @@ class TestGraphPDBFunctions(unittest.TestCase):
         Test the calculation of the coarse-grain stem model by fitting a circle onto the orthogonal
         rejection of the PDB file onto the stem
         '''
-        s = PDBParser().get_structure('test', os.path.join(Configuration.test_input_dir, "1gid/prepare", "temp.pdb"))
+        name = "1gid"
+        s = PDBParser().get_structure('test', os.path.join(Configuration.test_input_dir, "%s/prepare" % (name), "temp.pdb"))
         chain = list(s.get_chains())[0]
-        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg = cgb.BulgeGraph(os.path.join(Configuration.test_input_dir, "%s/graph" % (name), "temp.comp"))
 
         '''
         cgg.stem_vec_from_circle_fit(bg, chain, stem_name='s3')
         return
         '''
 
+        pp = cvp.PymolPrinter()
         for s in bg.stems():
             cud.pv('(s, bg.stem_length(s))')
-            vec = cgg.stem_vec_from_circle_fit(bg, chain, stem_name=s)
-            dist = cuv.magnitude(bg.coords[s][1] - bg.coords[s][0])
-            bg.coords[s][1] = bg.coords[s][0] + dist * cuv.normalize(vec)
+            new_mids = cgg.stem_vec_from_circle_fit(bg, chain, stem_name=s)
+            pp.add_segment(bg.coords[s][0], bg.coords[s][1], 'cyan', width=2.4)
+            bg.coords[s] = new_mids
 
-        pp = cvp.PymolPrinter()
+            #bg.coords[s][1] = bg.coords[s][0] + dist * cuv.normalize(vec)
+
         pp.coordinates_to_pymol(bg)
+        pp.chain = chain
         pp.dump_pymol_file('ss')
+        pp.dump_pdb('out.pdb')
 

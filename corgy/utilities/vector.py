@@ -150,14 +150,16 @@ def create_orthonormal_basis(vec1, vec2=None, vec3=None):
     '''
     if vec2 == None:
         vec2 = get_non_colinear_unit_vector(vec1)
+        vec2 = cross(vec1, vec2)
     #else:
     #    assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
+
+    vec1 /= magnitude(vec1)
+    vec2 /= magnitude(vec2)
 
     if vec3 == None:
         vec3 = cross(vec1, vec2)
 
-    vec1 /= magnitude(vec1)
-    vec2 /= magnitude(vec2)
     vec3 /= magnitude(vec3)
 
     return array([vec1, vec2, vec3])

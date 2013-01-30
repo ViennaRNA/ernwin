@@ -45,14 +45,20 @@ def main():
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+            try:
+                chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+            except IOError as ie:
+                cud.pv(ie)
 
         m = cbm.define_to_stem_model(chain, stem_def.define)
 
         new_chain = bpdbc.Chain(' ')
         new_stem_def = random.choice(sss[stem_length])
         #cud.pv('filename')
-        cbm.reconstruct_stem_core(new_stem_def, stem_def.define, new_chain, dict(), m)
+        try:
+            cbm.reconstruct_stem_core(new_stem_def, stem_def.define, new_chain, dict(), m)
+        except IOError as ie:
+            cud.pv(ie)
 
         if options.output_pdb:
             rtor.output_chain(chain, 'out1.pdb')
