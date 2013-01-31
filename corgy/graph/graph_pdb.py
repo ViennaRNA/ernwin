@@ -1184,6 +1184,6 @@ def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     # use the original calculation to provide an estimate for the
     # optimized stem position calculation
     mids = (mids[0].get_array(), mids[1].get_array())
-    return fit_circle(mids, np.array(atom_poss), 
+    return fit_circle_old(mids, np.array(atom_poss), 
             start_pos, end_pos)
     

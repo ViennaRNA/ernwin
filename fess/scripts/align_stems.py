@@ -84,7 +84,7 @@ def main():
 
             cbm.reconstruct_stem_core(new_stem_def, stem_def.define, new_chain, dict(), m)
         except IOError as ie:
-            cud.pv(ie)
+            cud.pv('ie')
 
         if options.output_pdb:
             rtor.output_chain(chain, 'out1.pdb')
