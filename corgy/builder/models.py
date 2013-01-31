@@ -171,6 +171,10 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     Reconstruct a particular stem.
     '''
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+    '''
+    stem_def.define = [1375, 1376, 1638, 1639]
+    filename = '1jj2_1375_1376_1638_1639.pdb'
+    '''
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
     #print len(stem_library.keys())

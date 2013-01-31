@@ -502,6 +502,28 @@ def get_mids_core(chain, start1, start2, end1, end2):
             cud.pv('ke')
 
     mids =  fit_circle(est_mids, np.array(atom_poss), start_pos, end_pos)
+
+    ######## Debug function
+    vec = mids[1] - mids[0]
+    n1 = []
+    n2 = []
+    for i in range(0, end1-start1+1):
+        notch1 = chain[start1+i][catom_name].get_vector().get_array()
+        notch2 = chain[start2-i][catom_name].get_vector().get_array()
+        basis = cuv.create_orthonormal_basis(vec)
+        notch1_n = cuv.change_basis(notch1, basis, cuv.standard_basis)
+        notch2_n = cuv.change_basis(notch2, basis, cuv.standard_basis)
+
+        n1 += [notch1_n[0]]
+        n2 += [notch2_n[0]]
+    #cud.pv('n')
+    dists1 = [j-i for i,j in zip(n1[:-1], n1[1:])]
+    dists2 = [j-i for i,j in zip(n2[:-1], n2[1:])]
+
+    for dist in dists1 + dists2: 
+        print "ladder", dist
+    ######## End debug
+
     mids = [bpdb.Vector(mids[0]), bpdb.Vector(mids[1])]
 
     return mids
