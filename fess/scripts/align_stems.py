@@ -92,9 +92,7 @@ def main():
             rtor.output_chain(new_chain, 'out3.pdb')
 
         unsuperimposed_rmsd = cup.pdb_rmsd(chain, new_chain, sidechains=False, superimpose=False)
-        cud.pv('unsuperimposed_rmsd')
         superimposed_rmsd = cup.pdb_rmsd(chain, new_chain, sidechains=False, superimpose=True, apply_sup=True)
-        cud.pv('superimposed_rmsd')
         rmsds += [[superimposed_rmsd[1], unsuperimposed_rmsd[1]]]
 
         #cud.pv('(superimposed_rmsd, unsuperimposed_rmsd)')

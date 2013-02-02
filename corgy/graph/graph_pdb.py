@@ -467,8 +467,9 @@ def estimate_mids_core(chain, start1, start2, end1, end2):
 
     return (mid1, mid2)
 
+def get_mids_core_a(chain, start1, start2, end1, end2):
+
 #def get_mids_core1(chain, start1, start2, end1, end2):
-def get_mids_core(chain, start1, start2, end1, end2):
     '''
     Estimate the stem cylinder using the old method and then refine it 
     using fitted parameters.
@@ -506,8 +507,11 @@ def get_mids_core(chain, start1, start2, end1, end2):
             cud.pv('ke')
 
     mids =  fit_circle(est_mids, np.array(atom_poss), start_pos, end_pos)
+    return mids
 
+def get_mids_core(chain, start1, start2, end1, end2):
     ######## Debug function
+    '''
     vec = mids[1] - mids[0]
     n1 = []
     n2 = []
@@ -524,15 +528,37 @@ def get_mids_core(chain, start1, start2, end1, end2):
     dists1 = [j-i for i,j in zip(n1[:-1], n1[1:])]
     dists2 = [j-i for i,j in zip(n2[:-1], n2[1:])]
 
-    '''
     for dist in dists1 + dists2: 
         print "ladder", dist
     '''
     ######## End debug
 
-    mids = [bpdb.Vector(mids[0]), bpdb.Vector(mids[1])]
+    #filename = 
+    stem_length = end1 - start1 + 1
+    #cud.pv('stem_length')
+    filename = 'ideal_1_%d_%d_%d.pdb' % (stem_length, stem_length+1, stem_length*2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        #cud.pv('filename')
+        ideal_chain = list(bpdb.PDBParser().get_structure('test', 
+                op.join(cbc.Configuration.stem_fragment_dir, filename)).get_chains())[0]
 
-    return mids
+        chain = extract_define_residues([start1,end1,end2,start2], chain)
+
+    rotran = cup.pdb_rmsd(chain, ideal_chain, sidechains=False, 
+            superimpose=True, apply_sup=False)[2]
+
+    ideal_mids = get_mids_core_a(ideal_chain, 1, stem_length*2, stem_length, stem_length+1)
+
+    ideal_new_mids = ideal_mids + rotran[1]
+    #av_chain_mids = sum(chain_mids) / 2.
+    av_ideal_mids = sum(ideal_mids) / 2.
+    chain_new_mids = np.dot(ideal_mids, rotran[0]) + rotran[1]
+    chain_mids = get_mids_core_a(chain, start1, start2, end1, end2)
+    #cud.pv('chain_mids')
+    #cud.pv('chain_new_mids')
+
+    return (bpdb.Vector(chain_new_mids[0]), bpdb.Vector(chain_new_mids[1]))
 
 
 def get_twists_core(chain, start1, start2, end1, end2):
@@ -1097,12 +1123,12 @@ def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define)
     chain_mids = get_mids_core(chain, define[0], define[3], define[1], define[2])
 
     ideal_mids = np.array([ideal_mids[0].get_array(), ideal_mids[1].get_array()])
-    chain_mids = np.array([chain_mids[0].get_array(), chain_mids[1].get_array()])
+    #chain_mids = np.array([chain_mids[0].get_array(), chain_mids[1].get_array()])
 
     ideal_new_mids = ideal_mids + rotran[1]
-    av_chain_mids = sum(chain_mids) / 2.
+    #av_chain_mids = sum(chain_mids) / 2.
     av_ideal_mids = sum(ideal_mids) / 2.
-    chain_new_mids = np.dot(ideal_mids - av_ideal_mids, rotran[0]) + av_chain_mids
+    chain_new_mids = np.dot(ideal_mids, rotran[0]) + rotran[1]
 
     cud.pv('ideal_new_mids')
     cud.pv('ideal_mids')
