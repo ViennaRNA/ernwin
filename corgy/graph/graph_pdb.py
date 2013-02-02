@@ -4,6 +4,10 @@ import Bio.PDB as bp
 import Bio.PDB as bpdb
 import sys
 
+import os.path as op
+import corgy.builder.config as cbc
+import warnings
+
 import math as m
 import collections as co
 
@@ -520,8 +524,10 @@ def get_mids_core(chain, start1, start2, end1, end2):
     dists1 = [j-i for i,j in zip(n1[:-1], n1[1:])]
     dists2 = [j-i for i,j in zip(n2[:-1], n2[1:])]
 
+    '''
     for dist in dists1 + dists2: 
         print "ladder", dist
+    '''
     ######## End debug
 
     mids = [bpdb.Vector(mids[0]), bpdb.Vector(mids[1])]
@@ -1056,11 +1062,52 @@ def fit_circle(mids, points, start_pos, end_pos):
     '''
     return mids_standard_basis 
 
-def fit_circle_old(mids, points, start_pos, end_pos):
+def extract_define_residues(define, chain):
+    '''Extract the residues in the define and return them as a new chain.'''
+    c = bpdb.Chain.Chain(' ')
+    ranges = zip(*[iter(define)]*2)
+    for r in ranges:
+        for x in range(r[0], r[1]+1):
+            c.add(chain[x])
+    return c
+
+
+def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define):
     '''
     Calculate the projection of points on the plane normal to
     vec and fit a circle to them.
     '''
+    filename = 'ideal_1_%d_%d_%d.pdb' % (stem_length, stem_length+1, stem_length*2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cud.pv('filename')
+        ideal_chain = list(bpdb.PDBParser().get_structure('test', 
+                op.join(cbc.Configuration.stem_fragment_dir, filename)).get_chains())[0]
+
+    cud.pv('cup.pdb_rmsd(ideal_chain, chain, sidechains=False, superimpose=False)')
+    cud.pv('cup.pdb_rmsd(ideal_chain, chain, sidechains=False, superimpose=True)')
+    rotran = cup.pdb_rmsd(ideal_chain, chain, sidechains=False, 
+            superimpose=True, apply_sup=False)[2]
+
+    ideal_mids = get_mids_core(ideal_chain, 1, stem_length*2, stem_length, stem_length+1)
+    chain_mids = get_mids_core(chain, define[0], define[3], define[1], define[2])
+
+    ideal_mids = np.array([ideal_mids[0].get_array(), ideal_mids[1].get_array()])
+    chain_mids = np.array([chain_mids[0].get_array(), chain_mids[1].get_array()])
+
+    ideal_new_mids = ideal_mids + rotran[1]
+    av_chain_mids = sum(chain_mids) / 2.
+    chain_new_mids = np.dot(chain_mids - av_chain_mids, rotran[0]) + av_chain_mids
+
+    cud.pv('ideal_new_mids')
+    cud.pv('ideal_mids')
+    cud.pv('chain_mids')
+    cud.pv('chain_new_mids')
+
+    return chain_new_mids
+
+    sys.exit(1)
+
     vec = mids[1] - mids[0]
     basis = cuv.create_orthonormal_basis(vec)
     new_points = cuv.change_basis(points.T, basis, cuv.standard_basis).T
@@ -1183,7 +1230,8 @@ def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     mids = get_mids(chain, bg.defines[stem_name])
     # use the original calculation to provide an estimate for the
     # optimized stem position calculation
+    stem_chain = extract_define_residues(bg.defines[stem_name], chain)
     mids = (mids[0].get_array(), mids[1].get_array())
     return fit_circle_old(mids, np.array(atom_poss), 
-            start_pos, end_pos)
+            start_pos, end_pos, stem_chain, bg.stem_length(stem_name), bg.defines[stem_name])
     

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import numpy, sys
-from corgy.graph.bulge_graph import BulgeGraph
+#from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import center_on_centroid
 
 # Shamelessly stolen from:
@@ -44,6 +44,7 @@ def optimal_superposition(crds1, crds2):
         v[:, -1] = -v[:, -1]
     return numpy.dot(v, w_tr)
   
+'''
 def main():
     if len(sys.argv) < 3:
         print "usage: ./rmsd.py coords1 coords2"
@@ -82,3 +83,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+'''

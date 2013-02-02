@@ -1,4 +1,7 @@
+import sys
+import numpy as np
 import Bio.PDB as bpdb
+import corgy.builder.rmsd as brmsd
 import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
 
@@ -127,3 +130,73 @@ def noncovalent_distances(chain, cutoff=0.3):
 
     return [cuv.magnitude(c[1] - c[0]) for c in contacts if not is_covalent(c)]
 
+def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
+    '''
+    Calculate the all-atom rmsd between two RNA chains.
+
+    @param c1: A Bio.PDB.Chain
+    @param c2: Another Bio.PDB.Chain
+    @return: The rmsd between the locations of all the atoms in the chains.
+    '''
+
+    a_5_names = ['P', 'O5*', 'C5*', 'C4*', 'O4*', 'O2*']
+    a_3_names = ['C1*', 'C2*', 'C3*', 'O3*']
+
+    a_names = dict()
+    a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
+    a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+
+    a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
+    a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+
+    a_names['U'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6'] + a_3_names
+    a_names['C'] = a_5_names + ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6'] + a_3_names
+
+    a_names['A'] = a_5_names + ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9'] + a_3_names
+    a_names['G'] = a_5_names + ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'] + a_3_names
+
+    all_atoms1 = []
+    all_atoms2 = []
+
+    if len(c1.get_list()) != len(c2.get_list()):
+        cud.pv('len(c1.get_list())')
+        cud.pv('len(c2.get_list())')
+        print >>sys.stderr, "Chains of different length"
+        raise Exception("Chains of different length.")
+
+    for r1,r2 in zip(c1.get_list(), c2.get_list()):
+        if sidechains: 
+            anames = backbone_atoms + a_names[c1[i].resname.strip()]
+        else:
+            anames = backbone_atoms 
+        #anames = a_5_names + a_3_names
+
+        for a in anames:
+            if a in r1 and a in r2:
+                all_atoms1 += [r1[a]]
+                all_atoms2 += [r2[a]]
+                '''
+                except KeyError:
+                    print >>sys.stderr, "Residue number %d is missing an atom, continuing with the rest." % (i)
+                    continue
+                '''
+
+        '''
+        if len(atoms1) != len(atoms2):
+            print >>sys.stderr, "Number of atoms differs in the two chains."
+            raise Exception("Missing atoms.")
+        '''
+    #print "rmsd len:", len(all_atoms1), len(all_atoms2)
+    if superimpose:
+        sup = bpdb.Superimposer()
+        sup.set_atoms(all_atoms1, all_atoms2)
+
+        if apply_sup:
+            sup.apply(c2.get_atoms())
+
+        return (len(all_atoms1), sup.rms, sup.rotran)
+    else:
+        crvs1 = np.array([a.get_vector().get_array() for a in all_atoms1])
+        crvs2 = np.array([a.get_vector().get_array() for a in all_atoms2])
+
+        return (len(all_atoms1), brmsd.rmsd(crvs1, crvs2), None)

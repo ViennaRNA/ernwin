@@ -11,6 +11,7 @@ import corgy.builder.models as cbm
 import corgy.builder.stats as cbs
 import corgy.builder.reconstructor as rtor
 import corgy.utilities.debug as cud
+import corgy.utilities.protein as cup
 import corgy.visual.pymol as cvp
 
 import Bio.PDB as bpdb
@@ -90,8 +91,8 @@ def main():
             rtor.output_chain(chain, 'out1.pdb')
             rtor.output_chain(new_chain, 'out3.pdb')
 
-        unsuperimposed_rmsd = rtor.pdb_rmsd(chain, new_chain, backbone=False, superimpose=False)
-        superimposed_rmsd = rtor.pdb_rmsd(chain, new_chain, backbone=False, superimpose=True)
+        unsuperimposed_rmsd = cup.pdb_rmsd(chain, new_chain, backbone=False, superimpose=False)
+        superimposed_rmsd = cup.pdb_rmsd(chain, new_chain, backbone=False, superimpose=True)
 
         rmsds += [[superimposed_rmsd[1], unsuperimposed_rmsd[1]]]
 
