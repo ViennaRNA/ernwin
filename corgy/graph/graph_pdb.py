@@ -1086,7 +1086,11 @@ def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define)
 
     cud.pv('cup.pdb_rmsd(ideal_chain, chain, sidechains=False, superimpose=False)')
     cud.pv('cup.pdb_rmsd(ideal_chain, chain, sidechains=False, superimpose=True)')
+    '''
     rotran = cup.pdb_rmsd(ideal_chain, chain, sidechains=False, 
+            superimpose=True, apply_sup=False)[2]
+    '''
+    rotran = cup.pdb_rmsd(chain, ideal_chain, sidechains=False, 
             superimpose=True, apply_sup=False)[2]
 
     ideal_mids = get_mids_core(ideal_chain, 1, stem_length*2, stem_length, stem_length+1)
@@ -1097,7 +1101,8 @@ def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define)
 
     ideal_new_mids = ideal_mids + rotran[1]
     av_chain_mids = sum(chain_mids) / 2.
-    chain_new_mids = np.dot(chain_mids - av_chain_mids, rotran[0]) + av_chain_mids
+    av_ideal_mids = sum(ideal_mids) / 2.
+    chain_new_mids = np.dot(ideal_mids - av_ideal_mids, rotran[0]) + av_chain_mids
 
     cud.pv('ideal_new_mids')
     cud.pv('ideal_mids')
@@ -1105,8 +1110,6 @@ def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define)
     cud.pv('chain_new_mids')
 
     return chain_new_mids
-
-    sys.exit(1)
 
     vec = mids[1] - mids[0]
     basis = cuv.create_orthonormal_basis(vec)

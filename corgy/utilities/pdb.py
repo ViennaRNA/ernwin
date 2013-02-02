@@ -164,7 +164,16 @@ def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
         print >>sys.stderr, "Chains of different length"
         raise Exception("Chains of different length.")
 
-    for r1,r2 in zip(c1.get_list(), c2.get_list()):
+    c1_list = c1.get_list()
+    c2_list = c2.get_list()
+
+    c1_list.sort(key=lambda x: x.id[1])
+    c2_list.sort(key=lambda x: x.id[1])
+
+    cud.pv('c1_list')
+    cud.pv('c2_list')
+
+    for r1,r2 in zip(c1_list, c2_list):
         if sidechains: 
             anames = backbone_atoms + a_names[c1[i].resname.strip()]
         else:
@@ -192,6 +201,7 @@ def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
         sup.set_atoms(all_atoms1, all_atoms2)
 
         if apply_sup:
+            print >> sys.stderr, "applying"
             sup.apply(c2.get_atoms())
 
         return (len(all_atoms1), sup.rms, sup.rotran)
@@ -199,4 +209,10 @@ def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
         crvs1 = np.array([a.get_vector().get_array() for a in all_atoms1])
         crvs2 = np.array([a.get_vector().get_array() for a in all_atoms2])
 
-        return (len(all_atoms1), brmsd.rmsd(crvs1, crvs2), None)
+        cud.pv('crvs1 - crvs2')
+        cud.pv('len(all_atoms1)')
+
+        #cud.pv('cuv.vector_set_rmsd(crvs1, crvs2)')
+        #return (len(all_atoms1), brmsd.rmsd(crvs1, crvs2), None)
+        return (len(all_atoms1), cuv.vector_set_rmsd(crvs1, crvs2), None)
+
