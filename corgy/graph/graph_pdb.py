@@ -504,7 +504,8 @@ def get_mids_core_a(chain, start1, start2, end1, end2):
             atom_poss += [chain[rn]['O5*'].get_vector().get_array()]
             atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
         except KeyError as ke:
-            cud.pv('ke')
+            pass
+            #cud.pv('ke')
 
     mids =  fit_circle(est_mids, np.array(atom_poss), start_pos, end_pos)
     return mids
@@ -1065,7 +1066,10 @@ def fit_circle(mids, points, start_pos, end_pos):
     new_points = cuv.change_basis(points.T, basis, cuv.standard_basis).T
     p = new_points[:,1:]
 
-    v1, ier=so.leastsq(f_3, mids[1] - mids[0], args=(points, mids[0][1:])) #, maxfev=10000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        v1, ier=so.leastsq(f_3, mids[1] - mids[0], args=(points, mids[0][1:])) #, maxfev=10000)
+
     basis1 = cuv.create_orthonormal_basis(v1)
 
     points1 = cuv.change_basis(points.T, basis1, cuv.standard_basis).T
@@ -1106,7 +1110,7 @@ def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define)
     filename = 'ideal_1_%d_%d_%d.pdb' % (stem_length, stem_length+1, stem_length*2)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        cud.pv('filename')
+        #cud.pv('filename')
         ideal_chain = list(bpdb.PDBParser().get_structure('test', 
                 op.join(cbc.Configuration.stem_fragment_dir, filename)).get_chains())[0]
 
@@ -1249,7 +1253,8 @@ def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
             atom_poss += [chain[rn]['O5*'].get_vector().get_array()]
             atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
         except KeyError as ke:
-            cud.pv('ke')
+           # cud.pv('ke')
+           pass
 
     start_pos = (chain[bg.defines[stem_name][0]]['C1*'].get_vector().get_array() +
                  chain[bg.defines[stem_name][3]]['C1*'].get_vector().get_array()) / 2.

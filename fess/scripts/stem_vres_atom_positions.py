@@ -64,7 +64,6 @@ def print_average_atom_positions(coords, res='A', pp=None):
                         pp.add_sphere(np.mean(averages[i][r][a], axis=0), 'green', 0.1)
                     else:
                         pp.add_sphere(np.mean(averages[i][r][a], axis=0), 'red', 0.1)
-        
 
 def main():
     usage = './bounding_box_coords.py temp.comp temp.pdb'

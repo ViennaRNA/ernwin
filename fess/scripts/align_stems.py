@@ -71,7 +71,7 @@ def main():
             try:
                 chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
             except IOError as ie:
-                cud.pv(ie)
+                cud.pv('ie')
 
         m = cbm.define_to_stem_model(chain, stem_def.define)
 

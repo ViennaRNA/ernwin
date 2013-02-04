@@ -10,6 +10,8 @@ import corgy.utilities.pdb as cup
 import corgy.builder.ccd as cbc
 import corgy.aux.ccd.cytvec as cv
 
+import corgy.builder.rmsd as brmsd
+
 #import corgy.aux.Barnacle as barn
 import corgy.aux.CPDB.src.examples.BarnacleCPDB as barn
 
@@ -202,7 +204,6 @@ def get_alignment_vectors(ress, r1, r2):
             ress[r1]['O3*'].get_vector().get_array())
 
 def get_measurement_vectors(ress, r1, r2):
-    #cud.pv('bpdb.Selection.unfold_entities(ress[r2], \'A\')')
     return( ress[r2]['C2*'].get_vector().get_array(), 
             ress[r2]['C3*'].get_vector().get_array(),
             ress[r2]['O3*'].get_vector().get_array())
@@ -495,7 +496,7 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
     return rmsd
     #return cuv.magnitude(sampled - target)
 
-def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
+def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_all_angles=True):
     '''
     Align the chain_loop so that it stretches from the end of one stem to the 
     start of the other.
@@ -524,8 +525,13 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000):
     #points += [indeces[handles[2]+1]]
 
     #points += indeces[handles[2]+1] #O3* -> P bond
+    if move_all_angles:
+        angles_to_move = range(handles[2]+1, handles[3]+1)
+    else:
+        angles_to_move = [handles[2]+1, handles[3]]
+
     #for i in range(handles[2]+1, handles[3]+1):
-    for i in [handles[2]+1, handles[3]]:
+    for i in angles_to_move:
         si = indeces[i]
 
         # 
@@ -601,7 +607,7 @@ def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2)):
 
     return (r, loop_chain)
 
-def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_contacts=False):
+def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_contacts=False, consider_starting_pos = True):
     '''
     Build a loop.
 
@@ -632,8 +638,6 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
     prev_energy = min_energy
     handles = (a,b,i1,i2)
 
-    cud.pv('cup.num_noncovalent_clashes(stem_chain)')
-
     for i in range(iterations):
         sample_len = ss.poisson.rvs(2)
         while sample_len > (len(loop_seq) - 1):
@@ -650,7 +654,6 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
             align_starts(stem_chain, chain_unclosed_loop, (a,b,i1,i2), end=0)
         
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
-        cud.pv('r')
         if handles[0] == 0 or handles[1] == seq_len:
             r_start = 0.
         else:
@@ -671,8 +674,11 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         sys.stderr.write('.')
         sys.stderr.flush()
 
-        energy = (contacts2, r_start * r)
-        cud.pv('(start,end,energy)')
+        if consider_starting_pos:
+            energy = (contacts2, r_start * r)
+        else:
+            energy = (contacts2, r)
+
         if energy > prev_energy:
             model.undo()
 
@@ -682,7 +688,6 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
             min_r = r
             best_loop_chain = copy.deepcopy(orig_loop_chain)
             output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
-            cud.pv('min_energy')
         '''
         if min_contacts < (0, .1):
             break
@@ -693,7 +698,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
     sys.stderr.write(str(min_energy))
     return (best_loop_chain, min_r)
 
-def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
+def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, consider_starting_pos=True):
     '''
     Reconstruct a particular loop.
 
@@ -712,8 +717,9 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
     bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
     dist = cuv.vec_distance(bg.coords[ld][1], bg.coords[ld][0])
     dist2 = get_flanking_stem_vres_distance(bg, ld)
+    dist3 = cgg.junction_virtual_atom_distance(bg, ld)
 
-    sys.stderr.write("reconstructing %s ([%d], %d, %f, %f):" % (ld, len(bg.edges[ld]), bl, dist, dist2))
+    sys.stderr.write("reconstructing %s ([%d], %d, %.2f, %.2f, %.2f):" % (ld, len(bg.edges[ld]), bl, dist, dist2, dist3))
     '''
     if a == 0 and b == 1:
         # the loop is just a placeholder and doesn't
@@ -725,18 +731,19 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True):
         return
     '''
 
-    (best_loop_chain, min_r) = build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts)
+    (best_loop_chain, min_r) = build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts, consider_starting_pos)
 
     output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
     output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
     cup.trim_chain(best_loop_chain, i1, i2+1)
+    sys.stderr.write('\n')
+
     return ((a,b,i1,i2), best_loop_chain, min_r)
     
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
 
-    sys.stderr.write('\n')
     sys.stderr.flush()
 
 from multiprocessing import Process, Pipe

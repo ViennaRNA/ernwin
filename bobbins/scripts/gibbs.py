@@ -57,7 +57,6 @@ def main():
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
 
-
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
@@ -76,7 +75,7 @@ def main():
         f = open(options.seq, 'r')
         bg.seq = f.readlines()[0].strip()
 
-    bg.calc_bp_distances()
+    #bg.calc_bp_distances()
     sm = SpatialModel(bg)
 
     if not os.path.exists(options.output_dir):

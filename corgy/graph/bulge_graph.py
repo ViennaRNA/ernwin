@@ -768,6 +768,8 @@ class BulgeGraph:
 
     def loops(self):
         for d in self.defines.keys():
+            if d[0] == 's':
+                continue
             if len(self.edges[d]) == 1 and self.defines[d][0] != 0 and self.defines[d][1] != self.length:
                 yield d
 

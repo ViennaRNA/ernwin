@@ -187,7 +187,7 @@ def main():
             s2 = get_random_stem_stats()
 
             ang_stat = get_random_angle_stat(min_len=0., 
-                                             max_len = 20. + 15. * k)
+                                             max_len = 15. + 12. * k)
 
             # Construct a simple graph with an edge of length 3
             bg = construct_test_graph(s1, s2, ang_stat, k)
@@ -204,6 +204,7 @@ def main():
                 continue
 
             # Indiciate which statistics to use for the 3D model construction
+            sm.sample_stats()
             sm.stem_defs['s1'] = s1
             sm.stem_defs['s2'] = s2
             sm.angle_defs['b1'][0][0] = ang_stat
@@ -228,19 +229,17 @@ def main():
             
             try:
                 ((a,b,i1,i2), best_loop_chain, min_dist) = cbr.reconstruct_loop(chain, sm, 'b1', side=0, samples=3, 
-                                     consider_contacts=False)
+                                     consider_contacts=False, consider_starting_pos=False)
 
                 # Calculate the distances in the coarse grain model
                 dist1 = bulge_length(bg, 'b1')
                 dist2 = bulge_virtual_residue_distance(bg, 'b1')
                 dist3 = bulge_virtual_atom_distance(bg, 'b1')
 
-                print >>sys.stderr, "PRINTING"
                 output.write("%d %f %f %f %f\n" % (k, dist1, dist2, dist3, min_dist))
                 output.flush()
                 #print k, dist1, dist2, dist3, min_dist
             except Exception as e:
-                print >>sys.stderr, "BOOGAAWOOGA"
                 print >>sys.stderr, e
                 continue
 
