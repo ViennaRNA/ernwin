@@ -1025,7 +1025,8 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             
             # 
             #cutoff_distance = (bl) * 5.9 + 13.4
-            cutoff_distance = (bl) * 5.908 + 11.309
+            #cutoff_distance = (bl) * 5.908 + 11.309
+            cutoff_distance = (bl) * 6.4 + 24.
 
 
             if (dist > cutoff_distance):
