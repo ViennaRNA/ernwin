@@ -669,10 +669,13 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 continue
             if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
                 continue
+
+            cud.pv('virtual_atoms[ia]')
+            cud.pv('virtual_atoms[ib]')
             #cud.pv('(virtual_atoms[ia][1], virtual_atoms[ib][1])')
             clashes += 1
 
-        #cud.pv('clashes')
+        cud.pv('clashes')
         return clashes
 
     def virtual_residue_atom_clashes(self, bg, s1,i1,a1, s2, i2, a2):
@@ -1014,7 +1017,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
-        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
+        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and (len(bg.edges[d]) == 2 and bg.weights[d] == 1)])
         energy = 0.
         #closed_bulges = all_bulges.difference(sm.sampled_bulges)
 

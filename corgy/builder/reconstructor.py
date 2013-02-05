@@ -786,8 +786,6 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
     for ((a,b,i1,i2), best_loop_chain, min_r) in r:
         add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), sm.bg.length)
 
-    cud.pv('r')
-
 def reconstruct(sm):
     '''
     Re-construct a full-atom model from a coarse-grain model.

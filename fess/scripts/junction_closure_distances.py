@@ -3,6 +3,7 @@
 import sys
 import random as rand
 import math
+import numpy as np
 from optparse import OptionParser
 
 import corgy.builder.models as cbm
@@ -182,12 +183,15 @@ def main():
         output = sys.stdout
 
     for k in xrange(start_len, options.num_nucleotides+1):
-        for i in xrange(options.iterations):
+        min_len = 0. + 3. * k
+        max_len = 12. + 7. * k
+
+        for d in np.linspace(min_len, max_len, options.iterations):
             s1 = get_random_stem_stats()
             s2 = get_random_stem_stats()
 
-            ang_stat = get_random_angle_stat(min_len=0., 
-                                             max_len = 15. + 12. * k)
+            ang_stat = get_random_angle_stat(min_len= d, 
+                                             max_len = d)
 
             # Construct a simple graph with an edge of length 3
             bg = construct_test_graph(s1, s2, ang_stat, k)

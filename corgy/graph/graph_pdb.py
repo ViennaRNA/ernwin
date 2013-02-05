@@ -810,13 +810,15 @@ def get_strand_atom_vrn(bg, s, i):
     nucleotide distance calculation.
     '''
     if i == 0:
-        return (1, 'P', 0)
+        return (0, 'P', 0)
+
+    # this might have to just be bg.stem_length(s)
     if i == 1:
-        return (1, 'O3*', bg.stem_length(s)-1)
+        return (0, 'O3*', bg.stem_length(s)-1)
     if i == 2:
-        return (0, 'P', bg.stem_length(s) - 1)
+        return (1, 'P', bg.stem_length(s) - 1)
     if i == 3:
-        return (0, 'O3*', 0)
+        return (1, 'O3*', 0)
 
 def junction_virtual_atom_distance(bg, bulge):
     '''
@@ -828,7 +830,7 @@ def junction_virtual_atom_distance(bg, bulge):
 
     @return: A single number corresponding to the distance above.
     '''
-    connecting_stems = list(bg.edges[bulge])
+    connecting_stems = bg.connections(bulge)
 
     (i1, k1) = bg.get_sides_plus(connecting_stems[0], bulge)
     (i2, k2) = bg.get_sides_plus(connecting_stems[1], bulge)
