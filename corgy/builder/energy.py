@@ -647,7 +647,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         coords = []
         for key1 in self.vras.keys():
             for key2 in self.vras[key1].keys():
-                virtual_atoms += [(self.vras[key1][key2], key1)]
+                virtual_atoms += [(self.vras[key1][key2], key1, key2)]
                 coords += [self.vras[key1][key2]]
 
         if len(virtual_atoms) == 0:
@@ -656,26 +656,29 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #coords = np.vstack([p[0] for p in virtual_atoms])
         #coords = np.array([ line for line in np.array(virtual_atoms)[:,0]])
         coords = np.array(coords)
-        #cud.pv('coords')
         kdt2 = kd.KDTree(3)
         kdt2.set_coords(coords)
         kdt2.all_search(1.8)
 
         clashes = 0
         indeces = kdt2.all_get_indices()
-        #cud.pv('len(indeces)')
         for (ia,ib) in indeces:
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
                 continue
             if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
                 continue
 
-            cud.pv('virtual_atoms[ia]')
-            cud.pv('virtual_atoms[ib]')
-            #cud.pv('(virtual_atoms[ia][1], virtual_atoms[ib][1])')
+            key1 = virtual_atoms[ia][1]
+            key2 = virtual_atoms[ib][1]
+
+            resn1 = self.bg.stem_side_vres_to_resn(key1[0], key1[2], key1[1])
+            resn2 = self.bg.stem_side_vres_to_resn(key2[0], key2[2], key2[1])
+
+            if abs(resn1 - resn2) == 1:
+                continue
+
             clashes += 1
 
-        cud.pv('clashes')
         return clashes
 
     def virtual_residue_atom_clashes(self, bg, s1,i1,a1, s2, i2, a2):
@@ -685,8 +688,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #(p1, v1, v1_l, v1_r) = cgg.virtual_res_3d_pos(bg, s1, i1)
         #(p2, v2, v2_l, v2_r) = cgg.virtual_res_3d_pos(bg, s2, i2)
 
-        #cud.pv('(s1,i1,s2,i2)')
-        #cud.pv('cuv.magnitude((p1 + 7 * v1) - (p2 + 7 * v2))')
 
         vra1 = self.vras[(s1,i1,a1)]
         vra2 = self.vras[(s2,i2,a2)]
@@ -698,7 +699,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         #for atoms1 in vra1:
             #for atoms2 in vra2:
-        cud.pv('((s1,i1,a1),(s2,i2,a2))')
 
         for a1 in atoms1.values():
             for a2 in atoms2.values():
@@ -720,6 +720,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
         '''
         self.vras = dict()
         self.bases = dict()
+        self.bg = sm.bg
+
         l = []
         bg = sm.bg
         mult = 8
@@ -814,11 +816,9 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
         self.fake_kde = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
 
     def load_stem_orientation_data(self, filename):
-        cud.pv('filename')
         import pandas as pa
         stats = pa.read_csv(filename,header=None, sep=' ')
         t = stats
-        cud.pv('stats')
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
         
         return cek.gaussian_kde(points.T)
@@ -840,8 +840,6 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
 
                             score_incr = my_log(self.real_kde(r2_spos)) - my_log(self.fake_kde(r2_spos))
                             #print
-                            #cud.pv('my_log(self.real_kde(r2_spos))')
-                            #cud.pv('my_log(self.fake_kde(r2_spos))')
 
                             score += score_incr
         return -score
@@ -863,12 +861,10 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         t = stats
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
 
-        cud.pv('points.shape')
         min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
         max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
 
         n_points = [int((max_dims[j] - min_dims[j]) / float(self.res))+1 for j in range(points.shape[1])]
-        cud.pv('n_points')
 
         img = np.zeros(n_points)
         for p in points:
@@ -893,9 +889,6 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                 val_real = np.log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
                 val_fake = np.log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
                 #val_fake = 0.
-
-                #cud.pv('val_real')
-                #cud.pv('val_fake')
 
                 score += val_real - val_fake
             except IndexError:
@@ -995,7 +988,6 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                         #self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
 
         energy1 = 0.
-        #cud.pv('count')
         ses = []
         for (s1, s2) in stem_interactions:
             se = min(stem_interactions[(s1, s2)], stem_interactions[(s2, s1)])
@@ -1029,7 +1021,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             # 
             #cutoff_distance = (bl) * 5.9 + 13.4
             #cutoff_distance = (bl) * 5.908 + 11.309
-            cutoff_distance = (bl) * 6.4 + 24.
+            cutoff_distance = (bl) * 6.4 + 6.4
 
 
             if (dist > cutoff_distance):
@@ -1049,7 +1041,6 @@ class StemStemOrientationEnergy(EnergyFunction):
     def load_stem_stem_data(self, filename):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
-        cud.pv('t')
         angles = t[t[t.columns[0]] < self.max_dist][t.columns[2]].values
 
         return cek.gaussian_kde(angles)

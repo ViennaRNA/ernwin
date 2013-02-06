@@ -25,6 +25,14 @@ png("stem_stem_orientations_old.png")
 plotorientations(t, ts)
 dev.off()
 
+ts <- read.csv('../stats/stem_stem_orientations_sampled.csv.old', head=F, sep=' ')
+t <- read.csv('../stats/stem_stem_orientations.csv.old', head=F, sep=' ')
+
+png("stem_stem_orientations_old.png")
+plotorientations(t, ts)
+dev.off()
+
+
 ts <- read.csv('../stats/stem_stem_orientations_sampled.csv', head=F, sep=' ')
 t <- read.csv('../stats/stem_stem_orientations.csv', head=F, sep=' ')
 png("stem_stem_orientations_new.png")

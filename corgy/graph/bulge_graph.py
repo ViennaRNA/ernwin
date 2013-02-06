@@ -392,6 +392,18 @@ class BulgeGraph:
 
         return constr
 
+    def stem_side_vres_to_resn(self, stem, side, vres):
+        '''
+        Return the residue number given the stem name, the strand (side) it's on
+        and the virtual residue number.
+        '''
+        d = self.defines[stem]
+
+        if side == 0:
+            return d[0] + vres
+        else:
+            return d[3] - vres
+
     def connections(self, bulge):
         '''
         Return the edges that connect to a bulge in a list form,

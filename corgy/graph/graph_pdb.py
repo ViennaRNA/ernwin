@@ -468,24 +468,39 @@ def estimate_mids_core(chain, start1, start2, end1, end2):
     return (mid1, mid2)
 
 def get_mids_core_a(chain, start1, start2, end1, end2):
-
-#def get_mids_core1(chain, start1, start2, end1, end2):
     '''
     Estimate the stem cylinder using the old method and then refine it 
     using fitted parameters.
     '''
-    est_mids = estimate_mids_core(chain, start1, start2, end1, end2)
+    template_stem_length=15
+    real_stem_length = end1 - start1
+
+    tstart1 = 1
+    tstart2 = template_stem_length * 2
+    tend1 = template_stem_length
+    tend2 = template_stem_length + 1
+
+    template_filename = 'ideal_1_%d_%d_%d.pdb' % (tend1, tend2, tstart2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        #cud.pv('filename')
+        ideal_chain = list(bpdb.PDBParser().get_structure('test', 
+                op.join(cbc.Configuration.stem_fragment_dir, template_filename)).get_chains())[0]
+
+        chain = extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
+
+    est_mids = estimate_mids_core(chain, tstart1, tstart2, tend1, tend2)
     est_mids = [est_mids[0].get_array(), est_mids[1].get_array()]
 
-    start_pos = (chain[start1][catom_name].get_vector().get_array() + 
-                 chain[start2][catom_name].get_vector().get_array()) / 2.
+    start_pos = (ideal_chain[tstart1][catom_name].get_vector().get_array() + 
+                 ideal_chain[tstart2][catom_name].get_vector().get_array()) / 2.
 
-    end_pos = (chain[end1][catom_name].get_vector().get_array() + 
-                 chain[end2][catom_name].get_vector().get_array()) / 2.
+    end_pos = (ideal_chain[tstart1 + real_stem_length][catom_name].get_vector().get_array() + 
+                 ideal_chain[tstart2 - real_stem_length][catom_name].get_vector().get_array()) / 2.
 
     atom_poss = []
-    residue_numbers = [i for i in range(start1, end1+1)]
-    residue_numbers += [i for i in range(end2, start2+1)]
+    residue_numbers = [i for i in range(tstart1, tend1+1)]
+    residue_numbers += [i for i in range(tend2, tstart2+1)]
     
     #cud.pv('residue_numbers')
 
@@ -496,13 +511,14 @@ def get_mids_core_a(chain, start1, start2, end1, end2):
             for atom in chain[rn].get_list():
                 atom_poss += [atom.get_vector().get_array()]
             '''
-            atom_poss += [chain[rn]['P'].get_vector().get_array()]
-            atom_poss += [chain[rn]['O3*'].get_vector().get_array()]
-            atom_poss += [chain[rn]['C3*'].get_vector().get_array()]
-            atom_poss += [chain[rn]['C4*'].get_vector().get_array()]
-            atom_poss += [chain[rn]['C5*'].get_vector().get_array()]
-            atom_poss += [chain[rn]['O5*'].get_vector().get_array()]
-            atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
+
+            atom_poss += [ideal_chain[rn]['P'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['O3*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C3*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C4*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C5*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['O5*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C1*'].get_vector().get_array()]
         except KeyError as ke:
             pass
             #cud.pv('ke')
