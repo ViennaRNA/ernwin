@@ -226,7 +226,8 @@ class AngleStat:
         str1 = "u: %f v: %f t: %f " % (self.u, self.v, self.t)
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
         str3 = "s1b: %d s2b: %d" % (self.s1b, self.s2b)
-        return str0 + str1 + str2 + str3
+        str4 = "pdb: %s %s " % (self.pdb_name, " ".join(map(str, self.define)))
+        return str4 + str0 + str1 + str2 + str3
 
 class ContinuousAngleStats():
     '''

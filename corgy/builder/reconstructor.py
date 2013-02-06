@@ -929,6 +929,7 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     #find some potential sides
     #both ways should work
     #i.e. if [0][1] is present, [0][1] should also be present
+    cud.pv('sm.angle_defs')
     for key1 in sm.angle_defs[ld].keys():
         for key2 in sm.angle_defs[ld][key1].keys():
             break

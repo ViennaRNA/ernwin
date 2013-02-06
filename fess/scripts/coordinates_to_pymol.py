@@ -87,7 +87,9 @@ def main():
             vra += [cgg.virtual_residue_atoms(bg, s, i,0)]
             vra += [cgg.virtual_residue_atoms(bg, s, i,1)]
 
-            (vpos1, vvec1, vvec1_l, vvec1_r) = cgg.virtual_res_3d_pos(bg, s, i)
+            #(vpos1, vvec1, vvec1_l, vvec1_r) = cgg.virtual_res_3d_pos(bg, s, i)
+            (vpos1, vvec1, vvec1_l, vvec1_r) = bg.v3dposs[s][i]
+
             for i in range(2):
                 for a in vra[i].values():
                     pymol_printer.add_sphere(a, 'purple', 0.3)
@@ -99,7 +101,8 @@ def main():
                 vra2 = []
                 vra2 += [cgg.virtual_residue_atoms(bg, s2, i2,0)]
                 vra2 += [cgg.virtual_residue_atoms(bg, s2, i2,1)]
-                (vpos2, vvec2, vvec2_l, vvec2_r) = cgg.virtual_res_3d_pos(bg, s2, i2)
+                #(vpos2, vvec2, vvec2_l, vvec2_r) = cgg.virtual_res_3d_pos(bg, s2, i2)
+                (vpos2, vvec2, vvec2_l, vvec2_r) = bg.v3dposs[s2][i2]
 
                 if s == s2:
                     continue
@@ -116,11 +119,12 @@ def main():
                                     mult = 8.
                                     cud.pv('(s,i,s2,i2)')
                                     cud.pv('(k,m)')
+                                    cud.pv('vpos1 + mult * vvec1_l')
                                     cud.pv('cuv.magnitude((vpos1 + mult * vvec1_l) - (vpos2 + mult * vvec2_l))')
                                     cud.pv('cuv.magnitude((vpos1 + mult * vvec1_l) - (vpos2 + mult * vvec2_r))')
-
                                     cud.pv('cuv.magnitude((vpos1 + mult * vvec1_r) - (vpos2 + mult * vvec2_l))')
                                     cud.pv('cuv.magnitude((vpos1 + mult * vvec1_r) - (vpos2 + mult * vvec2_r))')
+                                    cud.pv('cuv.magnitude(a1 - a2)')
                                     pymol_printer.add_segment(a1, a2, 'yellow', 0.5)
 
 

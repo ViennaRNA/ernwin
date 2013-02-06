@@ -663,6 +663,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
         clashes = 0
         indeces = kdt2.all_get_indices()
         for (ia,ib) in indeces:
+            #cud.pv('virtual_atoms[ia]')
+            #cud.pv('virtual_atoms[ib]')
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
                 continue
             if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
@@ -736,6 +738,10 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
                 for i in range(s_len):
                     (p, v, v_l, v_r) = bg.v3dposs[d][i]
+
+                    if d == 's1' and i == 1:
+                        cud.pv('p + mult * v_l')
+
                     points += [(p+ mult * v_l, d, i, 0)]
                     points += [(p+ mult * v_r, d, i, 1)]
 
