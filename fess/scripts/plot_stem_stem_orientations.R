@@ -10,18 +10,26 @@ plotorientations <- function(t, ts) {
   t1 <- t[t$V1 < max_dist & t$V1 > min_dist,]
   ts1 <- ts[ts$V1 < max_dist & ts$V1 > min_dist,]
 
-  par(mfrow=c(2,1))
+  min(t1$V3, abs(pi - t1$V3))
 
+  t1$offset3 <- sapply(t1$V3,function(x) min(x, abs(pi - x)))
+  ts1$offset3 <- sapply(ts1$V3,function(x) min(x, abs(pi - x)))
+
+  t1$offset2 <- sapply(t1$V2,function(x) min(x, abs(pi - x)))
+  ts1$offset2 <- sapply(ts1$V2,function(x) min(x, abs(pi - x)))
+
+head(t1)
+  
   length(t1$V1)
   length(ts1$V1)
   #sample_len <- max(length(t1$V3), length(ts1$V3))
   sample_len <- 10000
   
-  t1_V3 <- sample(t1$V3, sample_len, replace=T)
-  ts1_V3 <- sample(ts1$V3, sample_len, replace=T)
+  t1_V3 <- sample(t1$offset3, sample_len, replace=T)
+  ts1_V3 <- sample(ts1$offset3, sample_len, replace=T)
 
-  t1_V2 <- sample(t1$V2, sample_len, replace=T)
-  ts1_V2 <- sample(ts1$V2, sample_len, replace=T)
+  t1_V2 <- sample(t1$offset2, sample_len, replace=T)
+  ts1_V2 <- sample(ts1$offset2, sample_len, replace=T)
 
   anew <- rbind(data.frame(val=t1_V3, sampled="N"),
                 data.frame(val=ts1_V3, sampled="Y"))
