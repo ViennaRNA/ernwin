@@ -1038,17 +1038,29 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self):
         super(StemStemOrientationEnergy, self).__init__()
-        self.max_dist = 22
+        self.max_dist = 30
+        self.sample_num = 10000
 
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
+
+        '''
+        import matplotlib.pyplot as plt
+        xs = np.linspace(0,3.14,100)
+        plt.plot(xs, self.real_data(xs), 'g')
+        plt.plot(xs, self.fake_data(xs), 'r')
+        plt.show() 
+        '''
 
     def load_stem_stem_data(self, filename):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
         angles = t[t[t.columns[0]] < self.max_dist][t.columns[2]].values
 
-        return cek.gaussian_kde(angles)
+        sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]
+
+        return cek.gaussian_kde(sampled_angles)
+        #return ss.gaussian_kde(angles)
 
     def eval_energy(self, sm, background=True):
         energy = 0
