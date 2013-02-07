@@ -386,19 +386,16 @@ class SpatialModel:
 
         self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
         for b in self.bg.bulges():
-            cud.pv('b')
             size = self.bg.get_bulge_dimensions(b)
 
             sb = self.bg.sampled[b]
             for ang_s in self.angle_stats[size[0]][size[1]][sb[1]][sb[2]]:
-                cud.pv('ang_s')
                 #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[3:]:
                     self.angle_defs[b][sb[1]][sb[2]] = ang_s
 
         self.loop_defs = dict()
         for l in self.bg.loops():
-            cud.pv('l')
             sl = self.bg.defines[l][1] - self.bg.defines[l][0]
             for ls in self.loop_stats[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:

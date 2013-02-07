@@ -35,9 +35,15 @@ def main():
     if options.loops:
         if options.fragments:
             sm.sampled_from_bg()
+            sampled_bulges = sm.get_sampled_bulges()
 
             for b in sm.bg.bulges():
                 print >>sys.stderr, "reconstructing...", b
+                if b not in sampled_bulges:
+                    print >> sys.stderr, "closed bulge:", b
+                    (as1, as2) = sm.bg.get_bulge_angle_stats(b)
+                    cud.pv('as1')
+                    cud.pv('as2')
                 rtor.reconstruct_bulge_with_fragment(chain, sm, b)
             for l in sm.bg.loops():
                 rtor.reconstruct_loop_with_fragment(chain, sm, l)

@@ -5,15 +5,20 @@ head(tb)
 ta1 <- ta[ta$V1=='angle',]
 tb1 <- tb[tb$V1=='angle',]
 
-unique(t1[t1$V3==3,]$V4)
+head(ta1)
 
-s1=4
-s2=5
+s1=0
+s2=9
 
 ta2 <- ta1[ta1$V3 == s1 & ta1$V4 == s2,]
 tb2 <- tb1[tb1$V3 == s1 & tb1$V4 == s2,]
 
-plot(ta2$V5 ~ ta2$V6, ylim=c(0, 3.14), xlim=c(-3.14, 3.14), col='red')
+library(ggplot2)
+
+
+ggplot(ta2, aes(x=V10, y=V9, color=V8, fill=V8)) + geom_point(colour="grey50", size=4) + geom_point(aes(colour=V8))
+
+plot(ta2$V9 ~ ta2$V10, ylim=c(0, 3.14), xlim=c(-3.14, 3.14), col='red')
 par(new=T)
 plot(tb2$V5 ~ tb2$V6, ylim=c(0, 3.14), xlim=c(-3.14, 3.14), col='blue')
 
