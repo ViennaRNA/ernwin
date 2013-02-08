@@ -1058,8 +1058,9 @@ class StemStemOrientationEnergy(EnergyFunction):
         angles = t[t[t.columns[0]] < self.max_dist][t.columns[2]].values
 
         sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]
+        sa = [min(a, math.pi - a) for a in sampled_angles]
 
-        return cek.gaussian_kde(sampled_angles)
+        return cek.gaussian_kde(sa)
         #return ss.gaussian_kde(angles)
 
     def eval_energy(self, sm, background=True):
