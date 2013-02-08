@@ -62,7 +62,6 @@ def main():
     if len(args) < 1:
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
-    cud.pv('args')
 
     if options.secondary_structure:
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
@@ -130,8 +129,6 @@ def main():
         else:
             samplers += [GibbsBGSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
         silent = True
-
-    cud.pv('samplers')
 
     for i in range(options.iterations):
         for s in samplers:

@@ -7,7 +7,7 @@ from optparse import OptionParser
 
 import Bio.PDB as bpdb
 
-import corgy.builder.reconstructor as rtor
+import corgy.utilities.pdb as cup
 
 def main():
     parser = OptionParser()
@@ -30,8 +30,8 @@ def main():
     c1 = list(s1.get_chains())[0]
     c2 = list(s2.get_chains())[0]
 
-    (num_atoms, rmsd) = rtor.pdb_rmsd(c1, c2)
-    print num_atoms, rmsd
+    rmsd = cup.pdb_rmsd(c1, c2)
+    print rmsd[0], rmsd[1]
 
 if __name__ == '__main__':
     main()

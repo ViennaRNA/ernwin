@@ -22,6 +22,9 @@ head(t1)
   
   length(t1$V1)
   length(ts1$V1)
+
+  plot(t1$V2, t1$V3)
+  plot(ts1$V2, ts1$V3)
   #sample_len <- max(length(t1$V3), length(ts1$V3))
   sample_len <- 10000
   
