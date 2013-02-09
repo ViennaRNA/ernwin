@@ -353,5 +353,7 @@ class gaussian_kde(object):
         self._norm_factor = sqrt(linalg.det(2*pi*self.covariance)) * self.n
         #self.kd_tree = ssk.KDTree(self.dataset.T)
 
-        self.kd_tree = kd.KDTree(self.d)
-        self.kd_tree.set_coords(self.dataset.T)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.kd_tree = kd.KDTree(self.d)
+            self.kd_tree.set_coords(self.dataset.T)

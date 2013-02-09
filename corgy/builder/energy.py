@@ -6,6 +6,7 @@ import Bio.PDB as bpdb
 import copy
 import itertools as it
 import math
+import warnings
 
 import scipy.ndimage as sn
 import scipy.spatial as ss
@@ -656,9 +657,11 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #coords = np.vstack([p[0] for p in virtual_atoms])
         #coords = np.array([ line for line in np.array(virtual_atoms)[:,0]])
         coords = np.array(coords)
-        kdt2 = kd.KDTree(3)
-        kdt2.set_coords(coords)
-        kdt2.all_search(1.8)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            kdt2 = kd.KDTree(3)
+            kdt2.set_coords(coords)
+            kdt2.all_search(1.8)
 
         clashes = 0
         indeces = kdt2.all_get_indices()
@@ -747,9 +750,11 @@ class StemVirtualResClashEnergy(EnergyFunction):
         coords = np.vstack([p[0] for p in points])
 
         #kk = ss.KDTree(np.array(l))
-        kdt = kd.KDTree(3)
-        kdt.set_coords(coords)
-        kdt.all_search(10.)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            kdt = kd.KDTree(3)
+            kdt.set_coords(coords)
+            kdt.all_search(10.)
         #print len(kdt.all_get_indices())
         #print len(kk.query_pairs(7.))
 
@@ -948,10 +953,12 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         coords = np.vstack([p[0] for p in points])
 
-        kdt = kd.KDTree(3)
-        kdt.set_coords(coords)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            kdt = kd.KDTree(3)
+            kdt.set_coords(coords)
 
-        kdt.all_search(max_distance)
+            kdt.all_search(max_distance)
         indices = kdt.all_get_indices()
 
         energy1 = 0.
