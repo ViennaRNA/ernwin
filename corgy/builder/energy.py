@@ -793,8 +793,10 @@ class StemClashEnergy(EnergyFunction):
         chain = sm.chain
         atoms = bpdb.Selection.unfold_entities(chain, 'A')
 
-        ns = bpdb.NeighborSearch(atoms)
-        contacts1 = len(ns.search_all(0.8))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ns = bpdb.NeighborSearch(atoms)
+            contacts1 = len(ns.search_all(0.8))
 
         return contacts1 * 1000.
 

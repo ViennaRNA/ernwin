@@ -140,7 +140,9 @@ class gaussian_kde(object):
                 result += exp(-energy)
         else:
             for i in range(m):
-                self.kd_tree.search(points.T[i], max_dist)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.kd_tree.search(points.T[i], max_dist)
                 neighbors = self.kd_tree.get_indices()
                 diff = self.dataset[:,neighbors] - points[:,i,newaxis]
                 tdiff = dot(self.inv_cov, diff)
