@@ -3,6 +3,7 @@
 import sys
 import re
 import collections as c
+import numpy as np
 from optparse import OptionParser
 
 def main():
@@ -34,10 +35,15 @@ def main():
     #keys.sort(key=lambda x: min([k[1] for k in rmsds[x]]))
     keys.sort()
 
+    min_rmsds = []
     for key1,key2 in keys:
         key = (key1,key2)
         rmsds[key].sort()
         print "[",key2, key1,"]", "[", rmsds[key][0][1], "]", " ".join([str(k[1]) for k in rmsds[key][1:5]])
+        min_rmsds += [rmsds[key][0][1]]
+    min_rmsds.sort()
+
+    print "average: %.2f median %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2])
 
 if __name__ == '__main__':
     main()
