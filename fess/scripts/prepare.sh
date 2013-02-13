@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 MCANNOTATE_BIN=MC-Annotate
 SCRIPT_DIR=../assembly-tests/scripts
 LOCAL_SCRIPT_DIR=fess/scripts
