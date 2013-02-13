@@ -360,8 +360,9 @@ class BulgeGraph:
         (r1, u1, v1) = cgg.get_stem_separation_parameters(stem1, twist1, bulge)
 
         dims =self.get_bulge_dimensions(define)
+        ang_type = cbs.end_ang_types[(s1b, s2b, self.get_stem_direction(connections[0], connections[1]))]
 
-        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, s1b, s2b, self.defines[define])
+        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, ang_type, self.defines[define])
 
         return angle_stat
 
@@ -497,6 +498,14 @@ class BulgeGraph:
 
         return False
 
+    def get_stem_direction(self, s1, s2):
+        '''
+        Return 0 if the lowest numbered residue in s1
+        is lower than the lowest numbered residue in s2.
+        '''
+        if self.defines[s1][0] < self.defines[s2][0]:
+            return 0
+        return 1
 
     def get_random_bulge(self):
         '''

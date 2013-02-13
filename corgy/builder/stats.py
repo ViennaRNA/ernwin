@@ -40,7 +40,11 @@ loop_lengths = [
         ( 15. , 30. ), 
         ( 33.02 , 33.02 ) ]
 
+ang_end_types = {0: (1,0,0), 1:(0,1,1), 2: (0,0,0), 3: (0,0,1)}
+end_ang_types = { (1,0,1): 0, (0,1,0): 1, (1,0,0) : 0, (0,1,1): 1, (0,0,0): 2, (0,0,1): 3}
+
 def get_loop_length(bg, key):
+
     if int(bg.defines[key][0]) > int(bg.defines[key][1]):
         loop_length = 1. 
     else:
@@ -128,7 +132,7 @@ class AngleStat:
     Class for storing an individual statistic about inter-helical angles.
     '''
 
-    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, s1b=0, s2b=0, define=[]):
+    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, ang_type='x', define=[]):
         self.pdb_name = pdb_name
         self.dim1 = dim1
         self.dim2 = dim2
@@ -141,8 +145,7 @@ class AngleStat:
         self.u1 = u1
         self.v1 = v1
 
-        self.s1b = s1b
-        self.s2b = s2b
+        self.ang_type = ang_type
 
         self.define = define
 
@@ -188,10 +191,9 @@ class AngleStat:
         self.u1 = float(parts[8])
         self.v1 = float(parts[9])
 
-        self.s1b = float(parts[10])
-        self.s2b = float(parts[11])
+        self.ang_type = int(parts[10])
 
-        self.define = map(int,parts[12:])
+        self.define = map(int,parts[11:])
 
     def orientation_params(self):
         '''
@@ -225,7 +227,7 @@ class AngleStat:
         str0 = "d1: %d d2: %d " % (self.dim1, self.dim2)
         str1 = "u: %f v: %f t: %f " % (self.u, self.v, self.t)
         str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
-        str3 = "s1b: %d s2b: %d" % (self.s1b, self.s2b)
+        str3 = "ang_type: %s" % (self.ang_type)
         str4 = "pdb: %s %s " % (self.pdb_name, " ".join(map(str, self.define)))
         return str4 + str0 + str1 + str2 + str3
 
@@ -335,8 +337,7 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
 
     ConstructionStats.angle_stats = c.defaultdict(
                                     lambda: c.defaultdict(
-                                        lambda: c.defaultdict(
-                                            lambda: c.defaultdict(list))))
+                                        lambda: c.defaultdict(list)))
     #DefaultDict(DefaultDict([]))
 
     f = open(filename, 'r')
@@ -345,7 +346,7 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
         if line.strip().find('angle') == 0:
             angle_stat = AngleStat()
             angle_stat.parse_line(line)
-            ConstructionStats.angle_stats[angle_stat.dim1][angle_stat.dim2][angle_stat.s1b][angle_stat.s2b] += [angle_stat]
+            ConstructionStats.angle_stats[angle_stat.dim1][angle_stat.dim2][angle_stat.ang_type] += [angle_stat]
 
     f.close()
 

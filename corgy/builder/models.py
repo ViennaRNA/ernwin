@@ -281,8 +281,8 @@ class SpatialModel:
         self.sample_angles()
         self.sample_stems()
         self.sample_loops()
-        self.sample_fiveprime()
-        self.sample_threeprime()
+        #self.sample_fiveprime()
+        #self.sample_threeprime()
 
     def sample_angles(self):
         '''
@@ -315,9 +315,20 @@ class SpatialModel:
                     (s1b, s1e) = self.bg.get_sides(connections[0], d)
                     (s2b, s2e) = self.bg.get_sides(connections[1], d)
 
+                    ang_type1 = cbs.end_ang_types[(s1b, s2b, 0)]
+                    ang_type2 = cbs.end_ang_types[(s1b, s2b, 1)]
+                    ang_type3 = cbs.end_ang_types[(s2b, s1b, 1)]
+                    ang_type4 = cbs.end_ang_types[(s2b, s1b, 0)]
+
                     try:
-                        angle_defs[d][s1b][s2b] = choice(self.angle_stats[size[0]][size[1]][s1b][s2b])
-                        angle_defs[d][s2b][s1b] = choice(self.angle_stats[size[0]][size[1]][s2b][s1b])
+                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type1])')
+                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type2])')
+                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type3])')
+                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type4])')
+                        angle_defs[d][ang_type1] = choice(self.angle_stats[size[0]][size[1]][ang_type1])
+                        angle_defs[d][ang_type2] = choice(self.angle_stats[size[0]][size[1]][ang_type2])
+                        angle_defs[d][ang_type3] = choice(self.angle_stats[size[0]][size[1]][ang_type3])
+                        angle_defs[d][ang_type4] = choice(self.angle_stats[size[0]][size[1]][ang_type4])
                     except IndexError:
                         print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
                 '''
@@ -542,9 +553,8 @@ class SpatialModel:
     def save_sampled_angles(self):
         for key0 in self.angle_defs.keys():
             for key1 in self.angle_defs[key0].keys():
-                for key2 in self.angle_defs[key0][key1].keys():
-                    ad = self.angle_defs[key0][key1][key2]
-                    self.bg.sampled[key0] = [ad.pdb_name] + [key1,key2] + ad.define
+                ad = self.angle_defs[key0][key1]
+                self.bg.sampled[key0] = [ad.pdb_name] + [key1] + ad.define
 
     def save_sampled_loops(self):
         for sd in self.loop_defs.items():
@@ -598,14 +608,16 @@ class SpatialModel:
 
         return self.stem_defs[name]
 
-    def get_random_bulge_stats(self, name, (s1b, s2b)):
+    def get_random_bulge_stats(self, name, (s1b, s2b,direction)):
         '''
         Return a random set of parameters with which to create a bulge.
         '''
         if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
             return cbs.AngleStat()
 
-        return self.angle_defs[name][s1b][s2b]
+        ang_type = cbs.end_ang_types[(s1b, s2b, direction)]
+
+        return self.angle_defs[name][ang_type]
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
@@ -725,8 +737,8 @@ class SpatialModel:
         self.save_sampled_stems()
         self.save_sampled_angles()
         self.save_sampled_loops()
-        self.save_sampled_fiveprimes()
-        self.save_sampled_threeprimes()
+        #self.save_sampled_fiveprimes()
+        #self.save_sampled_threeprimes()
 
     def traverse_and_build(self, start=''):
         '''
@@ -792,11 +804,12 @@ class SpatialModel:
                 # get some parameters for the previous bulge
                 #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
                 (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
+                direction = self.bg.get_stem_direction(prev_stem.name, curr_node)
 
-                prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b))
+                prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b, direction))
                 self.sampled_bulges += [prev_node]
                 if len(self.bg.edges[prev_node]) == 2:
-                    self.sampled_bulge_sides += [(prev_node, (ps1b, s1b))]
+                    self.sampled_bulge_sides += [(prev_node, (ps1b, s1b, direction))]
 
                 # the previous stem should always be in the direction(0, 1) 
                 if started:

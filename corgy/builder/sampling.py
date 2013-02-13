@@ -114,11 +114,9 @@ class StatisticsPlotter:
                 for color in self.energies.keys():
                     try: 
                         #s = random.sample(sorted_energy_rmsds, min(len(sorted_energy_rmsds), 180))
-                        #cud.pv('s')
                         s = sorted_energy_rmsds[: 3 * len(sorted_energy_rmsds) / 4]
                         s = random.sample(s, min(len(s), 180))
 
-                        #cud.pv('s2')
                         e = [s1[0] for s1 in s if s1[2] == color]
                         r = [s1[1] for s1 in s if s1[2] == color]
 
@@ -325,9 +323,6 @@ class MCMCSampler:
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
         if energy > self.prev_energy:
-            #cud.pv('self.prev_energy')
-            #cud.pv('energy')
-            #cud.pv('math.exp(self.prev_energy - energy)')
 
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.angle_defs[bulge] = prev_angle
@@ -367,11 +362,13 @@ class GibbsBGSampler:
 
         # pick a random bulge to vary
         #bulge = self.sm.bg.get_random_bulge()
-        (bulge, (s1b, s2b)) = random.choice(self.sm.sampled_bulge_sides)
+        (bulge, (s1b, s2b, direction)) = random.choice(self.sm.sampled_bulge_sides)
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
         # What are the potential angle statistics for it
-        possible_angles = self.sm.angle_stats[dims[0]][dims[1]][s1b][s2b]
+
+        ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
+        possible_angles = self.sm.angle_stats[dims[0]][dims[1]][ang_type1]
         #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:
@@ -385,9 +382,8 @@ class GibbsBGSampler:
 
         # evaluate the energies of the structure when the original
         # angle is replaced by one of the 10 potential new ones
-        #cud.pv('possible_angles')
         for pa in possible_angles:
-            self.sm.angle_defs[bulge][s1b][s2b] = pa
+            self.sm.angle_defs[bulge][ang_type1] = pa
             self.sm.traverse_and_build(start=bulge)
             energy = self.energy_function.eval_energy(self.sm, background=True)
             energies[pa] = energy
@@ -429,7 +425,7 @@ class GibbsBGSampler:
         prob_remaining = 1.
         for key in energy_probs.keys():
             if random.random() < energy_probs[key] / prob_remaining:
-                self.sm.angle_defs[bulge][s1b][s2b] = key
+                self.sm.angle_defs[bulge][ang_type1] = key
                 break
 
             prob_remaining -= energy_probs[key]
