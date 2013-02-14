@@ -321,10 +321,6 @@ class SpatialModel:
                     ang_type4 = cbs.end_ang_types[(s2b, s1b, 0)]
 
                     try:
-                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type1])')
-                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type2])')
-                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type3])')
-                        cud.pv('len(self.angle_stats[size[0]][size[1]][ang_type4])')
                         angle_defs[d][ang_type1] = choice(self.angle_stats[size[0]][size[1]][ang_type1])
                         angle_defs[d][ang_type2] = choice(self.angle_stats[size[0]][size[1]][ang_type2])
                         angle_defs[d][ang_type3] = choice(self.angle_stats[size[0]][size[1]][ang_type3])
