@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import time
+import pdb
 import pickle, os
 import Bio.PDB as bpdb
 import copy
@@ -1047,19 +1048,18 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self, col=2):
         super(StemStemOrientationEnergy, self).__init__()
-        self.max_dist = 30
+        self.max_dist = 25
         self.sample_num = 10000
+        self.col = col
 
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
 
-        '''
         import matplotlib.pyplot as plt
-        xs = np.linspace(0,3.14,100)
+        xs = np.linspace(0,1.57,1000)
         plt.plot(xs, self.real_data(xs), 'g')
         plt.plot(xs, self.fake_data(xs), 'r')
         plt.show() 
-        '''
 
     def load_stem_stem_data(self, filename, col):
         import pandas as pa
@@ -1081,13 +1081,16 @@ class StemStemOrientationEnergy(EnergyFunction):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist:
                 real = my_log(
-                        self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[2])
+                        self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
                 fake = my_log(
-                        self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[2])
+                        self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
 
                 energy += (real - fake)
 
                 self.interaction_energies[tuple(sorted([s1,s2]))] += (real - fake)
+
+        if energy > 300:
+            pdb.set_trace()
 
         return -energy
                 

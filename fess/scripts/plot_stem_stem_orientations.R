@@ -5,7 +5,7 @@ library(gridExtra)
 plotorientations <- function(t, ts) {
   length(t[t$V1 < 20,]$V1)
   min_dist = 0
-  max_dist = 30
+  max_dist = 25
 
   t1 <- t[t$V1 < max_dist & t$V1 > min_dist,]
   ts1 <- ts[ts$V1 < max_dist & ts$V1 > min_dist,]
