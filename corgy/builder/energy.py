@@ -1045,13 +1045,13 @@ class RoughJunctionClosureEnergy(EnergyFunction):
         return energy
 
 class StemStemOrientationEnergy(EnergyFunction):
-    def __init__(self):
+    def __init__(self, col=2):
         super(StemStemOrientationEnergy, self).__init__()
         self.max_dist = 30
         self.sample_num = 10000
 
-        self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
-        self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
+        self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
+        self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
 
         '''
         import matplotlib.pyplot as plt
@@ -1061,10 +1061,11 @@ class StemStemOrientationEnergy(EnergyFunction):
         plt.show() 
         '''
 
-    def load_stem_stem_data(self, filename):
+    def load_stem_stem_data(self, filename, col):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
-        angles = t[t[t.columns[0]] < self.max_dist][t.columns[2]].values
+        angles = t[t[t.columns[0]] < self.max_dist][t.columns[col]].values
+        cud.pv('t.columns')
 
         sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]
         sa = [min(a, math.pi - a) for a in sampled_angles]
