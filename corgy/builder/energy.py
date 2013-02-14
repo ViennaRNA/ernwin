@@ -1055,11 +1055,13 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
 
+        '''
         import matplotlib.pyplot as plt
         xs = np.linspace(0,1.57,1000)
         plt.plot(xs, self.real_data(xs), 'g')
         plt.plot(xs, self.fake_data(xs), 'r')
         plt.show() 
+        '''
 
     def load_stem_stem_data(self, filename, col):
         import pandas as pa
@@ -1080,10 +1082,12 @@ class StemStemOrientationEnergy(EnergyFunction):
         for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist:
-                real = my_log(
-                        self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
-                fake = my_log(
-                        self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
+                ang = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col]
+                ang = min(ang, math.pi - ang)
+                real = my_log(self.real_data(ang))
+                fake = my_log(self.fake_data(ang))
+                #real = my_log( self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
+                #fake = my_log( self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
 
                 energy += (real - fake)
 
