@@ -1073,7 +1073,8 @@ class StemStemOrientationEnergy(EnergyFunction):
         #cud.pv('t.columns')
 
         sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]
-        sa = [min(a, math.pi - a) for a in sampled_angles]
+        #sa = [min(a, math.pi - a) for a in sampled_angles]
+        sa = [a for a in sampled_angles]
 
         return cek.gaussian_kde(sa)
         #return ss.gaussian_kde(angles)
@@ -1086,7 +1087,7 @@ class StemStemOrientationEnergy(EnergyFunction):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
                 ang = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col]
-                ang = min(ang, math.pi - ang)
+                #ang = min(ang, math.pi - ang)
                 real = my_log(self.real_data(ang))
                 fake = my_log(self.fake_data(ang))
                 #real = my_log( self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
