@@ -5,10 +5,13 @@ library(gridExtra)
 plotorientations <- function(t, ts) {
   length(t[t$V1 < 20,]$V1)
   min_dist = 0
-  max_dist = 25
+  max_dist = 30
 
-  t1 <- t[t$V1 < max_dist & t$V1 > min_dist,]
-  ts1 <- ts[ts$V1 < max_dist & ts$V1 > min_dist,]
+  max_lat_dist = 11
+
+
+  t1 <- t[t$V1 < max_dist & t$V1 > min_dist & t$V5 < max_lat_dist,]
+  ts1 <- ts[ts$V1 < max_dist & ts$V1 > min_dist & t$V5 < max_lat_dist,]
 
   min(t1$V3, abs(pi - t1$V3))
 
@@ -18,7 +21,7 @@ plotorientations <- function(t, ts) {
   t1$offset2 <- sapply(t1$V2,function(x) min(x, abs(pi - x)))
   ts1$offset2 <- sapply(ts1$V2,function(x) min(x, abs(pi - x)))
 
-head(t1)
+  head(t1)
   
   print(length(t1$V1))
   print(length(ts1$V1))

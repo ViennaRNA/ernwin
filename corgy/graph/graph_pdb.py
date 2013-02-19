@@ -47,15 +47,53 @@ def stem_stem_orientation(bg, s1, s2):
     # shorten the names a little bit
     s1_p0 = bg.coords[s1][0]
     s1_p1 = bg.coords[s1][1]
+    
+    twist1_vec = bg.twists[s1][0]
+    twist2_vec = bg.twists[s2][0]
 
     s2_p0 = bg.coords[s2][0]
     s2_p1 = bg.coords[s2][1]
+
+    # The vectors of the axes of the cylinders
+    s1_vec = bg.coords[s1][1] - bg.coords[s1][0]
+    s2_vec = bg.coords[s2][1] - bg.coords[s2][0]
+
+    s1_len = cuv.magnitude(s1_vec)
+    s2_len = cuv.magnitude(s2_vec)
+
+    stem1_basis = cuv.create_orthonormal_basis(s1_vec, twist1_vec)
+    stem2_basis = cuv.create_orthonormal_basis(s2_vec, twist2_vec)
+
+    stem1_origin = bg.coords[s1][0]
+    stem2_origin = bg.coords[s2][0]
 
     # the minimum distance between the two stems, which are represented
     # as line segments
     (i1, i2) = cuv.line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1)
     i_vec = i2 - i1
 
+    s2_on_s1_intersect = cuv.change_basis(i2 - stem1_origin, stem1_basis, cuv.standard_basis)
+    s1_on_s2_intersect = cuv.change_basis(i1 - stem2_origin, stem2_basis, cuv.standard_basis)
+
+    if s2_on_s1_intersect[0] > 0.:
+        if s2_on_s1_intersect[0] > s1_len:
+            s2_on_s1_dist = s2_on_s1_intersect[0] - s1_len
+        else:
+            s2_on_s1_dist = 0.
+    else:
+        s2_on_s1_dist = abs(s2_on_s1_intersect[0])
+
+    if s1_on_s2_intersect[0] > 0.:
+        if s1_on_s2_intersect[0] > s2_len:
+            s1_on_s2_dist = s1_on_s2_intersect[0] - s2_len
+        else:
+            s1_on_s2_dist = 0.
+    else:
+        s1_on_s2_dist = abs(s1_on_s2_intersect[0])
+
+    lateral_offset = (s2_on_s1_dist + s1_on_s2_dist) / 2.
+    ortho_offset = (abs(s1_on_s2_intersect[1]) + abs(s2_on_s1_intersect[1])) / 2.
+        
     offset_vec1 = cuv.vec_angle(i_vec, s1_p1 - s1_p0)
     offset_vec2 = cuv.vec_angle(i_vec, s2_p1 - s2_p0)
 
@@ -64,12 +102,13 @@ def stem_stem_orientation(bg, s1, s2):
 
     offset_vec = (offset_vec1 + offset_vec2) / 2.
 
+    '''
+    cud.pv('"***************"')
     cud.pv('(s1,s2)')
     cud.pv('offset_vec')
-
-    # The vectors of the axes of the cylinders
-    s1_vec = bg.coords[s1][1] - bg.coords[s1][0]
-    s2_vec = bg.coords[s2][1] - bg.coords[s2][0]
+    cud.pv('(s2_on_s1_dist + s1_on_s2_dist) / 2.')
+    cud.pv('(lateral_offset, ortho_offset)')
+    '''
 
     # the normal of the plane defined by the two stem vectors
     plane_norm = np.cross(s1_vec, i_vec)
@@ -86,7 +125,7 @@ def stem_stem_orientation(bg, s1, s2):
     #cud.pv('np.dot(cuv.normalize(s2_proj), cuv.normalize(s1_vec))')
     ang2 = cuv.vec_angle(s2_proj, s1_vec)
 
-    return (cuv.magnitude(i_vec), ang1, ang2, cuv.vec_angle(s1_vec, s2_vec))
+    return (cuv.magnitude(i_vec), ang1, ang2, cuv.vec_angle(s1_vec, s2_vec), lateral_offset, ortho_offset)
 
 def get_stem_phys_length(coords):
     '''

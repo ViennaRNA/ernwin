@@ -28,7 +28,7 @@ import corgy.builder.sampling as cbs
 import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
 
-import scipy.stats as ss
+#import scipy.stats as ss
 import sys
 
 def my_log(x):
@@ -537,6 +537,7 @@ class LongRangeInteractionCount(EnergyFunction):
         @param bg: The BulgeGraph of the target structure
         @param filename: The filename of the statistics file
         '''
+        import scipy.stats as ss
 
         f = open(filename, 'r')
         long_range = []
@@ -591,6 +592,7 @@ class LongRangeInteractionCount(EnergyFunction):
         bg = sm.bg
         self.distance_iterator = lri_iter
         count = self.count_interactions(bg)
+        import scipy.stats as ss
 
         if self.target_interactions == None:
             raise MissingTargetException("LongRangeInteractionEnergy target_interaction is not defined. This energy probably hasn't been calibrated")
@@ -1048,7 +1050,8 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self, col=2):
         super(StemStemOrientationEnergy, self).__init__()
-        self.max_dist = 22
+        self.max_dist = 30
+        self.max_lateral_dist = 13
         self.sample_num = 10000
         self.col = col
 
@@ -1067,7 +1070,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
         angles = t[t[t.columns[0]] < self.max_dist][t.columns[col]].values
-        cud.pv('t.columns')
+        #cud.pv('t.columns')
 
         sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]
         sa = [min(a, math.pi - a) for a in sampled_angles]
@@ -1081,7 +1084,7 @@ class StemStemOrientationEnergy(EnergyFunction):
 
         for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
-            if orientation[0] < self.max_dist:
+            if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
                 ang = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col]
                 ang = min(ang, math.pi - ang)
                 real = my_log(self.real_data(ang))

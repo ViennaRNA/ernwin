@@ -56,6 +56,7 @@ def main():
     parser.add_option('', '--seq', dest='seq', default=None, help='Provide the sequence of the structure being sampled. This is necessary if one wants to later reconstruct it.')
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
+    parser.add_option('', '--output-file', dest='output_file', default=None, help='File to output the information about the sampling to. Defaults to standard out', type=str)
 
     (options, args) = parser.parse_args()
 
@@ -79,6 +80,10 @@ def main():
 
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
+    if options.output_file == None:
+        options.output_file = sys.stdout
+    else:
+        options.output_file = open(options.output_file, 'w')
 
     cbc.Configuration.sampling_output_dir = options.output_dir
 
@@ -124,7 +129,7 @@ def main():
     silent = False
 
     for color,energy in zip(colors, energies_to_sample):
-        stat = SamplingStatistics(sm, plotter, color, silent=silent) 
+        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file)
         if options.mcmc_sampler:
             samplers += [cbs.MCMCSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
         else:

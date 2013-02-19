@@ -25,10 +25,11 @@ mean(tr1$V3)
 
 library(ggplot2)
 head(t2)
-#png("rosetta_ernwin_rmsds.png")
+png("rosetta_ernwin_rmsds.png")
 c <- ggplot(data=t2, aes(x=V1,y=V3,fill=from))
 #c + geom_bar(stat="identity", position=position_dodge())
-c + geom_dotplot(binaxis = "y", alpha=0.5) + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd")
-#dev.off()
-                 
-sum(te$V3 < tr$V3) / length(te$V3)
+#c + geom_dotplot(binaxis = "y", alpha=0.3) + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd")
+#c + geom_bar(stat="identity", position="dodge") + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd")
+ggplot(data=t2, aes(x=V1, y=V3, color=from, group=from)) + geom_line() + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd") + geom_point() + ylim(c(0, max(t2$V3)))
+dev.off()
+

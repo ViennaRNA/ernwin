@@ -148,6 +148,7 @@ class PymolPrinter:
     def pymol_text_string(self):
         counter = 0
         s = ''
+        pa_s = 'cmd.set("label_size", 20)\n'
         uids = []
 
         for (p, n, color, width, text) in self.segments:
@@ -168,14 +169,16 @@ class PymolPrinter:
             comp2 = cuv.normalize(np.cross(ncl, comp1))
             comp3 = cuv.normalize(np.cross(ncl, comp2))
 
-            #pos = (p + n) / 2.0 + 3 * comp2
-            pos = p + (n - p) / 4.0 + 3 * comp2
+            pos = (p + n) / 2.0 + 3 * comp2
+            #pos = p + (n - p) / 4.0 + 3 * comp2
             font = 1
             axes = [list(comp1 * 2), list(comp2 * 2), list(comp3 * 2)]
 
-            text = "%s: %.1f" % (text, cuv.magnitude(n-p))
+            #text = "%s: %.1f" % (text, cuv.magnitude(n-p))
+            text = "%s" % (text)
 
             s += "cyl_text(cgox_%s, plain, %s, \"%s\", 0.20, axes=%s)" % (uid, str(list(pos)), text, str(axes)) + '\n'
+            pa_s += "pa_%s = cmd.pseudoatom(pos=%s,b=1.0, label=\"%s\")\n" % (uid, str(list(pos)), text)
             counter += 1
 
         s +=  "cmd.set(\"cgo_line_radius\",0.03)" + '\n'
@@ -183,7 +186,7 @@ class PymolPrinter:
             s += "cmd.load_cgo(cgox_%s, \'cgox%s\')" % (uids[i], uids[i]) + '\n'
         s += "cmd.zoom(\"all\", 2.0)" + '\n'
 
-        return s
+        return pa_s
 
 
     def pymol_string(self):
@@ -439,7 +442,8 @@ class PymolPrinter:
                                                      bg.coords[s2][1])
                 if cuv.magnitude(i2 - i1) < self.max_stem_distances:
                     cud.pv('cuv.magnitude(i2-i1)')
-                    self.add_segment(i1, i2, 'cyan', 0.3, s1 + " " + s2)
+                    #self.add_segment(i1, i2, 'cyan', 0.3, s1 + " " + s2)
+                    self.add_segment(i1, i2, 'cyan', 0.3)
 
         if self.add_longrange:
             for key1 in bg.longrange.keys():

@@ -32,8 +32,8 @@ import numpy as np
 from numpy.random import randint, multivariate_normal
 
 # Local imports.
-import scipy.stats.stats as stats
-import scipy.stats.mvn as mvn
+#import scipy.stats.stats as stats
+#import scipy.stats.mvn as mvn
 
 import corgy.utilities.vector as cuv
 import corgy.utilities.debug as cud

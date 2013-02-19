@@ -3,7 +3,7 @@
 import collections as c
 import sys, random, copy
 import numpy as np
-import scipy.stats as ss
+import corgy.exp.kde as cek
 import math, os
 
 #import matplotlib.pyplot as plt
@@ -56,7 +56,7 @@ class StatisticsPlotter:
         positions = np.vstack([X.ravel(), Y.ravel()])
         values = np.vstack([m1, m2])
         #print "values:", values
-        kernel = ss.gaussian_kde(values)
+        kernel = cek.gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
 
         #print "Z:", Z
@@ -179,7 +179,7 @@ class SamplingStatistics:
     Store statistics about a sample.
     '''
 
-    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False):
+    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout):
         '''
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
@@ -189,6 +189,7 @@ class SamplingStatistics:
         self.plot_color = plot_color
         self.silent = silent
         self.verbose = False
+        self.output_file = output_file
 
         try:
             self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
@@ -238,8 +239,8 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            print "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f %5.2f" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, lowest_rmsd)
-            sys.stdout.flush()
+            self.output_file.write("native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, lowest_rmsd))
+            self.output_file.flush()
 
         self.update_plots(energy, r)
 
