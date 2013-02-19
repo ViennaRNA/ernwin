@@ -55,7 +55,7 @@ class EnergyFunction(object):
     def iterate_over_interaction_energies(self, bg, background):
         sm = cbm.SpatialModel(bg)
 
-        for stem in bg.stem_like():
+        for stem in bg.stems():
             cgg.add_virtual_residues(bg, stem)
 
 
@@ -1048,7 +1048,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self, col=2):
         super(StemStemOrientationEnergy, self).__init__()
-        self.max_dist = 25
+        self.max_dist = 22
         self.sample_num = 10000
         self.col = col
 

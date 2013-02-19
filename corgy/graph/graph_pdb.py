@@ -56,6 +56,17 @@ def stem_stem_orientation(bg, s1, s2):
     (i1, i2) = cuv.line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1)
     i_vec = i2 - i1
 
+    offset_vec1 = cuv.vec_angle(i_vec, s1_p1 - s1_p0)
+    offset_vec2 = cuv.vec_angle(i_vec, s2_p1 - s2_p0)
+
+    offset_vec1 = min(offset_vec1, m.pi - offset_vec1)
+    offset_vec2 = min(offset_vec2, m.pi - offset_vec2)
+
+    offset_vec = (offset_vec1 + offset_vec2) / 2.
+
+    cud.pv('(s1,s2)')
+    cud.pv('offset_vec')
+
     # The vectors of the axes of the cylinders
     s1_vec = bg.coords[s1][1] - bg.coords[s1][0]
     s2_vec = bg.coords[s2][1] - bg.coords[s2][0]

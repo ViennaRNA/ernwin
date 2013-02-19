@@ -26,9 +26,9 @@ def main():
     parser.add_option('-t', '--twists', dest='add_twists', default=True, action='store_false', help='Hide the twist indicators')
     parser.add_option('-l', '--longrange', dest='add_longrange', default=False, action='store_true', help='Display the longrange interactions')
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
-    parser.add_option('-i', '--img_energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
-    parser.add_option('-s', '--stem_stem_energy', dest='stem_stem_energy', default=False, action='store_true', help="Visualize the distance energy")
-    parser.add_option('-m', '--max_stem_distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
+    parser.add_option('-i', '--img-energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
+    parser.add_option('-s', '--stem-stem-energy', dest='stem_stem_energy', default=False, action='store_true', help="Visualize the distance energy")
+    parser.add_option('-m', '--max-stem-distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
     parser.add_option('-p', '--pdb', dest='pdb_file', default=None, help='Include a pdb file for drawing bouding boxes.', type='string')
     parser.add_option('', '--hide-cg', dest='hide_cg', default=False, action='store_true', help='Hide the coarse grain model.')
     parser.add_option('', '--stem-atoms', dest='stem_atoms', default=False, action='store_true', help='Display the approximate locations of the atoms of the nucleotides that are parts of stems.')
@@ -54,6 +54,9 @@ def main():
     if options.img_energy:
         pymol_printer.energy_function = cbe.ImgHelixOrientationEnergy()
     if options.stem_stem_energy:
+        for bg in bgs:
+            for s in bg.stems():
+                cgg.add_virtual_residues(bg, s)
         pymol_printer.energy_function = cbe.StemStemOrientationEnergy()
     if options.pdb_file:
         pymol_printer.pdb_file = options.pdb_file

@@ -439,7 +439,7 @@ class PymolPrinter:
                                                      bg.coords[s2][1])
                 if cuv.magnitude(i2 - i1) < self.max_stem_distances:
                     cud.pv('cuv.magnitude(i2-i1)')
-                    self.add_segment(i1, i2, 'purple', 0.3, s1 + " " + s2)
+                    self.add_segment(i1, i2, 'cyan', 0.3, s1 + " " + s2)
 
         if self.add_longrange:
             for key1 in bg.longrange.keys():
