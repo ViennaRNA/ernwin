@@ -427,6 +427,9 @@ def add_residue_to_rosetta_chain(chain, residue):
     for atom in removed_atoms:
         residue.add(atom)
 
+    if residue.id[1] in chain:
+        chain.detach_child(chain[residue.id[1]].id)
+
     chain.add(residue)
 
 def add_loop_chain(chain, loop_chain, handles, length):
@@ -945,35 +948,29 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
         source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
         fragment_library[filename] = source_chain
 
-    align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
+    cud.pv('angle_def.define')
+
+    #align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
 
     connections = sm.bg.connections(ld)
-    (s1b, s1e) = sm.bg.get_sides(connections[0], ld)
-    (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
+    (sd0, bd0) = sm.bg.get_sides_plus(connections[0], ld)
+    (sd1, bd1) = sm.bg.get_sides_plus(connections[1], ld)
 
-    d = angle_def.define
-    d1 = sm.bg.defines[ld]
+    a0 = sm.bg.defines[connections[0]][sd0]
+    b0 = sm.bg.defines[connections[1]][sd1]
+    a = [a0,b0]
+    a.sort()
+    (a0,b0) = a
 
-    # add the new chain to the old one
-    for j in range(0, len(angle_def.define), 2):
-        #bd = sm.bg.get_bulge_dimensions(ld)
-        if len(d) == 4:
-            bd = (d1[1] - d1[0], d1[3] - d1[2])
-        for k in range(angle_def.define[j], angle_def.define[j+1]+1):
-            target_index = sm.bg.defines[ld][j] + k - angle_def.define[j]
-            if len(d) == 4:
-                if bd != (d[1] - d[0], d[3] - d[2]):
-                    target_index = sm.bg.defines[ld][(j+2) % 4] + k - angle_def.define[j]
+    i1_0 = angle_def.define[0]
+    i2_0 = angle_def.define[1]
 
-            if target_index in chain:
-                #print >> sys.stderr, "detaching...", target_index
-                chain.detach_child(chain[target_index].id)
-
-            e = source_chain[k]
-            e.id = (e.id[0], target_index, e.id[2])
-
-            chain.add(e)
-    pass
+    seq_len = i2_0 - i1_0
+    align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0))
+    add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
+      
+    return
 
 def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''
@@ -986,6 +983,7 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''
 
     loop_def = sm.loop_defs[ld]
+    angle_def = loop_def
 
     if loop_def.define[1] - loop_def.define[0] == 1:
         return
@@ -1002,21 +1000,28 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
         fragment_library[filename] = source_chain
 
     align_source_to_target_fragment(chain, source_chain, sm, loop_def, ld)
+    connection = list(sm.bg.edges[ld])[0]
 
-    # add the new chain to the old one
-    for j in range(0, len(loop_def.define), 2):
-        for k in range(loop_def.define[j], loop_def.define[j+1]+1):
-            target_index = sm.bg.defines[ld][j] + k - loop_def.define[j]
+    (sd0, bd0) = sm.bg.get_sides_plus(connection, ld)
+    cud.pv('ld')
+    cud.pv('(sd0, bd0)')
 
-            if target_index in chain:
-                #print >> sys.stderr, "detaching...", target_index
-                chain.detach_child(chain[target_index].id)
+    if sd0 == 0:
+        a0,b0 = sm.bg.defines[connection][0], sm.bg.defines[connection][3]
+    else:
+        a0,b0 = sm.bg.defines[connection][1], sm.bg.defines[connection][2]
 
-            e = source_chain[k]
-            e.id = (e.id[0], target_index, e.id[2])
+    cud.pv('angle_def.pdb_name')
 
-            chain.add(e)
-    pass
+    i1_0 = angle_def.define[0]
+    i2_0 = angle_def.define[1]
+
+    seq_len = i2_0 - i1_0
+    align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0))
+    add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
+
+    return
 
 def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''

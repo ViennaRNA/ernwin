@@ -42,6 +42,8 @@ def main():
             for b in sm.bg.bulges():
                 print >>sys.stderr, "reconstructing...", b
                 if b not in sampled_bulges:
+                    continue
+
                     print >> sys.stderr, "closed bulge:", b
                     (as1, as2) = sm.bg.get_bulge_angle_stats(b)
                     cud.pv('as1')
