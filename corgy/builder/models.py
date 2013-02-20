@@ -384,6 +384,8 @@ class SpatialModel:
         Get the information about the sampled elements from the underlying BulgeGraph.
         '''
         # get the stem defs
+        self.get_sampled_bulges()
+
         self.stem_defs = dict()
         for s in self.bg.stems():
             sl = self.bg.stem_length(s)
@@ -393,11 +395,12 @@ class SpatialModel:
 
         self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
         for b in self.bg.bulges():
+            if b not in self.sampled_bulges:
+                continue
+
             size = self.bg.get_bulge_dimensions(b)
 
             sb = self.bg.sampled[b]
-            if b == 'b5':
-                cud.pv('sb')
             for ang_s in self.angle_stats[size[0]][size[1]][sb[1]]:
                 #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
@@ -551,10 +554,10 @@ class SpatialModel:
             #print "self.bg.sampled_stems[sd[0]]:", self.bg.sampled_stems[sd[0]]
 
     def save_sampled_angles(self):
-        for key0 in self.angle_defs.keys():
-            for key1 in self.angle_defs[key0].keys():
-                ad = self.angle_defs[key0][key1]
-                self.bg.sampled[key0] = [ad.pdb_name] + [key1] + ad.define
+        for (bulge, (s1b, s2b, direction)) in self.sampled_bulge_sides:
+            ang_type = cbs.end_ang_types[(s1b, s2b, direction)]
+            ad = self.angle_defs[bulge][ang_type]
+            self.bg.sampled[bulge] = [ad.pdb_name] + [ang_type] + ad.define
 
     def save_sampled_loops(self):
         for sd in self.loop_defs.items():

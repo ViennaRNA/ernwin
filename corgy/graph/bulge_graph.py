@@ -415,6 +415,25 @@ class BulgeGraph:
 
         return connections
 
+    def get_angle_types(self, bulge):
+        '''
+        Return the type of angle that separates the two stems connected
+        by the bulge 'bulge'. A tuple will be returned for the forward
+        angle type (i.e. the lower numbered stem to the higher numbered one)
+        and the reverse angle type.
+        '''
+        connections = self.connections(bulge)
+
+        (s1b, s1e) = self.get_sides(connections[0], bulge)
+        (s2b, s2e) = self.get_sides(connections[1], bulge)
+
+        direction1 = self.get_stem_direction(connections[0], connections[1])
+        direction2 = self.get_stem_direction(connections[1], connections[0])
+
+        return (cbs.end_ang_types[(s1b, s2b, direction1)],
+                cbs.end_ang_types[(s2b, s1b, direction2)])
+         
+
     def get_bulge_angle_stats(self, bulge):
         '''
         Return the angle stats for a particular bulge. These stats describe the

@@ -367,10 +367,9 @@ class GibbsBGSampler:
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
         # What are the potential angle statistics for it
-
         ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
         possible_angles = self.sm.angle_stats[dims[0]][dims[1]][ang_type1]
-        print >>sys.stderr, bulge, dims, len(possible_angles)
+        #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:
             print >>sys.stderr, "No available statistics for bulge %s of size %s" % (bulge, str(dims))
@@ -426,7 +425,6 @@ class GibbsBGSampler:
         prob_remaining = 1.
         for key in energy_probs.keys():
             if random.random() < energy_probs[key] / prob_remaining:
-                cud.pv('key')
                 self.sm.angle_defs[bulge][ang_type1] = key
                 break
 

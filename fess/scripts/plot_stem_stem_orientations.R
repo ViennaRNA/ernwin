@@ -7,7 +7,7 @@ plotorientations <- function(t, ts) {
   min_dist = 0
   max_dist = 30
 
-  max_lat_dist = 11
+  max_lat_dist = 13
 
 
   t1 <- t[t$V1 < max_dist & t$V1 > min_dist & t$V5 < max_lat_dist,]
@@ -15,12 +15,18 @@ plotorientations <- function(t, ts) {
 
   min(t1$V3, abs(pi - t1$V3))
 
-  t1$offset3 <- sapply(t1$V3,function(x) min(x, abs(pi - x)))
-  ts1$offset3 <- sapply(ts1$V3,function(x) min(x, abs(pi - x)))
+  #t1$offset3 <- sapply(t1$V3,function(x) min(x, abs(pi - x)))
+  #ts1$offset3 <- sapply(ts1$V3,function(x) min(x, abs(pi - x)))
 
-  t1$offset2 <- sapply(t1$V2,function(x) min(x, abs(pi - x)))
-  ts1$offset2 <- sapply(ts1$V2,function(x) min(x, abs(pi - x)))
+  #t1$offset2 <- sapply(t1$V2,function(x) min(x, abs(pi - x)))
+  #ts1$offset2 <- sapply(ts1$V2,function(x) min(x, abs(pi - x)))
 
+  t1$offset3 <- t1$V3
+  ts1$offset3 <- ts1$V3
+
+  t1$offset2 <- t1$V2
+  ts1$offset2 <- ts1$V2
+  
   head(t1)
   
   print(length(t1$V1))
