@@ -281,8 +281,8 @@ class SpatialModel:
         self.sample_angles()
         self.sample_stems()
         self.sample_loops()
-        #self.sample_fiveprime()
-        #self.sample_threeprime()
+        self.sample_fiveprime()
+        self.sample_threeprime()
 
     def sample_angles(self):
         '''
@@ -396,10 +396,14 @@ class SpatialModel:
             size = self.bg.get_bulge_dimensions(b)
 
             sb = self.bg.sampled[b]
-            for ang_s in self.angle_stats[size[0]][size[1]][sb[1]][sb[2]]:
+            if b == 'b5':
+                cud.pv('sb')
+            for ang_s in self.angle_stats[size[0]][size[1]][sb[1]]:
                 #print >>sys.stderr, "some stuff", b
-                if ang_s.pdb_name == sb[0] and ang_s.define == sb[3:]:
-                    self.angle_defs[b][sb[1]][sb[2]] = ang_s
+                if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
+                    if b == 'b5':
+                        cud.pv('ang_s')
+                    self.angle_defs[b][sb[1]] = ang_s
 
         self.loop_defs = dict()
         for l in self.bg.loops():
@@ -733,8 +737,8 @@ class SpatialModel:
         self.save_sampled_stems()
         self.save_sampled_angles()
         self.save_sampled_loops()
-        #self.save_sampled_fiveprimes()
-        #self.save_sampled_threeprimes()
+        self.save_sampled_fiveprimes()
+        self.save_sampled_threeprimes()
 
     def traverse_and_build(self, start=''):
         '''

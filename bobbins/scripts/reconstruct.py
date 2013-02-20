@@ -56,7 +56,7 @@ def main():
                     best_bv_dist = 1000000.
                     best_bv = None
 
-                    for ang_s in sm.angle_stats[size[0]][size[1]][sb[1]][sb[2]]:
+                    for ang_s in sm.angle_stats[size[0]][size[1]][sb[1]]:
                         pot_bulge_vec = np.array(cuv.spherical_polar_to_cartesian((ang_s.r1, ang_s.u1, ang_s.v1)))
                         pot_bv_dist = cuv.magnitude(bulge_vec - pot_bulge_vec)
                         if pot_bv_dist < best_bv_dist:
@@ -69,7 +69,7 @@ def main():
                     cud.pv('bulge_vec')
                     cud.pv('best_bv_ang_s')
                     cud.pv('(b, sb[1], sb[2])')
-                    sm.angle_defs[b][sb[1]][sb[2]] = best_bv_ang_s
+                    sm.angle_defs[b][sb[1]] = best_bv_ang_s
 
                 rtor.reconstruct_bulge_with_fragment(chain, sm, b)
             for l in sm.bg.loops():

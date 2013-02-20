@@ -930,11 +930,9 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     #both ways should work
     #i.e. if [0][1] is present, [0][1] should also be present
     for key1 in sm.angle_defs[ld].keys():
-        for key2 in sm.angle_defs[ld][key1].keys():
-            break
+        break
 
-    angle_def = sm.angle_defs[ld][key1][key2]
-    cud.pv('angle_def')
+    angle_def = sm.angle_defs[ld][key1]
 
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (angle_def.pdb_name, "_".join(map(str, angle_def.define)))
