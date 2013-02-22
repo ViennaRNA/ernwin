@@ -335,15 +335,20 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
     '''
 
     cud.pv('end')
-    if end == 0:
-        v1 = get_alignment_vectors(chain_stems, handles[0], handles[1])
-        v2 = get_alignment_vectors(chain_loop, handles[2], handles[3])
-    else:
-        v1 = get_measurement_vectors(chain_stems, handles[0], handles[1])
-        v2 = get_measurement_vectors(chain_loop, handles[2], handles[3])
 
-    #v1_m = get_measurement_vectors_rosetta(chain_stems, handles[0], handles[1])
-    #v2_m = get_measurement_vectors_barnacle(chain_loop, handles[2], handles[3])
+    v1 = []
+    v2 = []
+
+    for handle in handles:
+        if end == 0:
+            v1 += get_alignment_vectors(chain_stems, handle[0], handle[1])
+            v2 += get_alignment_vectors(chain_loop, handle[2], handle[3])
+        else:
+            v1 += get_measurement_vectors(chain_stems, handle[0], handle[1])
+            v2 += get_measurement_vectors(chain_loop, handle[2], handle[3])
+
+    #v1_m = get_measurement_vectors_rosetta(chain_stems, handle[0], handle[1])
+    #v2_m = get_measurement_vectors_barnacle(chain_loop, handle[2], handle[3])
 
     v1_centroid = cuv.get_vector_centroid(v1)
     v2_centroid = cuv.get_vector_centroid(v2)
@@ -472,8 +477,9 @@ def add_loop_chain(chain, loop_chain, handles, length):
         add_residue_to_rosetta_chain(chain, loop_chain[handles[3]])
 
     # We won't replace the last residue
+    # ... or will we?
     counter = 1
-    for i in range(handles[2]+1, handles[3]):
+    for i in range(handles[2]+1, handles[3]+1):
         loop_chain[i].id = (' ', handles[0] + counter, ' ')
         add_residue_to_rosetta_chain(chain, loop_chain[i])
         counter += 1
@@ -522,75 +528,71 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
     @param iterations: The number of iterations to use for the CCD loop closure.
     '''
 
-    align_starts(chain_stems, chain_loop, handles)
+    #align_starts(chain_stems, chain_loop, handles)
     e = np.eye(3,3)
 
-    (moving, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
-    #(moving_names, indeces_names) = get_atom_name_array(chain_loop, handles[2], handles[3])
+    for handle in handles:
+        (moving, indeces) = get_atom_coord_array(chain_loop, handle[2], handle[3])
+        fixed = np.array(get_measurement_vectors(chain_stems, handle[0], handle[1]))
 
+        start_res = handle[2]
+        end_res = handle[3]
 
-    fixed = np.array(get_measurement_vectors(chain_stems, handles[0], handles[1]))
+        #start_index = indeces[handle[2]+1]
+        end_index = indeces[handle[3]+1]
 
-    start_res = handles[2]
-    end_res = handles[3]
+        points = []
+        #points += [indeces[handle[2]+1]]
 
-    #start_index = indeces[handles[2]+1]
-    end_index = indeces[handles[3]+1]
+        #points += indeces[handle[2]+1] #O3* -> P bond
+        cud.pv('move_all_angles')
+        if move_all_angles:
+            angle_to_move = range(handle[2]+1, handle[3]+1)
+        else:
+            cud.pv('(handle[2]+1, handle[3])')
+            angle_to_move = [handle[2]+1, handle[3]]
 
-    points = []
-    #points += [indeces[handles[2]+1]]
+        for i in angle_to_move:
+            si = indeces[i]
 
-    #points += indeces[handles[2]+1] #O3* -> P bond
-    cud.pv('move_all_angles')
-    if move_all_angles:
-        angles_to_move = range(handles[2]+1, handles[3]+1)
-    else:
-        cud.pv('(handles[2]+1, handles[3])')
-        angles_to_move = [handles[2]+1, handles[3]]
+            # 
+            points += [si]
+            points += [si+4, si+5, si+6]
 
-    #for i in range(handles[2]+1, handles[3]+1):
-    for i in angles_to_move:
-        si = indeces[i]
+        rot_mat = np.eye(3,3)
+            
+        '''
+        distances = get_adjacent_interatom_distances(chain_loop, handle[2], handle[3])
+        names = get_adjacent_interatom_names(chain_loop, handle[2], handle[3])
+        '''
+        moving = np.array(moving)
+        points = np.array(points)
 
-        # 
-        points += [si]
-        points += [si+4, si+5, si+6]
+        cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
+        rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
+        cud.pv('rmsd')
 
-    rot_mat = np.eye(3,3)
-        
-    '''
-    distances = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
-    names = get_adjacent_interatom_names(chain_loop, handles[2], handles[3])
-    '''
+        chain_loop = set_atom_coord_array(chain_loop, moving, handle[2], handle[3])
 
+        '''
+        assert(not np.allclose(moving_orig, moving))
 
-    moving = np.array(moving)
-    points = np.array(points)
+        (moving_new, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
 
-    cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
-    rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
+        assert(not np.allclose(moving_orig, moving_new))
 
-    chain_loop = set_atom_coord_array(chain_loop, moving, handles[2], handles[3])
+        distances2 = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
+        print [ (d,n) for (d,n) in zip(np.array(distances2) - np.array(distances), names) if (d > 0.0001 or math.isnan(d)) ]
 
-    '''
-    assert(not np.allclose(moving_orig, moving))
+        #print np.array(distances2) - np.array(distances)
 
-    (moving_new, indeces) = get_atom_coord_array(chain_loop, handles[2], handles[3])
-
-    assert(not np.allclose(moving_orig, moving_new))
-
-    distances2 = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
-    print [ (d,n) for (d,n) in zip(np.array(distances2) - np.array(distances), names) if (d > 0.0001 or math.isnan(d)) ]
-
-    #print np.array(distances2) - np.array(distances)
-
-    assert(np.allclose(distances, distances2))
-    '''
+        assert(np.allclose(distances, distances2))
+        '''
 
 
     return (rmsd, chain_loop)
 
-def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2), move_all_angles=True):
+def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True):
     '''
     Align chain_loop to the scaffold present in chain.
 
@@ -612,16 +614,16 @@ def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2), move_all_angle
     ns = bpdb.NeighborSearch(loop_atoms)
     contacts1 = len(ns.search_all(0.8))
     
-    if a == 0:
-        align_starts(chain, chain_loop, (a,b,i1,i2), end=1)
+    if handles[0][0] == 0:
+        align_starts(chain, chain_loop, handles[0], end=1)
         loop_chain = chain_loop
         r = 0.000
-    elif b == seq_len:
-        align_starts(chain, chain_loop, (a,b,i1,i2), end=0)
+    elif handles[0][1] == seq_len:
+        align_starts(chain, chain_loop, handles[0], end=0)
         loop_chain = chain_loop
         r = 0.000
     else:
-        r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=10000, move_all_angles=move_all_angles)
+        r, loop_chain = close_fragment_loop(chain, chain_loop, handles, iterations=10000, move_all_angles=move_all_angles)
 
     return (r, loop_chain)
 
@@ -682,7 +684,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
         all_chain = copy.deepcopy(stem_chain)
         cup.trim_chain(loop_chain, i1, i2+1)
-        add_loop_chain(all_chain, loop_chain, (a,b,i1,i2), seq_len)
+        add_loop_chain(all_chain, loop_chain, [(a,b,i1,i2)], seq_len)
 
         if consider_contacts:
             contacts2 = cup.num_noncovalent_clashes(all_chain)
@@ -944,24 +946,39 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
     (a0,b0) = a
 
     if len(angle_def.define) == 4:
+        a0_1 = sm.bg.defines[connections[0]][sm.bg.same_stem_end(sd0)]
+        b0_1 = sm.bg.defines[connections[1]][sm.bg.same_stem_end(sd1)]
+        b = [a0_1, b0_1]
+        b.sort()
+        (a0_1, b0_1) = b
+
         if angle_def.ang_type == 2 and sd0 == 1:
             i1_0 = angle_def.define[2]
             i2_0 = angle_def.define[3]
+            i1_1 = angle_def.define[0]
+            i2_1 = angle_def.define[1]
         else:
             i1_0 = angle_def.define[0]
             i2_0 = angle_def.define[1]
+            i1_1 = angle_def.define[2]
+            i2_1 = angle_def.define[3]
+        handles = [(a0,b0,i1_0,i2_0), (a0_1, b0_1, i1_1, i2_1)]
     else:
         i1_0 = angle_def.define[0]
         i2_0 = angle_def.define[1]
+        handles = [(a0,b0,i1_0,i2_0)]
 
     cud.pv('sd0')
     cud.pv('sd1')
     cud.pv('(angle_def.dim1, angle_def.dim2, angle_def.ang_type)')
-    cud.pv('(a0,b0,i1_0,i2_0)')
+    cud.pv('handles')
     seq_len = i2_0 - i1_0
-    align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
-    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0), move_all_angles=False)
-    add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
+    align_starts(chain, source_chain, handles, end=0)
+
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, handles, move_all_angles=False)
+    for h in handles:
+        add_loop_chain(chain, source_chain, h, h[3] - h[2])
+    #(r, chain) = align_and_close_loop(seq_len, source_chain, chain, 
 
 def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''
@@ -1002,14 +1019,12 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     (sd0, bd0) = sm.bg.get_sides_plus(connections[0], ld)
     (sd1, bd1) = sm.bg.get_sides_plus(connections[1], ld)
 
-    reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def)
 
     if len(angle_def.define) == 2:
+        reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def)
         return
 
-    source_chain1 = copy.deepcopy(source_chain)
-
-    reconstruct_bulge_with_fragment_core(chain, source_chain1, sm, ld, sm.bg.same_stem_end(sd0), sm.bg.same_stem_end(sd1), angle_def)
+    reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def)
 
     return
 
