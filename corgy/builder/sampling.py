@@ -246,7 +246,7 @@ class SamplingStatistics:
 
         if self.counter % 10 == 0:
             if not self.silent:
-                self.save_top(10)
+                self.save_top(3)
 
     def save_top(self, n = 100000):
         '''

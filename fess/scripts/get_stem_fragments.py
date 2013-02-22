@@ -22,7 +22,7 @@ def output_stem_fragment(define, s, out_file):
             i = residue.id[1]
 
             for j in range(0, len(define), 2):
-                if define[j] <= i and i <= define[j+1]:
+                if define[j]-2 <= i and i <= define[j+1]+2:
                     return 1
             return 0
 
@@ -62,6 +62,7 @@ def main():
         sys.exit(0)
 
     stats = [cbs.get_stem_stats(), cbs.get_angle_stats(), cbs.get_loop_stats()]
+    #stats = [cbs.get_angle_stats(), cbs.get_loop_stats()]
     #stem_stats = cbs.get_stem_stats()
 
     structures = dict()
@@ -75,8 +76,8 @@ def main():
                 #pdb.set_trace()
                 for k1 in sl.keys():
                     for k2 in sl[k1].keys():
-                        for k3 in sl[k1][k2].keys():
-                            t += sl[k1][k2][k3]
+                        t += sl[k1][k2]
+                        #for k3 in sl[k1][k2].keys():
             for ss in t:
                 filename = '%s_%s.pdb' % (ss.pdb_name, "_".join(map(str, ss.define)))
                 out_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)

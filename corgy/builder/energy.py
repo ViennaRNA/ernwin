@@ -1051,7 +1051,7 @@ class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self, col=2):
         super(StemStemOrientationEnergy, self).__init__()
         self.max_dist = 30
-        self.max_lateral_dist = 13
+        self.max_lateral_dist = 13.
         self.sample_num = 10000
         self.col = col
 
@@ -1069,7 +1069,7 @@ class StemStemOrientationEnergy(EnergyFunction):
     def load_stem_stem_data(self, filename, col):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
-        angles = t[t[t.columns[0]] < self.max_dist][t.columns[col]].values
+        angles = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[col]].values
         #cud.pv('t.columns')
 
         sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]

@@ -796,6 +796,16 @@ class BulgeGraph:
             if d[0] != 's' and self.weights[d] == 1 and len(self.edges[d]) == 2:
                 yield d
     
+    def same_stem_end(self, sd):
+        if sd == 0:
+            return 3
+        elif sd == 1:
+            return 2
+        elif sd == 2:
+            return 1
+        else:
+            return 0
+
     def stem_like(self):
         for d in self.defines.keys():
             if self.weights[d] == 2 or d[0] == 's':

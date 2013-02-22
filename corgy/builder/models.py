@@ -314,17 +314,17 @@ class SpatialModel:
                     connections = list(self.bg.edges[d])
                     (s1b, s1e) = self.bg.get_sides(connections[0], d)
                     (s2b, s2e) = self.bg.get_sides(connections[1], d)
+                    dir1 = self.bg.get_stem_direction(connections[0], connections[1])
+                    dir2 = self.bg.get_stem_direction(connections[1], connections[0])
 
-                    ang_type1 = cbs.end_ang_types[(s1b, s2b, 0)]
-                    ang_type2 = cbs.end_ang_types[(s1b, s2b, 1)]
-                    ang_type3 = cbs.end_ang_types[(s2b, s1b, 1)]
-                    ang_type4 = cbs.end_ang_types[(s2b, s1b, 0)]
+                    ang_type1 = cbs.end_ang_types[(s1b, s2b, dir1)]
+                    ang_type3 = cbs.end_ang_types[(s2b, s1b, dir2)]
 
                     try:
                         angle_defs[d][ang_type1] = choice(self.angle_stats[size[0]][size[1]][ang_type1])
-                        angle_defs[d][ang_type2] = choice(self.angle_stats[size[0]][size[1]][ang_type2])
+                        #angle_defs[d][ang_type2] = choice(self.angle_stats[size[0]][size[1]][ang_type2])
                         angle_defs[d][ang_type3] = choice(self.angle_stats[size[0]][size[1]][ang_type3])
-                        angle_defs[d][ang_type4] = choice(self.angle_stats[size[0]][size[1]][ang_type4])
+                        #angle_defs[d][ang_type4] = choice(self.angle_stats[size[0]][size[1]][ang_type4])
                     except IndexError:
                         print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
                 '''

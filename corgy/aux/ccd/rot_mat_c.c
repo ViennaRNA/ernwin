@@ -115,6 +115,7 @@ void get_closer_rotation_matrix_c(double *TH, double *point, double *M, double *
     }
 
     a = atan2(n3, d3);
+    a /= 3.;
 
     rotation_matrix_c(TH, a, out_rot_mat);
 }

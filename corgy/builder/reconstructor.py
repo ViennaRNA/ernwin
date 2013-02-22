@@ -199,9 +199,18 @@ a_names['A'] = a_5_names + side_chain_atoms['A'] + a_3_names
 a_names['G'] = a_5_names + side_chain_atoms['G'] + a_3_names
 
 def get_alignment_vectors(ress, r1, r2):
+    '''
     return( ress[r1]['C4*'].get_vector().get_array(),
             ress[r1]['C3*'].get_vector().get_array(),
             ress[r1]['O3*'].get_vector().get_array())
+    '''
+    vec = []
+    for aname in backbone_atoms:
+        vec += [ress[r1][aname].get_vector().get_array()]
+
+    for aname in backbone_atoms:
+        vec += [ress[r2][aname].get_vector().get_array()]
+    return vec
 
 def get_measurement_vectors(ress, r1, r2):
     return( ress[r2]['C2*'].get_vector().get_array(), 
@@ -325,6 +334,7 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
     @param handles: The indexes into the stem and loop for the overlapping residues.
     '''
 
+    cud.pv('end')
     if end == 0:
         v1 = get_alignment_vectors(chain_stems, handles[0], handles[1])
         v2 = get_alignment_vectors(chain_loop, handles[2], handles[3])
@@ -418,7 +428,10 @@ def add_residue_to_rosetta_chain(chain, residue):
     removed_atoms = []
 
     for atom in residue.get_list():
-        removed_atoms += [atom]
+        # H-atoms are unnecessary at this moment
+        if atom.name.find('H') < 0:
+            removed_atoms += [atom]
+
         residue.detach_child(atom.id)
 
         atom.name = atom.name.replace('\'', '*')
@@ -528,9 +541,11 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
     #points += [indeces[handles[2]+1]]
 
     #points += indeces[handles[2]+1] #O3* -> P bond
+    cud.pv('move_all_angles')
     if move_all_angles:
         angles_to_move = range(handles[2]+1, handles[3]+1)
     else:
+        cud.pv('(handles[2]+1, handles[3])')
         angles_to_move = [handles[2]+1, handles[3]]
 
     #for i in range(handles[2]+1, handles[3]+1):
@@ -575,7 +590,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
 
     return (rmsd, chain_loop)
 
-def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2)):
+def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2), move_all_angles=True):
     '''
     Align chain_loop to the scaffold present in chain.
 
@@ -606,7 +621,7 @@ def align_and_close_loop(seq_len, chain, chain_loop, (a,b,i1,i2)):
         loop_chain = chain_loop
         r = 0.000
     else:
-        r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=10000)
+        r, loop_chain = close_fragment_loop(chain, chain_loop, (a,b,i1,i2), iterations=10000, move_all_angles=move_all_angles)
 
     return (r, loop_chain)
 
@@ -919,6 +934,35 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
 
     pass
 
+def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def):
+    connections = sm.bg.connections(ld)
+
+    a0 = sm.bg.defines[connections[0]][sd0]
+    b0 = sm.bg.defines[connections[1]][sd1]
+    a = [a0,b0]
+    a.sort()
+    (a0,b0) = a
+
+    if len(angle_def.define) == 4:
+        if angle_def.ang_type == 2 and sd0 == 1:
+            i1_0 = angle_def.define[2]
+            i2_0 = angle_def.define[3]
+        else:
+            i1_0 = angle_def.define[0]
+            i2_0 = angle_def.define[1]
+    else:
+        i1_0 = angle_def.define[0]
+        i2_0 = angle_def.define[1]
+
+    cud.pv('sd0')
+    cud.pv('sd1')
+    cud.pv('(angle_def.dim1, angle_def.dim2, angle_def.ang_type)')
+    cud.pv('(a0,b0,i1_0,i2_0)')
+    seq_len = i2_0 - i1_0
+    align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0), move_all_angles=False)
+    add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
+
 def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''
     Reconstruct a loop with the fragment its statistics were derived from.
@@ -940,6 +984,7 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (angle_def.pdb_name, "_".join(map(str, angle_def.define)))
     filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
+    cud.pv('filename')
 
     # do some caching while loading the filename
     if filename in fragment_library.keys():
@@ -949,6 +994,7 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
         fragment_library[filename] = source_chain
 
     cud.pv('angle_def.define')
+    cud.pv('sm.bg.defines[ld]')
 
     #align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
 
@@ -956,20 +1002,15 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     (sd0, bd0) = sm.bg.get_sides_plus(connections[0], ld)
     (sd1, bd1) = sm.bg.get_sides_plus(connections[1], ld)
 
-    a0 = sm.bg.defines[connections[0]][sd0]
-    b0 = sm.bg.defines[connections[1]][sd1]
-    a = [a0,b0]
-    a.sort()
-    (a0,b0) = a
+    reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def)
 
-    i1_0 = angle_def.define[0]
-    i2_0 = angle_def.define[1]
+    if len(angle_def.define) == 2:
+        return
 
-    seq_len = i2_0 - i1_0
-    align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
-    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0))
-    add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
-      
+    source_chain1 = copy.deepcopy(source_chain)
+
+    reconstruct_bulge_with_fragment_core(chain, source_chain1, sm, ld, sm.bg.same_stem_end(sd0), sm.bg.same_stem_end(sd1), angle_def)
+
     return
 
 def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
@@ -1018,7 +1059,7 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
 
     seq_len = i2_0 - i1_0
     align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
-    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0))
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0), move_all_angles=False)
     add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
 
     return
