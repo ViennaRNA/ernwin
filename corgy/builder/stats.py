@@ -303,6 +303,12 @@ class ConstructionStats:
     fiveprime_stats = None
     threeprime_stats = None
 
+def defaultdict_list():
+    return c.defaultdict(list)
+
+def defaultdict_defaultdict_list():
+    return c.defaultdict(defaultdict_list)
+
 def get_angle_stats(filename=cbc.Configuration.stats_file):
     '''
     Load the statistics about inter the helix-helix orientations from a file.
@@ -336,9 +342,18 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
     if ConstructionStats.angle_stats != None:
         return ConstructionStats.angle_stats
 
+    '''
+    import pickle
+    ConstructionStats.angle_stats = pickle.load(open('fess/stats/angle_stats.pickle', 'r'))
+
+    print >>sys.stderr, "done loading stats"
+    return ConstructionStats.angle_stats
+
+    '''
     ConstructionStats.angle_stats = c.defaultdict(
                                     lambda: c.defaultdict(
                                         lambda: c.defaultdict(list)))
+    ConstructionStats.angle_stats = c.defaultdict(defaultdict_defaultdict_list)
     #DefaultDict(DefaultDict([]))
 
     f = open(filename, 'r')
@@ -351,6 +366,11 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
 
     f.close()
 
+    '''
+    pickle.dump(ConstructionStats.angle_stats, open('fess/stats/angle_stats.pickle','w'))
+    '''
+
+    print >>sys.stderr, "done loading stats"
     return ConstructionStats.angle_stats
 
 

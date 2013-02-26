@@ -1,6 +1,8 @@
 import multiprocessing as mp
+import warnings
 
 import corgy.builder.models as models
+import os.path as op
 
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.vector as cuv
@@ -190,6 +192,11 @@ side_chain_atoms['C'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6']
 
 side_chain_atoms['A'] = ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9']
 side_chain_atoms['G'] = ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9']
+side_chain_atoms['rU'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6']
+side_chain_atoms['rC'] = ['N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6']
+
+side_chain_atoms['rA'] = ['N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9']
+side_chain_atoms['rG'] = ['N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9']
 
 a_names = dict()
 a_names['U'] = a_5_names + side_chain_atoms['U'] + a_3_names
@@ -197,6 +204,12 @@ a_names['C'] = a_5_names + side_chain_atoms['C'] + a_3_names
 
 a_names['A'] = a_5_names + side_chain_atoms['A'] + a_3_names
 a_names['G'] = a_5_names + side_chain_atoms['G'] + a_3_names
+
+a_names['rU'] = a_5_names + side_chain_atoms['U'] + a_3_names
+a_names['rC'] = a_5_names + side_chain_atoms['C'] + a_3_names
+
+a_names['rA'] = a_5_names + side_chain_atoms['A'] + a_3_names
+a_names['rG'] = a_5_names + side_chain_atoms['G'] + a_3_names
 
 def get_alignment_vectors(ress, r1, r2):
     '''
@@ -334,8 +347,6 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
     @param handles: The indexes into the stem and loop for the overlapping residues.
     '''
 
-    cud.pv('end')
-
     v1 = []
     v2 = []
 
@@ -344,7 +355,6 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
             v1 += get_alignment_vectors(chain_stems, handle[0], handle[1])
             v2 += get_alignment_vectors(chain_loop, handle[2], handle[3])
         elif end == 2:
-            cud.pv('handle')
             v1 = (chain_stems[handle[0]]['C4*'].get_vector().get_array(),
                   chain_stems[handle[0]]['C3*'].get_vector().get_array(),
                   chain_stems[handle[0]]['O3*'].get_vector().get_array())
@@ -453,10 +463,16 @@ def add_residue_to_rosetta_chain(chain, residue):
     for atom in removed_atoms:
         residue.add(atom)
 
+    detached_residues = []
     if residue.id[1] in chain:
+        detached_residues += [chain[residue.id[1]]]
         chain.detach_child(chain[residue.id[1]].id)
 
     chain.add(residue)
+
+    # there should only be one element in the
+    # detached residues array
+    return detached_residues
 
 def add_loop_chain(chain, loop_chain, handles, length):
     '''
@@ -553,11 +569,9 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         #points += [indeces[handle[2]+1]]
 
         #points += indeces[handle[2]+1] #O3* -> P bond
-        cud.pv('move_all_angles')
         if move_all_angles:
             angle_to_move = range(handle[2]+1, handle[3]+1)
         else:
-            cud.pv('(handle[2]+1, handle[3])')
             angle_to_move = [handle[2]+1, handle[3]]
 
         for i in angle_to_move:
@@ -579,7 +593,6 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
 
         cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
         rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
-        cud.pv('rmsd')
 
         chain_loop = set_atom_coord_array(chain_loop, moving, handle[2], handle[3])
         '''
@@ -631,7 +644,6 @@ def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=Tr
         loop_chain = chain_loop
         r = 0.000
     else:
-        print >> sys.stderr, "closing loop:", handles
         r, loop_chain = close_fragment_loop(chain, chain_loop, handles, iterations=10000, move_all_angles=move_all_angles, move_front_angle=move_front_angle)
 
     return (r, loop_chain)
@@ -680,7 +692,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         chain_unclosed_loop = copy.deepcopy(chain_loop)
 
         if handles[0] != 0 and handles[1] != seq_len:
-            align_starts(stem_chain, chain_unclosed_loop, (a,b,i1,i2), end=0)
+            align_starts(stem_chain, chain_unclosed_loop, [(a,b,i1,i2)], end=0)
         
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
         if handles[0] == 0 or handles[1] == seq_len:
@@ -693,7 +705,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
         all_chain = copy.deepcopy(stem_chain)
         cup.trim_chain(loop_chain, i1, i2+1)
-        add_loop_chain(all_chain, loop_chain, [(a,b,i1,i2)], seq_len)
+        add_loop_chain(all_chain, loop_chain, (a,b,i1,i2), seq_len)
 
         if consider_contacts:
             contacts2 = cup.num_noncovalent_clashes(all_chain)
@@ -836,7 +848,7 @@ def replace_base(res_dir, res_ref):
     @return res: A residue with the atoms of res_ref pointing in the direction of res_dir
     '''
     #av = { 'U': ['N1', 'C6', 'C2'], 'C': ['N1', 'C6', 'C2'], 'A': ['N9', 'C4', 'C8'], 'G': ['N9', 'C4', 'C8'] }
-    av = { 'U': ['N1', 'C1*', 'C2*'], 'C': ['N1', 'C1*', 'C2*'], 'A': ['N9', 'C1*', 'C2*'], 'G': ['N9', 'C1*', 'C2*'] }
+    av = { 'U': ['N1', 'C1*', 'C2*'], 'C': ['N1', 'C1*', 'C2*'], 'A': ['N9', 'C1*', 'C2*'], 'G': ['N9', 'C1*', 'C2*'], 'rU': ['N1', 'C1*', 'C2*'], 'rC': ['N1', 'C1*', 'C2*'], 'rA': ['N9', 'C1*', 'C2*'], 'rG': ['N9', 'C1*', 'C2*'] }
 
     dv = av[res_dir.resname.strip()]
     rv = av[res_ref.resname.strip()]
@@ -904,6 +916,77 @@ def replace_bases(chain, seq):
         ress[i].child_list = new_res.child_list
         ress[i].child_dict = new_res.child_dict
         '''
+def mend_breakpoint(h, chain, source_chain):
+    # try to make the last residue of the connecting stem transition
+    # into the loop region
+
+    # this is done by making a copy of the loop region and aligning
+    # it to the backbone of the last residue of the stem
+
+    # the new section (last residue of the stem and two residues of
+    # the loop, newly aligned) are then loop-closed to align to the
+    # original orientation of the fitted loop region
+    temp_loop_chain = copy.deepcopy(source_chain)
+    align_starts(chain, temp_loop_chain, [h], end=2)
+    rev_handles = [(h[2]-1, h[2]+1, h[0]-1, h[0]+1)]
+    temp_loop_chain[h[2] + 1].id = (' ', h[0]+1, ' ')
+    temp_loop_chain[h[2] + 2].id = (' ', h[0]+2, ' ')
+    temp_loop_chain[h[2] + 3].id = (' ', h[0]+3, ' ')
+
+    detached_residues = []
+    detached_residues += add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+1])
+    detached_residues += add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+2])
+    #detached_residues += add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+3])
+    output_chain(chain, 'out1.pdb')
+    output_chain(temp_loop_chain, 'out2.pdb')
+    (r1, stem_chain) = align_and_close_loop(10000, source_chain, chain, rev_handles, move_all_angles=False, move_front_angle=False)
+
+    for dr in detached_residues:
+        add_residue_to_rosetta_chain(chain, dr)
+
+def get_ideal_stem(template_stem_length):
+    '''
+    Load the model for an ideal stem of a particular length.
+
+    TODO: Remove the duplicate code in graph_pdb.py (get_mids_core)
+    '''
+    tstart1 = 1
+    tstart2 = template_stem_length * 2
+    tend1 = template_stem_length
+    tend2 = template_stem_length + 1
+
+    template_filename = 'ideal_1_%d_%d_%d.pdb' % (tend1, tend2, tstart2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ideal_chain = list(bpdb.PDBParser().get_structure('test', 
+                op.join(conf.Configuration.stem_fragment_dir, template_filename)).get_chains())[0]
+
+        chain = cgg.extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
+    return chain
+
+def mend_breakpoint_new(chain, res1, res2):
+    '''
+    Try and mend the breakpoint between res1 and res2.
+
+    This will be done by excising all residues in the range [res1, res2].
+    The excised region will be replaced by a new, connected region (nr),
+    consisting of residues [res1-1, res2+1]. The new region will be aligned
+    along residue res1-1 and will be loop-closed to res2+1. It will
+    then be inserted into the chain as the new section.
+    '''
+    region_len = res2 - res1 + 2
+    replacement_length = get_ideal_stem(region_len)
+    h = [(res1,res2+1,1,region_len)]
+
+    nr = get_ideal_stem(region_len)
+    align_starts(chain, nr, h, end=2)
+
+    h1 = h
+
+    output_chain(nr, 'out1.pdb')
+    (r1, loop_chain) = align_and_close_loop(10000, chain, nr, h, move_all_angles=False, move_front_angle=False)
+    output_chain(nr, 'out2.pdb')
+    add_loop_chain(chain, nr, h[0], h[0][3] - h[0][2])
 
 def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, ld):
     '''
@@ -977,10 +1060,6 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
         i2_0 = angle_def.define[1]
         handles = [(a0,b0,i1_0,i2_0)]
 
-    cud.pv('sd0')
-    cud.pv('sd1')
-    cud.pv('(angle_def.dim1, angle_def.dim2, angle_def.ang_type)')
-    cud.pv('handles')
     seq_len = i2_0 - i1_0
     align_starts(chain, source_chain, handles, end=0)
 
@@ -988,24 +1067,11 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
 
 
     for h in handles:
-        temp_loop_chain = copy.deepcopy(source_chain)
-        align_starts(chain, temp_loop_chain, [h], end=2)
-        rev_handles = [(h[2]-1, h[2]+1, h[0]-1, h[0]+1)]
-        cud.pv('rev_handles')
-        temp_loop_chain[h[2] + 1].id = (' ', h[0]+1, ' ')
-        temp_loop_chain[h[2] + 2].id = (' ', h[0]+2, ' ')
-        temp_loop_chain[h[2] + 3].id = (' ', h[0]+3, ' ')
-
-        add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+1])
-        add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+2])
-        add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+3])
-        output_chain(chain, 'out1.pdb')
-        output_chain(temp_loop_chain, 'out2.pdb')
-        cud.pv('rev_handles')
-        (r1, stem_chain) = align_and_close_loop(seq_len, source_chain, chain, rev_handles, move_all_angles=False, move_front_angle=False)
-
+        mend_breakpoint(h, chain, source_chain)
     for h in handles:
+        cud.pv('h')
         add_loop_chain(chain, source_chain, h, h[3] - h[2])
+        mend_breakpoint_new(chain, h[0], h[0]+1)
 
 
     #(r, chain) = align_and_close_loop(seq_len, source_chain, chain, 
@@ -1031,7 +1097,6 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (angle_def.pdb_name, "_".join(map(str, angle_def.define)))
     filename = os.path.join(conf.Configuration.stem_fragment_dir, filename)
-    cud.pv('filename')
 
     # do some caching while loading the filename
     if filename in fragment_library.keys():
@@ -1039,9 +1104,6 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
     else:
         source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
         fragment_library[filename] = source_chain
-
-    cud.pv('angle_def.define')
-    cud.pv('sm.bg.defines[ld]')
 
     #align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
 
@@ -1089,23 +1151,21 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     connection = list(sm.bg.edges[ld])[0]
 
     (sd0, bd0) = sm.bg.get_sides_plus(connection, ld)
-    cud.pv('ld')
-    cud.pv('(sd0, bd0)')
 
     if sd0 == 0:
         a0,b0 = sm.bg.defines[connection][0], sm.bg.defines[connection][3]
     else:
         a0,b0 = sm.bg.defines[connection][1], sm.bg.defines[connection][2]
 
-    cud.pv('angle_def.pdb_name')
-
     i1_0 = angle_def.define[0]
     i2_0 = angle_def.define[1]
 
     seq_len = i2_0 - i1_0
-    align_starts(chain, source_chain, (a0,b0,i1_0,i2_0), end=0)
-    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, (a0,b0,i1_0,i2_0), move_all_angles=False)
+    align_starts(chain, source_chain, [(a0,b0,i1_0,i2_0)], end=0)
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, [(a0,b0,i1_0,i2_0)], move_all_angles=False)
     add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
+    cud.pv('(a0,b0)')
+    mend_breakpoint_new(chain, a0, a0+1)
 
     return
 

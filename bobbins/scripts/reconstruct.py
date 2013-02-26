@@ -39,9 +39,11 @@ def main():
             sm.sampled_from_bg()
             sampled_bulges = sm.get_sampled_bulges()
 
-            rtor.reconstruct_bulge_with_fragment(chain, sm, 'x4')
+            '''
+            rtor.reconstruct_bulge_with_fragment(chain, sm, 'x3')
             rtor.output_chain(chain, options.output_file)
             sys.exit(1)
+            '''
 
             for b in sm.bg.bulges():
                 print >>sys.stderr, "reconstructing...", b
