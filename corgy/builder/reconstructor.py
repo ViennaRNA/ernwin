@@ -343,6 +343,14 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
         if end == 0:
             v1 += get_alignment_vectors(chain_stems, handle[0], handle[1])
             v2 += get_alignment_vectors(chain_loop, handle[2], handle[3])
+        elif end == 2:
+            cud.pv('handle')
+            v1 = (chain_stems[handle[0]]['C4*'].get_vector().get_array(),
+                  chain_stems[handle[0]]['C3*'].get_vector().get_array(),
+                  chain_stems[handle[0]]['O3*'].get_vector().get_array())
+            v2 = (chain_loop[handle[2]]['C4*'].get_vector().get_array(),
+                  chain_loop[handle[2]]['C3*'].get_vector().get_array(),
+                  chain_loop[handle[2]]['O3*'].get_vector().get_array())
         else:
             v1 += get_measurement_vectors(chain_stems, handle[0], handle[1])
             v2 += get_measurement_vectors(chain_loop, handle[2], handle[3])
@@ -518,7 +526,7 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
     return rmsd
     #return cuv.magnitude(sampled - target)
 
-def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_all_angles=True):
+def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_all_angles=True, move_front_angle=True):
     '''
     Align the chain_loop so that it stretches from the end of one stem to the 
     start of the other.
@@ -556,7 +564,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
             si = indeces[i]
 
             # 
-            points += [si]
+            if move_front_angle:
+                points += [si]
             points += [si+4, si+5, si+6]
 
         rot_mat = np.eye(3,3)
@@ -573,7 +582,6 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         cud.pv('rmsd')
 
         chain_loop = set_atom_coord_array(chain_loop, moving, handle[2], handle[3])
-
         '''
         assert(not np.allclose(moving_orig, moving))
 
@@ -592,7 +600,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
 
     return (rmsd, chain_loop)
 
-def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True):
+def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True, move_front_angle=True):
     '''
     Align chain_loop to the scaffold present in chain.
 
@@ -623,7 +631,8 @@ def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=Tr
         loop_chain = chain_loop
         r = 0.000
     else:
-        r, loop_chain = close_fragment_loop(chain, chain_loop, handles, iterations=10000, move_all_angles=move_all_angles)
+        print >> sys.stderr, "closing loop:", handles
+        r, loop_chain = close_fragment_loop(chain, chain_loop, handles, iterations=10000, move_all_angles=move_all_angles, move_front_angle=move_front_angle)
 
     return (r, loop_chain)
 
@@ -976,8 +985,29 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
     align_starts(chain, source_chain, handles, end=0)
 
     (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, handles, move_all_angles=False)
+
+
+    for h in handles:
+        temp_loop_chain = copy.deepcopy(source_chain)
+        align_starts(chain, temp_loop_chain, [h], end=2)
+        rev_handles = [(h[2]-1, h[2]+1, h[0]-1, h[0]+1)]
+        cud.pv('rev_handles')
+        temp_loop_chain[h[2] + 1].id = (' ', h[0]+1, ' ')
+        temp_loop_chain[h[2] + 2].id = (' ', h[0]+2, ' ')
+        temp_loop_chain[h[2] + 3].id = (' ', h[0]+3, ' ')
+
+        add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+1])
+        add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+2])
+        add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+3])
+        output_chain(chain, 'out1.pdb')
+        output_chain(temp_loop_chain, 'out2.pdb')
+        cud.pv('rev_handles')
+        (r1, stem_chain) = align_and_close_loop(seq_len, source_chain, chain, rev_handles, move_all_angles=False, move_front_angle=False)
+
     for h in handles:
         add_loop_chain(chain, source_chain, h, h[3] - h[2])
+
+
     #(r, chain) = align_and_close_loop(seq_len, source_chain, chain, 
 
 def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
