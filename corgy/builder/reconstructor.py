@@ -219,10 +219,15 @@ def get_alignment_vectors(ress, r1, r2):
     '''
     vec = []
     for aname in backbone_atoms:
-        vec += [ress[r1][aname].get_vector().get_array()]
+        try:
+            r1_v = [ress[r1][aname].get_vector().get_array()]
+            r2_v = [ress[r2][aname].get_vector().get_array()]
 
-    for aname in backbone_atoms:
-        vec += [ress[r2][aname].get_vector().get_array()]
+            vec += r1_v
+            vec += r2_v
+        except KeyError as ke:
+            raise ke
+
     return vec
 
 def get_measurement_vectors(ress, r1, r2):
@@ -352,6 +357,7 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
 
     for handle in handles:
         if end == 0:
+            cud.pv('handle')
             v1 += get_alignment_vectors(chain_stems, handle[0], handle[1])
             v2 += get_alignment_vectors(chain_loop, handle[2], handle[3])
         elif end == 2:

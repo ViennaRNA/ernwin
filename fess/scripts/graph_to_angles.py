@@ -23,6 +23,9 @@ def print_new_bulge_angles(bg):
 def print_stem_stats(bg):
     for d in bg.defines.keys():
         if d[0] == 's':
+            if bg.defines[d][0] == 1:
+                continue
+
             ss = bg.get_stem_stats(d)
 
             print "stem", ss.pdb_name, ss.bp_length, ss.phys_length, ss.twist_angle, " ".join(map(str, ss.define))
