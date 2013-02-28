@@ -220,3 +220,10 @@ class TestVectorFunctions(unittest.TestCase):
             new_cart = dot(rot_mat2, new_cart)
 
             self.assertTrue(allclose(new_cart, array([1., 0., 0.])))
+
+    def test_cylinder_line_intersection(self):
+        cyl1 = [(0,0,0),(1,1,1)]
+        line1 = [(1,0,1),(0,1,0)]
+
+        cyl_width = 0.3 
+
