@@ -3,33 +3,24 @@
 #import timeit, sys
 
 import corgy.utilities.debug as cud
-
-from numpy import array, dot, pi, cross, eye
-from math import cos, sin
-from numpy.linalg import inv, solve
-
 import numpy as np
-import math
+import math as m
+import numpy.linalg as nl
+import numpy.testing as nt
+import random as rand
+import scipy as sp
 
-from numpy.testing import assert_allclose
-from math import acos, atan2, sqrt
-from random import uniform
+null_array = np.array([0., 0., 0.])
 
-from math import isnan
-
-from scipy import weave
-
-null_array = array([0., 0., 0.])
-
-x_array = array([1., 0., 0.])
-y_array = array([0., 1., 0.])
-z_array = array([0., 0., 1.])
+x_array = np.array([1., 0., 0.])
+y_array = np.array([0., 1., 0.])
+z_array = np.array([0., 0., 1.])
 
 # identity matrix
-identity_matrix = array([x_array, y_array, z_array])
+identity_matrix = np.array([x_array, y_array, z_array])
 
-standard_basis = array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
-tau = 2 * pi
+standard_basis = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
+tau = 2 * m.pi
 
 def get_inter_distances(vecs):
     '''
@@ -43,14 +34,14 @@ def get_inter_distances(vecs):
     return distances
 
 def get_random_vector(mult=1.):
-    return array([mult * uniform(-1, 1), mult * uniform(-1, 1), mult * uniform(-1, 1)])
+    return np.array([mult * rand.uniform(-1, 1), mult * rand.uniform(-1, 1), mult * rand.uniform(-1, 1)])
 
-def get_random_vector_pair(angle=uniform(0, pi)):
+def get_random_vector_pair(angle=rand.uniform(0, m.pi)):
     vec1 = get_random_vector()
     vec2 = get_non_colinear_unit_vector(vec1)
-    rot_vec = cross(vec1, vec2)
+    rot_vec = np.cross(vec1, vec2)
     rotmat = rotation_matrix(rot_vec, angle)
-    vec2 = dot(rotmat, vec1)
+    vec2 = np.dot(rotmat, vec1)
     return (vec1, vec2)
 
 def get_double_alignment_matrix(vp1, vp2):
@@ -63,28 +54,28 @@ def get_double_alignment_matrix(vp1, vp2):
     angle1 = vec_angle(vp1[0], vp1[1])
     angle2 = vec_angle(vp2[0], vp2[1])
 
-    assert_allclose(angle1, angle2, rtol=1e-7, atol=1e-7)
+    nt.assert_allclose(angle1, angle2, rtol=1e-7, atol=1e-7)
 
     # Align the first two segments
     mat1 = get_alignment_matrix(vp1[0], vp2[0])
 
     # See where the second segment of the second set ends up
     # after the first alignment
-    new_vp2_1 = dot(mat1, vp2[1])
+    new_vp2_1 = np.dot(mat1, vp2[1])
 
-    comp1 = cross(vp1[1], vp1[0])
-    #comp1 = cross(vp1[0], vp1[1])
-    comp2 = cross(vp1[0], comp1) # should be along the plane of vp1[0] and vp1[1]
+    comp1 = np.cross(vp1[1], vp1[0])
+    #comp1 = np.cross(vp1[0], vp1[1])
+    comp2 = np.cross(vp1[0], comp1) # should be along the plane of vp1[0] and vp1[1]
 
     basis1 = create_orthonormal_basis(normalize(vp1[0]), normalize(comp2))
     rej2 = change_basis(new_vp2_1, basis1, standard_basis)
 
-    angle = atan2(rej2[2], rej2[1])
+    angle = m.atan2(rej2[2], rej2[1])
 
     mat2 = rotation_matrix(vp1[0], angle)
 
-    #return dot(mat1, mat2)
-    return dot(mat2, mat1)
+    #return np.dot(mat1, mat2)
+    return np.dot(mat2, mat1)
 
 def get_alignment_matrix(vec1, vec2):
     '''
@@ -94,7 +85,7 @@ def get_alignment_matrix(vec1, vec2):
     @param vec2: The vector to be aligned.
     '''
 
-    comp = cross(vec1, vec2)
+    comp = np.cross(vec1, vec2)
     angle = vec_angle(vec1, vec2)
 
     return rotation_matrix(comp, angle)
@@ -114,8 +105,8 @@ def get_non_colinear_unit_vector(vec):
     ind = absvec.index(m) 
     unit = [0., 0., 0.] 
     unit[ind] = 1. 
-           
-    return array(unit)
+
+    return np.array(unit)
 
 def create_orthonormal_basis1(vec1, vec2=None, vec3=None):
     '''
@@ -127,18 +118,18 @@ def create_orthonormal_basis1(vec1, vec2=None, vec3=None):
     if vec2 == None:
         vec2 = get_non_colinear_unit_vector(vec1)
     #else:
-    #    assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
+    #    nt.assert_allclose(np.dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
 
 
-    vec1 = normalize(array(vec1))
-    vec2 = normalize(array(vec2))
+    vec1 = normalize(np.array(vec1))
+    vec2 = normalize(np.array(vec2))
 
     if vec3 == None:
-        vec3 = cross(vec1, vec2)
+        vec3 = np.cross(vec1, vec2)
 
     vec3 = normalize(vec3)
 
-    return array([vec1, vec2, vec3])
+    return np.array([vec1, vec2, vec3])
 
 
 def create_orthonormal_basis(vec1, vec2=None, vec3=None):
@@ -150,19 +141,19 @@ def create_orthonormal_basis(vec1, vec2=None, vec3=None):
     '''
     if vec2 == None:
         vec2 = get_non_colinear_unit_vector(vec1)
-        vec2 = cross(vec1, vec2)
+        vec2 = np.cross(vec1, vec2)
     #else:
-    #    assert_allclose(dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
+    #    nt.assert_allclose(np.dot(vec2, vec1), 0., rtol=1e-7, atol=1e-7)
 
     vec1 /= magnitude(vec1)
     vec2 /= magnitude(vec2)
 
     if vec3 == None:
-        vec3 = cross(vec1, vec2)
+        vec3 = np.cross(vec1, vec2)
 
     vec3 /= magnitude(vec3)
 
-    return array([vec1, vec2, vec3])
+    return np.array([vec1, vec2, vec3])
 
 def time_cob1():
     vec1 = get_random_vector()
@@ -200,10 +191,10 @@ def spherical_cartesian_to_polar(vec):
     @return: (r, u, v)
     '''
     r = magnitude(vec)
-    u = acos(vec[2] / r)
-    v = atan2(vec[1], vec[0])
+    u = m.acos(vec[2] / r)
+    v = m.atan2(vec[1], vec[0])
 
-    assert_allclose(vec[0], r * sin(u) * cos(v), rtol=1e-7, atol=1e-7)
+    nt.assert_allclose(vec[0], r * m.sin(u) * m.cos(v), rtol=1e-7, atol=1e-7)
     return (r, u, v)
 
 def spherical_polar_to_cartesian(vec):
@@ -217,9 +208,9 @@ def spherical_polar_to_cartesian(vec):
     '''
     (r, u, v) = vec
 
-    x = r * sin(u) * cos(v)
-    y = r * sin(u) * sin(v)
-    z = r * cos(u)
+    x = r * m.sin(u) * m.cos(v)
+    y = r * m.sin(u) * m.sin(v)
+    z = r * m.cos(u)
 
     return [x, y, z]
 
@@ -236,7 +227,7 @@ def get_standard_basis(dim):
     standard_basis = [[0. for j in range(dim)] for i in range(dim)]
     for i in range(dim):
         standard_basis[i][i] = 1.
-    standard_basis = array(standard_basis)
+    standard_basis = np.array(standard_basis)
 
     return standard_basis
 
@@ -263,16 +254,16 @@ def change_basis(coords, new_basis, old_basis):
 
     dim = len(coords)
     #print "coords:", coords
-    standard_coords = dot(old_basis.transpose(), coords)
+    standard_coords = np.dot(old_basis.transpose(), coords)
     '''
     #print "standard_coords:", standard_coords
     standard_to_new = inv(new_basis.transpose())
     #print "standard_to_new:", standard_to_new
-    new_coords = dot(standard_to_new, standard_coords)
+    new_coords = np.dot(standard_to_new, standard_coords)
     print "new_coords:", new_coords
     '''
 
-    new_coords = solve(new_basis.transpose(), standard_coords)
+    new_coords = nl.solve(new_basis.transpose(), standard_coords)
     #print "new_coords1:", new_coords1
 
     return new_coords
@@ -283,9 +274,9 @@ def change_basis1(coords, new_basis, old_basis):
     '''
 
     dim = len(coords)
-    standard_coords = dot(old_basis.transpose(), coords)
-    standard_to_new = inv(new_basis.transpose())
-    new_coords = dot(standard_to_new, standard_coords)
+    standard_coords = np.dot(old_basis.transpose(), coords)
+    standard_to_new = nl.inv(new_basis.transpose())
+    new_coords = np.dot(standard_to_new, standard_coords)
 
     return new_coords
 
@@ -295,22 +286,22 @@ def change_basis2(coords, new_basis, old_basis):
     '''
 
     dim = len(coords)
-    standard_coords = dot(old_basis.T, coords)
-    new_coords = solve(new_basis.T, standard_coords)
+    standard_coords = np.dot(old_basis.T, coords)
+    new_coords = nl.solve(new_basis.T, standard_coords)
 
     return new_coords
 
 def change_basis1_benchmark():
     coords = get_random_vector(10.)
-    basis1 = array([get_random_vector(10.) for i in range(3)])
-    basis2 = array([get_random_vector(10.) for i in range(3)])
+    basis1 = np.array([get_random_vector(10.) for i in range(3)])
+    basis2 = np.array([get_random_vector(10.) for i in range(3)])
 
     nc = change_basis1(coords, basis1, basis2)
 
 def change_basis2_benchmark():
     coords = get_random_vector(10.)
-    basis1 = array([get_random_vector(10.) for i in range(3)])
-    basis2 = array([get_random_vector(10.) for i in range(3)])
+    basis1 = np.array([get_random_vector(10.) for i in range(3)])
+    basis2 = np.array([get_random_vector(10.) for i in range(3)])
 
     nc = change_basis2(coords, basis1, basis2)
 
@@ -329,11 +320,11 @@ def vector_rejection(a, b):
 
     @param a: The vector to be projected.
     @param b: The vector defining the normal of the plane.
-    @return: The rejection of the vector a from b. (a - (dot(a, b) / dot(b, b)) * b)
+    @return: The rejection of the vector a from b. (a - (np.dot(a, b) / np.dot(b, b)) * b)
     '''
 
-    n = dot(a, b)
-    d = dot(b, b)
+    n = np.dot(a, b)
+    d = np.dot(b, b)
     return a - (n / d) * b
 
 def rotation_matrix_weave(axis, theta, mat = None):
@@ -377,7 +368,7 @@ def rotation_matrix_weave(axis, theta, mat = None):
         mat[3*2 + 2] = a*a+d*d-b*b-c*c;
     """
 
-    weave.inline(code, ['axis', 'theta', 'mat'], support_code = support, libraries = ['m'])
+    sp.weave.inline(code, ['axis', 'theta', 'mat'], support_code = support, libraries = ['m'])
 
     return mat
 
@@ -397,7 +388,7 @@ def vector_set_rmsd(set1, set2):
         rmsd += magnitude(set2[i] - set1[i]) ** 2
         count += 1
     rmsd /= count
-    return sqrt(rmsd)
+    return m.sqrt(rmsd)
 
 def rotation_matrix(axis, theta):
     '''
@@ -412,11 +403,11 @@ def rotation_matrix(axis, theta):
     @return: A matrix which can be used to perform the given rotation. The coordinates
              need only be multiplied by the matrix.
     '''
-    axis = axis/sqrt(dot(axis, axis))
-    a = cos(theta/2)
-    b, c, d = -axis*sin(theta/2)
+    axis = axis/m.sqrt(np.dot(axis, axis))
+    a = m.cos(theta/2)
+    b, c, d = -axis*m.sin(theta/2)
 
-    return array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
+    return np.array([[a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
                   [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
                   [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]])
 
@@ -428,7 +419,7 @@ def get_vector_centroid(crds1):
 
     @return: The centroid of the rows of the matrix crds.
     '''
-    centroid1 = array([0., 0., 0.])
+    centroid1 = np.array([0., 0., 0.])
 
     for i in range(len(crds1)):
         centroid1 += crds1[i]
@@ -436,7 +427,7 @@ def get_vector_centroid(crds1):
     centroid1 /= float(len(crds1))
 
     for i in centroid1:
-        if isnan(i):
+        if m.isnan(i):
             raise Exception('nan encountered')
 
     return centroid1
@@ -448,7 +439,7 @@ def center_on_centroid(crds1):
     for i in range(len(crds1)):
         crds += [crds1[i] - centroid1]
 
-    return array(crds)
+    return np.array(crds)
 
 def magnitude(vec):
     '''
@@ -458,17 +449,17 @@ def magnitude(vec):
     @return: The magnitude of the vector.
     '''
 
-    return sqrt(dot(vec, vec))
+    return m.sqrt(np.dot(vec, vec))
 
 def time_mag1():
     vec1 = get_random_vector()
 
-    return sqrt(dot(vec1, vec1))
+    return m.sqrt(np.dot(vec1, vec1))
 
 def time_mag2():
     vec1 = get_random_vector()
 
-    return sqrt(dot(vec1, vec1))
+    return m.sqrt(np.dot(vec1, vec1))
 
 def time_mag():
     t1 = timeit.Timer("time_mag1()", "from corgy.utilities.vector import time_mag1")
@@ -505,7 +496,7 @@ def vec_angle(vec1, vec2):
     vec1n = normalize(vec1)
     vec2n = normalize(vec2)
 
-    d = dot(vec1n, vec2n)
+    d = np.dot(vec1n, vec2n)
 
     # this shouldn't happen, but sometimes it does, presumably because
     # of rounding errors
@@ -514,8 +505,8 @@ def vec_angle(vec1, vec2):
     if d <= -1.:
         d = -1.
 
-    #cud.pv('dot(vec1n, vec2n)')
-    angle = acos(d)
+    #cud.pv('np.dot(vec1n, vec2n)')
+    angle = m.acos(d)
     return angle
 
 def vec_dot(a, b):
@@ -531,7 +522,7 @@ def cross(a, b):
 '''
 
 def vec_distance(vec1, vec2):
-    return sqrt(dot(vec2 - vec1, vec2 - vec1))
+    return m.sqrt(np.dot(vec2 - vec1, vec2 - vec1))
 
 
 def line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1):
@@ -555,11 +546,11 @@ def line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1):
     v = s2_p1 - s2_p0
     w = s1_p0 - s2_p0
     
-    a = dot(u,u)        # always >= 0
-    b = dot(u,v)
-    c = dot(v,v)        # always >= 0
-    d = dot(u,w)
-    e = dot(v,w)
+    a = np.dot(u,u)        # always >= 0
+    b = np.dot(u,v)
+    c = np.dot(v,v)        # always >= 0
+    d = np.dot(u,w)
+    e = np.dot(v,w)
     D = a*c - b*b       # always >= 0
     sD = D      # sc = sN / sD, default sD = D >= 0
     tD = D      # tc = tN / tD, default tD = D >= 0
@@ -628,3 +619,95 @@ def line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1):
     '''
 
     return (s1_p0 + sc * u, s2_p0 + tc * v)
+
+def closest_point_on_seg(seg_a, seg_b, circ_pos):
+    '''
+    Closest point between a line segment and a point.
+
+    Lifted from:
+
+    http://doswa.com/2009/07/13/circle-segment-intersectioncollision.html
+    '''
+    seg_v = seg_b - seg_a
+    pt_v = circ_pos - seg_a
+    if magnitude(seg_v) <= 0:
+        raise ValueError, "Invalid segment length"
+    seg_v_unit = seg_v / magnitude(seg_v)
+    proj = pt_v.dot(seg_v_unit)
+    if proj <= 0:
+        return seg_a.copy()
+    if proj >= magnitude(seg_v):
+        return seg_b.copy()
+    proj_v = seg_v_unit * proj
+    closest = proj_v + seg_a
+    return closest
+
+def segment_circle(seg_a, seg_b, circ_pos, circ_rad):
+    '''
+    Something. Lifted from:
+
+    http://doswa.com/2009/07/13/circle-segment-intersectioncollision.html
+    '''
+    closest = closest_point_on_seg(seg_a, seg_b, circ_pos)
+    dist_v = circ_pos - closest
+    if magnitude(dist_v) > circ_rad:
+        return vec(0, 0)
+    if magnitude(dist_v) <= 0:
+        raise ValueError, "Circle's center is exactly on segment"
+    offset = dist_v / magnitude(dist_v) * (circ_rad - magnitude(dist_v))
+    return offset
+
+def cylinder_intersection(cyl, line, r):
+    '''
+    Get the points of intersection between a line and a sphere.
+
+    If they do not intersect, return an empty list. If the line
+    touches the cylinder, then return a 2 point list with two identical points. 
+    If the line crosses the cylinder, then return a list of 2 points.
+    '''
+    cyl_vec = cyl[1] - cyl[0]
+    line_vec = line[1] - line[0]
+
+    cyl_basis = create_orthonormal_basis(cyl_vec)
+
+    line_t = change_basis(line.T, cyl_basis, standard_basis).T
+    cyl_t = change_basis(cyl.T, cyl_basis, standard_basis).T
+
+    cyl_vec_t = cyl_t[1] - cyl_t[0]
+    line_vec_t = line_t[1] - line_t[0]
+
+    line_vec_t_normed = normalize(line_vec_t)
+
+    cud.pv('line_t')
+    cud.pv('cyl_t')
+    # get the point on the line closest to the
+    # center of the cylinder
+    p = closest_point_on_seg(line_t[0][1:], line_t[1][1:], 
+                                 np.array([0., 0.]))
+
+    cud.pv('p')
+    # Figure out the x position by determining how far along
+    # the y-coordinate of the segment the closest point it
+    x  = (line_t[0][0] + 
+            (line_vec_t[0] *
+            (p[0] - line_t[0][1]) / line_vec_t[1]))
+    cud.pv('p')
+
+    o = magnitude(p)
+    p = np.array([x, p[0], p[1]])
+
+    cud.pv('o')
+
+    if o > r:
+        # no intersection
+        return []
+
+    x = m.sqrt(r ** 2 - o ** 2)
+    cud.pv('x')
+    cud.pv('line_vec_t_normed')
+
+    i1 = p - x * line_vec_t_normed
+    i2 = p + x * line_vec_t_normed
+
+    cud.pv('(x, i1, i2)')
+

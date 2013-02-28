@@ -471,9 +471,17 @@ def add_residue_to_rosetta_chain(chain, residue):
 
     detached_residues = []
     if residue.id[1] in chain:
+        #print "detaching:", chain[residue.id[1]], chain[residue.id[1]].id
         detached_residues += [chain[residue.id[1]]]
-        chain.detach_child(chain[residue.id[1]].id)
+        #print "id:", (' ', residue.id[1], ' ')
+        #print "in:", (' ', residue.id[1], ' ') in chain.child_dict
+        #print "in1:", chain[residue.id[1]].id in chain.child_dict
+        #print "id", chain[residue.id[1]].id
+        #print "chain.child_dict", chain.child_dict
+        #chain.detach_child(chain[residue.id[1]].id)
+        chain.detach_child((' ', residue.id[1], ' '))
 
+    print "adding:", residue, residue.id
     chain.add(residue)
 
     # there should only be one element in the
