@@ -40,7 +40,7 @@ def main():
             sampled_bulges = sm.get_sampled_bulges()
 
             '''
-            rtor.reconstruct_bulge_with_fragment(chain, sm, 'x3')
+            rtor.reconstruct_bulge_with_fragment(chain, sm, 'x2')
             rtor.output_chain(chain, options.output_file)
             sys.exit(1)
             '''
@@ -50,13 +50,10 @@ def main():
                 if b not in sampled_bulges:
                     print >> sys.stderr, "closed bulge:", b
                     (as1, as2) = sm.bg.get_bulge_angle_stats(b)
-                    cud.pv('as1')
-                    cud.pv('as2')
 
                     bulge_vec = np.array(cuv.spherical_polar_to_cartesian((as1.r1, as1.u1, as1.v1)))
                     #bulge_vec = np.array(cuv.spherical_polar_to_cartesian((as2.r1, as2.u1, as2.v1)))
                     size = sm.bg.get_bulge_dimensions(b)
-                    cud.pv('(size, bulge_vec)')
 
                     best_bv_dist = 1000000.
                     best_bv = None
@@ -70,11 +67,9 @@ def main():
                             best_bv_ang_s = ang_s
                             best_bv = pot_bulge_vec
 
-                    cud.pv('best_bv_dist')
-                    cud.pv('best_bv')
-                    cud.pv('bulge_vec')
-                    cud.pv('best_bv_ang_s')
                     sm.angle_defs[b][ang_type] = best_bv_ang_s
+                    rtor.reconstruct_bulge_with_fragment(chain, sm, b, move_all_angles=True)
+                    continue
 
                 rtor.reconstruct_bulge_with_fragment(chain, sm, b)
             for l in sm.bg.loops():

@@ -357,7 +357,6 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
 
     for handle in handles:
         if end == 0:
-            cud.pv('handle')
             v1 += get_alignment_vectors(chain_stems, handle[0], handle[1])
             v2 += get_alignment_vectors(chain_loop, handle[2], handle[3])
         elif end == 2:
@@ -481,7 +480,6 @@ def add_residue_to_rosetta_chain(chain, residue):
         #chain.detach_child(chain[residue.id[1]].id)
         chain.detach_child((' ', residue.id[1], ' '))
 
-    print "adding:", residue, residue.id
     chain.add(residue)
 
     # there should only be one element in the
@@ -625,6 +623,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         '''
 
 
+    cud.pv('rmsd')
     return (rmsd, chain_loop)
 
 def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True, move_front_angle=True):
@@ -1042,7 +1041,7 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
 
     pass
 
-def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def):
+def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def, move_all_angles=False):
     connections = sm.bg.connections(ld)
 
     a0 = sm.bg.defines[connections[0]][sd0]
@@ -1057,8 +1056,32 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
         b = [a0_1, b0_1]
         b.sort()
         (a0_1, b0_1) = b
+        #cud.pv('angle_def.define')
+        #cud.pv('sm.bg.defines[ld]')
+
+        # sort the defines by the first entry in each define
+        # i.e. [3,4,1,2] -> [1,2,3,]
+        s1 = zip(*[iter(sm.bg.defines[ld])]*2)
+        s1.sort()
+
+        s2 = zip(*[iter(angle_def.define)]*2)
+        s2.sort()
+
+        # Associate the defines of the source with those of the loop
+        # according to which are lower and which are greater:
+        # s1: [(21, 22), (46, 48)]
+        # s2: [(134, 135), (142, 144)]
+        # handles: [[21, 22, 134, 135], [46, 48, 142, 144]]
+
+        handles = [[i for l in s for i in l] for s in zip(s1, s2)]
+        cud.pv('handles')
+        '''
+        cud.pv('s1')
+        cud.pv('s2')
+        cud.pv('handles')
 
         if angle_def.ang_type == 2 and sd0 == 1:
+        #if False:
             i1_0 = angle_def.define[2]
             i2_0 = angle_def.define[3]
             i1_1 = angle_def.define[0]
@@ -1068,29 +1091,31 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
             i2_0 = angle_def.define[1]
             i1_1 = angle_def.define[2]
             i2_1 = angle_def.define[3]
+
         handles = [(a0,b0,i1_0,i2_0), (a0_1, b0_1, i1_1, i2_1)]
+        cud.pv('handles')
+        '''
     else:
         i1_0 = angle_def.define[0]
         i2_0 = angle_def.define[1]
         handles = [(a0,b0,i1_0,i2_0)]
 
-    seq_len = i2_0 - i1_0
+    seq_len = handles[0][3] - handles[0][2] # i2_0 - i1_0
     align_starts(chain, source_chain, handles, end=0)
 
-    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, handles, move_all_angles=False)
-
+    (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, handles, move_all_angles=move_all_angles)
+    cud.pv('(ld, move_all_angles, r)')
 
     for h in handles:
         mend_breakpoint(h, chain, source_chain)
     for h in handles:
-        cud.pv('h')
         add_loop_chain(chain, source_chain, h, h[3] - h[2])
         mend_breakpoint_new(chain, h[0], h[0]+1)
 
 
     #(r, chain) = align_and_close_loop(seq_len, source_chain, chain, 
 
-def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
+def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_angles=False):
     '''
     Reconstruct a loop with the fragment its statistics were derived from.
 
@@ -1127,10 +1152,10 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict()):
 
 
     if len(angle_def.define) == 2:
-        reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def)
+        reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def, move_all_angles=move_all_angles)
         return
 
-    reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def)
+    reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, angle_def, move_all_angles=move_all_angles)
 
     return
 
@@ -1178,7 +1203,6 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     align_starts(chain, source_chain, [(a0,b0,i1_0,i2_0)], end=0)
     (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, [(a0,b0,i1_0,i2_0)], move_all_angles=False)
     add_loop_chain(chain, source_chain, (a0,b0,i1_0,i2_0), i2_0 - i1_0)
-    cud.pv('(a0,b0)')
     mend_breakpoint_new(chain, a0, a0+1)
 
     return
