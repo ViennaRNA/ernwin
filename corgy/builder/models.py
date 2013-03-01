@@ -171,7 +171,6 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     Reconstruct a particular stem.
     '''
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-    cud.pv('filename')
     '''
     stem_def.define = [1375, 1376, 1638, 1639]
     filename = '1jj2_1375_1376_1638_1639.pdb'
@@ -405,8 +404,6 @@ class SpatialModel:
             for ang_s in self.angle_stats[size[0]][size[1]][sb[1]]:
                 #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
-                    if b == 'b5':
-                        cud.pv('ang_s')
                     self.angle_defs[b][sb[1]] = ang_s
 
         self.loop_defs = dict()

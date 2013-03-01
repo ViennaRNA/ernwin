@@ -1,35 +1,42 @@
 te <- read.csv('../../results/coarse_grain_ernwin_rmsds.csv', head=F, sep=' ', stringsAsFactors=F)
 tr <- read.csv('../../results/coarse_grain_rosetta_rmsds.csv', head=F, sep=' ', stringsAsFactors=F)
 
-te
-tr
+colnames(te) <- c('pdb', 'n', 'rmsd')
+colnames(tr) <- c('pdb', 'n', 'rmsd')
 
-commonIds <- intersect(te$V1, tr$V1)
+############################3
+# All-atom
+############################
+te <- read.csv('../../results/all_atom_ernwin_rmsds.csv', head=F, sep=' ', stringsAsFactors=F)
+tr <- read.csv('../../results/all_atom_rosetta_rmsds.csv', head=F, sep=' ', stringsAsFactors=F)
 
-tr1 <- tr[match(commonIds, tr$V1),]
-te1 <- te[match(commonIds, te$V1),]
+colnames(tr) <- c('pdb', 'n', 'num_atoms', 'rmsd')
+colnames(te) <- c('pdb', 'n', 'num_atoms', 'rmsd')
 
-mean(tr1$V3)
-mean(te1$V3)
+head(tr)
+commonIds <- intersect(te$pdb, tr$pdb)
+
+commonIds
+
+tr1 <- tr[match(commonIds, tr$pdb),]
+te1 <- te[match(commonIds, te$pdb),]
+
+mean(tr1$rmsd)
+mean(te1$rmsd)
 
 te1$from = "ernwin"
 tr1$from = "rosetta"
 
 
 t1 <- rbind(te1, tr1)
-t2 <- transform(t1, V1=reorder(V1, V3))
+t2 <- transform(t1, pdb=reorder(pdb, num_atoms))
 head(t2)
-
-mean(te1$V3)
-mean(tr1$V3)
 
 library(ggplot2)
-head(t2)
 png("rosetta_ernwin_rmsds.png")
-c <- ggplot(data=t2, aes(x=V1,y=V3,fill=from))
 #c + geom_bar(stat="identity", position=position_dodge())
 #c + geom_dotplot(binaxis = "y", alpha=0.3) + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd")
 #c + geom_bar(stat="identity", position="dodge") + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd")
-ggplot(data=t2, aes(x=V1, y=V3, color=from, group=from)) + geom_line() + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd") + geom_point() + ylim(c(0, max(t2$V3)))
+ggplot(data=t2, aes(x=pdb, y=rmsd, color=from, group=from)) + geom_line() + opts(axis.text.x=theme_text(angle=90, hjust = 1)) + xlab("pdb_file") + ylab("rmsd") + geom_point() + ylim(c(0, max(t2$rmsd)))
 dev.off()
 

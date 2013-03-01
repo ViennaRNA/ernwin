@@ -254,6 +254,7 @@ def get_atom_coord_array(chain, start_res, end_res):
     indeces = dict()
     count = 0
 
+    cud.pv('(start_res, end_res+2)')
     for i in range(start_res, end_res+2):
         res = chain[i]
         indeces[res.id[1]] = count
@@ -623,7 +624,6 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         '''
 
 
-    cud.pv('rmsd')
     return (rmsd, chain_loop)
 
 def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True, move_front_angle=True):
@@ -1056,8 +1056,6 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
         b = [a0_1, b0_1]
         b.sort()
         (a0_1, b0_1) = b
-        #cud.pv('angle_def.define')
-        #cud.pv('sm.bg.defines[ld]')
 
         # sort the defines by the first entry in each define
         # i.e. [3,4,1,2] -> [1,2,3,]
@@ -1074,7 +1072,6 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
         # handles: [[21, 22, 134, 135], [46, 48, 142, 144]]
 
         handles = [[i for l in s for i in l] for s in zip(s1, s2)]
-        cud.pv('handles')
         '''
         cud.pv('s1')
         cud.pv('s2')
@@ -1104,7 +1101,6 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
     align_starts(chain, source_chain, handles, end=0)
 
     (r, loop_chain) = align_and_close_loop(seq_len, chain, source_chain, handles, move_all_angles=move_all_angles)
-    cud.pv('(ld, move_all_angles, r)')
 
     for h in handles:
         mend_breakpoint(h, chain, source_chain)

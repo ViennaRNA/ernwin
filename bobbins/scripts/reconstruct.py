@@ -28,6 +28,7 @@ def main():
         print >>sys.stderr, "Reconstruct a spatial model to full-atom accuracy."
         sys.exit(1)
 
+    print >>sys.stderr, "reconstructing model:", args[0]
     sm = models.SpatialModel(BulgeGraph(args[0]))
     sm.sample_native_stems()
     sm.create_native_stem_models()
@@ -46,9 +47,7 @@ def main():
             '''
 
             for b in sm.bg.bulges():
-                print >>sys.stderr, "reconstructing...", b
                 if b not in sampled_bulges:
-                    print >> sys.stderr, "closed bulge:", b
                     (as1, as2) = sm.bg.get_bulge_angle_stats(b)
 
                     bulge_vec = np.array(cuv.spherical_polar_to_cartesian((as1.r1, as1.u1, as1.v1)))
