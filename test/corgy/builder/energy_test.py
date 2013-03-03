@@ -241,5 +241,10 @@ class TestStemCoverageEnergy(unittest.TestCase):
 
         cud.pv('sce.eval_energy(sm)')
 
-        
+class TestCylinderIntersectionEnergy(unittest.TestCase):
+    def test_eval_energy(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        sm = SpatialModel(bg)
 
+        cie = cbe.CylinderIntersectionEnergy()
+        cie.eval_energy(sm)

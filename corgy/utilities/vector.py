@@ -505,7 +505,6 @@ def vec_angle(vec1, vec2):
     if d <= -1.:
         d = -1.
 
-    #cud.pv('np.dot(vec1n, vec2n)')
     angle = m.acos(d)
     return angle
 
@@ -603,21 +602,6 @@ def line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1):
     # get the difference of the two closest points
     dP = w + (sc * u) - (tc * v)  # = S1(sc) - S2(tc)
 
-    '''
-    cud.pv('u')
-    cud.pv('v')
-    cud.pv('sc')
-    cud.pv('tc')
-
-    cud.pv('sc')
-    cud.pv('tc')
-
-    cud.pv('s1_p0 + sc * u')
-    cud.pv('s2_p0 + tc * v')
-
-    cud.pv('dP')
-    '''
-
     return (s1_p0 + sc * u, s2_p0 + tc * v)
 
 def closest_point_on_seg(seg_a, seg_b, circ_pos):
@@ -657,7 +641,7 @@ def segment_circle(seg_a, seg_b, circ_pos, circ_rad):
     offset = dist_v / magnitude(dist_v) * (circ_rad - magnitude(dist_v))
     return offset
 
-def cylinder_intersection(cyl, line, r):
+def cylinder_line_intersection(cyl, line, r):
     '''
     Get the points of intersection between a line and a sphere.
 
@@ -665,6 +649,9 @@ def cylinder_intersection(cyl, line, r):
     touches the cylinder, then return a 2 point list with two identical points. 
     If the line crosses the cylinder, then return a list of 2 points.
     '''
+
+    cyl = np.array(cyl)
+    line = np.array(line)
     cyl_vec = cyl[1] - cyl[0]
     line_vec = line[1] - line[0]
 
@@ -678,36 +665,49 @@ def cylinder_intersection(cyl, line, r):
 
     line_vec_t_normed = normalize(line_vec_t)
 
-    cud.pv('line_t')
-    cud.pv('cyl_t')
     # get the point on the line closest to the
     # center of the cylinder
     p = closest_point_on_seg(line_t[0][1:], line_t[1][1:], 
-                                 np.array([0., 0.]))
+                             np.array(cyl_t[0][1:]))
 
-    cud.pv('p')
     # Figure out the x position by determining how far along
     # the y-coordinate of the segment the closest point it
     x  = (line_t[0][0] + 
             (line_vec_t[0] *
             (p[0] - line_t[0][1]) / line_vec_t[1]))
-    cud.pv('p')
-
-    o = magnitude(p)
-    p = np.array([x, p[0], p[1]])
-
-    cud.pv('o')
+    o = magnitude(p - cyl_t[0][1:])
+    p = [x, p[0], p[1]]
 
     if o > r:
         # no intersection
         return []
 
-    x = m.sqrt(r ** 2 - o ** 2)
-    cud.pv('x')
-    cud.pv('line_vec_t_normed')
+    t = m.sqrt(r ** 2 - o ** 2)
 
-    i1 = p - x * line_vec_t_normed
-    i2 = p + x * line_vec_t_normed
+    i1 = p - t * line_vec_t_normed
+    i2 = p + t * line_vec_t_normed
 
-    cud.pv('(x, i1, i2)')
+    endpoints_t = [i1, i2]
+
+    endpoints_t = sorted(endpoints_t, key=lambda x: x[0])
+    line_t = sorted(line_t, key=lambda x: x[0])
+    cyl_t = sorted(cyl_t, key=lambda x: x[0])
+
+    # the start point will be the highest of the top of the cylinder
+    # the end of the line, and the point where the line intersects
+    # the surface of the cylinder
+    start_points = np.array([cyl_t[0], line_t[0], endpoints_t[0]])
+
+    # the end point will be the lowest of the... " " "
+    end_points = np.array([cyl_t[1], line_t[1], endpoints_t[1]])
+
+    start_points = sorted(start_points, key=lambda x: x[0])
+    end_points = sorted(end_points, key=lambda x: x[0])
+
+    real_start = start_points[-1]
+    real_end = end_points[0]
+
+    intersects = np.array([real_start, real_end])
+
+    return (real_start, real_end)
 

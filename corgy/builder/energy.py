@@ -1129,4 +1129,25 @@ class StemCoverageEnergy(EnergyFunction):
 
         return -math.log(len(covered) + 1)
 
+class CylinderIntersectionEnergy(EnergyFunction):
+    def __init__(self):
+        self.max_dist = 22
 
+    def eval_energy(self, sm , background=True):
+        bg = sm.bg
+        for (s1, s2) in it.permutations(bg.stems(), 2):
+            line = bg.coords[s1]
+            cyl = bg.coords[s2]
+            
+            line_len = cuv.magnitude(line[1] - line[0])
+            intersects = cuv.cylinder_line_intersection(cyl, line, 
+                                                        self.max_dist)
+            if len(intersects) == 0:
+                in_cyl_len = 0.
+            else:
+                in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
+
+            cud.pv('line')
+            cud.pv('intersects')
+            cud.pv('s1,s2,in_cyl_len / line_len')
+            

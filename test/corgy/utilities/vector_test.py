@@ -223,7 +223,35 @@ class TestVectorFunctions(unittest.TestCase):
 
     def test_cylinder_line_intersection(self):
         cyl = np.array([[0.,1.,0.],[0.,2.,0.]])
-        line = np.array([[1.,0.,.5],[0.,2., .3]])
+        #line = np.array([[1.,0.,.5],[0.,2., .3]])
+        line = np.array([[0.,2., .3],[1.,0.,.5]])
         cyl_width = 0.5 
 
-        cuv.cylinder_intersection(cyl, line, cyl_width)
+        (start, end) = cuv.cylinder_line_intersection(cyl, line, cyl_width)
+        cud.pv('(start, end)')
+
+        cyl = [np.array([ 24.02178429, -28.8175776 ,   0.67748592]), 
+               np.array([ 38.56515153, -34.97914498,  -3.38233765])]
+        line = [np.array([ 31.12074737, -16.4192613 ,  -0.92956781]), 
+                array([ 40.59231907, -19.92196957,  -9.89756977])]
+
+        points1 = cuv.cylinder_line_intersection(cyl, line, 14)
+        self.assertEquals(len(points1), 0)
+
+        points2 = cuv.cylinder_line_intersection(cyl, line, 15)
+        self.assertEquals(len(points2), 2)
+
+        # The whole line should be in the cylinder
+        points3 = cuv.cylinder_line_intersection(cyl, line, 34)
+        self.assertTrue(np.allclose(cuv.magnitude(line[1] - line[0]),
+                                      cuv.magnitude(points3[1] - points3[0])))
+
+        '''
+        for i in range(13, 30):
+            points = cuv.cylinder_line_intersection(cyl, line, i)
+
+            if len(points) == 0:
+                continue
+            (rs, re) = points
+            cud.pv('(i,cuv.magnitude(re - rs))')
+        '''

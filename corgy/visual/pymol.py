@@ -174,8 +174,8 @@ class PymolPrinter:
             font = 1
             axes = [list(comp1 * 2), list(comp2 * 2), list(comp3 * 2)]
 
-            #text = "%s: %.1f" % (text, cuv.magnitude(n-p))
-            text = "%s" % (text)
+            text = "%s: %.1f" % (text, cuv.magnitude(n-p))
+            #text = "%s" % (text)
 
             s += "cyl_text(cgox_%s, plain, %s, \"%s\", 0.20, axes=%s)" % (uid, str(list(pos)), text, str(axes)) + '\n'
             pa_s += "pa_%s = cmd.pseudoatom(pos=%s,b=1.0, label=\"%s\")\n" % (uid, str(list(pos)), text)
