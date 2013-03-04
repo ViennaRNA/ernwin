@@ -696,18 +696,23 @@ def cylinder_line_intersection(cyl, line, r):
     # the start point will be the highest of the top of the cylinder
     # the end of the line, and the point where the line intersects
     # the surface of the cylinder
-    start_points = np.array([cyl_t[0], line_t[0], endpoints_t[0]])
+    start_points = np.array([cyl_t[0][0], line_t[0][0], endpoints_t[0][0]])
 
     # the end point will be the lowest of the... " " "
-    end_points = np.array([cyl_t[1], line_t[1], endpoints_t[1]])
+    end_points = np.array([cyl_t[1][0], line_t[1][0], endpoints_t[1][0]])
 
-    start_points = sorted(start_points, key=lambda x: x[0])
-    end_points = sorted(end_points, key=lambda x: x[0])
+    start_points = sorted(start_points)
+    end_points = sorted(end_points)
 
+    endpoints_t[0][0] = start_points[-1]
+    endpoints_t[1][0] = end_points[0]
+    '''
     real_start = start_points[-1]
     real_end = end_points[0]
+    '''
 
-    intersects = np.array([real_start, real_end])
-
-    return (real_start, real_end)
+    cud.pv('line_t')
+    intersects_t = np.array(endpoints_t)
+    cud.pv('intersects_t')
+    return change_basis(intersects_t.T, standard_basis, cyl_basis).T
 

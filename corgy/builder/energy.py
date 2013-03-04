@@ -1150,4 +1150,6 @@ class CylinderIntersectionEnergy(EnergyFunction):
             cud.pv('line')
             cud.pv('intersects')
             cud.pv('s1,s2,in_cyl_len / line_len')
+
+            return
             
