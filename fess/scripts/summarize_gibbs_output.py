@@ -29,7 +29,7 @@ def visit_dir(rmsds, dirname, names):
             # group(4) = rmsd
             rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(4)), filename, trial_id)]
 
-def summarize_rmsds(rmsds, compact=False, base_dir=''):
+def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
     keys = rmsds.keys()
     #keys.sort(key=lambda x: min([k[1] for k in rmsds[x]]))
     keys.sort()
@@ -39,11 +39,11 @@ def summarize_rmsds(rmsds, compact=False, base_dir=''):
         key = (key1,key2)
         rmsds[key].sort()
         if compact:
-            print base_dir, key2, rmsds[key][0][3]
+            print base_dir, key2, rmsds[key][nth][3]
         else:
-            print "[",key2 + "/" + rmsds[key][0][3],"|", key1,"]", "[", rmsds[key][0][1], "::", str(rmsds[key][0][0]) + "]", " ".join([str(k[1]) for k in rmsds[key][1:5]])
+            print "[",key2 + "/" + rmsds[key][nth][3],"|", key1,"]", "[", rmsds[key][nth][1], "::", str(rmsds[key][nth][0]) + "]", " ".join([str(k[1]) for k in rmsds[key][1:5]])
 
-        min_rmsds += [rmsds[key][0][1]]
+        min_rmsds += [rmsds[key][nth][1]]
     min_rmsds.sort()
 
     if not compact:
@@ -53,7 +53,7 @@ def main():
     usage = './summarize_gibbs_output.py base_dir'
     parser = OptionParser()
 
-    #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
+    parser.add_option('-n', '--nth-best', dest='nth_best', default=0, help="Display the n-th best energy structure (0-based)", type='int')
     parser.add_option('-c', '--compact', dest='compact', default=False, action='store_true', help='Display a compact representation of the structures consisting of only the name and number.')
 
     (options, args) = parser.parse_args()
@@ -66,7 +66,7 @@ def main():
     for arg in args:
         op.walk(arg, visit_dir, rmsds)
 
-    summarize_rmsds(rmsds, options.compact, args[0])
+    summarize_rmsds(rmsds, options.compact, args[0], nth=options.nth_best)
 
 
 if __name__ == '__main__':

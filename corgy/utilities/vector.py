@@ -704,15 +704,25 @@ def cylinder_line_intersection(cyl, line, r):
     start_points = sorted(start_points)
     end_points = sorted(end_points)
 
-    endpoints_t[0][0] = start_points[-1]
-    endpoints_t[1][0] = end_points[0]
+    start_param = (start_points[-1] - p[0]) / line_vec_t_normed[0]
+    end_param = (end_points[0] - p[0]) / line_vec_t_normed[0]
+
+    endpoints_t[0] = p + start_param * line_vec_t_normed
+    endpoints_t[1] = p + end_param * line_vec_t_normed
+
     '''
+    endpoints_t[0] = [start_points[-1],
+                      endpoints_t[
+    endpoints_t[1][0] = end_points[0]
     real_start = start_points[-1]
     real_end = end_points[0]
     '''
 
-    cud.pv('line_t')
     intersects_t = np.array(endpoints_t)
-    cud.pv('intersects_t')
+
+    if intersects_t[0][0] > intersects_t[1][0]:
+        # degenerate case, the line is to the side of the cylinder
+        return []
+
     return change_basis(intersects_t.T, standard_basis, cyl_basis).T
 

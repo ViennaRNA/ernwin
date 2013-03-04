@@ -27,6 +27,7 @@ import corgy.utilities.statistics as cus
 import corgy.builder.sampling as cbs
 import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
+import corgy.builder.rmsd as cbr
 
 #import scipy.stats as ss
 import sys
@@ -1087,7 +1088,7 @@ class StemStemOrientationEnergy(EnergyFunction):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
                 ang = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col]
-                ang = min(ang, math.pi - ang)
+                #ang = min(ang, math.pi - ang)
                 real = my_log(self.real_data(ang))
                 fake = my_log(self.fake_data(ang))
                 #real = my_log( self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
@@ -1105,6 +1106,7 @@ class StemStemOrientationEnergy(EnergyFunction):
 class StemCoverageEnergy(EnergyFunction):
     def __init__(self):
         self.max_dist = 22
+
 
     def eval_energy(self, sm, background=True):
         covered = set()
@@ -1131,13 +1133,32 @@ class StemCoverageEnergy(EnergyFunction):
 
 class CylinderIntersectionEnergy(EnergyFunction):
     def __init__(self):
-        self.max_dist = 22
+        self.max_dist = 25 
 
-    def eval_energy(self, sm , background=True):
-        bg = sm.bg
+        self.real_data = None
+        self.fake_data = None
+
+    def load_data(self, filename):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+
+        ratios = t[t.columns[1]]
+        ratios = ratios[~np.isnan(ratios)]
+
+        return cek.gaussian_kde(ratios)
+
+    def calculate_intersection_coverages(self, bg):
+        in_cyl_fractions = c.defaultdict(lambda: 0.001)
+
         for (s1, s2) in it.permutations(bg.stems(), 2):
             line = bg.coords[s1]
             cyl = bg.coords[s2]
+            extension = 20.
+
+            cyl_vec = cuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
+            cyl = [cyl[0] - extension * cyl_vec,
+                   cyl[1] + extension * cyl_vec]
             
             line_len = cuv.magnitude(line[1] - line[0])
             intersects = cuv.cylinder_line_intersection(cyl, line, 
@@ -1145,11 +1166,34 @@ class CylinderIntersectionEnergy(EnergyFunction):
             if len(intersects) == 0:
                 in_cyl_len = 0.
             else:
-                in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
+                #in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
+                in_cyl_len = abs(intersects[1][0] - intersects[0][0])
 
-            cud.pv('line')
-            cud.pv('intersects')
-            cud.pv('s1,s2,in_cyl_len / line_len')
+            in_cyl_fractions[s1] += in_cyl_len / line_len
+            #cud.pv('s1,s2,in_cyl_len / line_len')
+        return in_cyl_fractions
 
-            return
-            
+    def eval_energy(self, sm , background=True):
+        if self.real_data == None:
+            self.real_data = self.load_data('fess/stats/cylinder_intersection_fractions.csv')
+            self.fake_data = self.load_data('fess/stats/cylinder_intersection_fractions_sampled.csv')
+
+        cyl_fractions = self.calculate_intersection_coverages(sm.bg)
+        energy = 0.
+        for (key,val) in cyl_fractions.items():
+            real = my_log(self.real_data(val))
+            fake = my_log(self.fake_data(val))
+
+            energy += (real - fake)
+
+        return -energy
+
+class CheatingEnergy(EnergyFunction):
+    def __init__(self, real_bg):
+        self.real_bg = copy.deepcopy(real_bg)
+        self.real_residues = cgg.bg_virtual_residues(self.real_bg)
+
+    def eval_energy(self, sm, background=True):
+        new_residues = cgg.bg_virtual_residues(sm.bg)
+
+        return  cbr.centered_rmsd(self.real_residues, new_residues)
