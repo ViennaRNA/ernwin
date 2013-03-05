@@ -29,6 +29,7 @@ import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
 import corgy.builder.rmsd as cbr
 
+import scipy.stats as stats
 #import scipy.stats as ss
 import sys
 
@@ -1054,7 +1055,9 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.max_dist = 30
         self.max_lateral_dist = 13.
         self.sample_num = 10000
-        self.col = col
+        #self.col = col
+        self.col1 = 0
+        self.col2 = 2
 
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
@@ -1070,14 +1073,19 @@ class StemStemOrientationEnergy(EnergyFunction):
     def load_stem_stem_data(self, filename, col):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
-        angles = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[col]].values
+        angles1 = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[self.col1]].values
+        angles2 = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[self.col2]].values
         #cud.pv('t.columns')
 
-        sampled_angles = [rand.choice(angles) for i in range(self.sample_num)]
-        sa = [min(a, math.pi - a) for a in sampled_angles]
+        sampled_angles1 = [rand.choice(angles1) for i in range(self.sample_num)]
+        sampled_angles2= [rand.choice(angles1) for i in range(self.sample_num)]
+        #sa = [min(a, math.pi - a) for a in sampled_angles]
         #sa = [a for a in sampled_angles]
 
-        return cek.gaussian_kde(sa)
+        sa = np.array([sampled_angles1, sampled_angles2])
+
+        #return cek.gaussian_kde(sa)
+        return stats.gaussian_kde(sa)
         #return ss.gaussian_kde(angles)
 
     def eval_energy(self, sm, background=True):
@@ -1087,7 +1095,9 @@ class StemStemOrientationEnergy(EnergyFunction):
         for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
-                ang = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col]
+                ang1 = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col1]
+                ang2 = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col2]
+                ang = np.array([ang1, ang2])
                 #ang = min(ang, math.pi - ang)
                 real = my_log(self.real_data(ang))
                 fake = my_log(self.fake_data(ang))
@@ -1099,7 +1109,8 @@ class StemStemOrientationEnergy(EnergyFunction):
                 self.interaction_energies[tuple(sorted([s1,s2]))] += (real - fake)
 
         if energy > 300:
-            pdb.set_trace()
+            #pdb.set_trace()
+            pass
 
         return -energy
                 
