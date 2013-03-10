@@ -706,8 +706,8 @@ class SpatialModel:
         to_visit = [first_node]
 
         while len(to_visit) > 0:
-            to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
-            #to_visit = rand.shuffle(to_visit)
+            #to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            rand.shuffle(to_visit)
             (curr_node, prev_node) = to_visit.pop()
 
             while curr_node in visited:

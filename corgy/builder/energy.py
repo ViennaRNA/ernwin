@@ -1056,7 +1056,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.max_lateral_dist = 13.
         self.sample_num = 10000
         #self.col = col
-        self.cols = [2]
+        self.cols = [0,1,2]
 
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
@@ -1153,12 +1153,12 @@ class CylinderIntersectionEnergy(EnergyFunction):
         ratios = t[t.columns[1]]
         ratios = ratios[~np.isnan(ratios)]
 
-        return cek.gaussian_kde(ratios)
+        return stats.gaussian_kde(ratios)
 
     def calculate_intersection_coverages(self, bg):
         in_cyl_fractions = c.defaultdict(lambda: 0.001)
 
-        for (s1, s2) in it.permutations(bg.stems(), 2):
+        for (s1, s2) in it.permutations(bg.stem_like(), 2):
             line = bg.coords[s1]
             cyl = bg.coords[s2]
             extension = 20.

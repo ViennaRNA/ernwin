@@ -98,14 +98,20 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
 
     for pdb_name in rmsds.keys():
         energy_rmsds = np.array(rmsds[pdb_name])
-        low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < 10]
+        low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < 30]
 
         if random_rmsds != None and pdb_name in random_rmsds.keys():
             rr = np.array(random_rmsds[pdb_name])
-            low_random_rmsds = rr[rr[:,0] < 10]
+            low_random_rmsds = rr[rr[:,0] < 30]
 
-        xs = np.linspace(0., max(low_energy_rmsds[:,1]))
-        kde = ss.gaussian_kde(low_energy_rmsds[:,1])
+        try:
+            xs = np.linspace(0., max(low_energy_rmsds[:,1]))
+            kde = ss.gaussian_kde(low_energy_rmsds[:,1])
+        except ValueError as ve:
+            # Usually happens when there aren't enough low energies
+            # to create a kde
+            continue
+
         kxs = kde(xs)
 
         if random_rmsds != None:
