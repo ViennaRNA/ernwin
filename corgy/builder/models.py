@@ -8,6 +8,7 @@ import numpy.linalg as nl
 import math
 import sys
 import collections as c
+import random as rand
 
 import corgy.builder.config as cbc
 import corgy.builder.stats as cbs
@@ -706,6 +707,7 @@ class SpatialModel:
 
         while len(to_visit) > 0:
             to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            #to_visit = rand.shuffle(to_visit)
             (curr_node, prev_node) = to_visit.pop()
 
             while curr_node in visited:
@@ -777,7 +779,8 @@ class SpatialModel:
             started = True
 
         while len(self.to_visit) > 0:
-            self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            #self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            
             (curr_node, prev_node, prev_stem) = self.to_visit.pop()
 
             while curr_node in self.visited:

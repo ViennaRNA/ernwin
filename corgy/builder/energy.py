@@ -1056,8 +1056,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.max_lateral_dist = 13.
         self.sample_num = 10000
         #self.col = col
-        self.col1 = 0
-        self.col2 = 2
+        self.cols = [2]
 
         self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
         self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
@@ -1073,19 +1072,13 @@ class StemStemOrientationEnergy(EnergyFunction):
     def load_stem_stem_data(self, filename, col):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
-        angles1 = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[self.col1]].values
-        angles2 = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[self.col2]].values
-        #cud.pv('t.columns')
-
-        sampled_angles1 = [rand.choice(angles1) for i in range(self.sample_num)]
-        sampled_angles2= [rand.choice(angles1) for i in range(self.sample_num)]
-        #sa = [min(a, math.pi - a) for a in sampled_angles]
-        #sa = [a for a in sampled_angles]
-
-        sa = np.array([sampled_angles1, sampled_angles2])
+        sampled_angles = []
+        for col in self.cols:
+            angles = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[col]].values
+            sampled_angles += [[rand.choice(angles) for i in range(self.sample_num)]]
 
         #return cek.gaussian_kde(sa)
-        return stats.gaussian_kde(sa)
+        return stats.gaussian_kde(sampled_angles)
         #return ss.gaussian_kde(angles)
 
     def eval_energy(self, sm, background=True):
@@ -1095,9 +1088,12 @@ class StemStemOrientationEnergy(EnergyFunction):
         for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
-                ang1 = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col1]
-                ang2 = cgg.stem_stem_orientation(sm.bg, s1, s2)[self.col2]
-                ang = np.array([ang1, ang2])
+                angs = []
+                for col in self.cols:
+                    sso = cgg.stem_stem_orientation(sm.bg, s1, s2)
+                    angs += [sso[col]]
+
+                ang = np.array(angs)
                 #ang = min(ang, math.pi - ang)
                 real = my_log(self.real_data(ang))
                 fake = my_log(self.fake_data(ang))
