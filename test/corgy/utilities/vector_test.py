@@ -246,12 +246,9 @@ class TestVectorFunctions(unittest.TestCase):
         self.assertTrue(np.allclose(cuv.magnitude(line[1] - line[0]),
                                       cuv.magnitude(points3[1] - points3[0])))
 
-        '''
-        for i in range(13, 30):
-            points = cuv.cylinder_line_intersection(cyl, line, i)
 
-            if len(points) == 0:
-                continue
-            (rs, re) = points
-            cud.pv('(i,cuv.magnitude(re - rs))')
-        '''
+        cyl = [np.array([-10.27105916, -11.52755534,   9.47234819]), np.array([ -4.77563711, -31.16644014,  49.98613722])] 
+        line = (np.array([ 0.,  0.,  0.]), np.array([ 10.76109887,   0.        ,   0.        ]))
+
+        points1 = cuv.cylinder_line_intersection(cyl, line, 25.)
+        cud.pv('points1')

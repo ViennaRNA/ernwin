@@ -37,8 +37,9 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
-    stem_stem_orientations(bg)
+    for arg in args:
+        bg = cgb.BulgeGraph(arg)
+        stem_stem_orientations(bg)
 
 if __name__ == '__main__':
     main()

@@ -125,6 +125,9 @@ def stem_stem_orientation(bg, s1, s2):
     #cud.pv('np.dot(cuv.normalize(s2_proj), cuv.normalize(s1_vec))')
     ang2 = cuv.vec_angle(s2_proj, s1_vec)
 
+    ang1 = min(ang1, m.pi - ang1)
+    ang2 = min(ang2, m.pi - ang2)
+
     return (cuv.magnitude(i_vec), ang1, ang2, cuv.vec_angle(s1_vec, s2_vec), lateral_offset, ortho_offset)
 
 def get_stem_phys_length(coords):

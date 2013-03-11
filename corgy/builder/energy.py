@@ -1054,12 +1054,12 @@ class StemStemOrientationEnergy(EnergyFunction):
         super(StemStemOrientationEnergy, self).__init__()
         self.max_dist = 30
         self.max_lateral_dist = 13.
-        self.sample_num = 10000
+        self.sample_num = 1000
         #self.col = col
-        self.cols = [0,1,2]
+        self.cols = [2]
 
-        self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
-        self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
+        self.real_data = None
+        self.fake_data = None
 
         '''
         import matplotlib.pyplot as plt
@@ -1084,6 +1084,12 @@ class StemStemOrientationEnergy(EnergyFunction):
     def eval_energy(self, sm, background=True):
         energy = 0
         self.interaction_energies = c.defaultdict(float)
+        
+        if self.real_data == None:
+            col = 0
+            self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
+            #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled_%s.csv' % (sm.bg.name), col)
+            self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
 
         for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
@@ -1140,7 +1146,7 @@ class StemCoverageEnergy(EnergyFunction):
 
 class CylinderIntersectionEnergy(EnergyFunction):
     def __init__(self):
-        self.max_dist = 25 
+        self.max_dist = 25.
 
         self.real_data = None
         self.fake_data = None
@@ -1170,14 +1176,18 @@ class CylinderIntersectionEnergy(EnergyFunction):
             line_len = cuv.magnitude(line[1] - line[0])
             intersects = cuv.cylinder_line_intersection(cyl, line, 
                                                         self.max_dist)
+            if len(intersects) > 0 and np.isnan(intersects[0][0]):
+                sys.exit(1)
+
             if len(intersects) == 0:
                 in_cyl_len = 0.
             else:
                 #in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
                 in_cyl_len = abs(intersects[1][0] - intersects[0][0])
 
+            '''
+            '''
             in_cyl_fractions[s1] += in_cyl_len / line_len
-            #cud.pv('s1,s2,in_cyl_len / line_len')
         return in_cyl_fractions
 
     def eval_energy(self, sm , background=True):
@@ -1192,6 +1202,9 @@ class CylinderIntersectionEnergy(EnergyFunction):
             fake = my_log(self.fake_data(val))
 
             energy += (real - fake)
+
+            if np.isnan(energy):
+                pdb.set_trace()
 
         return -energy
 

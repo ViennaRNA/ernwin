@@ -59,6 +59,7 @@ def main():
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
     parser.add_option('', '--output-file', dest='output_file', default=None, help='File to output the information about the sampling to. Defaults to standard out', type=str)
+    parser.add_option('', '--save-n-best', dest='save_n_best', default=3, help='Save the best n structures.', type=int)
 
     (options, args) = parser.parse_args()
 
@@ -94,7 +95,7 @@ def main():
     if options.cheating:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CheatingEnergy(sm.bg)])]
     if options.cyl_intersect:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CylinderIntersectionEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CylinderIntersectionEnergy(), cbe.StemStemOrientationEnergy()])]
     if options.stem_stem:
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy(), cbe.StemCoverageEnergy()])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy(), cbe.StemStemOrientationEnergy(col=1)])]
@@ -135,7 +136,7 @@ def main():
     silent = False
 
     for color,energy in zip(colors, energies_to_sample):
-        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file)
+        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best)
         if options.mcmc_sampler:
             samplers += [cbs.MCMCSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
         else:

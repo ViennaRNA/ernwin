@@ -99,13 +99,17 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
     for pdb_name in rmsds.keys():
         energy_rmsds = np.array(rmsds[pdb_name])
         low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < 30]
+        xs = None
 
         if random_rmsds != None and pdb_name in random_rmsds.keys():
             rr = np.array(random_rmsds[pdb_name])
             low_random_rmsds = rr[rr[:,0] < 30]
+            xs = np.linspace(0., max(low_random_rmsds[:,1]), num=200)
+
 
         try:
-            xs = np.linspace(0., max(low_energy_rmsds[:,1]))
+            if xs == None:
+                xs = np.linspace(0., max(low_energy_rmsds[:,1]), num=200)
             kde = ss.gaussian_kde(low_energy_rmsds[:,1])
         except ValueError as ve:
             # Usually happens when there aren't enough low energies
@@ -130,11 +134,12 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
             ax_hist = fig.add_subplot(rows*2, cols, plot_nums[counter+1])
 
             ax_plot.set_title(pdb_name)
-            ax_plot.set_xlim(0., max(low_energy_rmsds[:,1]))
+            ax_plot.set_xlim(min(xs), max(xs))
 
             ax_hist.set_title(pdb_name)
 
             ax_plot.plot(low_energy_rmsds[:,1], low_energy_rmsds[:,0], 'bo', alpha=0.2)
+            ax_hist.set_xlim(min(xs), max(xs))
             ax_hist.plot(xs, kde(xs), 'b')
 
             if random_rmsds != None:

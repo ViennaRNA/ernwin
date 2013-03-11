@@ -15,20 +15,20 @@ plotorientations <- function(t, ts) {
 
   min(t1$V3, abs(pi - t1$V3))
 
-  t1$offset3 <- sapply(t1$V3,function(x) min(x, abs(pi - x)))
-  ts1$offset3 <- sapply(ts1$V3,function(x) min(x, abs(pi - x)))
+  #t1$offset3 <- sapply(t1$V3,function(x) min(x, abs(pi - x)))
+  #ts1$offset3 <- sapply(ts1$V3,function(x) min(x, abs(pi - x)))
 
-  t1$offset2 <- sapply(t1$V2,function(x) min(x, abs(pi - x)))
-  ts1$offset2 <- sapply(ts1$V2,function(x) min(x, abs(pi - x)))
+  #t1$offset2 <- sapply(t1$V2,function(x) min(x, abs(pi - x)))
+  #ts1$offset2 <- sapply(ts1$V2,function(x) min(x, abs(pi - x)))
 
   t1$offset1 <- t1$V1
   ts1$offset1 <- ts1$V1
   
-  #t1$offset3 <- t1$V3
-  #ts1$offset3 <- ts1$V3
+  t1$offset3 <- t1$V3
+  ts1$offset3 <- ts1$V3
 
-  #t1$offset2 <- t1$V2
-  #ts1$offset2 <- ts1$V2
+  t1$offset2 <- t1$V2
+  ts1$offset2 <- ts1$V2
   
   head(t1)
   
@@ -71,10 +71,10 @@ plotorientations <- function(t, ts) {
   grid.arrange(g1,g2,g3)
 }
 plotorientations(t, ts)
-ts <- read.csv('../stats/stem_stem_orientations_sampled.csv', head=F, sep=' ')
+ts <- read.csv('../stats/stem_stem_orientations_sampled_1gid.csv', head=F, sep=' ')
 t <- read.csv('../stats/stem_stem_orientations.csv', head=F, sep=' ')
 
-png("stem_stem_orientations_new.png")
+png("stem_stem_orientations_1jj2.png")
 plotorientations(t, ts)
 dev.off()
 

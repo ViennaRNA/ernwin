@@ -179,7 +179,7 @@ class SamplingStatistics:
     Store statistics about a sample.
     '''
 
-    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout):
+    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3):
         '''
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
@@ -190,6 +190,7 @@ class SamplingStatistics:
         self.silent = silent
         self.verbose = False
         self.output_file = output_file
+        self.save_n_best = save_n_best
 
         try:
             self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
@@ -239,14 +240,17 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            self.output_file.write("native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, lowest_rmsd))
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, lowest_rmsd)
+            if self.output_file != sys.stdout:
+                print output_str.strip()
+            self.output_file.write(output_str)
             self.output_file.flush()
 
         self.update_plots(energy, r)
 
         if self.counter % 10 == 0:
             if not self.silent:
-                self.save_top(3)
+                self.save_top(self.save_n_best)
 
     def save_top(self, n = 100000):
         '''
@@ -296,13 +300,15 @@ class MCMCSampler:
         self.energy_function = energy_function
         self.stats = stats
         self.prev_energy = 10000000.
-        self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        #self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
+        sm.sample_stats()
         sm.get_sampled_bulges()
 
     def step(self):
         self.sm.sample_stems()
-        self.sm.sample_loops()
+        #self.sm.sample_loops()
+        #self.sm.sample_angles()
         self.sm.traverse_and_build()
 
         # pick a random bulge to vary
@@ -314,26 +320,33 @@ class MCMCSampler:
 
         # What are the potential angle statistics for it
         #possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
-        #pa = random.choice(possible_angles)
+        (bulge, (s1b, s2b, direction)) = random.choice(self.sm.sampled_bulge_sides)
+        dims = self.sm.bg.get_bulge_dimensions(bulge)
+        
+        self.sm.traverse_and_build()
+        # What are the potential angle statistics for it
+        ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
+        possible_angles = self.sm.angle_stats[dims[0]][dims[1]][ang_type1]
+        pa = random.choice(possible_angles)
 
-        pa = self.cont_stats.sample_stats(dims)
+        #pa = self.cont_stats.sample_stats(dims)
 
-        prev_angle = self.sm.angle_defs[bulge]
-        self.sm.angle_defs[bulge] = pa
+        prev_angle = self.sm.angle_defs[bulge][ang_type1]
+        self.sm.angle_defs[bulge][ang_type1] = pa
         self.sm.traverse_and_build(start = bulge)
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
         if energy > self.prev_energy:
-
             if random.random() > math.exp(self.prev_energy - energy):
-                self.sm.angle_defs[bulge] = prev_angle
+                self.sm.angle_defs[bulge][ang_type1] = prev_angle
+                self.sm.traverse_and_build()
                 #print "skipping:", energy, self.prev_energy
             else:
                 self.prev_energy = energy
-                self.stats.update_statistics(self.energy_function, self.sm)
         else:
             self.prev_energy = energy
-            self.stats.update_statistics(self.energy_function, self.sm)
+
+        self.stats.update_statistics(self.energy_function, self.sm)
 
 class GibbsBGSampler:
     '''
@@ -347,6 +360,7 @@ class GibbsBGSampler:
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
+        self.angles_to_sample = 100
 
         sm.sample_stats()
         sm.get_sampled_bulges()
@@ -375,9 +389,10 @@ class GibbsBGSampler:
             print >>sys.stderr, "No available statistics for bulge %s of size %s" % (bulge, str(dims))
             print >>sys.stderr, "s1b", s1b, "s2b", s2b
         # only choose 10 possible angles
-        if len(possible_angles) > 20:
-            possible_angles = random.sample(possible_angles, 20)
+        if len(possible_angles) > self.angles_to_sample:
+            possible_angles = random.sample(possible_angles, self.angles_to_sample)
 
+        #possible_angles += [self.sm.angle_defs[bulge][ang_type1]]
         energies = dict()
 
         # evaluate the energies of the structure when the original
@@ -387,6 +402,7 @@ class GibbsBGSampler:
             self.sm.traverse_and_build(start=bulge)
             energy = self.energy_function.eval_energy(self.sm, background=True)
             energies[pa] = energy
+        #cud.pv('[v for v in energies.values()]')
 
 
         # energy = -log(p(S)) 
@@ -398,6 +414,8 @@ class GibbsBGSampler:
         if max_energy - min_energy > 40:
             max_energy = min_energy + 40.
 
+        #cud.pv('max_energy')
+        #cud.pv('min_energy')
         #print >>stderr, "max_energy:", max_energy
         for pa in possible_angles:
             prev_energy = energies[pa]
@@ -415,6 +433,7 @@ class GibbsBGSampler:
         energy_probs = dict()
         for key in energies.keys():
             energy_probs[key] = energies[key] / total_energy
+        #cud.pv('[v for v in energy_probs.values()]')
 
         # sanity check
         total_prob = sum([energy_probs[key] for key in energies.keys()])
@@ -425,10 +444,16 @@ class GibbsBGSampler:
         prob_remaining = 1.
         for key in energy_probs.keys():
             if random.random() < energy_probs[key] / prob_remaining:
+                #cud.pv('energy_probs[key]')
+                #cud.pv('energies[key]')
                 self.sm.angle_defs[bulge][ang_type1] = key
+                #self.sm.traverse_and_build(start=bulge)
+                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
                 break
 
             prob_remaining -= energy_probs[key]
 
+        self.sm.traverse_and_build(start=bulge)
         self.stats.update_statistics(self.energy_function, self.sm)
 
