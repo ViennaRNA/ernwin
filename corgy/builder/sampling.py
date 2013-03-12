@@ -342,6 +342,7 @@ class MCMCSampler:
                 self.sm.traverse_and_build()
                 #print "skipping:", energy, self.prev_energy
             else:
+                #print "accepting:", energy, self.prev_energy, math.exp(self.prev_energy - energy)
                 self.prev_energy = energy
         else:
             self.prev_energy = energy

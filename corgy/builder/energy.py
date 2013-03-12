@@ -1050,13 +1050,13 @@ class RoughJunctionClosureEnergy(EnergyFunction):
         return energy
 
 class StemStemOrientationEnergy(EnergyFunction):
-    def __init__(self, col=2):
+    def __init__(self, cols=[2]):
         super(StemStemOrientationEnergy, self).__init__()
         self.max_dist = 30
         self.max_lateral_dist = 13.
         self.sample_num = 1000
         #self.col = col
-        self.cols = [2]
+        self.cols = cols
 
         self.real_data = None
         self.fake_data = None
@@ -1069,7 +1069,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         plt.show() 
         '''
 
-    def load_stem_stem_data(self, filename, col):
+    def load_stem_stem_data(self, filename):
         import pandas as pa
         t = pa.read_csv(filename, header=None, sep=' ')
         sampled_angles = []
@@ -1087,9 +1087,9 @@ class StemStemOrientationEnergy(EnergyFunction):
         
         if self.real_data == None:
             col = 0
-            self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv', col)
-            #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled_%s.csv' % (sm.bg.name), col)
-            self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv', col)
+            self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
+            self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled_%s.csv' % (sm.bg.name))
+            #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
         for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
