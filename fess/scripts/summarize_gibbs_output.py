@@ -104,6 +104,13 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
         if random_rmsds != None and pdb_name in random_rmsds.keys():
             rr = np.array(random_rmsds[pdb_name])
             low_random_rmsds = rr[rr[:,0] < 30]
+
+            if len(low_random_rmsds[:,1]) < 5:
+                # this can occur if we've sampled a lot of high energy
+                # structures
+                #
+                # Just ignore it and move onto the next structure
+                continue
             xs = np.linspace(0., max(low_random_rmsds[:,1]), num=200)
 
 
@@ -151,6 +158,10 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
         if random_rmsds != None:
             print pdb_name, xs[kxs == max(kxs)], xs[rand_kxs == max(rand_kxs)]
             densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0], xs[rand_kxs == max(rand_kxs)][0]]
+        else:
+            print pdb_name, xs[kxs == max(kxs)][0]
+            densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0]]
+
 
     if plot:
         fig.tight_layout()
@@ -163,6 +174,7 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
             sum_rmsds[i] += val
         total += 1
     for s in sum_rmsds:
+        print "---------------"
         print "avg:", s / total
 
 
