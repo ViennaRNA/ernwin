@@ -7,4 +7,7 @@ anew <- rbind(data.frame(val=t$V2, sampled="N"), data.frame(val=ts$V2, sampled="
   
 ggplot(anew, aes(x=val, fill=sampled)) + geom_density(alpha=.3)
 
+hist(ts1$V2)
+hist(ts$V2)
+hist(t$V2)
 

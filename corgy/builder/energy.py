@@ -1227,7 +1227,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
             energy += (real - fake)
 
-            cud.pv('key, val, real, fake, real-fake')
+            #cud.pv('key, val, real, fake, real-fake')
 
             if np.isnan(energy):
                 pdb.set_trace()
