@@ -28,6 +28,7 @@ def main():
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
     parser.add_option('-i', '--img-energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
     parser.add_option('-s', '--stem-stem-energy', dest='stem_stem_energy', default=False, action='store_true', help="Visualize the distance energy")
+    parser.add_option('', '--cylinder-intersect-energy', dest='cylinder_intersect_energy', default=False, action='store_true', help="Visualize the distance energy")
     parser.add_option('-m', '--max-stem-distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
     parser.add_option('-p', '--pdb', dest='pdb_file', default=None, help='Include a pdb file for drawing bouding boxes.', type='string')
     parser.add_option('', '--hide-cg', dest='hide_cg', default=False, action='store_true', help='Hide the coarse grain model.')
@@ -58,6 +59,11 @@ def main():
             for s in bg.stems():
                 cgg.add_virtual_residues(bg, s)
         pymol_printer.energy_function = cbe.StemStemOrientationEnergy()
+    if options.cylinder_intersect_energy:
+        for bg in bgs:
+            for s in bg.stems():
+                cgg.add_virtual_residues(bg, s)
+        pymol_printer.energy_function = cbe.CylinderIntersectionEnergy()
     if options.pdb_file:
         pymol_printer.pdb_file = options.pdb_file
     if options.hide_cg:

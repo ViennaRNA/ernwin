@@ -1161,12 +1161,13 @@ class CylinderIntersectionEnergy(EnergyFunction):
         ratios = t[t.columns[1]]
         ratios = list(ratios[~np.isnan(ratios)])
 
-        new_ratios = [rand.choice(ratios) for i in range(5000)]
+        #new_ratios = [rand.choice(ratios) for i in range(5000)]
         #new_ratios = ratios
         
-        new_ratios += list(np.linspace(self.min_ratio, self.max_ratio, 100))
+        #new_ratios += list(np.linspace(self.min_ratio, self.max_ratio, 100))
+        new_ratios = ratios
 
-        return stats.gaussian_kde(new_ratios)
+        return (new_ratios, stats.gaussian_kde(new_ratios))
 
     def calculate_intersection_coverages(self, bg):
         in_cyl_fractions = c.defaultdict(lambda: 0.001)
@@ -1199,8 +1200,10 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
     def eval_energy(self, sm , background=True):
         if self.real_data == None:
-            self.real_data = self.load_data('fess/stats/cylinder_intersection_fractions.csv')
-            self.fake_data = self.load_data('fess/stats/cylinder_intersection_fractions_sampled.csv')
+            (self.real_data, self.real_kde) = self.load_data('fess/stats/cylinder_intersection_fractions.csv')
+            (self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_sampled.csv')
+
+            self.fake_min = min(self.fake_kde(self.fake_data))
 
             '''
             import matplotlib.pyplot as plt
@@ -1218,8 +1221,8 @@ class CylinderIntersectionEnergy(EnergyFunction):
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
         energy = 0.
         for (key,val) in cyl_fractions.items():
-            real = my_log(self.real_data(val))
-            fake = my_log(self.fake_data(val))
+            real = my_log(self.real_kde(val))
+            fake = my_log(max(self.fake_kde(val), self.fake_min))
 
 
             energy += (real - fake)
