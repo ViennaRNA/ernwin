@@ -1147,6 +1147,8 @@ class StemCoverageEnergy(EnergyFunction):
 class CylinderIntersectionEnergy(EnergyFunction):
     def __init__(self):
         self.max_dist = 25.
+        self.min_ratio = 0.
+        self.max_ratio = 30.
 
         self.real_data = None
         self.fake_data = None
@@ -1157,9 +1159,14 @@ class CylinderIntersectionEnergy(EnergyFunction):
         t = pa.read_csv(filename, header=None, sep=' ')
 
         ratios = t[t.columns[1]]
-        ratios = ratios[~np.isnan(ratios)]
+        ratios = list(ratios[~np.isnan(ratios)])
 
-        return stats.gaussian_kde(ratios)
+        new_ratios = [rand.choice(ratios) for i in range(5000)]
+        #new_ratios = ratios
+        
+        new_ratios += list(np.linspace(self.min_ratio, self.max_ratio, 100))
+
+        return stats.gaussian_kde(new_ratios)
 
     def calculate_intersection_coverages(self, bg):
         in_cyl_fractions = c.defaultdict(lambda: 0.001)
@@ -1195,13 +1202,29 @@ class CylinderIntersectionEnergy(EnergyFunction):
             self.real_data = self.load_data('fess/stats/cylinder_intersection_fractions.csv')
             self.fake_data = self.load_data('fess/stats/cylinder_intersection_fractions_sampled.csv')
 
+            '''
+            import matplotlib.pyplot as plt
+            fig = plt.figure()
+
+            xs = np.linspace(self.min_ratio, self.max_ratio, 200)
+
+            ax_hist = fig.add_subplot(1,1,1)
+            ax_hist.plot(xs, my_log(self.real_data(xs)), 'b')
+            ax_hist.plot(xs, my_log(self.fake_data(xs)), 'r')
+            
+            plt.show()
+            '''
+
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
         energy = 0.
         for (key,val) in cyl_fractions.items():
             real = my_log(self.real_data(val))
             fake = my_log(self.fake_data(val))
 
+
             energy += (real - fake)
+
+            cud.pv('key, val, real, fake, real-fake')
 
             if np.isnan(energy):
                 pdb.set_trace()
