@@ -1185,6 +1185,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
             intersects = cuv.cylinder_line_intersection(cyl, line, 
                                                         self.max_dist)
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
+                cud.pv('exiting')
                 sys.exit(1)
 
             if len(intersects) == 0:
