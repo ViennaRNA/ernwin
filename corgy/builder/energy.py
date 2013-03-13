@@ -1175,7 +1175,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
         for (s1, s2) in it.permutations(bg.stem_like(), 2):
             line = bg.coords[s1]
             cyl = bg.coords[s2]
-            extension = 15.
+            extension = 20.
 
             cyl_vec = cuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
             cyl = [cyl[0] - extension * cyl_vec,
@@ -1197,12 +1197,14 @@ class CylinderIntersectionEnergy(EnergyFunction):
                 #in_cyl_len = abs(intersects[1][0] - intersects[0][0])
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
 
+            '''
             if s1 == 's4':
                 #cud.pv('line')
                 #cud.pv('intersects')
                 #cud.pv('cyl')
                 #cud.pv('in_cyl_len')
                 #cud.pv('s2, in_cyl_len / line_len')
+            '''
 
             in_cyl_fractions[s1] += in_cyl_len / line_len
         return in_cyl_fractions
@@ -1210,7 +1212,8 @@ class CylinderIntersectionEnergy(EnergyFunction):
     def eval_energy(self, sm , background=True):
         if self.real_data == None:
             (self.real_data, self.real_kde) = self.load_data('fess/stats/cylinder_intersection_fractions.csv')
-            (self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_1mfq.csv')
+            (self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_sampled.csv')
+            #(self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_%s.csv' % (sm.bg.name))
 
             self.fake_min = min(self.fake_kde(self.fake_data))
 
@@ -1236,7 +1239,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
             energy += (real - fake)
 
-            #cud.pv('key, val, real, fake, real-fake')
+            cud.pv('key, val, real, fake, real-fake')
 
             if np.isnan(energy):
                 pdb.set_trace()

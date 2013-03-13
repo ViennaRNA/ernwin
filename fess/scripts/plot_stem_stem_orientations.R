@@ -71,7 +71,7 @@ plotorientations <- function(t, ts) {
   grid.arrange(g1,g2,g3)
 }
 plotorientations(t, ts)
-ts <- read.csv('../stats/stem_stem_orientations_sampled_1gid.csv', head=F, sep=' ')
+ts <- read.csv('../stats/stem_stem_orientations_sampled.csv', head=F, sep=' ')
 t <- read.csv('../stats/stem_stem_orientations.csv', head=F, sep=' ')
 
 png("stem_stem_orientations_1jj2.png")

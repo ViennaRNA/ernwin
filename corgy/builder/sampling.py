@@ -120,7 +120,7 @@ class StatisticsPlotter:
                         e = [s1[0] for s1 in s if s1[2] == color]
                         r = [s1[1] for s1 in s if s1[2] == color]
 
-                        self.create_contour_plot(np.array(r), np.array(e), self.ax_plot, xlim, ylim, color)
+                        #self.create_contour_plot(np.array(r), np.array(e), self.ax_plot, xlim, ylim, color)
                     except Exception as ex:
                         print "exception:", ex, "color:", color
 
@@ -329,7 +329,7 @@ class MCMCSampler:
         possible_angles = self.sm.angle_stats[dims[0]][dims[1]][ang_type1]
         pa = random.choice(possible_angles)
 
-        #pa = self.cont_stats.sample_stats(dims)
+        #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
         self.sm.angle_defs[bulge][ang_type1] = pa

@@ -71,6 +71,7 @@ def stem_stem_orientation(bg, s1, s2):
     # as line segments
     (i1, i2) = cuv.line_segment_distance(s1_p0, s1_p1, s2_p0, s2_p1)
     i_vec = i2 - i1
+    cud.pv('s1,s2,cuv.magnitude(i2-i1)')
 
     s2_on_s1_intersect = cuv.change_basis(i2 - stem1_origin, stem1_basis, cuv.standard_basis)
     s1_on_s2_intersect = cuv.change_basis(i1 - stem2_origin, stem2_basis, cuv.standard_basis)

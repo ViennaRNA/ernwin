@@ -19,13 +19,14 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
-    cie = cbe.CylinderIntersectionEnergy()
-    
-    in_cyl_fractions = cie.calculate_intersection_coverages(bg)
-    
-    for (key,val) in in_cyl_fractions.items():
-        print key, val
+    for arg in args:
+        bg = cgb.BulgeGraph(arg)
+        cie = cbe.CylinderIntersectionEnergy()
+        
+        in_cyl_fractions = cie.calculate_intersection_coverages(bg)
+        
+        for (key,val) in in_cyl_fractions.items():
+            print key, val
 
 if __name__ == '__main__':
     main()
