@@ -262,21 +262,12 @@ class SpatialModel:
         @param angle_defs: Pre-determined statistics for each bulge
         '''
 
-        self.angle_stats = cbs.get_angle_stats()
-        self.stem_stats = cbs.get_stem_stats()
-        self.loop_stats = cbs.get_loop_stats()
-        self.fiveprime_stats = cbs.get_fiveprime_stats()
-        self.threeprime_stats = cbs.get_threeprime_stats()
-
         self.stems = dict()
         self.bulges = dict()
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
 
         self.bg = bg
-
-        if self.angle_stats == None:
-            return
 
     def sample_stats(self):
         self.sample_angles()
@@ -322,10 +313,10 @@ class SpatialModel:
                     ang_type3 = cbs.end_ang_types[(s2b, s1b, dir2)]
 
                     try:
-                        angle_defs[d][ang_type1] = choice(self.angle_stats[size[0]][size[1]][ang_type1])
-                        #angle_defs[d][ang_type2] = choice(self.angle_stats[size[0]][size[1]][ang_type2])
-                        angle_defs[d][ang_type3] = choice(self.angle_stats[size[0]][size[1]][ang_type3])
-                        #angle_defs[d][ang_type4] = choice(self.angle_stats[size[0]][size[1]][ang_type4])
+                        angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])
+                        #angle_defs[d][ang_type2] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type2])
+                        angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])
+                        #angle_defs[d][ang_type4] = choice(cb.get_angle_stats()[size[0]][size[1]][ang_type4])
                     except IndexError:
                         print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
                 '''
@@ -350,7 +341,7 @@ class SpatialModel:
                 length = abs(define[1] - define[0])
 
                 # retrieve a random entry from the StemStatsDict collection
-                ss = choice(self.stem_stats[length])
+                ss = choice(cbs.get_stem_stats()[length])
                 stem_defs[d] = ss
 
         self.stem_defs = stem_defs
@@ -369,7 +360,7 @@ class SpatialModel:
             stem_defs[d] = self.bg.get_stem_stats(d) 
 
         '''
-        for stats in self.stem_stats.values():
+        for stats in cbs.get_stem_stats().values():
             for stat in stats:
                 for d in self.bg.sampled.keys():
                     if d[0] == 's':
@@ -390,7 +381,7 @@ class SpatialModel:
         self.stem_defs = dict()
         for s in self.bg.stems():
             sl = self.bg.stem_length(s)
-            for ss in self.stem_stats[sl]:
+            for ss in cbs.get_stem_stats()[sl]:
                 if ss.pdb_name == self.bg.sampled[s][0] and ss.define == self.bg.sampled[s][1:]:
                     self.stem_defs[s] = ss
 
@@ -402,7 +393,7 @@ class SpatialModel:
             size = self.bg.get_bulge_dimensions(b)
 
             sb = self.bg.sampled[b]
-            for ang_s in self.angle_stats[size[0]][size[1]][sb[1]]:
+            for ang_s in cbs.angle_stats()[size[0]][size[1]][sb[1]]:
                 #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
                     self.angle_defs[b][sb[1]] = ang_s
@@ -410,21 +401,21 @@ class SpatialModel:
         self.loop_defs = dict()
         for l in self.bg.loops():
             sl = self.bg.defines[l][1] - self.bg.defines[l][0]
-            for ls in self.loop_stats[sl]:
+            for ls in cbs.get_loop_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.loop_defs[l] = ls
 
         self.fiveprime_defs = dict()
         for l in self.bg.fiveprime():
             sl = self.bg.defines[l][1] - self.bg.defines[l][0]
-            for ls in self.fiveprime_stats[sl]:
+            for ls in cbs.get_fiveprime_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.fiveprime_defs[l] = ls
 
         self.threeprime_defs = dict()
         for l in self.bg.threeprime():
             sl = self.bg.defines[l][1] - self.bg.defines[l][0]
-            for ls in self.threeprime_stats[sl]:
+            for ls in cbs.get_threeprime_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.threeprime_defs[l] = ls
 
@@ -457,7 +448,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = choice(self.loop_stats[length])
+                ls = choice(cbs.get_loop_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
                 sys.exit(1)
@@ -480,7 +471,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = choice(self.fiveprime_stats[length])
+                ls = choice(cbs.get_fiveprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
                 sys.exit(1)
@@ -503,7 +494,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = choice(self.threeprime_stats[length])
+                ls = choice(cbs.get_threeprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
                 sys.exit(1)

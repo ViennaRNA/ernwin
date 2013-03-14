@@ -252,6 +252,10 @@ class SamplingStatistics:
             if not self.silent:
                 self.save_top(self.save_n_best)
 
+        if self.step_save:
+            sm.bg.output(os.path.join(cbc.Configuration.sampling_output_dir, 'step%d.coord' % (self.counter)))
+            
+
     def save_top(self, n = 100000):
         '''
         Save the top n structures.

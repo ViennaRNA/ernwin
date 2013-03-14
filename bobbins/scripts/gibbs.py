@@ -64,6 +64,7 @@ def main():
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
     parser.add_option('', '--output-file', dest='output_file', default=None, help='File to output the information about the sampling to. Defaults to standard out', type=str)
     parser.add_option('', '--save-n-best', dest='save_n_best', default=3, help='Save the best n structures.', type=int)
+    parser.add_option('', '--step-save', dest='step_save', default=False, action='store_true', help="Save the structure at each step.")
 
     (options, args) = parser.parse_args()
 
@@ -105,7 +106,7 @@ def main():
     if options.stem_stem0:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([1])])]
     if options.stem_stem2:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([2]), cbe.CylinderIntersectionEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([2])])]
     if options.stem_stem02:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([0]),cbe.StemStemOrientationEnergy([2])])]
     if options.stem_stem012:
@@ -147,6 +148,8 @@ def main():
 
     for color,energy in zip(colors, energies_to_sample):
         stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best)
+        stat.step_save = options.step_save
+
         if options.mcmc_sampler:
             samplers += [cbs.MCMCSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
         else:

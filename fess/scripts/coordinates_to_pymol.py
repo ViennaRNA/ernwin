@@ -34,6 +34,7 @@ def main():
     parser.add_option('', '--hide-cg', dest='hide_cg', default=False, action='store_true', help='Hide the coarse grain model.')
     parser.add_option('', '--stem-atoms', dest='stem_atoms', default=False, action='store_true', help='Display the approximate locations of the atoms of the nucleotides that are parts of stems.')
     parser.add_option('', '--stem-atom-distances', dest='stem_atom_distances', default=False, action='store_true', help='Check the distances between the stem atoms.')
+    parser.add_option('', '--movie', dest='movie', default=False, action='store_true')
 
     (options, args) = parser.parse_args()
     
