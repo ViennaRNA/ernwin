@@ -47,7 +47,8 @@ def main():
             '''
 
             for b in sm.bg.bulges():
-                if b not in sampled_bulges:
+
+                if b not in sm.bg.sampled.keys():
                     (as1, as2) = sm.bg.get_bulge_angle_stats(b)
 
                     bulge_vec = np.array(cuv.spherical_polar_to_cartesian((as1.r1, as1.u1, as1.v1)))

@@ -396,7 +396,7 @@ class SpatialModel:
 
         self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
         for b in self.bg.bulges():
-            if b not in self.sampled_bulges:
+            if b not in self.bg.sampled.keys():
                 continue
 
             size = self.bg.get_bulge_dimensions(b)

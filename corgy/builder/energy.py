@@ -1107,7 +1107,7 @@ class StemStemOrientationEnergy(EnergyFunction):
                 #fake = my_log( self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
 
                 energy += (real - fake)
-                cud.pv('angs, fake, real, real-fake')
+                #cud.pv('angs, fake, real, real-fake')
 
                 self.interaction_energies[tuple(sorted([s1,s2]))] += (real - fake)
 
@@ -1240,7 +1240,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
             energy += (real - fake)
 
-            cud.pv('key, val, real, fake, real-fake')
+            #cud.pv('key, val, real, fake, real-fake')
 
             if np.isnan(energy):
                 pdb.set_trace()
