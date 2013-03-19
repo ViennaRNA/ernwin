@@ -541,6 +541,11 @@ class BulgeGraph:
 
         return random.choice(bulges)
 
+    def get_seq(self, key):
+        #cud.pv('self.defines[key]')
+        seq = self.seq[self.defines[key][0]:self.defines[key][1]-1]
+        return seq
+
     def get_length(self, vertex):
         '''
         Get the minimum length of a vertex.
@@ -805,6 +810,46 @@ class BulgeGraph:
             return 1
         else:
             return 0
+
+    def get_type(self, d):
+        '''
+        Return a letter indicating what type of element this is:
+
+            's': stem
+            'l': hairpin loop
+            'i': interior loop
+            'm': multiloop
+            'f': five prime
+            't': three prime
+        '''
+        if d[0] == 's':
+            return 's'
+
+        if self.weights[d] == 2 and len(self.edges[d]) == 2:
+            return 'i'
+
+        if self.weights[d] == 1 and len(self.edges[d]) == 2:
+            return 'm'
+
+        if self.defines[d][0] == 0 or self.defines[d][1] == 1:
+            return 'f'
+
+        if self.defines[d][1] == len(self.seq) or self.defines[d][1] == len(self.seq) - 1:
+            return 't'
+
+        return 'l'
+
+    def get_longest_stem(self):
+        longest_stem = (0, '')
+
+        for d in self.defines.keys():
+            stem = (self.defines[d][1] - self.defines[d][0], d)
+            if stem > longest_stem:
+                longest_stem = stem
+
+        #cud.pv('longest_stem')
+        return longest_stem[1]
+
 
     def stem_like(self):
         for d in self.defines.keys():

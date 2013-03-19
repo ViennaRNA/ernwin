@@ -59,6 +59,7 @@ def main():
     parser.add_option('-y', '--cylinder-intersection', dest='cyl_intersect', default=False, action='store_true', help='Use the cylinder-intersection energy')
     parser.add_option('-g', '--cheating', dest='cheating', default=False, action='store_true', help='Use the rmsd from the real structure as the energy.')
     parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
+    parser.add_option('', '--sequence', dest='sequence', default='', help='The file containing sequence for the structure. To be used with the --secondary-structure flag', type='str')
     parser.add_option('', '--seq', dest='seq', default=None, help='Provide the sequence of the structure being sampled. This is necessary if one wants to later reconstruct it.')
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
@@ -73,8 +74,14 @@ def main():
         sys.exit(1)
 
     if options.secondary_structure:
+        if options.sequence == '':
+            print >>sys.stderr, "Sequence needs to be provided with --sequence"
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
         bg = BulgeGraph()
+
+        with open(options.sequence, 'r') as f:
+            seq = "".join(f.readlines())
+            bg.seq = seq.upper()
         bg.from_dotbracket_file(args[0])
     else:
         bg = BulgeGraph(args[0])
@@ -106,6 +113,7 @@ def main():
     if options.stem_stem0:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([1])])]
     if options.stem_stem2:
+        #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([2]), cbe.CylinderIntersectionEnergy()])]
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([2])])]
     if options.stem_stem02:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([0]),cbe.StemStemOrientationEnergy([2])])]

@@ -393,7 +393,7 @@ class SpatialModel:
             size = self.bg.get_bulge_dimensions(b)
 
             sb = self.bg.sampled[b]
-            for ang_s in cbs.angle_stats()[size[0]][size[1]][sb[1]]:
+            for ang_s in cbs.get_angle_stats()[size[0]][size[1]][sb[1]]:
                 #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
                     self.angle_defs[b][sb[1]] = ang_s
@@ -770,7 +770,7 @@ class SpatialModel:
             started = True
 
         while len(self.to_visit) > 0:
-            #self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
             
             (curr_node, prev_node, prev_stem) = self.to_visit.pop()
 

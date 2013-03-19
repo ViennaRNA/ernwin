@@ -4,6 +4,7 @@ import sys, pdb
 import numpy as np
 from optparse import OptionParser
 
+import corgy.builder.stats as cbs
 import corgy.builder.reconstructor as rtor 
 import corgy.builder.models as models
 
@@ -59,7 +60,7 @@ def main():
                     best_bv = None
                     ang_type = sm.bg.get_angle_types(b)[0]
 
-                    for ang_s in sm.angle_stats[size[0]][size[1]][ang_type]:
+                    for ang_s in cbs.get_angle_stats()[size[0]][size[1]][ang_type]:
                         pot_bulge_vec = np.array(cuv.spherical_polar_to_cartesian((ang_s.r1, ang_s.u1, ang_s.v1)))
                         pot_bv_dist = cuv.magnitude(bulge_vec - pot_bulge_vec)
                         if pot_bv_dist < best_bv_dist:

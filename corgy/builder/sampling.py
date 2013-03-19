@@ -253,7 +253,7 @@ class SamplingStatistics:
                 self.save_top(self.save_n_best)
 
         if self.step_save:
-            sm.bg.output(os.path.join(cbc.Configuration.sampling_output_dir, 'step%d.coord' % (self.counter)))
+            sm.bg.output(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
             
 
     def save_top(self, n = 100000):
@@ -303,8 +303,8 @@ class MCMCSampler:
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
-        self.prev_energy = 10000000.
-        #self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        self.prev_energy = 100000000000.
+        self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
         sm.sample_stats()
         sm.get_sampled_bulges()
@@ -323,28 +323,28 @@ class MCMCSampler:
         dims = self.sm.bg.get_bulge_dimensions(bulge)
 
         # What are the potential angle statistics for it
-        #possible_angles = self.sm.angle_stats[dims[0]][dims[1]]
+        #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
         (bulge, (s1b, s2b, direction)) = random.choice(self.sm.sampled_bulge_sides)
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
         self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
-        possible_angles = self.sm.angle_stats[dims[0]][dims[1]][ang_type1]
+        possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
         pa = random.choice(possible_angles)
 
         #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
         self.sm.angle_defs[bulge][ang_type1] = pa
-        self.sm.traverse_and_build(start = bulge)
+        self.sm.traverse_and_build()
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
         if energy > self.prev_energy:
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.angle_defs[bulge][ang_type1] = prev_angle
-                self.sm.traverse_and_build()
-                #print "skipping:", energy, self.prev_energy
+                self.sm.traverse_and_build(start=bulge)
+                print "skipping:", energy, self.prev_energy
             else:
                 #print "accepting:", energy, self.prev_energy, math.exp(self.prev_energy - energy)
                 self.prev_energy = energy
@@ -387,7 +387,7 @@ class GibbsBGSampler:
         
         # What are the potential angle statistics for it
         ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
-        possible_angles = self.sm.angle_stats[dims[0]][dims[1]][ang_type1]
+        possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
         #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:

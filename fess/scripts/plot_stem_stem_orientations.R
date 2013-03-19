@@ -64,13 +64,20 @@ plotorientations <- function(t, ts) {
   #plot(t1$V2, t1$V3)
   #plot(ts1$V2, ts1$V3)
 
-  g1 <- ggplot(anew, aes(x=val, fill=sampled)) + geom_density(alpha=.3)
-  g2 <- ggplot(anew1, aes(x=val, fill=sampled)) + geom_density(alpha=.3)
-  g3 <- ggplot(anew2, aes(x=val, fill=sampled)) + geom_density(alpha=.3)
+  
+  g1 <- ggplot(anew, aes(x=val, fill=sampled)) + geom_density(alpha=.3) + coord_fixed(ratio=2)
+  #g2 <- ggplot(anew1, aes(x=val, fill=sampled)) + geom_density(alpha=.3)
+  #g3 <- ggplot(anew2, aes(x=val, fill=sampled)) + geom_density(alpha=.3)
 
-  grid.arrange(g1,g2,g3)
+  #ggplot(anew, aes(x=val, fill=sampled)) + geom_density(alpha=.3) + coord_fixed(ratio=2) + 
+
+   grid.arrange(g1)
+  ggsave('stem_stem_orientations.png', g1, width=10, height=4)
 }
+
+
 plotorientations(t, ts)
+
 ts <- read.csv('../stats/stem_stem_orientations_sampled.csv', head=F, sep=' ')
 t <- read.csv('../stats/stem_stem_orientations.csv', head=F, sep=' ')
 

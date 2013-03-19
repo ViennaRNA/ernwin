@@ -20,6 +20,7 @@ import Bio.PDB as bp
 
 class PymolPrinter:
     def __init__(self):
+        self.state = 2
         self.new_segments = []
         self.segments = []
         self.spheres = []
@@ -35,6 +36,9 @@ class PymolPrinter:
         self.draw_axes=False
         self.draw_segments=True
         self.pdb_file = None
+        self.movie = False
+        self.prev_obj_name = ''     #The name of the previously created object which needs to be hidden
+                                    #when creating a movie
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -270,9 +274,17 @@ class PymolPrinter:
 
     def pymol_outro_string(self):
         s =  "]" + '\n'
-        s += "cmd.load_cgo(obj%s, 'ss%s')" % (self.cgo_uid, self.cgo_uid) + '\n'
+
+        if self.movie:
+            s += "cmd.load_cgo(obj%s, 'ss%s', %d)" % (self.cgo_uid, self.cgo_uid, self.state) + '\n'
+            self.prev_obj_name = self.cgo_uid
+            #s += "cmd.load_cgo(obj%s, 'ssx', %d)" % (self.cgo_uid, self.state) + '\n'
+            self.state += 1
+        else:
+            s += "cmd.load_cgo(obj%s, 'ss%s')" % (self.cgo_uid, self.cgo_uid) + '\n'
+
         return s
-    
+
     def pymol_box_string(self):
         '''
         Pring out the CGO text to describe the boxes.
