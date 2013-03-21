@@ -1256,3 +1256,42 @@ class CheatingEnergy(EnergyFunction):
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
+
+class LoopLoopEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_data = None
+        self.fake_data = None
+
+    def load_data(self, filename):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange']
+
+        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
+        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
+        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+
+        return (loop_loop.dist, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist))
+
+    def eval_energy(self, sm, background=True):
+        if self.real_data == None:
+            (self.real_data, self.real_d_given_i, self.real_d) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_data, self.fake_d_given_i, self.fake_d) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        p_i = 1.
+        x = np.linspace(min(self.real_data), max(self.real_data))
+
+        real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
+        fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
+
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.plot(x, real_i_given_d, 'g')
+        ax.plot(x, fake_i_given_d, 'r')
+        ax.plot(x, my_log(real_i_given_d / fake_i_given_d), 'b')
+        plt.show()
+

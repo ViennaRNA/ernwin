@@ -634,13 +634,17 @@ class SpatialModel:
         return stem
 
     def fill_in_bulges_and_loops(self):
+        loops = list(self.bg.loops())
+        fiveprime = list(self.bg.fiveprime())
+        threeprime = list(self.bg.threeprime())
+
         for d in self.bg.defines.keys():
             if d[0] != 's':
-                if len(self.bg.edges[d]) == 1:
-                    #self.add_loop(d, list(self.bg.edges[d])[0])
-                    # add loop
+                if d in loops:
+                    self.add_loop(d, list(self.bg.edges[d])[0])
+                     #add loop
                     pass
-                else:
+                elif d not in fiveprime and d not in threeprime:
                     connections = list(self.bg.edges[d])
 
                     # Should be a bulge connecting two stems

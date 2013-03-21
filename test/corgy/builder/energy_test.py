@@ -249,3 +249,11 @@ class TestCylinderIntersectionEnergy(unittest.TestCase):
 
         cie = cbe.CylinderIntersectionEnergy()
         cie.eval_energy(sm)
+
+class TestLoopLoopEnergy(unittest.TestCase):
+    def test_eval_energy(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1fg0/graph", "temp.comp"))
+        sm = SpatialModel(bg)
+        
+        lle = cbe.LoopLoopEnergy()
+        lle.eval_energy(sm)

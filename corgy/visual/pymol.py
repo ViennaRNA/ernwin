@@ -425,6 +425,7 @@ class PymolPrinter:
     def coordinates_to_pymol(self, bg):
         sm = cbm.SpatialModel(bg)
         sampled_bulges = sm.get_sampled_bulges()
+        loops = list(bg.loops())
 
         for key in bg.coords.keys():
             (p, n) = bg.coords[key]
@@ -433,8 +434,8 @@ class PymolPrinter:
                 self.add_stem_like(bg, key)
                 self.draw_bounding_boxes(bg, key)
             else:
-                #if len(bg.edges[key]) == 1:
-                #    self.add_segment(p, n, "blue", 1.0, key)
+                if key in loops:
+                    self.add_segment(p, n, "blue", 1.0, key)
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
                         if key in sampled_bulges:

@@ -311,7 +311,7 @@ class MCMCSampler:
 
     def step(self):
         self.sm.sample_stems()
-        #self.sm.sample_loops()
+        self.sm.sample_loops()
         #self.sm.sample_angles()
         self.sm.traverse_and_build()
 
@@ -365,7 +365,7 @@ class GibbsBGSampler:
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
-        self.angles_to_sample = 100
+        self.angles_to_sample = 50
 
         sm.sample_stats()
         sm.get_sampled_bulges()
