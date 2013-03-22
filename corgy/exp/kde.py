@@ -91,8 +91,11 @@ class gaussian_kde(object):
 
         self.d, self.n = self.dataset.shape
 
+        self.min_value = None
         self._compute_covariance()
-
+        self.min_value = min(self.evaluate(self.dataset))
+        print >>sys.stderr, "self.min_value:", self.min_value
+        #print >>sys.stderr, min(self.computed_values), max(self.computed_values)
 
     def evaluate(self, points):
         """Evaluate the estimated pdf on a set of points.
@@ -151,6 +154,11 @@ class gaussian_kde(object):
 
 
         result /= self._norm_factor
+
+        if self.min_value != None:
+            for i,_ in enumerate(result):
+                if result[i] < self.min_value:
+                    result[i] = self.min_value
 
         return result
 

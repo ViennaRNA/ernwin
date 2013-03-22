@@ -256,4 +256,5 @@ class TestLoopLoopEnergy(unittest.TestCase):
         sm = SpatialModel(bg)
         
         lle = cbe.LoopLoopEnergy()
-        lle.eval_energy(sm)
+        e = lle.eval_energy(sm)
+        cud.pv('e')
