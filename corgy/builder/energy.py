@@ -1075,10 +1075,11 @@ class StemStemOrientationEnergy(EnergyFunction):
         sampled_angles = []
         for col in self.cols:
             angles = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[col]].values
-            sampled_angles += [[rand.choice(angles) for i in range(self.sample_num)]]
+            #sampled_angles += [[rand.choice(angles) for i in range(self.sample_num)]]
+            sampled_angles += [angles]
 
         #return cek.gaussian_kde(sa)
-        return stats.gaussian_kde(sampled_angles)
+        return cek.gaussian_kde(sampled_angles)
         #return ss.gaussian_kde(angles)
 
     def eval_energy(self, sm, background=True):
@@ -1273,7 +1274,7 @@ class LoopLoopEnergy(EnergyFunction):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        return (loop_loop.dist, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist))
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist))
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:

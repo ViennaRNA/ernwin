@@ -435,7 +435,7 @@ class PymolPrinter:
                 self.draw_bounding_boxes(bg, key)
             else:
                 if key in loops:
-                    self.add_segment(p, n, "blue", 1.0, key)
+                    self.add_segment(p, n, "blue", 1.0, key + " " + str(bg.get_length(key)))
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
                         if key in sampled_bulges:

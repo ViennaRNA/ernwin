@@ -98,7 +98,8 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
 
     for pdb_name in rmsds.keys():
         energy_rmsds = np.array(rmsds[pdb_name])
-        low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < 30]
+        max_energy = 5.
+        low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < max_energy]
         xs = None
 
         if random_rmsds != None and pdb_name in random_rmsds.keys():

@@ -65,9 +65,15 @@ class LoopStat:
         
         self.bp_length = 0
         self.phys_length = 0.
+        self.r = 0.
+        self.u = 0.
+        self.v = 0.
 
         if len(line) > 0:
-            self.parse_line(line)
+            try:
+                self.parse_line(line)
+            except:
+                print >>sys.stderr, "Error parsing line:", line
 
     def parse_line(self, line):
         '''
@@ -82,7 +88,10 @@ class LoopStat:
 
         self.bp_length = int(parts[2])
         self.phys_length = float(parts[3])
-        self.define = map(int, parts[4:])
+        self.r = float(parts[3])
+        self.u = float(parts[4])
+        self.v = float(parts[5])
+        self.define = map(int, parts[6:])
 
     def __str__(self):
         return "pdb_name: %s bp: %d phys_length: %f define: %s" % (self.pdb_name, self.bp_length, self.phys_length)

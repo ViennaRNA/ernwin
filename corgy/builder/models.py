@@ -511,9 +511,9 @@ class SpatialModel:
         (s1b, s1e) = self.bg.get_sides(prev_stem_node, name)
 
         if params == None:
-            length = self.loop_defs[name].phys_length
-            u = uniform(0, pi)
-            v = uniform(-pi/2, pi/2)
+            r = self.loop_defs[name].phys_length
+            u = self.loop_defs[name].u
+            v = self.loop_defs[name].v
 
             params = (length, u, v)
 
