@@ -515,7 +515,7 @@ class SpatialModel:
             u = self.loop_defs[name].u
             v = self.loop_defs[name].v
 
-            params = (length, u, v)
+            params = (r, u, v)
 
         start_mid = prev_stem.mids[s1b]
         (r, u, v) = params
