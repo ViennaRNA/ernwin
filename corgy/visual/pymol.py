@@ -462,8 +462,15 @@ class PymolPrinter:
             for key1 in bg.longrange.keys():
                 for key2 in bg.longrange[key1]:
                     try:
-                        point1 = bg.get_point(key1)
-                        point2 = bg.get_point(key2)
+                        (point1, point2) = cuv.line_segment_distance(sm.bg.coords[key1][0],
+                                                                      sm.bg.coords[key1][1],
+                                                                      sm.bg.coords[key2][0],
+                                                                      sm.bg.coords[key2][1])
+
+                        cud.pv('point1')
+                        cud.pv('point2')
+                        #point1 = bg.get_point(key1)
+                        #point2 = bg.get_point(key2)
 
                         self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
                         self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)

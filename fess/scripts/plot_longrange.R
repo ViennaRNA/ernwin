@@ -1,3 +1,6 @@
+library(ggplot2)
+library(gridExtra)
+
 options(width=150)
 t <- read.table('../stats/temp.longrange.stats', head=F)
 ts <- read.table('../stats/temp.longrange.stats.sampled', head=F)
@@ -15,19 +18,35 @@ ts1 <- ts[ts$dist > 0 & ts$dist < 150,]
 loop_loop <- t1[t1$type1 == 'l' & t1$type2 == 'l',]
 ts_loop_loop <- ts1[ts1$type1 == 'l' & ts1$type2 == 'l',]
 
+loop_loop_y <- loop_loop[loop_loop$longrange == 'Y',]
+ts_loop_loop_y <- ts_loop_loop[ts_loop_loop$longrange == 'Y',]
+
 g1 <- ggplot(loop_loop, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
 g2 <- ggplot(ts_loop_loop, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
 
 grid.arrange(g1, g2)
 
+plot(loop_loop_y$dist, loop_loop_y$len2)
+plot(ts_loop_loop_y$dist, ts_loop_loop_y$len2)
 
-loop <- t1[t1$type1 == 'l',]
-loop_stem <- t1[t1$type1 == 'l' & t1$type2 == 's',]
-loop_bulge <- t1[t1$type1 == 'l' & t1$type2 == 'i',]
+plot(ts_loop_loop$dist, ts_loop_loop$len2)
+plot(loop_loop$dist, loop_loop$len2)
 
+hist(ts_loop_loop_y$len1)
+ts_loop_loop_y$len2
 
+## Loop stem interactions
+loop_stem <- t1[t1$type1 == 'l' & (t1$type2 == 's' | t1$type2 == 'i'),]
 ls_y <- loop_stem[loop_stem$longrange == "Y",]
+hist(ls_y$len1)
+hist(ls_y$dist)
+
+## Loop junction interactions
+loop_junction <- t1[t1$type1 == 'l' & t1$type2 == 'm',]
+
+loop_bulge <- t1[t1$type1 == 'l' & t1$type2 == 'i',]
 lb_y <- loop_bulge[loop_bulge$longrange == "Y",]
+hist(lb_y$len1)
 
 hist(ls_y$len1)
 hist(lb_y$len1)
@@ -39,7 +58,7 @@ lb_y
 library(ggplot2)
 library(gridExtra)
                 
-
+loop <- t1[t1$type1 == 'l',]
 a <- loop_stem
 a <- loop_bulge
 a <- loop
