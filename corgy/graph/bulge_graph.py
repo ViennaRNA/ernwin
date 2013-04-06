@@ -861,6 +861,13 @@ class BulgeGraph:
             if d[0] != 's' and len(self.edges[d]) == 2:
                 yield d
 
+    def multiloops(self):
+        for d in self.defines.keys():
+            if (d[0] != 's' and len(self.edges[d]) == 2 and 
+                self.weights[d] == 1 and self.defines[d][0] != 0 and
+                self.defines[d][1] != self.length):
+                yield d
+
     def loops(self):
         for d in self.defines.keys():
             if d[0] == 's':

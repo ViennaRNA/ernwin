@@ -46,5 +46,5 @@ else
     ./fess/scripts/create_pymol.sh $TEXT $BASE_NORMALS -m $MAX_STEM_DISTANCE -xp fess/structures/$PDBNAME.pdb
 fi
 
-#pymol $OUTPUT_PREPARE_DIR/temp.pdb $OUTPUT_PYMOL_DIR/cartoon.pml 
-pymol $OUTPUT_PYMOL_DIR/cartoon.pml 
+pymol $OUTPUT_PREPARE_DIR/temp.pdb $OUTPUT_PYMOL_DIR/cartoon.pml 
+#pymol $OUTPUT_PYMOL_DIR/cartoon.pml 

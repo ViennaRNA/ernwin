@@ -1324,3 +1324,69 @@ class LoopLoopEnergy(EnergyFunction):
         plt.show()
         '''
 
+class LoopJunctionEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_data = None
+        self.fake_data = None
+
+    def load_data(self, filename):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange']
+
+        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
+        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "m")]
+        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist))
+
+    def eval_energy(self, sm, background=True):
+        if self.real_data == None:
+            (self.real_data, self.real_d_given_i, self.real_d) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_data, self.fake_d_given_i, self.fake_d) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        p_i = 1.
+
+        num = 0
+        energy = 0
+        for l1 in sm.bg.loops():
+            for l2 in sm.bg.multiloops():
+                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                    sm.bg.coords[l1][1],
+                                                    sm.bg.coords[l2][0],
+                                                    sm.bg.coords[l2][1])
+                x = cuv.magnitude(i1 - i2)
+                if x > 50.:
+                    x = 50.
+                num += 1
+
+                real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
+                fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
+
+                #contrib = real_i_given_d - fake_i_given_d
+                contrib = my_log(real_i_given_d/fake_i_given_d)
+                #cud.pv('l1,l2,contrib,x')
+
+                energy += contrib
+            
+        if num == 0:
+            return 0
+
+        return -energy;
+        '''
+        x = np.linspace(min(self.real_data), max(self.real_data))
+
+        real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
+        fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
+
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.plot(x, my_log(real_i_given_d), 'g')
+        ax.plot(x, my_log(fake_i_given_d), 'r')
+        ax.plot(x, my_log(real_i_given_d / fake_i_given_d), 'b')
+        plt.show()
+        '''

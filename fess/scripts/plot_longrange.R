@@ -35,6 +35,27 @@ plot(loop_loop$dist, loop_loop$len2)
 hist(ts_loop_loop_y$len1)
 ts_loop_loop_y$len2
 
+## Shortest loop loop distances
+head(loop_loop)
+a <- aggregate(dist ~ key1, data=loop_loop, FUN=min)
+b <- merge(a, loop_loop)
+
+a_ts <- aggregate(dist ~ key1, data=ts_loop_loop, FUN=min)
+b_ts <- merge(a_ts,  ts_loop_loop)
+
+g1 <- ggplot(b, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
+g2 <- ggplot(b_ts, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
+
+grid.arrange(g1, g2)
+
+# All loop distances
+all_loops <- rbind(data.frame(dist=loop_loop$dist, sampled='N'),
+                   data.frame(dist=ts_loop_loop$dist, sampled='Y'))
+
+head(all_loops)
+ggplot(all_loops, aes(x=dist, fill=sampled)) + geom_density(alpha=0.3)
+
+
 ## Loop stem interactions
 loop_stem <- t1[t1$type1 == 'l' & (t1$type2 == 's' | t1$type2 == 'i'),]
 ls_y <- loop_stem[loop_stem$longrange == "Y",]
@@ -43,6 +64,9 @@ hist(ls_y$dist)
 
 ## Loop junction interactions
 loop_junction <- t1[t1$type1 == 'l' & t1$type2 == 'm',]
+loop_junction_y <- loop_junction[loop_junction$longrange == 'Y',]
+
+hist(loop_junction_y$len2)
 
 loop_bulge <- t1[t1$type1 == 'l' & t1$type2 == 'i',]
 lb_y <- loop_bulge[loop_bulge$longrange == "Y",]
@@ -50,6 +74,11 @@ hist(lb_y$len1)
 
 hist(ls_y$len1)
 hist(lb_y$len1)
+
+# All loop junction
+all_juncs = rbind
+
+head(b_ts)
 
 hist(ls_y[ls_y$len1 == 5,]$dist)
 ls_y
