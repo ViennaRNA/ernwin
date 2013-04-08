@@ -18,6 +18,7 @@ ts1 <- ts[ts$dist > 0 & ts$dist < 150,]
 loop_loop <- t1[t1$type1 == 'l' & t1$type2 == 'l',]
 ts_loop_loop <- ts1[ts1$type1 == 'l' & ts1$type2 == 'l',]
 
+# Distance given interaction
 loop_loop_y <- loop_loop[loop_loop$longrange == 'Y',]
 ts_loop_loop_y <- ts_loop_loop[ts_loop_loop$longrange == 'Y',]
 
@@ -26,14 +27,34 @@ g2 <- ggplot(ts_loop_loop, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3
 
 grid.arrange(g1, g2)
 
-plot(loop_loop_y$dist, loop_loop_y$len2)
-plot(ts_loop_loop_y$dist, ts_loop_loop_y$len2)
+# Interaction given size
+head(loop_loop)
+test <- 'b263'
+loop_loop[loop_loop$key1 == test,]
 
-plot(ts_loop_loop$dist, ts_loop_loop$len2)
-plot(loop_loop$dist, loop_loop$len2)
+ll_score <- function(loop1, loop2) {
+  size_density_y <- density(loop_loop_y$len1)
+  size_density_y$y
+  
+  size_density_n <- density(loop_loop_n$len1)
 
-hist(ts_loop_loop_y$len1)
-ts_loop_loop_y$len2
+  dist_density_y <- density(loop_loop_y$dist)
+  dist_density_n <- density(loop_loop_n$dist)
+
+  pl_size_l1 <- 
+}
+
+ggplot(loop_loop, aes(x=len1, fill=longrange)) + geom_density(alpha=0.3)
+
+## Difference of distance densities
+d <- density(loop_loop$dist)
+ds <- density(ts_loop_loop$dist)
+
+a <- seq(0, max(d$x), .5)
+da <- approx(d$x, d$y, a)
+dsa <- approx(ds$x, ds$y, a)
+
+plot(a, log(da$y) - log(dsa$y))
 
 ## Shortest loop loop distances
 head(loop_loop)

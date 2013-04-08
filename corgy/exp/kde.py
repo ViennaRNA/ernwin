@@ -131,7 +131,7 @@ class gaussian_kde(object):
                 raise ValueError(msg)
 
         result = zeros((m,), points.dtype)
-        max_dist = 3. * max(np.sqrt(self.eigen_val))
+        max_dist = 4. * max(np.sqrt(self.eigen_val))
 
         if m > self.n:
             # there are more points than data, so loop over data

@@ -1390,3 +1390,88 @@ class LoopJunctionEnergy(EnergyFunction):
         ax.plot(x, my_log(real_i_given_d / fake_i_given_d), 'b')
         plt.show()
         '''
+
+class NLoopLoopEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_data = None
+        self.fake_data = None
+
+    def load_data(self, filename):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange']
+
+        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
+        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
+        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+
+        print loop_loop_y.len1.values
+        print [float(f) for f in loop_loop_y.len1.values]
+
+        return (loop_loop.dist.values, 
+                cek.gaussian_kde(loop_loop_y.dist), 
+                cek.gaussian_kde(loop_loop.dist), 
+                loop_loop.len1.values, 
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
+                cek.gaussian_kde([float(f) for f in loop_loop.len1.values]))
+
+    def interaction_prob(self, l1):
+
+    def eval_energy(self, sm, background=True):
+        if self.real_data == None:
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        '''
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax_1 = fig.add_subplot(2,1,1)
+        ax_2 = fig.add_subplot(2,1,2)
+
+        xs = np.linspace(min(self.real_size), max(self.real_size), 100)
+        ax_1.plot(xs, my_log(self.real_s_given_i(xs)), 'g')
+        ax_1.plot(xs, my_log(self.real_s(xs)), 'r')
+        ax_1.plot(xs, my_log(self.real_s_given_i(xs)) - my_log(self.real_s(xs)), 'y')
+
+        xs = np.linspace(min(self.real_dist), max(self.real_dist), 100)
+        ax_2.plot(xs, my_log(self.real_d_given_i(xs)), 'g')
+        ax_2.plot(xs, my_log(self.real_d(xs)), 'r')
+        ax_2.plot(xs, my_log(self.real_d_given_i(xs)) - my_log(self.real_d(xs)), 'y')
+
+        plt.show()
+        '''
+
+        total_ps = []
+        for l1 in sm.bg.loops():
+            total_p = 0.
+            p_i_l1_given_s = (self.real_s_given_i(sm.bg.get_length(l1)) / 
+                              self.real_s(sm.bg.get_length(l1)))
+
+            for l2 in sm.bg.loops():
+                if l1 == l2:
+                    continue
+
+                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                    sm.bg.coords[l1][1],
+                                                    sm.bg.coords[l2][0],
+                                                    sm.bg.coords[l2][1])
+                d = cuv.magnitude(i2 - i1)
+                if d > 50:
+                    continue
+
+                p_i_given_d = (self.real_d_given_i(d) / 
+                               self.real_d(d))
+                p_i_l2_given_s = (self.real_s_given_i(sm.bg.get_length(l2)) / 
+                                  self.real_s(sm.bg.get_length(l2)))
+                contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s
+                #total_p += (p_i_given_d * p_i_l2_given_s)
+                total_p += contrib[0]
+
+            #total_p *= p_i_l1_given_s
+            total_ps += [(sm.bg.get_length(l1),total_p)]
+            cud.pv('l1, sm.bg.get_length(l1), total_p')
+
+        cud.pv('total_ps')
+        return total_ps

@@ -3,12 +3,14 @@ from nose.tools import nottest
 import corgy.utilities.debug as cud
 import corgy.graph.graph_pdb as cgg
 import corgy.graph.bulge_graph as cgb
+import corgy.exp.kde as cek
 
 import corgy.builder.config as cbc
 import corgy.builder.energy as cbe
 import corgy.utilities.vector as cuv
 
 import collections
+import collections as c
 
 from corgy.builder.models import SpatialModel
 
@@ -18,6 +20,9 @@ import unittest, pickle
 
 import numpy as np
         
+def my_log(x):
+    return np.log(x + 1e-200)
+
 class TestRandomEnergy(unittest.TestCase):
     def setUp(self):
         self.bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
@@ -258,3 +263,47 @@ class TestLoopLoopEnergy(unittest.TestCase):
         lle = cbe.LoopLoopEnergy()
         e = lle.eval_energy(sm)
         cud.pv('e')
+
+class TestNLoopLoopEnergy(unittest.TestCase):
+    def test_eval_energy(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
+        
+        lle = cbe.NLoopLoopEnergy()
+        e_real = lle.eval_energy(SpatialModel(bg))
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord"))
+        e_sampled = lle.eval_energy(SpatialModel(bg))
+
+
+        e_reals = c.defaultdict(list)
+        e_sampleds = c.defaultdict(list)
+
+        for r in e_real:
+            e_reals[r[0]] += [r[1]]
+        for r in e_sampled:
+            e_sampleds[r[0]] += [r[1]]
+
+
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        for i in range(16):
+            cud.pv('i')
+            ax = fig.add_subplot(4,4,i)
+
+            if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
+                continue
+
+            cud.pv('e_reals[i]')
+            cud.pv('e_sampleds[i]')
+            xs = np.linspace(0, max(e_reals[i]), 100)
+            ger = cek.gaussian_kde(e_reals[i])
+            ges = cek.gaussian_kde(e_sampleds[i])
+
+
+            ax.plot(xs, my_log(ger(xs)), 'g')
+            ax.plot(xs, my_log(ges(xs)), 'r')
+            ax.plot(xs, my_log(ger(xs)) - my_log(ges(xs)), 'y')
+            ax.set_title(str(i))
+        fig.tight_layout()
+        plt.show()
+
