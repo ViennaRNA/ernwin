@@ -7,6 +7,8 @@ import numpy as np
 import scipy.stats as ss
 import math as m
 
+import corgy.utilities.debug as cud
+
 from optparse import OptionParser
 
 def density_visit_dir(rmsds, dirname, names):
@@ -59,7 +61,7 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
     min_rmsds = []
     for key1,key2 in keys:
         key = (key1,key2)
-        rmsds[key].sort()
+        rmsds[key].sort(key=lambda x: x[0])
         if compact:
             print base_dir, key2, rmsds[key][nth][3]
         else:

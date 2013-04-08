@@ -267,43 +267,144 @@ class TestLoopLoopEnergy(unittest.TestCase):
 class TestNLoopLoopEnergy(unittest.TestCase):
     def test_eval_energy(self):
         bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord"))
         
         lle = cbe.NLoopLoopEnergy()
+
+        '''
         e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
 
-        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord"))
-        e_sampled = lle.eval_energy(SpatialModel(bg))
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+        '''
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1mfq/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1mfq/", "best0.coord"))
 
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
 
-        e_reals = c.defaultdict(list)
-        e_sampleds = c.defaultdict(list)
+        cud.pv('e_real')
+        cud.pv('e_sampled')
 
-        for r in e_real:
-            e_reals[r[0]] += [r[1]]
-        for r in e_sampled:
-            e_sampleds[r[0]] += [r[1]]
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1y26/", "best0.coord"))
 
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
 
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-        for i in range(16):
-            cud.pv('i')
-            ax = fig.add_subplot(4,4,i)
+        cud.pv('e_real')
+        cud.pv('e_sampled')
 
-            if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
-                continue
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1gid/", "best0.coord"))
 
-            cud.pv('e_reals[i]')
-            cud.pv('e_sampleds[i]')
-            xs = np.linspace(0, max(e_reals[i]), 100)
-            ger = cek.gaussian_kde(e_reals[i])
-            ges = cek.gaussian_kde(e_sampleds[i])
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
 
+        cud.pv('e_real')
+        cud.pv('e_sampled')
 
-            ax.plot(xs, my_log(ger(xs)), 'g')
-            ax.plot(xs, my_log(ges(xs)), 'r')
-            ax.plot(xs, my_log(ger(xs)) - my_log(ges(xs)), 'y')
-            ax.set_title(str(i))
-        fig.tight_layout()
-        plt.show()
+class TestNLoopJunctionEnergy(unittest.TestCase):
+    def test_eval_energy(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord"))
+        
+        lle = cbe.NLoopJunctionEnergy()
 
+        '''
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+        '''
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1mfq/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1mfq/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1y26/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1gid/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "4aob/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/4aob/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+class TestNLoopStemEnergy(unittest.TestCase):
+    def test_eval_energy(self):
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord"))
+        
+        lle = cbe.NLoopStemEnergy()
+
+        '''
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+        '''
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1mfq/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1mfq/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('bg.name')
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1y26/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1y26/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('bg.name')
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1gid/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1gid/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('bg.name')
+        cud.pv('e_real')
+        cud.pv('e_sampled')
+
+        bg = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "4aob/graph", "temp.comp"))
+        bg1 = cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/4aob/", "best0.coord"))
+
+        e_real = lle.eval_energy(SpatialModel(bg))
+        e_sampled = lle.eval_energy(SpatialModel(bg1))
+
+        cud.pv('bg.name')
+        cud.pv('e_real')
+        cud.pv('e_sampled')

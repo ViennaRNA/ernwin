@@ -7,8 +7,8 @@ ts <- read.table('../stats/temp.longrange.stats.sampled', head=F)
 
 head(t)
 head(ts)
-colnames(t) <- c('key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange')
-colnames(ts) <- c('key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange')
+colnames(t) <- c('key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'receptor_angle')
+colnames(ts) <- c('key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'receptor_angle')
 
 t1 <- t[t$dist > 0 & t$dist < 150,]
 ts1 <- ts[ts$dist > 0 & ts$dist < 150,]
@@ -104,6 +104,15 @@ head(b_ts)
 hist(ls_y[ls_y$len1 == 5,]$dist)
 ls_y
 lb_y
+
+# Loop stem
+loop_stem <- t1[t1$type1 == 'l' & t1$type2 == 's',]
+ts_loop_stem<- ts1[ts1$type1 == 'l' & ts1$type2 == 's',]
+
+head(loop_stem)
+
+
+ggplot(loop_stem, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
 
 library(ggplot2)
 library(gridExtra)

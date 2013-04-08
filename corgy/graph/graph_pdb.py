@@ -1340,4 +1340,21 @@ def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     mids = (mids[0].get_array(), mids[1].get_array())
     return fit_circle_old(mids, np.array(atom_poss), 
             start_pos, end_pos, stem_chain, bg.stem_length(stem_name), bg.defines[stem_name])
-    
+
+def receptor_angle(bg, l, s):
+    (i1, i2) = cuv.line_segment_distance(bg.coords[l][0],
+                                         bg.coords[l][1],
+                                         bg.coords[s][0],
+                                         bg.coords[s][1])
+
+    stem_len = bg.stem_length(s)
+    stem_vec = bg.coords[s][1] - bg.coords[s][0]
+
+    res_num = (stem_len - 1.) *  cuv.magnitude(i2 - bg.coords[s][0]) / cuv.magnitude(bg.coords[s][1] - bg.coords[s][0])
+    vres = virtual_res_3d_pos(bg, s, res_num)[1]
+    if cuv.magnitude(i2 - i1) == 0.:
+        return 0.
+
+    incoming_angle = cuv.vector_rejection(i1 - i2, stem_vec)
+
+    return cuv.vec_angle(vres, incoming_angle)

@@ -19,6 +19,7 @@ import random as rand
 import collections as c
 
 import corgy.utilities.vector as cuv
+import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
 import corgy.exp.kde as cek
 import corgy.builder.models as cbm
@@ -1267,7 +1268,7 @@ class LoopLoopEnergy(EnergyFunction):
         import pandas as pa
 
         t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange']
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
@@ -1333,7 +1334,7 @@ class LoopJunctionEnergy(EnergyFunction):
         import pandas as pa
 
         t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange']
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "m")]
@@ -1393,22 +1394,77 @@ class LoopJunctionEnergy(EnergyFunction):
 
 class NLoopLoopEnergy(EnergyFunction):
     def __init__(self):
-        self.real_data = None
-        self.fake_data = None
+        self.real_dist = None
+        self.fake_dist = None
+
+        self.real_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
+        self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
+
+        if self.real_dist == None:
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        # Store the total probabilities for each loop length
+        # The loop length is the index and the total probabilites seen
+        # are the values
+        self.e_reals = c.defaultdict(list)
+        self.e_sampleds = c.defaultdict(list)
+
+        e_real = self.all_interaction_probs(self.real_struct)
+        e_sampled = self.all_interaction_probs(self.fake_struct)
+
+        for r in e_real:
+            self.e_reals[r[0]] += [r[1]]
+        for r in e_sampled:
+            self.e_sampleds[r[0]] += [r[1]]
+
+        e_reals = self.e_reals
+        e_sampleds = self.e_sampleds
+
+        self.ger = c.defaultdict(None)
+        self.ges = c.defaultdict(None)
+
+        for (r, l) in e_reals.items():
+            if len(e_reals[r]) < 2 or len(e_sampleds[r]) < 2:
+                continue
+
+            self.ger[r] = cek.gaussian_kde(self.e_reals[r])
+            self.ges[r] = cek.gaussian_kde(self.e_sampleds[r])
+
+        '''
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        for i in range(16):
+            cud.pv('i')
+            ax = fig.add_subplot(4,4,i)
+
+            if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
+                continue
+
+            cud.pv('e_reals[i]')
+            cud.pv('e_sampleds[i]')
+            xs = np.linspace(0, max(e_reals[i]), 100)
+            ger = self.ger[i]
+            ges = self.ges[i]
+
+            ax.plot(xs, my_log(ger(xs)), 'g')
+            ax.plot(xs, my_log(ges(xs)), 'r')
+            ax.plot(xs, my_log(ger(xs)) - my_log(ges(xs)), 'y')
+            ax.set_title(str(i))
+        fig.tight_layout()
+        plt.show()
+        '''
 
     def load_data(self, filename):
         import pandas as pa
 
         t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange']
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
-
-        print loop_loop_y.len1.values
-        print [float(f) for f in loop_loop_y.len1.values]
 
         return (loop_loop.dist.values, 
                 cek.gaussian_kde(loop_loop_y.dist), 
@@ -1417,61 +1473,341 @@ class NLoopLoopEnergy(EnergyFunction):
                 cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
                 cek.gaussian_kde([float(f) for f in loop_loop.len1.values]))
 
-    def interaction_prob(self, l1):
+    def interaction_prob(self, sm, l1):
+        '''
+        Get the total interaction probability of a particular loop.
+        '''
+
+        total_p = 0.
+        p_i_l1_given_s = (self.real_s_given_i(sm.bg.get_length(l1)) / 
+                          self.real_s(sm.bg.get_length(l1)))
+
+        for l2 in sm.bg.loops():
+            if l1 == l2:
+                continue
+
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                sm.bg.coords[l1][1],
+                                                sm.bg.coords[l2][0],
+                                                sm.bg.coords[l2][1])
+            d = cuv.magnitude(i2 - i1)
+            #cud.pv('l1, l2, d')
+            if d > 50:
+                continue
+
+            p_i_given_d = (self.real_d_given_i(d) / 
+                           self.real_d(d))
+            p_i_l2_given_s = (self.real_s_given_i(sm.bg.get_length(l2)) / 
+                              self.real_s(sm.bg.get_length(l2)))
+            contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s
+            #total_p += (p_i_given_d * p_i_l2_given_s)
+            total_p += contrib[0]
+
+        return total_p
+        #total_p *= p_i_l1_given_s
+
+    def all_interaction_probs(self, sm):
+        total_ps = []
+        for l1 in sm.bg.loops():
+            total_p = self.interaction_prob(sm, l1)
+            total_ps += [(sm.bg.get_length(l1),total_p)]
+            #cud.pv('l1, sm.bg.get_length(l1), total_p')
+
+        return total_ps
 
     def eval_energy(self, sm, background=True):
-        if self.real_data == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+        total_ps = self.all_interaction_probs(sm)
+        energy = 0.
+
+        for (s, p) in total_ps:
+            if len(self.e_reals[s]) < 2 or len(self.e_sampleds[s]) < 2:
+                continue
+
+            energy += self.ger[s](p) - self.ges[s](p)
+
+        return -energy
+            
+
+class NLoopJunctionEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_dist = None
+        self.fake_dist = None
+
+        self.real_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
+        self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
+
+        if self.real_dist == None:
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s1_given_i, self.fake_s2_given_i, self.real_s1, self.fake_s2) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        # Store the total probabilities for each loop length
+        # The loop length is the index and the total probabilites seen
+        # are the values
+        self.e_reals = c.defaultdict(list)
+        self.e_sampleds = c.defaultdict(list)
+
+        e_real = self.all_interaction_probs(self.real_struct)
+        e_sampled = self.all_interaction_probs(self.fake_struct)
+
+        for r in e_real:
+            self.e_reals[r[0]] += [r[1]]
+        for r in e_sampled:
+            self.e_sampleds[r[0]] += [r[1]]
+
+        e_reals = self.e_reals
+        e_sampleds = self.e_sampleds
+
+        self.ger = c.defaultdict(None)
+        self.ges = c.defaultdict(None)
+
+        for (r, l) in e_reals.items():
+            if len(e_reals[r]) < 2 or len(e_sampleds[r]) < 2:
+                continue
+
+            self.ger[r] = cek.gaussian_kde(self.e_reals[r])
+            self.ges[r] = cek.gaussian_kde(self.e_sampleds[r])
 
         '''
         import matplotlib.pyplot as plt
         fig = plt.figure()
-        ax_1 = fig.add_subplot(2,1,1)
-        ax_2 = fig.add_subplot(2,1,2)
+        for i in range(16):
+            cud.pv('i')
+            ax = fig.add_subplot(4,4,i)
 
-        xs = np.linspace(min(self.real_size), max(self.real_size), 100)
-        ax_1.plot(xs, my_log(self.real_s_given_i(xs)), 'g')
-        ax_1.plot(xs, my_log(self.real_s(xs)), 'r')
-        ax_1.plot(xs, my_log(self.real_s_given_i(xs)) - my_log(self.real_s(xs)), 'y')
+            if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
+                continue
 
-        xs = np.linspace(min(self.real_dist), max(self.real_dist), 100)
-        ax_2.plot(xs, my_log(self.real_d_given_i(xs)), 'g')
-        ax_2.plot(xs, my_log(self.real_d(xs)), 'r')
-        ax_2.plot(xs, my_log(self.real_d_given_i(xs)) - my_log(self.real_d(xs)), 'y')
+            cud.pv('e_reals[i]')
+            cud.pv('e_sampleds[i]')
+            xs = np.linspace(0, max(e_reals[i]), 100)
+            ger = self.ger[i]
+            ges = self.ges[i]
 
+            ax.plot(xs, my_log(ger(xs)), 'g')
+            ax.plot(xs, my_log(ges(xs)), 'r')
+            ax.plot(xs, my_log(ger(xs)) - my_log(ges(xs)), 'y')
+            ax.set_title(str(i))
+        fig.tight_layout()
         plt.show()
         '''
 
+    def load_data(self, filename):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
+
+        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
+        loop_loop = t[np.logical_and(t.type1 == "m", t.type2 == "l")]
+        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+
+        return (loop_loop.dist.values, 
+                cek.gaussian_kde(loop_loop_y.dist), 
+                cek.gaussian_kde(loop_loop.dist), 
+                loop_loop.len1.values, 
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len2.values]), 
+                cek.gaussian_kde([float(f) for f in loop_loop.len1.values]),
+                cek.gaussian_kde([float(f) for f in loop_loop.len2.values]))
+
+    def interaction_prob(self, sm, l1):
+        '''
+        Get the total interaction probability of a particular loop.
+        '''
+
+        total_p = 0.
+        p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) / 
+                          self.real_s1(sm.bg.get_length(l1)))
+
+        for l2 in sm.bg.loops():
+            if l1 == l2:
+                continue
+
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                sm.bg.coords[l1][1],
+                                                sm.bg.coords[l2][0],
+                                                sm.bg.coords[l2][1])
+            d = cuv.magnitude(i2 - i1)
+            #cud.pv('l1, l2, d')
+            if d > 50:
+                continue
+
+            p_i_given_d = (self.real_d_given_i(d) / 
+                           self.real_d(d))
+            p_i_l2_given_s = (self.real_s2_given_i(sm.bg.get_length(l2)) / 
+                              self.real_s2(sm.bg.get_length(l2)))
+            contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s
+            #total_p += (p_i_given_d * p_i_l2_given_s)
+            total_p += contrib[0]
+
+        return total_p
+        #total_p *= p_i_l1_given_s
+
+    def all_interaction_probs(self, sm):
+        total_ps = []
+        for l1 in sm.bg.multiloops():
+            total_p = self.interaction_prob(sm, l1)
+            total_ps += [(sm.bg.get_length(l1),total_p)]
+            #cud.pv('l1, sm.bg.get_length(l1), total_p')
+
+        #cud.pv('total_ps')
+        return total_ps
+
+    def eval_energy(self, sm, background=True):
+        total_ps = self.all_interaction_probs(sm)
+        energy = 0.
+
+        for (s, p) in total_ps:
+            if len(self.e_reals[s]) < 2 or len(self.e_sampleds[s]) < 2:
+                continue
+
+            cud.pv('p')
+            energy += self.ger[s](p) - self.ges[s](p)
+
+        return -energy
+
+class NLoopStemEnergy(EnergyFunction):
+    def __init__(self):
+        self.real_dist = None
+        self.fake_dist = None
+
+        self.real_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
+        self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
+
+        if self.real_dist == None:
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2, self.real_a_given_i, self.real_a) = self.load_data('fess/stats/temp.longrange.stats')
+
+        # Store the total probabilities for each loop length
+        # The loop length is the index and the total probabilites seen
+        # are the values
+        self.e_reals = c.defaultdict(list)
+        self.e_sampleds = c.defaultdict(list)
+
+        e_real = self.all_interaction_probs(self.real_struct)
+        e_sampled = self.all_interaction_probs(self.fake_struct)
+
+        for r in e_real:
+            self.e_reals[r[0]] += [r[1]]
+        for r in e_sampled:
+            self.e_sampleds[r[0]] += [r[1]]
+
+        e_reals = self.e_reals
+        e_sampleds = self.e_sampleds
+
+        self.ger = c.defaultdict(None)
+        self.ges = c.defaultdict(None)
+
+        for (r, l) in e_reals.items():
+            if len(e_reals[r]) < 2 or len(e_sampleds[r]) < 2:
+                continue
+
+            self.ger[r] = cek.gaussian_kde(self.e_reals[r])
+            self.ges[r] = cek.gaussian_kde(self.e_sampleds[r])
+
+        '''
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        for i in range(16):
+            cud.pv('i')
+            ax = fig.add_subplot(4,4,i)
+
+            if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
+                continue
+
+            cud.pv('e_reals[i]')
+            cud.pv('e_sampleds[i]')
+            xs = np.linspace(0, max(e_reals[i]), 100)
+            ger = self.ger[i]
+            ges = self.ges[i]
+
+            ax.plot(xs, my_log(ger(xs)), 'g')
+            ax.plot(xs, my_log(ges(xs)), 'r')
+            ax.plot(xs, my_log(ger(xs)) - my_log(ges(xs)), 'y')
+            ax.set_title(str(i))
+        fig.tight_layout()
+        plt.show()
+        '''
+
+    def load_data(self, filename):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
+
+        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
+        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "s")]
+        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+
+        cud.pv('loop_loop_y.angle.values')
+
+        return (loop_loop.dist.values, 
+                cek.gaussian_kde(loop_loop_y.dist), 
+                cek.gaussian_kde(loop_loop.dist), 
+                loop_loop.len1.values, 
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len2.values]), 
+                cek.gaussian_kde([float(f) for f in loop_loop.len1.values]),
+                cek.gaussian_kde([float(f) for f in loop_loop.len2.values]),
+                cek.gaussian_kde([float(f) for f in loop_loop_y.angle.values]),
+                cek.gaussian_kde([float(f) for f in loop_loop.angle.values]))
+
+    def interaction_prob(self, sm, l1):
+        '''
+        Get the total interaction probability of a particular loop.
+        '''
+
+        total_p = 0.
+        p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) / 
+                          self.real_s1(sm.bg.get_length(l1)))
+
+        for l2 in sm.bg.stems():
+            if l1 == l2:
+                continue
+
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                sm.bg.coords[l1][1],
+                                                sm.bg.coords[l2][0],
+                                                sm.bg.coords[l2][1])
+            d = cuv.magnitude(i2 - i1)
+            #cud.pv('l1, l2, d')
+            if d > 50:
+                continue
+
+            angle = cgg.receptor_angle(sm.bg, l1, l2)
+
+            p_i_given_d = (self.real_d_given_i(d) / 
+                           self.real_d(d))
+            p_i_l2_given_s = (self.real_s2_given_i(sm.bg.get_length(l2)) / 
+                              self.real_s2(sm.bg.get_length(l2)))
+            p_i_given_a = (self.real_a_given_i(angle) / self.real_a(angle))
+
+            contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s * p_i_given_a
+            #total_p += (p_i_given_d * p_i_l2_given_s)
+            total_p += contrib[0]
+
+        return total_p
+        #total_p *= p_i_l1_given_s
+
+    def all_interaction_probs(self, sm):
         total_ps = []
         for l1 in sm.bg.loops():
-            total_p = 0.
-            p_i_l1_given_s = (self.real_s_given_i(sm.bg.get_length(l1)) / 
-                              self.real_s(sm.bg.get_length(l1)))
-
-            for l2 in sm.bg.loops():
-                if l1 == l2:
-                    continue
-
-                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
-                                                    sm.bg.coords[l1][1],
-                                                    sm.bg.coords[l2][0],
-                                                    sm.bg.coords[l2][1])
-                d = cuv.magnitude(i2 - i1)
-                if d > 50:
-                    continue
-
-                p_i_given_d = (self.real_d_given_i(d) / 
-                               self.real_d(d))
-                p_i_l2_given_s = (self.real_s_given_i(sm.bg.get_length(l2)) / 
-                                  self.real_s(sm.bg.get_length(l2)))
-                contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s
-                #total_p += (p_i_given_d * p_i_l2_given_s)
-                total_p += contrib[0]
-
-            #total_p *= p_i_l1_given_s
+            total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
-            cud.pv('l1, sm.bg.get_length(l1), total_p')
+            #cud.pv('l1, sm.bg.get_length(l1), total_p')
 
-        cud.pv('total_ps')
+        #cud.pv('total_ps')
         return total_ps
+
+    def eval_energy(self, sm, background=True):
+        total_ps = self.all_interaction_probs(sm)
+        energy = 0.
+
+        for (s, p) in total_ps:
+            if len(self.e_reals[s]) < 2 or len(self.e_sampleds[s]) < 2:
+                continue
+
+            energy += self.ger[s](p) - self.ges[s](p)
+
+        return -energy
