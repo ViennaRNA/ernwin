@@ -111,35 +111,10 @@ ts_loop_stem<- ts1[ts1$type1 == 'l' & ts1$type2 == 's',]
 
 head(loop_stem)
 
-
 ggplot(loop_stem, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
+ggplot(loop_stem, aes(x=receptor_angle, fill=longrange)) + geom_density(alpha=0.3)
 
-library(ggplot2)
-library(gridExtra)
-                
-loop <- t1[t1$type1 == 'l',]
-a <- loop_stem
-a <- loop_bulge
-a <- loop
-a <- loop_loop
-ay <- a[a$longrange=="Y",]
-an <- a[a$longrange=="N",]
+ggplot(loop_stem, aes(x=len1, fill=longrange)) + geom_density(alpha=0.3)
 
-hist(ay$len1)
-hist(an$len1)
-ggplot(a, aes(x=len1, fill=longrange)) + geom_density(alpha=0.3)
-ggplot(a, aes(x=dist, fill=longrange)) + geom_density(alpha=0.3)
-
-
-
-interacting <- unique(ay$key1)
-noninteracting <- setdiff(unique(an$key1), unique(ay$key1))
-
-hist(a[match(noninteracting, a$key1),]$len1)
-a[match(interacting, a$key1),]
-
-dfy <- data.frame(len1 = a[match(interacting, a$key1),]$len1, longrange="Y")
-dfn <- data.frame(len1 = a[match(noninteracting, a$key1),]$len1, longrange="N")
-df <- rbind(dfy, dfn)
-df
-ggplot(df, aes(x=len1, fill=longrange, y=..count../sum(..count..))) + geom_histogram(position="dodge")
+loop_stem
+#####
