@@ -57,7 +57,6 @@ def output_bulges(bg, chain):
                 mids1 = get_mids(chain, s1d)
                 mids2 = get_mids(chain, s2d)
 
-
                 #print >>sys.stderr, "mids1[s1b]:", mids1[s1b], mids2[s2b]
                 """
                 if bg.weights[d] == 2:

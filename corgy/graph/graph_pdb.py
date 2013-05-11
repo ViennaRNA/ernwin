@@ -666,7 +666,7 @@ def get_twists_core(chain, start1, start2, end1, end2):
     #return (normalize(notch1), normalize(notch2))
 
 
-def get_mids(chain, define):
+def get_mids(chain, define, method = cbc.Configuration.mids_method):
     '''
     Get the mid points of the abstract cylinder which represents a helix.
 
@@ -675,7 +675,14 @@ def get_mids(chain, define):
     @return: An array of two vectors representing the two endpoints of the helix.
     '''
 
-    return get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
+    if method == 'template':
+        return get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
+    elif method == 'fit':
+        return get_mids_fit_method(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
+    elif method == 'suprimpose':
+        return get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]), use_template=False) 
+    elif method == 'estimate':
+        return estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
 
 def get_twists(chain, define):
     '''
