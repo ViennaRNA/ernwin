@@ -393,6 +393,20 @@ class BulgeGraph:
 
         return constr
 
+    def get_strand(self, stem, resnum):
+        '''
+        Get the strand that the residue is on. Presuming that resnum
+        is part of the stem.
+        '''
+        d = self.defines[stem]
+
+        if resnum >= d[0] and resnum <= d[1]:
+            return 0
+        elif resnum >= d[2] and resnum <= d[3]:
+            return 1
+        else:
+            raise Exception("Residue is not part of this stem")
+
     def stem_side_vres_to_resn(self, stem, side, vres):
         '''
         Return the residue number given the stem name, the strand (side) it's on

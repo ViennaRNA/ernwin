@@ -775,7 +775,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if (s1,i1,a1) not in self.vras.keys():
                 self.vras[(s1,i1,a1)] = cgg.virtual_residue_atoms(bg, s1, i1, a1)
             if (s2,i2,a2) not in self.vras.keys():
-                self.vras[(s2,i2,a2)] = cgg.virtual_residue_atoms(bg, s2, i2, a2) 
+                self.vras[(s2,i2,a2)] = cgg.virtual_residue_atoms(bg, s2, i2, a2)
 
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
@@ -1431,7 +1431,6 @@ class NLoopLoopEnergy(EnergyFunction):
             self.ger[r] = cek.gaussian_kde(self.e_reals[r])
             self.ges[r] = cek.gaussian_kde(self.e_sampleds[r])
 
-        '''
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
@@ -1453,7 +1452,6 @@ class NLoopLoopEnergy(EnergyFunction):
             ax.set_title(str(i))
         fig.tight_layout()
         plt.show()
-        '''
 
     def load_data(self, filename):
         import pandas as pa

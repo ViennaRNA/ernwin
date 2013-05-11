@@ -284,6 +284,7 @@ class TestNLoopLoopEnergy(unittest.TestCase):
         e_real = lle.eval_energy(SpatialModel(bg))
         e_sampled = lle.eval_energy(SpatialModel(bg1))
 
+        cud.pv('bg.name')
         cud.pv('e_real')
         cud.pv('e_sampled')
 
@@ -293,6 +294,7 @@ class TestNLoopLoopEnergy(unittest.TestCase):
         e_real = lle.eval_energy(SpatialModel(bg))
         e_sampled = lle.eval_energy(SpatialModel(bg1))
 
+        cud.pv('bg.name')
         cud.pv('e_real')
         cud.pv('e_sampled')
 
@@ -302,6 +304,7 @@ class TestNLoopLoopEnergy(unittest.TestCase):
         e_real = lle.eval_energy(SpatialModel(bg))
         e_sampled = lle.eval_energy(SpatialModel(bg1))
 
+        cud.pv('bg.name')
         cud.pv('e_real')
         cud.pv('e_sampled')
 

@@ -1060,6 +1060,7 @@ def virtual_residue_atoms(bg, s, i, strand=0, basis=None, vpos=None, vvec=None):
         #new_coords2 = cuv.change_basis(coords, cuv.standard_basis, basis)
 
         new_atoms[a[0]] = new_coords
+
     return new_atoms
 
 def calc_R(xc, yc, p):
