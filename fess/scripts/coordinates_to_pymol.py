@@ -10,6 +10,7 @@ from corgy.graph.bulge_graph import BulgeGraph
 from corgy.visual.pymol import PymolPrinter
 
 import corgy.builder.models as cbm
+import corgy.builder.rmsd as cbr
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
@@ -23,6 +24,7 @@ def main():
     parser = OptionParser()
 
     parser.add_option('-c', '--centers', dest='centers', default=0, help='Display the centers of each segment.', type='int') 
+    parser.add_option('', '--no-loops', dest='no_loops', default=False, action='store_true', help="Don't display loop region.")
     parser.add_option('-f', '--flexibility', dest='flex', default=None, help='Location of the flexibility statistics file.', type='string') 
     parser.add_option('-x', '--text', dest='print_text', default=False, action='store_true', help='Print the names of the segments in the pymol output')
     parser.add_option('-t', '--twists', dest='add_twists', default=True, action='store_false', help='Hide the twist indicators')
@@ -39,6 +41,7 @@ def main():
     parser.add_option('', '--movie', dest='movie', default=False, action='store_true')
     parser.add_option('', '--align-to-longest-stem', dest='align_to_longest_stem', default=False, action='store_true', help='Align all of the models to the longest stem of the first one')
     parser.add_option('', '--include-pdb', dest='include_pdb', default=False, action='store_true', help='Include the pdb files in a movie. The pdb files should be named just like the graph files except with a .pdb appended.')
+    parser.add_option('-a', '--align', dest='align', default=False, action='store_true', help="Align all of the structure so as to minimize the rmsd")
 
     (options, args) = parser.parse_args()
     
@@ -50,6 +53,7 @@ def main():
     pymol_printer.print_text = options.print_text
     pymol_printer.add_twists = options.add_twists
     pymol_printer.add_longrange = options.add_longrange
+    pymol_printer.add_loops = not options.no_loops
     pymol_printer.max_stem_distances = options.max_stem_distances
     pymol_printer.movie = options.movie
 
@@ -75,9 +79,26 @@ def main():
     if options.hide_cg:
         pymol_printer.draw_segments = False
 
+
     for i in range(len(bgs)):
         bg = bgs[i]
         pymol_printer.reset()
+
+        centroid0 = cuv.get_vector_centroid(cgg.bg_virtual_residues(bgs[0]))
+        centroid1 = cuv.get_vector_centroid(cgg.bg_virtual_residues(bg))
+        
+        crds0 = cuv.center_on_centroid(cgg.bg_virtual_residues(bgs[0]))
+        crds1 = cuv.center_on_centroid(cgg.bg_virtual_residues(bg))
+
+        if options.align:
+            rot_mat = cbr.optimal_superposition(crds0, crds1)
+            for k in bg.coords.keys():
+                bg.coords[k] = (np.dot(rot_mat, bg.coords[k][0] - centroid1),
+                                np.dot(rot_mat, bg.coords[k][1] - centroid1))
+
+                if k[0] == 's':
+                    bg.twists[k] = (np.dot(rot_mat, bg.twists[k][0]),
+                                    np.dot(rot_mat, bg.twists[k][1]))
 
         if not options.movie:
             if len(bgs) > 1 and i == 0:
@@ -121,7 +142,6 @@ def main():
                 vra = []
                 vra += [cgg.virtual_residue_atoms(bg, s, i,0)]
                 vra += [cgg.virtual_residue_atoms(bg, s, i,1)]
-
 
                 #(vpos1, vvec1, vvec1_l, vvec1_r) = cgg.virtual_res_3d_pos(bg, s, i)
                 (vpos1, vvec1, vvec1_l, vvec1_r) = bg.v3dposs[s][i]

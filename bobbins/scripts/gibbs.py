@@ -60,7 +60,6 @@ def main():
     parser.add_option('-g', '--cheating', dest='cheating', default=False, action='store_true', help='Use the rmsd from the real structure as the energy.')
     parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
     parser.add_option('', '--sequence', dest='sequence', default='', help='The file containing sequence for the structure. To be used with the --secondary-structure flag', type='str')
-    parser.add_option('', '--seq', dest='seq', default=None, help='Provide the sequence of the structure being sampled. This is necessary if one wants to later reconstruct it.')
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
     parser.add_option('', '--output-file', dest='output_file', default=None, help='File to output the information about the sampling to. Defaults to standard out', type=str)
@@ -87,10 +86,6 @@ def main():
         bg.from_dotbracket_file(args[0])
     else:
         bg = BulgeGraph(args[0])
-
-    if options.seq != None:
-        f = open(options.seq, 'r')
-        bg.seq = f.readlines()[0].strip()
 
     #bg.calc_bp_distances()
     sm = SpatialModel(bg)

@@ -228,8 +228,6 @@ def get_twist_parameter(twist1, twist2, (u, v)):
 
     return m.atan2(twist2_new[2], twist2_new[1])
 
-    
-
 def get_stem_orientation_parameters(stem1_vec, twist1, stem2_vec, twist2):
     '''
     Return a parameterization of the orientation of stem2 with respect to stem1.
@@ -521,12 +519,16 @@ def estimate_mids_core(chain, start1, start2, end1, end2):
 
     return (mid1, mid2)
 
-def get_mids_core_a(chain, start1, start2, end1, end2):
+def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
     '''
     Estimate the stem cylinder using the old method and then refine it 
     using fitted parameters.
     '''
-    template_stem_length=15
+    if use_template:
+        template_stem_length=15
+    else:
+        template_stem_length = end1 - start1
+
     real_stem_length = end1 - start1
 
     tstart1 = 1
@@ -580,7 +582,7 @@ def get_mids_core_a(chain, start1, start2, end1, end2):
     mids =  fit_circle(est_mids, np.array(atom_poss), start_pos, end_pos)
     return mids
 
-def get_mids_core(chain, start1, start2, end1, end2):
+def get_mids_core(chain, start1, start2, end1, end2, use_template=True):
     ######## Debug function
     '''
     vec = mids[1] - mids[0]
@@ -619,7 +621,7 @@ def get_mids_core(chain, start1, start2, end1, end2):
     rotran = cup.pdb_rmsd(chain, ideal_chain, sidechains=False, 
             superimpose=True, apply_sup=False)[2]
 
-    ideal_mids = get_mids_core_a(ideal_chain, 1, stem_length*2, stem_length, stem_length+1)
+    ideal_mids = get_mids_core_a(ideal_chain, 1, stem_length*2, stem_length, stem_length+1, use_template=use_template)
 
     ideal_new_mids = ideal_mids + rotran[1]
     #av_chain_mids = sum(chain_mids) / 2.
@@ -1298,6 +1300,64 @@ def fit_circle_old(mids, points, start_pos, end_pos, chain, stem_length, define)
     plt.show()
     #cud.pv('cuv.magnitude(mids_standard_basis[1] - mids_standard_basis[0])')
     return mids_standard_basis 
+
+def get_mids_fit_method(chain, start1, start2, end1, end2):
+    '''
+    Estimate the endpoints of the cylinder axis by fitting it and using
+    the rmsd of the best fit circle as the function to minimize.
+    '''
+    start_vec = estimate_mids_core(chain, start1, start2, end1, end2)
+    
+    atom_poss = []
+    residue_numbers = [i for i in range(start1, end1+1)]
+    residue_numbers += [i for i in range(end2, start2+1)]
+
+    ideal_chain = chain
+
+    for rn in residue_numbers:
+        #atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
+        try:
+            '''
+            for atom in chain[rn].get_list():
+                atom_poss += [atom.get_vector().get_array()]
+            '''
+
+            atom_poss += [ideal_chain[rn]['P'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['O3*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C3*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C4*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C5*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['O5*'].get_vector().get_array()]
+            atom_poss += [ideal_chain[rn]['C1*'].get_vector().get_array()]
+        except KeyError as ke:
+            pass
+            #cud.pv('ke')
+
+    points = np.array(atom_poss)
+    mids = estimate_mids_core(chain, start1, start2, end1, end2)
+    mids = np.array([mids[0].get_array(), mids[1].get_array()])
+    vec = mids[1] - mids[0]
+    v1, ier = so.leastsq(f_3, vec, args=(points, mids[0][1:]), maxfev=10000) 
+
+    start_pos = (chain[start1]['C1*'].get_vector().get_array() +
+                 chain[start2]['C1*'].get_vector().get_array()) / 2.
+    end_pos = (chain[end1]['C1*'].get_vector().get_array() +
+               chain[end2]['C1*'].get_vector().get_array()) / 2.
+
+    basis1 = cuv.create_orthonormal_basis(v1)
+    points1 = cuv.change_basis(points.T, basis1, cuv.standard_basis).T
+    start_pos1 = cuv.change_basis(start_pos.T, basis1, cuv.standard_basis).T
+    end_pos1 = cuv.change_basis(end_pos.T, basis1, cuv.standard_basis).T
+
+    center = circle_fit(points1[:,1:])
+    mids_stem_basis = [[start_pos1[0], center[0], center[1]],
+                       [end_pos1[0], center[0], center[1]]]
+    mids_standard_basis = cuv.change_basis(np.array(mids_stem_basis).T,
+                                           cuv.standard_basis,
+                                           basis1).T
+    return [bpdb.Vector(mids_standard_basis[0]),
+            bpdb.Vector(mids_standard_basis[1])]
+
 
 def stem_vec_from_circle_fit(bg, chain, stem_name='s0'):
     '''

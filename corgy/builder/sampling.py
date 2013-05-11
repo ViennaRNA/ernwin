@@ -309,12 +309,7 @@ class MCMCSampler:
         sm.sample_stats()
         sm.get_sampled_bulges()
 
-    def step(self):
-        self.sm.sample_stems()
-        self.sm.sample_loops()
-        #self.sm.sample_angles()
-        self.sm.traverse_and_build()
-
+    def change_angle(self):
         # pick a random bulge to vary
         bulge = self.sm.bg.get_random_bulge()
         while bulge not in self.sm.sampled_bulges:
@@ -330,8 +325,14 @@ class MCMCSampler:
         self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
-        possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
-        pa = random.choice(possible_angles)
+        try:
+            possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
+            pa = random.choice(possible_angles)
+        except IndexError:
+            (dist, size1, size2) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
+            possible_angles = cbs.get_angle_stats()[size1][size2][ang_type1]
+            pa = random.choice(possible_angles)
+
 
         #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
@@ -350,6 +351,50 @@ class MCMCSampler:
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
+
+    def change_loop(self):
+        # pick a random bulge to vary
+        loop = self.sm.bg.get_random_loop()
+        length = self.sm.bg.get_length(loop)
+
+        # What are the potential angle statistics for it
+        #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
+        
+        self.sm.traverse_and_build()
+        # What are the potential angle statistics for it
+        possible_loops = cbs.get_loop_stats()[length]
+
+        pa = random.choice(possible_loops)
+
+        #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
+
+        prev_loop = self.sm.loop_defs[loop]
+        #cud.pv('loop,length,self.sm.loop_defs[loop]')
+        self.sm.loop_defs[loop] = pa
+        self.sm.traverse_and_build()
+
+        energy = self.energy_function.eval_energy(self.sm, background=True)
+        if energy > self.prev_energy:
+            if random.random() > math.exp(self.prev_energy - energy):
+                self.sm.loop_defs[loop] = prev_loop
+                self.sm.traverse_and_build(start=loop)
+                print "skipping:", energy, self.prev_energy
+            else:
+                #print "accepting:", energy, self.prev_energy, math.exp(self.prev_energy - energy)
+                self.prev_energy = energy
+        else:
+            self.prev_energy = energy
+
+    def step(self):
+        self.sm.sample_stems()
+        self.sm.sample_loops()
+        #self.sm.sample_angles()
+        self.sm.traverse_and_build()
+
+        if random.random() < 0.5:
+            self.change_angle()
+        else:
+            self.change_loop()
 
         self.stats.update_statistics(self.energy_function, self.sm)
 

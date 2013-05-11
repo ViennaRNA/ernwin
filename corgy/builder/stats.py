@@ -6,6 +6,7 @@ import random as rand
 import scipy.stats as ss
 import numpy as np
 import collections as c
+import math as m
 
 import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
@@ -382,6 +383,28 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
     print >>sys.stderr, "done loading stats"
     return ConstructionStats.angle_stats
 
+def get_angle_stat_dims(s1, s2, angle_type):
+    '''
+    Return a list of tuples which indicate the dimensions for which angle
+    stats are avilable.
+
+    @param angle_type: The type of the angle.
+    '''
+    available_stats = []
+
+    for k1 in ConstructionStats.angle_stats.keys():
+        for k2 in ConstructionStats.angle_stats[k1].keys():
+            for k3 in ConstructionStats.angle_stats[k1][k2].keys():
+                if k3 == angle_type and len(ConstructionStats.angle_stats[k1][k2][k3]) > 0:
+                    dist = m.sqrt((k1 - s1) ** 2 + (k2 - s2) ** 2)
+                    available_stats += [(dist, k1,k2)]
+
+                    if dist < 1.0:
+                        print "hey!"
+                        print ConstructionStats.angle_stats[k1][k2][k3]
+
+    available_stats.sort()
+    return available_stats
 
 def get_stem_stats(filename=cbc.Configuration.stats_file):
     '''
@@ -393,7 +416,6 @@ def get_stem_stats(filename=cbc.Configuration.stats_file):
 
     @param filename: The name of the file.
     '''
-
     if ConstructionStats.stem_stats != None:
         return ConstructionStats.stem_stats
 

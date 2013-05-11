@@ -10,6 +10,7 @@ import corgy.builder.config as cbc
 import corgy.builder.models as cbm
 import corgy.builder.stats as cbs
 import corgy.builder.reconstructor as rtor
+import corgy.graph.graph_pdb as cgg
 import corgy.utilities.debug as cud
 import corgy.utilities.pdb as cup
 import corgy.visual.pymol as cvp
@@ -37,6 +38,8 @@ def main():
     parser.add_option('-o', '--output-pdb', dest='output_pdb', default=False, help="Output the structures to pdb files", action='store_true')
     parser.add_option('-f', '--from', dest='from_file', default=None, help='Specify a file to align from. Invalidates the -l option.', type='str')
     parser.add_option('-t', '--to', dest='to_file', default=None, help='Specify a file to align to. Invalidates the -l option.', type='str')
+    parser.add_option('-m', '--method', dest='method', default='e', help='Specify which method to use for the helix fitting. e = estimate (original, least accurate method), a = align (better, more accurate method), t = template (best, most accurate method)')
+    parser.add_option('-a', '--average-twist', dest='use_average_method', default=False, action='store_true', help='Use the average of the two twists to align the stems.')
 
     (options, args) = parser.parse_args()
 
@@ -49,12 +52,11 @@ def main():
         stem_length = int(args[0])
 
     if options.from_file == None or options.to_file == None:
-        sss = cbs.get_stem_stats()
+        sss = cbs.get_stem_stats(os.path.join(cbc.Configuration.base_dir, 'fess/stats/temp.1jj2.stats'))
 
     rmsds = []
 
     for i in range(options.iterations):
-
         if options.from_file != None:
             filename = options.from_file
             stem_def = stem_def_from_filename(filename)
@@ -62,28 +64,45 @@ def main():
             stem_def = random.choice(sss[stem_length])
             filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
 
-        #filename = '1jj2_17_18_505_506.pdb'
-        #stem_def.define = [17,18,505,506]
         pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
 
+        # Extract the PDB coordinates of the original chain
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
                 chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
+                chain = cbm.extract_stem_from_chain(chain, stem_def)
             except IOError as ie:
                 cud.pv('ie')
 
-        m = cbm.define_to_stem_model(chain, stem_def.define)
+        # Convert the chain into a stem model
+        # This is where the method for fitting a helix is applied
+        #m = cbm.define_to_stem_model(chain, stem_def.define)
+        stem = cbm.StemModel(name=stem_def.define)
+        define = stem_def.define
+        if options.method == 'estimate':
+            mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
+        elif options.method == 'superimpose':
+            mids = cgg.get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]), use_template=False) 
+        elif options.method == 'fit':
+            mids = cgg.get_mids_fit_method(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
+        else:
+            mids = cgg.get_mids(chain, define)
 
+        stem.mids = tuple([m.get_array() for m in mids])
+        stem.twists = cgg.get_twists(chain, define)
+        m = stem
+
+        # Create a new chain by aligning the stem from the sampled define
+        # to the model created from the original stem
         new_chain = bpdbc.Chain(' ')
-        #cud.pv('filename')
         try:
             if options.to_file != None:
                 new_stem_def = stem_def_from_filename(options.to_file)
             else:
                 new_stem_def = random.choice(sss[stem_def.bp_length])
 
-            cbm.reconstruct_stem_core(new_stem_def, stem_def.define, new_chain, dict(), m)
+            cbm.reconstruct_stem_core(new_stem_def, stem_def.define, new_chain, dict(), m, options.use_average_method)
         except IOError as ie:
             cud.pv('ie')
 
@@ -105,8 +124,10 @@ def main():
             pp.stem_atoms(m.mids, m.twists, stem_def.bp_length+1)
             pp.dump_pymol_file('ss')
 
-    means = np.mean(np.array(rmsds), axis=0) 
-    print stem_length, " ".join(map(str, means)), means[1] / means[0]
+        print stem_length, superimposed_rmsd[1], unsuperimposed_rmsd[1], unsuperimposed_rmsd[1] / superimposed_rmsd[1]
+
+    #means = np.mean(np.array(rmsds), axis=0) 
+    #print stem_length, " ".join(map(str, means)), means[1] / means[0]
 
 if __name__ == '__main__':
     main()

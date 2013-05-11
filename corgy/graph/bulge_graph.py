@@ -541,6 +541,15 @@ class BulgeGraph:
 
         return random.choice(bulges)
 
+    def get_random_loop(self):
+        '''
+        Return the name of a random loop.
+
+        @return: The name of a loop.
+        '''
+        loops = list(self.loops())
+        return random.choice(loops)
+
     def get_seq(self, key):
         #cud.pv('self.defines[key]')
         seq = self.seq[self.defines[key][0]:self.defines[key][1]-1]

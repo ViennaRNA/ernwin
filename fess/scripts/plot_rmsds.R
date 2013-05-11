@@ -10,6 +10,7 @@ colnames(tr) <- c('pdb', 'n', 'rmsd')
 te <- read.csv('../../results/all_atom_ernwin_rmsds.csv', head=F, sep=' ', stringsAsFactors=F)
 tr <- read.csv('../../results/all_atom_rosetta_rmsds.csv', head=F, sep=' ', stringsAsFactors=F)
 
+te
 colnames(tr) <- c('pdb', 'n', 'num_atoms', 'rmsd')
 colnames(te) <- c('pdb', 'n', 'num_atoms', 'rmsd')
 
@@ -24,6 +25,7 @@ te1 <- te[match(commonIds, te$pdb),]
 mean(tr1$rmsd)
 mean(te1$rmsd)
 
+te1
 te1$from = "ernwin"
 tr1$from = "rosetta"
 

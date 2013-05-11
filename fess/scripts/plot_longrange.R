@@ -116,5 +116,8 @@ ggplot(loop_stem, aes(x=receptor_angle, fill=longrange)) + geom_density(alpha=0.
 
 ggplot(loop_stem, aes(x=len1, fill=longrange)) + geom_density(alpha=0.3)
 
-loop_stem
+loop_stem_y <- loop_stem[loop_stem$longrange == "Y",]
+plot(loop_stem_y$len1, loop_stem_y$receptor_angle)
+loop_stem[loop_stem$longrange == 'Y',]
+
 #####

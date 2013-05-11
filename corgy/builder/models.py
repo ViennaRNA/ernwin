@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import Bio.PDB as bpdb
+import Bio.PDB.Chain as bpdbc
 import os
 import warnings
 import numpy as np
@@ -137,14 +138,20 @@ def define_to_stem_model(chain, define):
     stem = StemModel(name=define)
 
     mids = cgg.get_mids(chain, define)
+    #mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
 
     stem.mids = tuple([m.get_array() for m in mids])
     stem.twists = cgg.get_twists(chain, define)
 
     return stem
 
-def get_stem_rotation_matrix(stem, (u, v, t)):
-    twist1 = stem.twists[0]
+def get_stem_rotation_matrix(stem, (u, v, t), use_average_method=False):
+    #twist1 = (stem.twists[0] + stem.twists[1]) / 2.
+
+    if not use_average_method:
+        twist1 = stem.twists[0]
+    else:
+        twist1 = cgg.virtual_res_3d_pos_core(stem.mids, stem.twists, 2, 4)[1]
 
     # rotate around the stem axis to adjust the twist
 
@@ -159,15 +166,32 @@ def get_stem_rotation_matrix(stem, (u, v, t)):
 
     return rot_mat4
 
-def align_chain_to_stem(chain, define, stem2):
+def align_chain_to_stem(chain, define, stem2, use_average_method=False):
     stem1 = define_to_stem_model(chain, define)
+    tw1 = cgg.virtual_res_3d_pos_core(stem1.mids, stem1.twists, 2, 4)[1]
+    tw2 = cgg.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
 
-    (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), stem1.twists[0], stem2.vec(), stem2.twists[0])
-    rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t))
+    '''
+    (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), 
+                                                       (stem1.twists[0] + stem1.twists[1]) / 2., 
+                                                       stem2.vec(), 
+                                                       (stem2.twists[0] + stem2.twists[1]) / 2.)
+    '''
+    if not use_average_method:
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), 
+                                                           stem1.twists[0], 
+                                                           stem2.vec(), 
+                                                           stem2.twists[0])
+    else:
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), 
+                                                           tw1, 
+                                                           stem2.vec(), 
+                                                           tw2)
+    rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t), use_average_method)
     rotate_chain(chain, np.linalg.inv(rot_mat), (stem1.mids[0] + stem1.mids[1]) / 2.)
     translate_chain(chain, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
 
-def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), stem=None):
+def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), stem=None, use_average_method=True):
     '''
     Reconstruct a particular stem.
     '''
@@ -188,7 +212,7 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
             chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
         stem_library[filename] = chain.copy()
 
-    align_chain_to_stem(chain, stem_def.define, stem)
+    align_chain_to_stem(chain, stem_def.define, stem, use_average_method)
 
     for i in range(stem_def.bp_length+1):
         #print "i:", i
@@ -207,6 +231,23 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
         e.id = (e.id[0], orig_def[2] + i, e.id[2])
         #print "adding:", e.id
         new_chain.add(e)
+    return new_chain
+
+def extract_stem_from_chain(chain, stem_def):
+    '''
+    Create a Chain consisting of just the atoms from the stem def.
+
+    @param chain: The chain containing the stem (and potentially other atoms)
+    @param stem_def: The define of the stem to be extracted
+    '''
+    c = bpdbc.Chain(' ')
+
+    for i in range(stem_def.bp_length + 1):
+        c.add(chain[stem_def.define[0] + i])
+        c.add(chain[stem_def.define[2] + i])
+
+    return c
+
 
 def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     if stem is None:
@@ -319,6 +360,19 @@ class SpatialModel:
                         #angle_defs[d][ang_type4] = choice(cb.get_angle_stats()[size[0]][size[1]][ang_type4])
                     except IndexError:
                         print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
+                        cud.pv('ang_type1')
+                        cud.pv('ang_type3')
+
+                        (dist, size1, size2) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+                        angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size1][size2][ang_type1])
+                        print >>sys.stderr, "Using size instead:", size1, size2
+                        (dist, size1, size2) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+                        angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size1][size2][ang_type3])
+                        print >>sys.stderr, "Using size instead:", size1, size2
+                        '''
+                        print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
+                        print cbs.get_angle_stat_dims(size[0], size[1], ang_type3)
+                        '''
                 '''
                 else:
                     angle_defs[d][0][0] = cbs.AngleStat()

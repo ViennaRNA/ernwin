@@ -31,6 +31,7 @@ class PymolPrinter:
         self.energy_function = None
         self.add_twists = True
         self.add_longrange = False
+        self.add_loops = True
         self.chain = None
         self.max_stem_distances = 0
         self.draw_axes=False
@@ -57,6 +58,8 @@ class PymolPrinter:
             return [1.0, 1.0, 1.0]
         elif color == 'cyan':
             return [0.0, 1.0, 1.0]
+        elif color == 'magenta':
+            return [249 / 255., 132 / 255., 229 / 255.]
         else:
             return [0.0, 0.0, 0.0]
 
@@ -313,8 +316,13 @@ class PymolPrinter:
         self.add_segment(p, n, color, width, key)
 
         if self.add_twists:
+            mult = 8.
+            width = .3
             #twist1o = bg.get_twists(key)[0]
             #twist2o = bg.get_twists(key)[1]
+            self.add_segment(p, p + mult * twist1o, "cyan", width, '')
+            self.add_segment(n, n + mult * twist2o, "magenta", width, '')
+            '''
 
             twist_rot_mat_l = cuv.rotation_matrix(n - p, -(1.45 / 2.))
             twist_rot_mat_r = cuv.rotation_matrix(n - p, (1.45 / 2.))
@@ -326,17 +334,17 @@ class PymolPrinter:
             twist4 = np.dot(twist_rot_mat_r, twist2o)
 
 
-            mult = 8.
-            width = .3
 
             self.add_segment(p, p + mult * twist1, "white", width, '')
             self.add_segment(n, n + mult * twist2, "white", width, '')
 
             self.add_segment(p, p + mult * twist3, "red", width, '')
             self.add_segment(n, n + mult * twist4, "red", width, '')
+            '''
 
         #stem_len = bg.stem_length(key)
 
+        '''
         for i in range(stem_len):
             #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
             (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos_core((p,n), twists, i, stem_len)
@@ -344,7 +352,6 @@ class PymolPrinter:
             self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
             self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
 
-        '''
         self.add_sphere(p + mult * twist1, "white", width, key)
         self.add_sphere(n + mult * twist2, "white", width, key)
         '''
@@ -434,8 +441,9 @@ class PymolPrinter:
                 self.add_stem_like(bg, key)
                 self.draw_bounding_boxes(bg, key)
             else:
-                if key in loops:
-                    self.add_segment(p, n, "blue", 1.0, key + " " + str(bg.get_length(key)))
+                if self.add_loops:
+                    if key in loops:
+                        self.add_segment(p, n, "blue", 1.0, key + " " + str(bg.get_length(key)))
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
                         if key in sampled_bulges:

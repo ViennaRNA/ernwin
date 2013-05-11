@@ -1,4 +1,4 @@
-import sys
+import sys, warnings
 import numpy as np
 import Bio.PDB as bpdb
 import corgy.builder.rmsd as brmsd
@@ -209,3 +209,23 @@ def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
         #return (len(all_atoms1), brmsd.rmsd(crvs1, crvs2), None)
         return (len(all_atoms1), cuv.vector_set_rmsd(crvs1, crvs2), None)
 
+def pdb_file_rmsd(fn1, fn2):
+    '''
+    Calculate the RMSD of all the atoms in two pdb structures.
+
+    @param fn1: The first filename.
+    @param fn2: The second filename.
+    @return: The rmsd between the two structures.
+    '''
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        s1= bpdb.PDBParser().get_structure('t', fn1)
+        s2= bpdb.PDBParser().get_structure('t', fn2)
+
+    c1 = list(s1.get_chains())[0]
+    c2 = list(s2.get_chains())[0]
+
+    rmsd = pdb_rmsd(c1, c2)
+
+    return rmsd
