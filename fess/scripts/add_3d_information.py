@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys, math
+import warnings
 from Bio.PDB import *
 
 from corgy.graph.bulge_graph import BulgeGraph
@@ -93,8 +94,10 @@ def main():
         sys.exit(1)
 
     pdb_name = sys.argv[2]
-    s = PDBParser().get_structure('temp', pdb_name)
-    chain = list(s.get_chains())[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        s = PDBParser().get_structure('temp', pdb_name)
+        chain = list(s.get_chains())[0]
 
     bg = BulgeGraph(sys.argv[1])
 

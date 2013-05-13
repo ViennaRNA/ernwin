@@ -1,10 +1,7 @@
 import os
 
 class Configuration:
-    mids_method = "template"
-    #mids_method = "fit"
-    #mids_method = "superimpose"
-    #mids_method = "estimate"
+    mids_method="template"
     base_dir = os.path.expanduser('~/projects/ernwin')
     data_base_dir = os.path.expanduser('~/data/ernwin/processed')
     pdb_base_dir = os.path.expanduser('~/data/ernwin/pdb')

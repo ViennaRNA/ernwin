@@ -344,14 +344,14 @@ class PymolPrinter:
 
         #stem_len = bg.stem_length(key)
 
-        '''
         for i in range(stem_len):
             #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
             (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos_core((p,n), twists, i, stem_len)
-            self.add_segment(pos, pos + mult * vec_c, "blue", width, '')
-            self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
-            self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
+            self.add_segment(pos, pos + mult * vec_c, "orange", width, '')
+            #self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
+            #self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
 
+        '''
         self.add_sphere(p + mult * twist1, "white", width, key)
         self.add_sphere(n + mult * twist2, "white", width, key)
         '''
@@ -475,8 +475,6 @@ class PymolPrinter:
                                                                       sm.bg.coords[key2][0],
                                                                       sm.bg.coords[key2][1])
 
-                        cud.pv('point1')
-                        cud.pv('point2')
                         #point1 = bg.get_point(key1)
                         #point2 = bg.get_point(key2)
 

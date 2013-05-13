@@ -80,14 +80,7 @@ def main():
         #m = cbm.define_to_stem_model(chain, stem_def.define)
         stem = cbm.StemModel(name=stem_def.define)
         define = stem_def.define
-        if options.method == 'estimate':
-            mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
-        elif options.method == 'superimpose':
-            mids = cgg.get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]), use_template=False) 
-        elif options.method == 'fit':
-            mids = cgg.get_mids_fit_method(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
-        else:
-            mids = cgg.get_mids(chain, define)
+        mids = cgg.get_mids(chain, define, options.method)
 
         stem.mids = tuple([m.get_array() for m in mids])
         stem.twists = cgg.get_twists(chain, define)

@@ -451,7 +451,6 @@ def get_bulge_centroid(chain, define):
     return get_centroid(chain, res_nums)
 
 def estimate_mids_core(chain, start1, start2, end1, end2):
-#def get_mids_core(chain, start1, start2, end1, end2):
     '''
     Get the start and end points of a helix.
     '''
@@ -459,9 +458,9 @@ def estimate_mids_core(chain, start1, start2, end1, end2):
 
     fragment_length = end1 - start1 + 1
 
-    #print "start1:", start1, "end1:", end1, "fragment_length:", fragment_length
+    print "start1:", start1, "end1:", end1, "fragment_length:", fragment_length
     if fragment_length < 2:
-        raise Exception("Helix shorter than 1 nucleotide")
+        raise Exception("Helix shorter than 1 nucleotide: start1: %d start2: %d end1: %d end2: %d fragment_length: %d" % (start1, start2, end1, end2, fragment_length))
 
     # get the vector between the CA atoms of the two starting residues
     # as well as for the two next residues
@@ -525,9 +524,9 @@ def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
     using fitted parameters.
     '''
     if use_template:
-        template_stem_length=15
+        template_stem_length=30
     else:
-        template_stem_length = end1 - start1
+        template_stem_length = end1 - start1 + 1
 
     real_stem_length = end1 - start1
 
@@ -543,16 +542,17 @@ def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
         ideal_chain = list(bpdb.PDBParser().get_structure('test', 
                 op.join(cbc.Configuration.stem_fragment_dir, template_filename)).get_chains())[0]
 
-        chain = extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
+        ideal_chain = extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
 
-    est_mids = estimate_mids_core(chain, tstart1, tstart2, tend1, tend2)
+    est_mids = estimate_mids_core(ideal_chain, tstart1, tstart2, tend1, tend2)
     est_mids = [est_mids[0].get_array(), est_mids[1].get_array()]
 
-    start_pos = (ideal_chain[tstart1][catom_name].get_vector().get_array() + 
-                 ideal_chain[tstart2][catom_name].get_vector().get_array()) / 2.
+    start_pos = (chain[start1][catom_name].get_vector().get_array() + 
+                 chain[start2][catom_name].get_vector().get_array()) / 2.
 
-    end_pos = (ideal_chain[tstart1 + real_stem_length][catom_name].get_vector().get_array() + 
-                 ideal_chain[tstart2 - real_stem_length][catom_name].get_vector().get_array()) / 2.
+    cud.pv('start1, start2, start1 + real_stem_length, start2 - real_stem_length')
+    end_pos = (chain[start1 + real_stem_length][catom_name].get_vector().get_array() + 
+                 chain[start2 - real_stem_length][catom_name].get_vector().get_array()) / 2.
 
     atom_poss = []
     residue_numbers = [i for i in range(tstart1, tend1+1)]
@@ -627,20 +627,21 @@ def get_mids_core(chain, start1, start2, end1, end2, use_template=True):
     #av_chain_mids = sum(chain_mids) / 2.
     av_ideal_mids = sum(ideal_mids) / 2.
     chain_new_mids = np.dot(ideal_mids, rotran[0]) + rotran[1]
-    chain_mids = get_mids_core_a(chain, start1, start2, end1, end2)
     #cud.pv('chain_mids')
     #cud.pv('chain_new_mids')
 
     return (bpdb.Vector(chain_new_mids[0]), bpdb.Vector(chain_new_mids[1]))
 
 
-def get_twists_core(chain, start1, start2, end1, end2):
+def get_twists_core(chain, start1, start2, end1, end2, mids=None, method=cbc.Configuration.mids_method):
     '''
     Get the vectors indicating the twist of the cylinder. In actuality, this will
     be the projection of the (ca_start1 - mid1) onto the plane defined by (mid2 - mid1).
     '''
 
-    mids = get_mids_core(chain, start1, start2, end1, end2)
+    #mids = get_mids_core(chain, start1, start2, end1, end2)
+    if mids == None:
+        mids = get_mids(chain, [start1, end1, end2, start2], method = cbc.Configuration.mids_method)
 
     '''
     start_vec1 = chain[start1][catom_name].get_vector() - chain[start2][catom_name].get_vector()
@@ -679,12 +680,12 @@ def get_mids(chain, define, method = cbc.Configuration.mids_method):
         return get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
     elif method == 'fit':
         return get_mids_fit_method(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
-    elif method == 'suprimpose':
+    elif method == 'superimpose':
         return get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]), use_template=False) 
     elif method == 'estimate':
         return estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
 
-def get_twists(chain, define):
+def get_twists(chain, define, mids=None, method=cbc.Configuration.mids_method):
     '''
     Get the projection of the (ca - mids) vectors onto the helix axis. This, in a sense
     will define how much the helix twists.
@@ -694,7 +695,7 @@ def get_twists(chain, define):
     @return: Two vectors which represent the twist of the helix.
     '''
 
-    return get_twists_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
+    return get_twists_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]), mids, method)
 
 def get_helix_vector(chain, start1, start2, end1, end2):
     (mid1, mid2) = get_mids(chain, start1, start2, end1, end2)
@@ -730,16 +731,32 @@ def virtual_res_3d_pos_core(coords, twists, i, stem_len, stem_inv = None):
         t2 = np.dot(stem_inv, twists[1])
 
     ang = cum.atan3(t2[2], t2[1])
-    # the nts_per_2pi_twist need to be calculated separately 
-    # It is the minimum number of nucleotides needed to create
-    # a full twist of the stem
-    if stem_len == 11 and ang < 1.:
-        ang += 2 * m.pi
 
-    nts_per_2pi_twist = 12
-    ang += 2 * m.pi * (stem_len / nts_per_2pi_twist)
+    # calculated from an ideal length 30 helix
+    average_ang_per_nt = 0.636738030735
+    expected_ang = (stem_len-1) * average_ang_per_nt
+    expected_dev = expected_ang
+    while (expected_dev - (2 * m.pi) > 0):
+        expected_dev -= 2 * m.pi
+
+
+    dev = min(abs(ang - expected_dev), abs(2 * m.pi + ang - expected_dev), 
+              abs(2 * m.pi + expected_dev - ang))
+
+    if ang < expected_dev:
+        forward = 2 * m.pi + ang - expected_dev
+        backward = expected_dev - ang
+    else:
+        forward = ang - expected_dev
+        backward = 2 * m.pi + expected_dev - ang
+
+    if forward < backward:
+        ang = expected_ang + forward
+    else:
+        ang = expected_ang - backward
+
     ang_per_nt = ang / float(stem_len-1)
-
+    #cud.pv('expected_ang, ang')
     ang = ang_per_nt * i
 
     # the basis vectors for the helix along which the

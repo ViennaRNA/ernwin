@@ -4,9 +4,11 @@ import sys
 import warnings
 
 import Bio.PDB as bpdb
+import corgy.builder.config as cbc
 import corgy.builder.rmsd as cbr
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
+import corgy.utilities.debug as cud
 
 from optparse import OptionParser
 
@@ -36,7 +38,9 @@ def main():
     bg = cgb.BulgeGraph(args[0])
     vposs = []
     rposs = []
+    stem_length = 0
     for s in bg.stems():
+        stem_length += bg.stem_length(s)
         cgg.add_virtual_residues(bg, s)
         for i in range(bg.stem_length(s)):
             for strand in range(2):
@@ -53,7 +57,7 @@ def main():
                     except KeyError as ke:
                         continue
 
-    print "rmsd:", cbr.centered_rmsd(vposs, rposs)
+    print cbc.Configuration.mids_method, stem_length, cbr.centered_rmsd(vposs, rposs)
 
 if __name__ == '__main__':
     main()
