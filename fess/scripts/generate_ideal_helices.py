@@ -4,7 +4,7 @@ import sys, os
 import os.path as op
 import random as rand
 import subprocess as sp
-import tempfile as tf
+import tempfile
 
 from optparse import OptionParser
 
@@ -12,11 +12,13 @@ rosetta_base = '/scr/plastilin/pkerp/apps/rosetta/latest/'
 rosetta_db = op.join(rosetta_base, 'rosetta_database')
 rosetta_helix = op.join(rosetta_base, 'rosetta_source/bin/rna_helix.linuxgccrelease')
 
-def create_seq_fasta_file(stem_length):
+def create_seq_fasta_file(stem_length, use_comp=True):
     comp = dict({'a':'u', 'c':'g', 'g':'c', 'u':'a'})
 
     seq = [rand.choice(['a','c','g','u']) for i in range(stem_length)]
-    seq += [comp[s] for s in seq[::-1]]
+
+    if use_comp:
+        seq += [comp[s] for s in seq[::-1]]
 
     f = open('stem_seq.fasta', 'w')
     f.write('>seq\n')
@@ -34,8 +36,8 @@ def create_helix_using_fiber(seq, stem_length):
     '''
     ideal_filename = "fess/stats/stems/ideal_%d_%d_%d_%d.pdb" % (1, stem_length, stem_length+1, 2*stem_length)
 
-    tmpdir = tf.mkdtemp()
-    filename = os.path.join(tmpdir, "blah")
+    tmpdir = tempfile.mkdtemp()
+    filename = os.path.join(tmpdir, 'myfifo')
 
     #ideal_filename = "ideal_%d.pdb" % (stem_length)
     command = ['fiber']
@@ -46,13 +48,26 @@ def create_helix_using_fiber(seq, stem_length):
     print " ".join(command)
     sp.call(command)
 
-    command = ['./fess/scripts/make_rna_rosetta_ready.py', filename]
-
+    command = ['sed', '-i', 's/ B/ A/g', filename]
     print " ".join(command)
+    sp.call(command)
+
+    command = ['fess/scripts/make_rna_rosetta_ready.py', filename]
     sp.call(command, stdout=open(ideal_filename, 'w'), stderr=sys.stderr)
+
+    command = ['sed', '-i', 's/rG/ G/g', ideal_filename]
+    sp.call(command)
+    command = ['sed', '-i', 's/rC/ C/g', ideal_filename]
+    sp.call(command)
+    command = ['sed', '-i', 's/rA/ A/g', ideal_filename]
+    sp.call(command)
+    command = ['sed', '-i', 's/rU/ U/g', ideal_filename]
+    sp.call(command)
 
     os.remove(filename)
     os.rmdir(tmpdir)
+
+    return
 
 def create_helix_using_rosetta():
     command = [rosetta_helix]
@@ -84,12 +99,13 @@ def main():
         sys.exit(1)
 
     stem_length = int(args[0])
-    seq = create_seq_fasta_file(stem_length)
 
     if options.program == "rosetta":
+        seq = create_seq_fasta_file(stem_length, use_comp = True)
         create_helix_using_rosetta()
         move_helix_to_stem_stats(seq, stem_length)
     else:
+        seq = create_seq_fasta_file(stem_length, use_comp = False)
         create_helix_using_fiber(seq, stem_length)
 
     print 

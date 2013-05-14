@@ -2,7 +2,7 @@
 
 import Bio.PDB as bp
 import Bio.PDB as bpdb
-import sys
+import sys, operator
 
 import os.path as op
 import corgy.builder.config as cbc
@@ -458,7 +458,6 @@ def estimate_mids_core(chain, start1, start2, end1, end2):
 
     fragment_length = end1 - start1 + 1
 
-    print "start1:", start1, "end1:", end1, "fragment_length:", fragment_length
     if fragment_length < 2:
         raise Exception("Helix shorter than 1 nucleotide: start1: %d start2: %d end1: %d end2: %d fragment_length: %d" % (start1, start2, end1, end2, fragment_length))
 
@@ -518,6 +517,47 @@ def estimate_mids_core(chain, start1, start2, end1, end2):
 
     return (mid1, mid2)
 
+def basenormals_mids(chain, start1, start2, end1, end2):
+    '''
+    Calculate a helix axis based on the base normal vectors.
+
+    See Laederach et al., RNA 2007.
+    '''
+
+    # calculate the scatter matrix using the base normal vectors
+    scatter = np.zeros((3,3))
+
+    residue_numbers = [i for i in range(start1, end1+1)]
+    residue_numbers += [i for i in range(end2, start2+1)]
+
+    for r in residue_numbers:
+        c2 = chain[r]['C2'].get_vector().get_array()
+        c4 = chain[r]['C4'].get_vector().get_array()
+        c6 = chain[r]['C6'].get_vector().get_array()
+
+        xi = cuv.normalize(np.cross(c2 - c4, c4 - c6))
+        scatter += np.dot(xi, xi.T)
+
+    scatter /= float(len(residue_numbers))
+
+    # compute the eigenvalues and eigenvectors
+    w, v = np.linalg.eig(scatter)
+    index, value = max(enumerate(w), key=operator.itemgetter(1))
+
+    axis = v[index]
+
+    cud.pv('w,v, index, value')
+    cud.pv('axis')
+
+    # estimate the start and end position, which will be converted scaled
+    # to the position of the helix axis
+    start_pos = (chain[start1][catom_name].get_vector().get_array() + 
+                 chain[start2][catom_name].get_vector().get_array()) / 2.
+
+    end_pos = (chain[start1 + real_stem_length][catom_name].get_vector().get_array() + 
+                 chain[start2 - real_stem_length][catom_name].get_vector().get_array()) / 2.
+
+
 def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
     '''
     Estimate the stem cylinder using the old method and then refine it 
@@ -550,7 +590,6 @@ def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
     start_pos = (chain[start1][catom_name].get_vector().get_array() + 
                  chain[start2][catom_name].get_vector().get_array()) / 2.
 
-    cud.pv('start1, start2, start1 + real_stem_length, start2 - real_stem_length')
     end_pos = (chain[start1 + real_stem_length][catom_name].get_vector().get_array() + 
                  chain[start2 - real_stem_length][catom_name].get_vector().get_array()) / 2.
 
