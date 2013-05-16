@@ -235,12 +235,18 @@ class AngleStat:
         return (self.r1, self.u1, self.v1)
 
     def __str__(self):
-        str0 = "d1: %d d2: %d " % (self.dim1, self.dim2)
-        str1 = "u: %f v: %f t: %f " % (self.u, self.v, self.t)
-        str2 = "r1: %f u1: %f v1: %f" % (self.r1, self.u1, self.v1)
-        str3 = "ang_type: %s" % (self.ang_type)
-        str4 = "pdb: %s %s " % (self.pdb_name, " ".join(map(str, self.define)))
-        return str4 + str0 + str1 + str2 + str3
+        out_str = "angle %s %d %d %f %f %f %f %f %f %d %s" % (self.pdb_name,
+                                                              self.dim1,
+                                                              self.dim2,
+                                                              self.u,
+                                                              self.v,
+                                                              self.t,
+                                                              self.r1,
+                                                              self.u1,
+                                                              self.v1,
+                                                              self.ang_type,
+                                                              " ".join(map(str, self.define)))
+        return out_str
 
 class ContinuousAngleStats():
     '''
@@ -319,7 +325,7 @@ def defaultdict_list():
 def defaultdict_defaultdict_list():
     return c.defaultdict(defaultdict_list)
 
-def get_angle_stats(filename=cbc.Configuration.stats_file):
+def get_angle_stats(filename=cbc.Configuration.stats_file, refresh=False):
     '''
     Load the statistics about inter the helix-helix orientations from a file.
 
@@ -349,7 +355,7 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
     by the stem1 helix axis vector and it's twist vector (the one adjacent to the
     bulge element).
     '''
-    if ConstructionStats.angle_stats != None:
+    if ConstructionStats.angle_stats != None and not refresh:
         return ConstructionStats.angle_stats
 
     '''
@@ -368,11 +374,13 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
 
     f = open(filename, 'r')
 
+    count = 0
     for line in f:
         if line.strip().find('angle') == 0:
             angle_stat = AngleStat()
             angle_stat.parse_line(line)
             ConstructionStats.angle_stats[angle_stat.dim1][angle_stat.dim2][angle_stat.ang_type] += [angle_stat]
+            count += 1
 
     f.close()
 
@@ -383,21 +391,24 @@ def get_angle_stats(filename=cbc.Configuration.stats_file):
     print >>sys.stderr, "done loading stats"
     return ConstructionStats.angle_stats
 
-def get_angle_stat_dims(s1, s2, angle_type):
+def get_angle_stat_dims(s1, s2, angle_type, min_entries=1):
     '''
     Return a list of tuples which indicate the dimensions for which angle
     stats are avilable.
 
+    @param s1: The first size
+    @param s2: The second size
     @param angle_type: The type of the angle.
+    @param min_entries: The minimum number of stats that have to be available
     '''
     available_stats = []
 
     for k1 in ConstructionStats.angle_stats.keys():
         for k2 in ConstructionStats.angle_stats[k1].keys():
             for k3 in ConstructionStats.angle_stats[k1][k2].keys():
-                if k3 == angle_type and len(ConstructionStats.angle_stats[k1][k2][k3]) > 0:
+                if k3 == angle_type and len(ConstructionStats.angle_stats[k1][k2][k3]) >= min_entries:
                     dist = m.sqrt((k1 - s1) ** 2 + (k2 - s2) ** 2)
-                    available_stats += [(dist, k1,k2)]
+                    available_stats += [(dist, k1,k2,k3)]
 
                     if dist < 1.0:
                         print "hey!"

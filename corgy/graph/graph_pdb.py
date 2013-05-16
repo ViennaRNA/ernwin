@@ -526,6 +526,7 @@ def basenormals_mids(chain, start1, start2, end1, end2):
 
     # calculate the scatter matrix using the base normal vectors
     scatter = np.zeros((3,3))
+    base_normals = np.array([0.,0.,0.])
 
     residue_numbers = [i for i in range(start1, end1+1)]
     residue_numbers += [i for i in range(end2, start2+1)]
@@ -536,9 +537,13 @@ def basenormals_mids(chain, start1, start2, end1, end2):
         c6 = chain[r]['C6'].get_vector().get_array()
 
         xi = cuv.normalize(np.cross(c2 - c4, c4 - c6))
+        base_normals += xi
         scatter += np.dot(xi, xi.T)
 
     scatter /= float(len(residue_numbers))
+    base_normals /= float(len(residue_numbers))
+
+    cud.pv('base_normals')
 
     # compute the eigenvalues and eigenvectors
     w, v = np.linalg.eig(scatter)
@@ -723,6 +728,10 @@ def get_mids(chain, define, method = cbc.Configuration.mids_method):
         return get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]), use_template=False) 
     elif method == 'estimate':
         return estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
+    elif method == 'basenormals':
+        mids = get_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
+        cud.pv('cuv.normalize(mids[1] - mids[0])')
+        return basenormals_mids(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
 
 def get_twists(chain, define, mids=None, method=cbc.Configuration.mids_method):
     '''

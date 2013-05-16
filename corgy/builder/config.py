@@ -2,6 +2,7 @@ import os
 
 class Configuration:
     mids_method="template"
+    #mids_method="basenormals"
     base_dir = os.path.expanduser('~/projects/ernwin')
     data_base_dir = os.path.expanduser('~/data/ernwin/processed')
     pdb_base_dir = os.path.expanduser('~/data/ernwin/pdb')

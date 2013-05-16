@@ -1,5 +1,3 @@
-library(plotrix)
-
 t <- read.csv('../stats/stem_nt.stats', sep=' ', head=F)
 t1 <- read.csv('../stats/stem_nt_sampled.stats', sep=' ', head=F)
 
@@ -18,18 +16,23 @@ library(circular)
 d <- circular(t$ang)
 radial.plot(d, t$ang)
 
+t$ang
+
 b <- head(t$ang, n=100)
 
 
-b <- circular(t$ang)
+b <- circular(b)
+
 a <- density(b, bw=200)
+
 plot(b,stack=T,cex=0, ticks=T)
 lines(a)
 
 h <- hist(t$ang)
 
-radial.plot(h$counts, h$mids)
-hist(t1$ang)
+radial.pie(h$counts, h$mids)
+radial.plot(h$counts, h$mids, rp.type="r", lwd=10)
+
 
 t1 <- t[abs(t$V4) < 1,]
 t2 <- t[abs(t$V4) < 1 & abs(t$V3) < 1,]
