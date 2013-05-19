@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
+import random
 import numpy as np
+import math as m
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
 import sys, pandas as pa
@@ -37,7 +39,10 @@ def main():
     num_args=0
     parser = OptionParser()
 
-    #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
+    parser.add_option('-r', '--resolution', dest='resolution', default=10, help="The resolution of the resulting plot", type='int')
+    parser.add_option('-a', '--angle', dest='angle', default=0, help="The angle of the camera", type='float')
+    parser.add_option('-f', '--fig-name', dest='fig_name', default='', help="The name of the file to save the figure to. If it is not specified, the figure will not be saved", type='str')
+
     #parser.add_option('-u', '--useless', dest='uselesss', default=False, action='store_true', help='Another useless option')
 
     (options, args) = parser.parse_args()
@@ -54,19 +59,58 @@ def main():
     real_us = real_stats[['u', 'v']].as_matrix()
     sampled_us = sampled_stats[['u','v']].as_matrix()
 
-    print "len(real_us)", len(real_us)
-    print "len(sampled_us)", len(sampled_us)
+    real_us_orig = np.copy(real_us)
+    sampled_us_orig = np.copy(sampled_us)
 
-    k_r = ss.gaussian_kde(real_us.T)
-    k_s = ss.gaussian_kde(sampled_us.T)
+    real_us = np.vstack([real_us+[0,-2*m.pi], 
+                         real_us+[0,0], 
+                         real_us+[0,2*m.pi], 
+                         real_us+[m.pi,-2*m.pi], 
+                         real_us+[m.pi,0], 
+                         real_us+[m.pi, 2*m.pi],
+                         real_us+[-m.pi,-2*m.pi],
+                         real_us+[-m.pi,0], 
+                         real_us+[-m.pi, 2*m.pi]] )
+    sampled_us = np.vstack([sampled_us+[0,-2*m.pi], 
+                         sampled_us+[0,0], 
+                         sampled_us+[0,2*m.pi], 
+                         sampled_us+[m.pi,-2*m.pi], 
+                         sampled_us+[m.pi,0], 
+                         sampled_us+[m.pi, 2*m.pi],
+                         sampled_us+[-m.pi,-2*m.pi],
+                         sampled_us+[-m.pi,0], 
+                         sampled_us+[-m.pi, 2*m.pi] ])
 
-    U,V = np.mgrid[0:3.14:10j, -3.14:3.14:10j]
+    #real_us = real_us[random.sample(range(len(real_us)), len(real_us)/3)]
+    #sampled_us = sampled_us[random.sample(range(len(sampled_us)), len(sampled_us)/3)]
+    
+    print "len(real_us):", len(real_us)
+    k_ro = ss.gaussian_kde(real_us_orig.T, bw_method="silverman")
+    k_so = ss.gaussian_kde(sampled_us_orig.T, bw_method="silverman")
+
+    print len(real_us), len(sampled_us)
+
+    k_r = ss.gaussian_kde(real_us.T, bw_method=k_ro.factor/4.)
+    k_s = ss.gaussian_kde(sampled_us.T, bw_method=k_so.factor/4.)
+
+    '''
+    k_r = k_ro
+    k_s = k_so
+    '''
+
+    #U,V = np.mgrid[0:m.pi:complex(0,options.resolution), -m.pi:m.pi:complex(0, options.resolution)]
+    U,V = np.mgrid[0:m.pi:complex(0,options.resolution), -m.pi:m.pi:complex(0, options.resolution)]
     positions = np.vstack([U.ravel(), V.ravel()])
     vals_r = np.log(k_r(positions))
     vals_s = np.log(k_s(positions))
-    vals = vals_r - vals_s
+    vals = 0.7 * (vals_r - vals_s)
+    #vals = 3. * (np.exp(vals_r) - np.exp(vals_s))
+    #print "vals_r:", vals_r
+    #print "vals_s:", vals_s
+    #print "vals:", vals, 
+    print len(vals), len(vals[vals > 0]), np.mean(vals)
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10,10))
     ax = Axes3D(fig)
 
     ulen = len(U)
@@ -77,18 +121,54 @@ def main():
     Z = np.cos(U)
 
 
-    colors = cm.coolwarm(np.reshape(vals.T, U.shape))
+    W = np.reshape(vals.T, U.shape)
+    colors = cm.jet(W)
 
-    a = Arrow3D([-1.3,1.3],[0,0],[0,0], mutation_scale=20, lw=2, arrowstyle="-|>", color="g")
+    '''
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+    xmin = 0 - m.pi
+    xmax = m.pi + m.pi
+    ymin = -m.pi - 2*m.pi
+    ymax = m.pi + 2*m.pi
+
+    ax1.imshow(np.rot90(W), cmap=plt.cm.gist_earth_r, extent=[xmin, xmax, ymin, ymax])
+    ax1.plot(real_us[:,0], real_us[:,1], 'k.', markersize=2)
+    ax1.set_xlim([xmin, xmax])
+    ax1.set_ylim([ymin, ymax])
+    plt.show()
+    sys.exit(1)
+    '''
+
+
+    a = Arrow3D([-1.3,1.3],[0,0],[0,0], mutation_scale=20, lw=5, arrowstyle="-|>", color="g")
     ax.add_artist(a)
     surf = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=colors,
             linewidth=0, antialiased=False)
 
 
+    ax._axis3don=False
     ax.set_zlim3d(-1, 1)
     ax.w_zaxis.set_major_locator(LinearLocator(6))
+    ax.view_init(0, options.angle)
 
-    plt.show()
+    '''
+    plt.subplots_adjust(left=0.4, right=0.9, top=0.9, bottom=0.1)
+
+    for i in xrange(0, 360, 40):
+        savefig("fig%d.png", (i))
+    '''
+
+    '''
+    sm = cm.ScalarMappable(cmap=cm.jet)
+    sm.set_array(W)
+    fig.colorbar(sm)
+    '''
+
+    if options.fig_name != "":
+        plt.savefig(options.fig_name, bbox_inches='tight')
+    else:
+        plt.show()
 
 if __name__ == '__main__':
     main()

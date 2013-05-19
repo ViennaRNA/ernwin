@@ -84,20 +84,25 @@ augment_angles <- function(t) {
   ta$y <- sin(ta$u) * sin(ta$v)
   ta$z <- cos(ta$u)
 
-  return(ta[ta$x > 0,])
+  return(ta)
 }
 
 tra <- augment_angles(tr)
 tsa <- augment_angles(ts)
 
 
-kr <- kde2d(tsa$u, tsa$v, lims=c(0, pi, -pi, pi))
-ks <- kde2d(tra$u, tra$v, lims=c(0, pi, -pi, pi))
+kr <- kde2d(tsa$u, tsa$v, lims=c(0, pi, -pi, pi), n=25)
+ks <- kde2d(tra$u, tra$v, lims=c(0, pi, -pi, pi), n=25)
 
 kr$z - ks$z
 kd <- kr
-kd$z <- (kr$z / ks$z) * kr$z
-kd$z <- log(kd$z)
+kd$z <- log(kr$z) - log(ks$z)
 
-colors <- 
-filled.contour(kd)
+colors <- colorRampPalette(brewer.pal(11, "RdYlBu"))
+filled.contour(kd, color.palette=colors)
+par(new=T)
+plot(tra$u, tra$v, col="red")
+par(new=T)
+plot(tsa$u, tsa$v, col="blue")
+
+install.packages('rgl')

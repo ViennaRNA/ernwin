@@ -363,10 +363,10 @@ class SpatialModel:
                         cud.pv('ang_type1')
                         cud.pv('ang_type3')
 
-                        (dist, size1, size2) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+                        (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
                         angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size1][size2][ang_type1])
                         print >>sys.stderr, "Using size instead:", size1, size2
-                        (dist, size1, size2) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+                        (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
                         angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size1][size2][ang_type3])
                         print >>sys.stderr, "Using size instead:", size1, size2
                         '''
@@ -852,7 +852,6 @@ class SpatialModel:
                     (s1b, s1e) = (1, 0)
                 else:
                     (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
-
 
                 # get some parameters for the previous bulge
                 #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name

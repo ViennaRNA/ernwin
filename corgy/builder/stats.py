@@ -410,9 +410,11 @@ def get_angle_stat_dims(s1, s2, angle_type, min_entries=1):
                     dist = m.sqrt((k1 - s1) ** 2 + (k2 - s2) ** 2)
                     available_stats += [(dist, k1,k2,k3)]
 
+                    '''
                     if dist < 1.0:
                         print "hey!"
                         print ConstructionStats.angle_stats[k1][k2][k3]
+                    '''
 
     available_stats.sort()
     return available_stats

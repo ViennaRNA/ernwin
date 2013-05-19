@@ -432,7 +432,8 @@ class GibbsBGSampler:
         
         # What are the potential angle statistics for it
         ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
-        possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
+        (dist, size1, size2, type1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
+        possible_angles = cbs.get_angle_stats()[size1][size2][ang_type1]
         #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:
