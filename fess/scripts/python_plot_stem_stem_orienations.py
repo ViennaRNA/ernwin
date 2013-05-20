@@ -44,8 +44,8 @@ def main():
     sampled_kde1 = ss.gaussian_kde(sampled_angles)
     sampled_angles = np.concatenate([-sampled_angles, sampled_angles, 2*m.pi-sampled_angles])
 
-    real_kde = ss.gaussian_kde(real_angles, bw_method=0.05)
-    sampled_kde = ss.gaussian_kde(sampled_angles, bw_method=0.05)
+    real_kde = ss.gaussian_kde(real_angles, bw_method=real_kde1.factor)
+    sampled_kde = ss.gaussian_kde(sampled_angles, bw_method=sampled_kde1.factor)
 
 
     print len(real_angles), len(sampled_angles)
