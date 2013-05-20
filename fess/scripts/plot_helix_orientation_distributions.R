@@ -41,7 +41,8 @@ plot_sphere_distributions <- function(t) {
   gb <- gb + geom_point(size=5, alpha=0.4) + scale_colour_gradient(low="#FEE0D2", high="#DE2D26")
   gb <- gb + geom_path(data=circDat, aes(x,y,colour=z))
   g <- arrangeGrob(gf, gb, nrow=1)
-  
+
+  g
   return(g)
 }
 
