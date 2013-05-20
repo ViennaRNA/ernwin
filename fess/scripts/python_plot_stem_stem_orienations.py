@@ -50,7 +50,7 @@ def main():
 
     print len(real_angles), len(sampled_angles)
 
-    num_points = 20
+    num_points = 200
     x_axis = np.linspace(0, 3.14, num_points)
 
     print sum(real_kde(x_axis)), sum(sampled_kde(x_axis))
