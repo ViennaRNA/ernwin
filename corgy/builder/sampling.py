@@ -329,7 +329,7 @@ class MCMCSampler:
             possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
             pa = random.choice(possible_angles)
         except IndexError:
-            (dist, size1, size2) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
+            (dist, size1, size2, typ1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
             possible_angles = cbs.get_angle_stats()[size1][size2][ang_type1]
             pa = random.choice(possible_angles)
 
@@ -341,16 +341,67 @@ class MCMCSampler:
         self.sm.traverse_and_build()
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
+        #cud.pv('self.prev_energy, energy')
         if energy > self.prev_energy:
-            if random.random() > math.exp(self.prev_energy - energy):
+            r = random.random()
+            if r > math.exp(self.prev_energy - energy):
                 self.sm.angle_defs[bulge][ang_type1] = prev_angle
                 self.sm.traverse_and_build(start=bulge)
-                print "skipping:", energy, self.prev_energy
+                #print "skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
             else:
                 #print "accepting:", energy, self.prev_energy, math.exp(self.prev_energy - energy)
+                #print "accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
+
+    def change_stem(self):
+        # pick a random bulge to vary
+        stem = self.sm.bg.get_random_stem()
+        length = self.sm.bg.get_length(stem)
+
+        # What are the potential angle statistics for it
+        #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
+        
+        self.sm.traverse_and_build()
+        # What are the potential angle statistics for it
+        possible_stems = cbs.get_stem_stats()[length]
+
+        pa = random.choice(possible_stems)
+
+        #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
+
+        prev_stem = self.sm.stem_defs[stem]
+        #cud.pv('loop,length,self.sm.loop_defs[loop]')
+        self.sm.stem_defs[stem] = pa
+        self.sm.traverse_and_build()
+
+        energy = self.energy_function.eval_energy(self.sm, background=True)
+        if energy > self.prev_energy:
+            if random.random() > math.exp(self.prev_energy - energy):
+                self.sm.stem_defs[stem] = prev_stem
+                self.sm.traverse_and_build(start=stem)
+                #print "loop skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+            else:
+                #print "loop accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                self.prev_energy = energy
+        else:
+            self.prev_energy = energy
+
+    def step(self):
+        #self.sm.sample_stems()
+        #self.sm.sample_loops()
+        #self.sm.sample_angles()
+        self.sm.traverse_and_build()
+
+        if random.random() < 0.5:
+            self.change_angle()
+        elif random.random() < 0.5:
+            self.change_stem()
+        else:
+            self.change_loop()
+
+        self.stats.update_statistics(self.energy_function, self.sm)
 
     def change_loop(self):
         # pick a random bulge to vary
@@ -378,16 +429,17 @@ class MCMCSampler:
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.loop_defs[loop] = prev_loop
                 self.sm.traverse_and_build(start=loop)
-                print "skipping:", energy, self.prev_energy
+                #print "loop skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
             else:
-                #print "accepting:", energy, self.prev_energy, math.exp(self.prev_energy - energy)
+                #print "loop accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
 
+    '''
     def step(self):
-        self.sm.sample_stems()
-        self.sm.sample_loops()
+        #self.sm.sample_stems()
+        #self.sm.sample_loops()
         #self.sm.sample_angles()
         self.sm.traverse_and_build()
 
@@ -397,6 +449,7 @@ class MCMCSampler:
             self.change_loop()
 
         self.stats.update_statistics(self.energy_function, self.sm)
+    '''
 
 class GibbsBGSampler:
     '''

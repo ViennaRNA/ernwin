@@ -555,6 +555,21 @@ class BulgeGraph:
 
         return random.choice(bulges)
 
+    def get_random_stem(self):
+        '''
+        Return the name of a random stem.
+
+        @return: The name of a stem.
+        '''
+
+        stems = []
+
+        for d in self.defines.keys():
+            if d[0] == 's':
+                stems += [d]
+
+        return random.choice(stems)
+
     def get_random_loop(self):
         '''
         Return the name of a random loop.
