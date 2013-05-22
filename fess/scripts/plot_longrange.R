@@ -32,18 +32,6 @@ head(loop_loop)
 test <- 'b263'
 loop_loop[loop_loop$key1 == test,]
 
-ll_score <- function(loop1, loop2) {
-  size_density_y <- density(loop_loop_y$len1)
-  size_density_y$y
-  
-  size_density_n <- density(loop_loop_n$len1)
-
-  dist_density_y <- density(loop_loop_y$dist)
-  dist_density_n <- density(loop_loop_n$dist)
-
-  pl_size_l1 <- 
-}
-
 ggplot(loop_loop, aes(x=len1, fill=longrange)) + geom_density(alpha=0.3)
 
 ## Difference of distance densities
@@ -78,7 +66,7 @@ ggplot(all_loops, aes(x=dist, fill=sampled)) + geom_density(alpha=0.3)
 
 
 ## Loop stem interactions
-loop_stem <- t1[t1$type1 == 'l' & (t1$type2 == 's' | t1$type2 == 'i'),]
+loop_stem <- t1[t1$type1 == 'l' & (t1$type2 == 's' | t1$type2 == 'i',]
 ls_y <- loop_stem[loop_stem$longrange == "Y",]
 hist(ls_y$len1)
 hist(ls_y$dist)
