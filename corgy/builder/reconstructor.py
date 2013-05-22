@@ -912,6 +912,9 @@ def replace_bases(chain, seq):
         num = ress[i].id[1]
         name = ress[i].resname.strip()
 
+        if num-1 == len(seq):
+            continue
+
         ref_res = tchain[tindeces[seq[num-1]]]
         new_res = replace_base(ress[i], ref_res)
 

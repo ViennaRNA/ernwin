@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pa
 import math as m
@@ -60,14 +61,28 @@ def main():
     #ax.plot(x_axis, real_kde(x_axis))
 
     width=m.pi / (num_points * 2.)
+
     #ax.bar(x_axis , real_kde(x_axis), width=width, color='g')
     #ax.bar(x_axis - width, sampled_kde(x_axis), width=width, color='r')
-    ax.plot(x_axis , real_kde(x_axis), color='g')
-    ax.plot(x_axis , sampled_kde(x_axis), color='r')
+    p1 = ax.plot(x_axis , real_kde(x_axis), color='g', label="real")
+    p2 = ax.plot(x_axis , sampled_kde(x_axis), color='r', label="sampled")
+    p3 = ax.plot(x_axis, real_kde(x_axis) -sampled_kde(x_axis), color='y', label='difference')
     #ax.hist(angles, normed=True)
     #ax.hist([orig_real_angles, orig_sampled_angles], normed=True)
     #ax.hist([real_angles, sampled_angles], normed=True)
 
+    ax.set_xlabel("angle")
+    ax.set_ylabel("density")
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels)
+    ax.xaxis.label.set_fontsize(20)
+    ax.yaxis.label.set_fontsize(20)
+
+    for tick in ax.get_xticklabels() + ax.get_yticklabels():
+        tick.set_fontsize(15)
+
+    plt.savefig("stem_stem_orientations.png", bbox_inches='tight')
     #plt.polar(x_axis, real_kde(x_axis))
     plt.show()
 

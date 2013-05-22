@@ -1100,7 +1100,10 @@ class StemStemOrientationEnergy(EnergyFunction):
             self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
             #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
-        for (s1,s2) in it.combinations(sm.bg.stems(), r=2):
+        for (s1,s2) in it.permutations(sm.bg.stems(), r=2):
+            if sm.bg.are_adjacent_stems(s1, s2):
+                continue
+
             orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
             if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
                 angs = []
@@ -1299,8 +1302,13 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             x = cuv.magnitude(i1 - i2)
+
+            if x < 8:
+                continue
+
             if x > 50.:
                 x = 50.
+
             num += 1
 
             real_i_given_d = self.real_d_given_i(x) / self.real_d(x)

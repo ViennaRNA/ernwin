@@ -22,6 +22,9 @@ def main():
         print >>sys.stderr, "Usage: ./calc_pdb_rmsd.py pdb_file1 pdb_file2"
         sys.exit(1)
 
+    fn1 = args[0]
+    fn2 = args[1]
+
     rmsd = cup.pdb_file_rmsd(fn1, fn2)
     print rmsd[0], rmsd[1]
 
