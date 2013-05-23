@@ -1284,13 +1284,27 @@ class LoopLoopEnergy(EnergyFunction):
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+        
+        interacting_lengths = c.defaultdict(int)
+        all_lengths = c.defaultdict(int)
 
-        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist))
+        for l in loop_loop_y.len1:
+            interacting_lengths[l] += 1
+
+        for l in loop_loop.len1:
+            all_lengths[l] += 1
+
+        interaction_probs = c.defaultdict(float)
+
+        for l in interacting_lengths.keys():
+            interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
+
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_data, self.fake_d_given_i, self.fake_d) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
 
         p_i = 1.
 
@@ -1303,8 +1317,11 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][1])
             x = cuv.magnitude(i1 - i2)
 
+            if x < 8.:
+                continue
+
             if x > 50.:
-                x = 50.
+                x = 5
 
             num += 1
 
@@ -1315,6 +1332,9 @@ class LoopLoopEnergy(EnergyFunction):
             contrib = my_log(real_i_given_d/fake_i_given_d)
             #cud.pv('l1,l2,contrib,x')
 
+            iprob = self.real_iprobs[sm.bg.get_length(l1)]
+
+            #energy += iprob * contrib
             energy += contrib
         
         if num == 0:
@@ -1350,7 +1370,61 @@ class LoopJunctionEnergy(LoopLoopEnergy):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist))
+        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
+        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
+        
+        interacting_lengths = c.defaultdict(int)
+        all_lengths = c.defaultdict(int)
+
+        for l in loop_loop_y.len1:
+            interacting_lengths[l] += 1
+
+        for l in loop_loop.len1:
+            all_lengths[l] += 1
+
+        interaction_probs = c.defaultdict(float)
+
+        for l in interacting_lengths.keys():
+            interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
+
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
+
+    def eval_energy(self, sm, background=True):
+        if self.real_data == None:
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        p_i = 1.
+
+        num = 0
+        energy = 0
+        for l1 in sm.bg.loops():
+            for l2 in sm.bg.multiloops():
+                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                    sm.bg.coords[l1][1],
+                                                    sm.bg.coords[l2][0],
+                                                    sm.bg.coords[l2][1])
+                x = cuv.magnitude(i1 - i2)
+
+                if x > 50.:
+                    x = 50.
+
+                num += 1
+
+                real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
+                fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
+
+                #contrib = real_i_given_d - fake_i_given_d
+                contrib = my_log(real_i_given_d/fake_i_given_d)
+                iprob = self.real_iprobs[sm.bg.get_length(l1)]
+
+                energy += iprob * contrib
+
+        if num == 0:
+            return 0
+
+        return -energy;
 
 class LoopBulgeEnergy(LoopLoopEnergy):
 
@@ -1365,8 +1439,57 @@ class LoopBulgeEnergy(LoopLoopEnergy):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist))
+        interacting_lengths = c.defaultdict(int)
+        all_lengths = c.defaultdict(int)
 
+        for l in loop_loop_y.len1:
+            interacting_lengths[l] += 1
+
+        for l in loop_loop.len1:
+            all_lengths[l] += 1
+
+        interaction_probs = c.defaultdict(float)
+
+        for l in interacting_lengths.keys():
+            interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
+
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
+
+    def eval_energy(self, sm, background=True):
+        if self.real_data == None:
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+
+        p_i = 1.
+
+        num = 0
+        energy = 0
+        for l1 in sm.bg.loops():
+            for l2 in sm.bg.bulges():
+                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                                                    sm.bg.coords[l1][1],
+                                                    sm.bg.coords[l2][0],
+                                                    sm.bg.coords[l2][1])
+                x = cuv.magnitude(i1 - i2)
+
+                if x > 50.:
+                    x = 50.
+
+                num += 1
+
+                real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
+                fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
+
+                #contrib = real_i_given_d - fake_i_given_d
+                contrib = my_log(real_i_given_d/fake_i_given_d)
+                iprob = self.real_iprobs[sm.bg.get_length(l1)]
+
+                energy += iprob * contrib
+            
+        if num == 0:
+            return 0
+
+        return -energy;
 class NLoopLoopEnergy(EnergyFunction):
     def __init__(self):
         self.real_dist = None
@@ -1768,7 +1891,6 @@ class NLoopStemEnergy(EnergyFunction):
         for l1 in sm.bg.loops():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
-            #cud.pv('l1, sm.bg.get_length(l1), total_p')
 
         #cud.pv('total_ps')
         return total_ps

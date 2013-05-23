@@ -45,13 +45,13 @@ def visit_dir(rmsds, dirname, names):
         line = f.readlines()[-1]
 
         if line.find("native_energy") == 0:
-            m = re.search('\[(.*) (.*)\].*min:[ ]+(.*)[ ]+(.*)', line) 
+            m = re.search('\[(.*) (.*)\].*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)', line) 
 
             # group(1) = pdb id
             # group(2) = length in nucleotides
             # group(3) = energy
             # group(4) = rmsd
-            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(4)), filename, trial_id)]
+            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(5)), float(m.group(4)), filename, trial_id)]
 
 def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
     keys = rmsds.keys()
@@ -63,9 +63,9 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
         key = (key1,key2)
         rmsds[key].sort(key=lambda x: x[0])
         if compact:
-            print base_dir, key2, rmsds[key][nth][3]
+            print base_dir, key2, rmsds[key][nth][4]
         else:
-            print "[",key2 + "/" + rmsds[key][nth][3],"|", key1,"]", "[", rmsds[key][nth][1], "::", str(rmsds[key][nth][0]) + "]", " ".join([str(k[1]) for k in rmsds[key][1:5]])
+            print "[",key2 + "/" + rmsds[key][nth][4],"|", key1,"]", "[", rmsds[key][nth][1], "::", str(rmsds[key][nth][0]) , "(" , str(rmsds[key][nth][2]), ")" , "]", " ".join([str(k[1]) for k in rmsds[key][1:5]])
 
         min_rmsds += [rmsds[key][nth][1]]
     min_rmsds.sort()

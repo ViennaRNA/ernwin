@@ -191,6 +191,8 @@ class SamplingStatistics:
         self.verbose = False
         self.output_file = output_file
         self.save_n_best = save_n_best
+        self.sm_orig = sm_orig
+        self.energy_orig = None
 
         try:
             self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
@@ -208,6 +210,12 @@ class SamplingStatistics:
         '''
         self.counter += 1
         #sm.traverse_and_build()
+
+        if self.energy_orig == None:
+            self.energy_orig = 0.
+            for s in sm.bg.stems():
+                cgg.add_virtual_residues(self.sm_orig.bg, s)
+            self.energy_orig = energy_function.eval_energy(self.sm_orig)
 
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
@@ -240,7 +248,7 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, lowest_rmsd)
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd)
             if self.output_file != sys.stdout:
                 print output_str.strip()
             self.output_file.write(output_str)
