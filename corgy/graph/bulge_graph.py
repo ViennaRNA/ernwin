@@ -1862,3 +1862,18 @@ class BulgeGraph:
         brackets = "".join(f.readlines()).replace('\n', '')
         self.length = len(brackets)
         self.from_dotbracket(brackets)
+
+    def stem_i_side_to_resnum(self, stem, i, side):
+        '''
+        Calculate the residue number of the i'th residue on the 'side' side
+        of the 'stem' stem.
+
+        @param stem: The stem on which the residue residues.
+        @param i: The i'th base pair on the stem
+        @param side: The side of the base-pair that the residue is on.
+        '''
+        if side == 0:
+            return self.defines[stem][0] + i
+        else:
+            return self.defines[stem][2] + i
+

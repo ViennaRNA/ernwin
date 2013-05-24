@@ -1302,6 +1302,7 @@ class LoopLoopEnergy(EnergyFunction):
         return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
 
     def eval_energy(self, sm, background=True):
+        self.interaction_energies = c.defaultdict(int)
         if self.real_data == None:
             (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
             (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
@@ -1310,18 +1311,37 @@ class LoopLoopEnergy(EnergyFunction):
 
         num = 0
         energy = 0
+        contribs = c.defaultdict(list)
+
+        x = np.linspace(0, 50, 100)
+
+        '''
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure()
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+
+        ax.plot(x, self.real_d_given_i(x) / self.real_d(x), 'g', label="real")
+        ax.plot(x, self.fake_d_given_i(x) / self.fake_d(x), 'r', label="sampled")
+
+        plt.show()
+        '''
+
         for (l1, l2) in it.combinations(sm.bg.loops(), 2):
+            if l1 == l2:
+                continue
+
             (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             x = cuv.magnitude(i1 - i2)
 
-            if x < 8.:
+            if x < 4.:
                 continue
 
-            if x > 50.:
-                x = 5
+            if x > 40.:
+                x = 40
 
             num += 1
 
@@ -1335,10 +1355,19 @@ class LoopLoopEnergy(EnergyFunction):
             iprob = self.real_iprobs[sm.bg.get_length(l1)]
 
             #energy += iprob * contrib
-            energy += contrib
+            key = tuple(sorted([l1,l2]))
+            contribs[key] += [5. * contrib]
+            #cud.pv('x, contrib')
+
+            #energy += contrib
         
         if num == 0:
             return 0
+
+        for k in contribs.keys():
+            energy += max(contribs[k])
+            self.interaction_energies[k] += max(contribs[k])
+
 
         return -energy;
         '''

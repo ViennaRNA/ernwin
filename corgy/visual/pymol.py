@@ -23,6 +23,7 @@ class PymolPrinter:
         self.state = 2
         self.new_segments = []
         self.segments = []
+        self.labels = []
         self.spheres = []
         self.new_spheres = []
         self.boxes = []
@@ -188,6 +189,12 @@ class PymolPrinter:
             pa_s += "pa_%s = cmd.pseudoatom(pos=%s,b=1.0, label=\"%s\")\n" % (uid, str(list(pos)), text)
             counter += 1
 
+        for (text, pos) in self.labels:
+            uid = str(uuid.uuid4()).replace('-','x')
+            uids += [uid]
+
+            pa_s += "pa_%s = cmd.pseudoatom(pos=%s,b=1.0, label=\"%s\")\n" % (uid, str(list(pos)), text)
+
         s +=  "cmd.set(\"cgo_line_radius\",0.03)" + '\n'
         for i in range(counter):
             s += "cmd.load_cgo(cgox_%s, \'cgox%s\')" % (uids[i], uids[i]) + '\n'
@@ -216,6 +223,7 @@ class PymolPrinter:
 
         if self.print_text:
             s += self.pymol_text_string()
+
         s += self.pymol_box_string()
 
         return s
@@ -266,6 +274,7 @@ class PymolPrinter:
     def reset(self):
         self.segments = []
         self.new_segments = []
+        self.labels = []
 
     def pymol_intro_string(self):
         self.cgo_uid = str(uuid.uuid4()).replace('-', 'x')
@@ -348,6 +357,11 @@ class PymolPrinter:
             #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
             (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos_core((p,n), twists, i, stem_len)
             self.add_segment(pos, pos + mult * vec_c, "orange", width, '')
+
+            if self.add_letters:
+                self.labels += [('L', list(pos + mult * vec_l))]
+                self.labels += [('R', list(pos + mult * vec_r))]
+
             #self.add_segment(pos, pos + mult * vec_l, "yellow", width, '')
             #self.add_segment(pos, pos + mult * vec_r, "purple", width, '')
 
@@ -490,12 +504,12 @@ class PymolPrinter:
             sum_energy = 0.
 
             int_energies = list(self.energy_function.iterate_over_interaction_energies(bg, background=False))
-            min_energy = min(int_energies, key=lambda x: x[1])
-            print >>sys.stderr, "min_energy:", min_energy
+            max_energy = max(int_energies, key=lambda x: x[1])
+            print >>sys.stderr, "max_energy:", max_energy
 
             for (interaction, energy) in int_energies:
                 (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
-                scaled_energy = min_energy[1] - energy
+                scaled_energy = - max_energy[1] + energy
 
                 print >>sys.stderr, "Adding segment:", energy, scaled_energy, np.exp(scaled_energy) 
                 self.add_segment(p, n, 'purple', 3 * np.exp(scaled_energy) )

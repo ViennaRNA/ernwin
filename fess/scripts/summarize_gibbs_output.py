@@ -45,13 +45,14 @@ def visit_dir(rmsds, dirname, names):
         line = f.readlines()[-1]
 
         if line.find("native_energy") == 0:
-            m = re.search('\[(.*) (.*)\].*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)', line) 
+            m = re.search('\[(.*) (.*)\].*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)[ ]\|', line) 
+            m1 = re.search('\[(.*) (.*)\].*extreme_rmsds:[ ]+(.*)[ ]+(.*)', line) 
 
             # group(1) = pdb id
             # group(2) = length in nucleotides
             # group(3) = energy
             # group(4) = rmsd
-            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(5)), float(m.group(4)), filename, trial_id)]
+            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(5)), float(m.group(4)), filename, trial_id, float(m1.group(3)), float(m1.group(4)))]
 
 def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
     keys = rmsds.keys()
@@ -59,19 +60,37 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
     keys.sort()
 
     min_rmsds = []
+    ratios = []
     for key1,key2 in keys:
+        # key1 is the length of the sequence and key2 is the pdb name
         key = (key1,key2)
         rmsds[key].sort(key=lambda x: x[0])
+
+        cud.pv('rmsds[key]')
         if compact:
             print base_dir, key2, rmsds[key][nth][4]
         else:
-            print "[",key2 + "/" + rmsds[key][nth][4],"|", key1,"]", "[", rmsds[key][nth][1], "::", str(rmsds[key][nth][0]) , "(" , str(rmsds[key][nth][2]), ")" , "]", " ".join([str(k[1]) for k in rmsds[key][1:5]])
+            pdb_name = key2 
+            pdb_len = key1
+            trial_num = rmsds[key][nth][4]
+            rmsd = rmsds[key][nth][1]
+            energy = rmsds[key][nth][0]
+            native_energy = rmsds[key][nth][2]
+
+            best_rmsd = rmsds[key][nth][5]
+            worst_rmsd = rmsds[key][nth][6]
+
+            ratio = (rmsd - best_rmsd) / (worst_rmsd - best_rmsd)
+
+            print "[",pdb_name + "/" + trial_num,"|", pdb_len,"]", "[", str(rmsd), "::", str(energy) , "(" , str(native_energy), ")" , "]", "<", "%.2f" % (ratio), ">", str(best_rmsd), str(worst_rmsd)
 
         min_rmsds += [rmsds[key][nth][1]]
+        ratios += [ratio]
+
     min_rmsds.sort()
 
     if not compact:
-        print "average: %.2f median %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2])
+        print "average: %.2f median %.2f avg_ratio: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)))
 
 def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
     if plot:

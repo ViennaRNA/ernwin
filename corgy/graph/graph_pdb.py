@@ -450,6 +450,23 @@ def get_bulge_centroid(chain, define):
     #print >>sys.stderr, "res_nums:", res_nums
     return get_centroid(chain, res_nums)
 
+def get_furthest_c_alpha(chain, stem_end, ld):
+    '''
+    Get the position of the c-alpha atom furthest from the end of the stem.
+    '''
+    max_dist = 0
+    furthest_pos = stem_end
+
+    for i in range(ld[0]+1, ld[1]):
+        c_apos = chain[i]['C1*'].get_vector().get_array()
+        dist = cuv.magnitude(stem_end - c_apos)
+
+        if dist > max_dist:
+            max_dist = dist 
+            furthest_pos = c_apos
+
+    return furthest_pos
+
 def estimate_mids_core(chain, start1, start2, end1, end2):
     '''
     Get the start and end points of a helix.

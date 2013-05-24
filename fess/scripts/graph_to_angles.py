@@ -5,6 +5,7 @@ import sys
 import corgy.graph.bulge_graph as cgb
 import corgy.utilities.vector as cuv
 import corgy.graph.graph_pdb as cgg
+import corgy.utilities.debug as cud
 
 def print_new_bulge_angles(bg):
     '''
@@ -55,6 +56,8 @@ def print_5prime_unpaired(bg):
     for d in bg.defines.keys():
         if d[0] != 's':
             if len(bg.edges[d]) == 1 and bg.defines[d][0] == 0:
+                if bg.defines[d][1] == 1:
+                    continue
                 (base_pair_length, r, u, v) = get_loop_stat(bg, d)
                 print "5prime", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
 

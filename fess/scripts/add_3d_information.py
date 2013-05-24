@@ -4,10 +4,8 @@ import sys, math
 import warnings
 from Bio.PDB import *
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.graph.graph_pdb import get_mids, get_bulge_centroid, get_twists
-from corgy.utilities.mcannotate import iterate_over_interactions, get_interacting_base_pairs
-from corgy.utilities.vector import vec_distance
+import corgy.graph.bulge_graph as cgb
+import corgy.graph.graph_pdb as cgg
 
 def output_stems(bg, chain):
     '''
@@ -25,8 +23,8 @@ def output_stems(bg, chain):
 
     for d in bg.defines.keys():
         if d[0] == 's':
-            mids = get_mids(chain, bg.defines[d])
-            twists = get_twists(chain, bg.defines[d])
+            mids = cgg.get_mids(chain, bg.defines[d])
+            twists = cgg.get_twists(chain, bg.defines[d])
 
             bg.coords[d] = (mids[0], mids[1])
             bg.twists[d] = (twists[0], twists[1])
@@ -55,8 +53,8 @@ def output_bulges(bg, chain):
                 (s1b, s1e) = bg.get_sides(edges[0], d)
                 (s2b, s2e) = bg.get_sides(edges[1], d)
 
-                mids1 = get_mids(chain, s1d)
-                mids2 = get_mids(chain, s2d)
+                mids1 = cgg.get_mids(chain, s1d)
+                mids2 = cgg.get_mids(chain, s2d)
 
                 #print >>sys.stderr, "mids1[s1b]:", mids1[s1b], mids2[s2b]
                 """
@@ -72,14 +70,18 @@ def output_loops(bg, chain):
     for d in bg.defines.keys():
         if d[0] != 's':
             if len(bg.edges[d]) == 1:
+                if bg.defines[d][1] == 1 or bg.defines[d][0] == bg.length:
+                    continue
                 s1 = list(bg.edges[d])[0]
                 s1d = bg.defines[s1]
                 bd = bg.defines[d]
                 
                 (s1b, s2b) = bg.get_sides(s1, d)
 
-                mids = get_mids(chain, s1d)
-                centroid = get_bulge_centroid(chain, bd)
+                mids = cgg.get_mids(chain, s1d)
+                #centroid = cgg.get_bulge_centroid(chain, bd)
+
+                centroid = cgg.get_furthest_c_alpha(chain, mids[s1b].get_array(), bd)
                 bg.coords[d] = (mids[s1b].get_array(), centroid)
 
 def newest_output_graph(bg, chain):
@@ -99,7 +101,7 @@ def main():
         s = PDBParser().get_structure('temp', pdb_name)
         chain = list(s.get_chains())[0]
 
-    bg = BulgeGraph(sys.argv[1])
+    bg = cgb.BulgeGraph(sys.argv[1])
 
     output_stems(bg, chain)
     output_bulges(bg, chain)

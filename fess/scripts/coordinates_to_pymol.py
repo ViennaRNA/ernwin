@@ -32,6 +32,7 @@ def main():
     parser.add_option('-e', '--energy', dest='energy', default='', help='Location of an energy function to visualize', type='string')
     parser.add_option('-i', '--img-energy', dest='img_energy', default=False, action='store_true', help="Visualize the distance energy")
     parser.add_option('-s', '--stem-stem-energy', dest='stem_stem_energy', default=False, action='store_true', help="Visualize the distance energy")
+    parser.add_option('', '--loop-loop-energy', dest='loop_loop_energy', default=False, action='store_true', help='Visualize the loop-loop energy')
     parser.add_option('', '--cylinder-intersect-energy', dest='cylinder_intersect_energy', default=False, action='store_true', help="Visualize the distance energy")
     parser.add_option('-m', '--max-stem-distances', dest='max_stem_distances', default=0, help='Draw the vectors between the closest points on two different stems', type='float')
     parser.add_option('-p', '--pdb', dest='pdb_file', default=None, help='Include a pdb file for drawing bouding boxes.', type='string')
@@ -42,6 +43,7 @@ def main():
     parser.add_option('', '--align-to-longest-stem', dest='align_to_longest_stem', default=False, action='store_true', help='Align all of the models to the longest stem of the first one')
     parser.add_option('', '--include-pdb', dest='include_pdb', default=False, action='store_true', help='Include the pdb files in a movie. The pdb files should be named just like the graph files except with a .pdb appended.')
     parser.add_option('-a', '--align', dest='align', default=False, action='store_true', help="Align all of the structure so as to minimize the rmsd")
+    parser.add_option('', '--letters', dest='letters', default=False, action='store_true', help="Print the letters of each base in the approximate positions")
 
     (options, args) = parser.parse_args()
     
@@ -53,6 +55,7 @@ def main():
     pymol_printer.print_text = options.print_text
     pymol_printer.add_twists = options.add_twists
     pymol_printer.add_longrange = options.add_longrange
+    pymol_printer.add_letters = options.letters
     pymol_printer.add_loops = not options.no_loops
     pymol_printer.max_stem_distances = options.max_stem_distances
     pymol_printer.movie = options.movie
@@ -64,6 +67,12 @@ def main():
 
     if options.img_energy:
         pymol_printer.energy_function = cbe.ImgHelixOrientationEnergy()
+    if options.loop_loop_energy:
+        for bg in bgs:
+            for s in bg.stems():
+                cgg.add_virtual_residues(bg, s)
+        pymol_printer.energy_function = cbe.LoopLoopEnergy()
+
     if options.stem_stem_energy:
         for bg in bgs:
             for s in bg.stems():

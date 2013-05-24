@@ -33,6 +33,8 @@ class StatisticsPlotter:
 
         self.energies = c.defaultdict(list)
         self.rmsds = c.defaultdict(list)
+
+
         self.energy_rmsds = []
 
         self.ax_plot.set_xlabel('rmsd')
@@ -73,6 +75,7 @@ class StatisticsPlotter:
     def add_data(self, energy, rmsd, color):
         self.energies[color] += [energy]
         self.rmsds[color] += [rmsd] 
+
 
         self.energy_rmsds += [(energy, rmsd, color)]
 
@@ -194,6 +197,9 @@ class SamplingStatistics:
         self.sm_orig = sm_orig
         self.energy_orig = None
 
+        self.highest_rmsd = 0.
+        self.lowest_rmsd = 10000000000.
+
         try:
             self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
         except KeyError:
@@ -232,6 +238,12 @@ class SamplingStatistics:
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
 
+        if r > self.highest_rmsd:
+            self.highest_rmsd = r
+
+        if r < self.lowest_rmsd:
+            self.lowest_rmsd = r
+
         lowest_energy = sorted_energies[0][0]
         lowest_rmsd = sorted_energies[0][1]
 
@@ -248,7 +260,7 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd)
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
             if self.output_file != sys.stdout:
                 print output_str.strip()
             self.output_file.write(output_str)

@@ -528,7 +528,7 @@ class SpatialModel:
                 ls = choice(cbs.get_fiveprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
-                sys.exit(1)
+                continue
 
             fiveprime_defs[d] = ls
 
@@ -551,7 +551,7 @@ class SpatialModel:
                 ls = choice(cbs.get_threeprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
-                sys.exit(1)
+                continue
 
             threeprime_defs[d] = ls
 

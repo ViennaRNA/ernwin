@@ -30,8 +30,8 @@ def main():
 
     lle = cbe.LoopLoopEnergy()
 
-    (real_data, real_d_given_i, real_d) = lle.load_data('fess/stats/temp.longrange.stats')
-    (sampled_data, sampled_d_given_i, sampled_d) = lle.load_data('fess/stats/temp.longrange.stats.sampled')
+    (real_data, real_d_given_i, real_d) = lle.load_data('fess/stats/temp.longrange.stats')[:3]
+    (sampled_data, sampled_d_given_i, sampled_d) = lle.load_data('fess/stats/temp.longrange.stats.sampled')[:3]
 
     max_dist = 150
     x = np.linspace(0, 50, 100)
