@@ -17,6 +17,8 @@ def main():
 
     #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
     #parser.add_option('-u', '--useless', dest='uselesss', default=False, action='store_true', help='Another useless option')
+    parser.add_option('-r', '--real_stats', dest='real_stats', default='fess/stats/stem_stem_orientations.csv', help='The location of the real statistics file.')
+    parser.add_option('-s', '--sampled_stats', dest='sampled_stats', default='fess/stats/stem_stem_orientations.csv', help='The location of the sampled statistics file.')
 
     (options, args) = parser.parse_args()
 
@@ -26,8 +28,8 @@ def main():
 
     column_names = ['dist', 'out_of_plane', 'in_plane', 'vec_angle', 'lateral_offset', 'ortho_offset']
 
-    real_stats = pa.read_csv('fess/stats/stem_stem_orientations.csv', header=None, sep=' ', names=column_names)
-    sampled_stats = pa.read_csv('fess/stats/stem_stem_orientations_sampled.csv', header=None, sep=' ', names=column_names)
+    real_stats = pa.read_csv(options.real_stats, header=None, sep=' ', names=column_names)
+    sampled_stats = pa.read_csv(options.fake_stats, header=None, sep=' ', names=column_names)
 
     max_dist = 30
     max_lat_dist = 13

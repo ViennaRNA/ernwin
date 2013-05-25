@@ -48,8 +48,14 @@ def stem_stem_orientation(bg, s1, s2):
     s1_p0 = bg.coords[s1][0]
     s1_p1 = bg.coords[s1][1]
     
-    twist1_vec = bg.twists[s1][0]
-    twist2_vec = bg.twists[s2][0]
+    try:
+        twist1_vec = bg.twists[s1][0]
+        twist2_vec = bg.twists[s2][0]
+    except KeyError:
+        # we're probably computing the orientations for loops
+        # rather than stems
+        twist1_vec = cuv.get_orthogonal_unit_vector(s1_p1 - s1_p0)
+        twist2_vec = twist1_vec
 
     s2_p0 = bg.coords[s2][0]
     s2_p1 = bg.coords[s2][1]

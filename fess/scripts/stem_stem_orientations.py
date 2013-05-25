@@ -13,6 +13,11 @@ def stem_stem_orientations(bg):
         if not bg.are_adjacent_stems(s1, s2):
             print " ".join(map(str, cgg.stem_stem_orientation(bg, s1, s2)))
 
+def loop_loop_orientations(bg):
+    for (l1, l2) in it.permutations(bg.loops(), r=2):
+        if l1 != l2:
+            print " ".join(map(str, cgg.stem_stem_orientation(bg, l1, l2)))
+
 def main():
     usage = './stem_stem_orientations.py temp.comp'
     usage += '''
@@ -30,6 +35,7 @@ def main():
 
     #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
     #parser.add_option('-u', '--useless', dest='uselesss', default=False, action='store_true', help='Another useless option')
+    parser.add_option('-l', '--loops', dest='loops', default=False, action='store_true', help="Compute the statistics for the loop regions rather than the stems.")
 
     (options, args) = parser.parse_args()
 
@@ -39,7 +45,10 @@ def main():
 
     for arg in args:
         bg = cgb.BulgeGraph(arg)
-        stem_stem_orientations(bg)
+        if options.loops:
+            loop_loop_orientations(bg)
+        else:
+            stem_stem_orientations(bg)
 
 if __name__ == '__main__':
     main()

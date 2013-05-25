@@ -36,6 +36,15 @@ def get_inter_distances(vecs):
 def get_random_vector(mult=1.):
     return np.array([mult * rand.uniform(-1, 1), mult * rand.uniform(-1, 1), mult * rand.uniform(-1, 1)])
 
+def get_orthogonal_unit_vector(vec):
+    '''
+    Return a vector orthogonal to vec.
+    '''
+
+    vec2 = get_non_colinear_unit_vector(vec)
+    vec3 = np.cross(vec, vec2)
+    return normalize(vec3)
+
 def get_random_vector_pair(angle=rand.uniform(0, m.pi)):
     vec1 = get_random_vector()
     vec2 = get_non_colinear_unit_vector(vec1)

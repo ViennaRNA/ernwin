@@ -80,9 +80,12 @@ def main():
         with open(options.fasta, 'r') as f:
             # assume there is only one sequence and dotplot in the fastdp file
             lines = f.readlines()
+            id_line = lines[0].strip()[1:]
             secondary_structure = lines[-1].strip()
             sequence_str = lines[-2].strip()
 
+        options.output_dir = os.path.join(options.output_dir, id_line)
+        cud.pv('options.output_dir')
         bg = BulgeGraph()
         bg.seq = sequence_str
         bg.length = len(bg.seq)
