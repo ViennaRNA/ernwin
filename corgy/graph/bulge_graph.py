@@ -216,7 +216,7 @@ def find_bulges_and_stems(brackets):
         prev = brackets[i]
     if prev == '.':
         dots_end = i
-        bulges = add_bulge(bulges, (dots_start-1, dots_end), context, "7")
+        bulges = add_bulge(bulges, (dots_start-1, dots_end+1), context, "7")
     elif prev == '(':
         print >>sys.stderr, "Unmatched bracket at the end"
         sys.exit(1)

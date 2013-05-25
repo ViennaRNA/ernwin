@@ -219,9 +219,13 @@ class SamplingStatistics:
 
         if self.energy_orig == None:
             self.energy_orig = 0.
-            for s in sm.bg.stems():
-                cgg.add_virtual_residues(self.sm_orig.bg, s)
-            self.energy_orig = energy_function.eval_energy(self.sm_orig)
+            try:
+                for s in sm.bg.stems():
+                    cgg.add_virtual_residues(self.sm_orig.bg, s)
+                self.energy_orig = energy_function.eval_energy(self.sm_orig)
+            except KeyError:
+                # most likely no native structure was provided
+                pass
 
         #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)

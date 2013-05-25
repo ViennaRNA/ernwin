@@ -61,12 +61,14 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
 
     min_rmsds = []
     ratios = []
+    best_rmsds = []
+    worst_rmsds = []
+
     for key1,key2 in keys:
         # key1 is the length of the sequence and key2 is the pdb name
         key = (key1,key2)
         rmsds[key].sort(key=lambda x: x[0])
 
-        cud.pv('rmsds[key]')
         if compact:
             print base_dir, key2, rmsds[key][nth][4]
         else:
@@ -86,11 +88,13 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
 
         min_rmsds += [rmsds[key][nth][1]]
         ratios += [ratio]
+        best_rmsds += [best_rmsd]
+        worst_rmsds += [worst_rmsd]
 
     min_rmsds.sort()
 
     if not compact:
-        print "average: %.2f median %.2f avg_ratio: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)))
+        print "average: %.2f median %.2f avg_ratio: %.2f avg_best_rmsd: %.2f avg_worst_rmsd: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)), np.mean(np.array(best_rmsds)), np.mean(np.array(worst_rmsds)))
 
 def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
     if plot:

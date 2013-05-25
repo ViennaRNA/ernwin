@@ -1356,7 +1356,8 @@ class LoopLoopEnergy(EnergyFunction):
 
             #energy += iprob * contrib
             key = tuple(sorted([l1,l2]))
-            contribs[key] += [5. * contrib]
+            #contribs[key] += [5. * contrib]
+            contribs[key] += [contrib]
             #cud.pv('x, contrib')
 
             #energy += contrib

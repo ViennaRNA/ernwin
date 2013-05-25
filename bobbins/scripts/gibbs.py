@@ -59,7 +59,8 @@ def main():
     parser.add_option('-y', '--cylinder-intersection', dest='cyl_intersect', default=False, action='store_true', help='Use the cylinder-intersection energy')
     parser.add_option('-g', '--cheating', dest='cheating', default=False, action='store_true', help='Use the rmsd from the real structure as the energy.')
     parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
-    parser.add_option('', '--sequence', dest='sequence', default='', help='The file containing sequence for the structure. To be used with the --secondary-structure flag', type='str')
+    parser.add_option('', '--sequence-file', dest='sequence_file', default='', help='The file containing sequence for the structure. To be used with the --secondary-structure flag', type='str')
+    parser.add_option('', '--sequence-str', dest='sequence_str', default='', help='The sequence of the structure. To be used with the --secondary-structure flag', type='str')
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
     parser.add_option('', '--output-file', dest='output_file', default=None, help='File to output the information about the sampling to. Defaults to standard out', type=str)
@@ -67,22 +68,39 @@ def main():
     parser.add_option('', '--step-save', dest='step_save', default=False, action='store_true', help="Save the structure at each step.")
     parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
     parser.add_option('', '--n-loop-energy', dest='n_loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
+    parser.add_option('', '--fasta', dest='fasta', default='', help="Specify a fastdb file containing an identifier, a sequence and a dotbracket string indicating the secondary structure.", type='str')
 
     (options, args) = parser.parse_args()
 
-    if len(args) < 1:
+    if len(args) < 1 and options.secondary_structure == '':
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
 
-    if options.secondary_structure:
-        if options.sequence == '':
+    if options.fasta != '':
+        with open(options.fasta, 'r') as f:
+            # assume there is only one sequence and dotplot in the fastdp file
+            lines = f.readlines()
+            secondary_structure = lines[-1].strip()
+            sequence_str = lines[-2].strip()
+
+        bg = BulgeGraph()
+        bg.seq = sequence_str
+        bg.length = len(bg.seq)
+        bg.from_dotbracket(secondary_structure)
+        bg.dump()
+    elif options.secondary_structure:
+        if options.sequence_file == '' and options.sequence_str != '':
             print >>sys.stderr, "Sequence needs to be provided with --sequence"
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
         bg = BulgeGraph()
 
-        with open(options.sequence, 'r') as f:
-            seq = "".join(f.readlines())
-            bg.seq = seq.upper()
+        if options.sequence_file != '':
+            with open(options.sequence, 'r') as f:
+                seq = "".join(f.readlines())
+                bg.seq = seq.upper()
+        else:
+            bg.seq = options.sequence_str
+
         bg.from_dotbracket_file(args[0])
     else:
         bg = BulgeGraph(args[0])
