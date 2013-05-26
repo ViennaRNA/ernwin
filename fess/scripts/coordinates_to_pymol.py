@@ -44,6 +44,7 @@ def main():
     parser.add_option('', '--include-pdb', dest='include_pdb', default=False, action='store_true', help='Include the pdb files in a movie. The pdb files should be named just like the graph files except with a .pdb appended.')
     parser.add_option('-a', '--align', dest='align', default=False, action='store_true', help="Align all of the structure so as to minimize the rmsd")
     parser.add_option('', '--letters', dest='letters', default=False, action='store_true', help="Print the letters of each base in the approximate positions")
+    parser.add_option('', '--stem-stem-orientations', dest='stem_stem_orientations', default=False, action='store_true', help="show vectors indicating the stem stem orientations")
 
     (options, args) = parser.parse_args()
     
@@ -59,6 +60,7 @@ def main():
     pymol_printer.add_loops = not options.no_loops
     pymol_printer.max_stem_distances = options.max_stem_distances
     pymol_printer.movie = options.movie
+    pymol_printer.stem_stem_orienations = options.stem_stem_orientations
 
     if len(options.energy) > 0:
         for bg in bgs:

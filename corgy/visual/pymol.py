@@ -3,6 +3,7 @@
 import sys
 
 import itertools as it
+import math as m
 import numpy as np
 import uuid
 
@@ -517,6 +518,60 @@ class PymolPrinter:
                 sum_energy += energy
 
             cud.pv("sum_energy")
+
+        if self.stem_stem_orienations:
+            for (s1, s2) in it.permutations(bg.stems(), 2):
+                '''
+                if bg.are_adjacent_stems(s1, s2):
+                    continue
+                '''
+
+                if s1 != 's65':
+                    if s2 != 's65':
+                        continue
+                
+                s1_vec = bg.coords[s1][1] - bg.coords[s1][0]
+                s2_vec = bg.coords[s2][1] - bg.coords[s2][0]
+                (i1, i2) = cuv.line_segment_distance(bg.coords[s1][0],
+                                                     bg.coords[s1][1],
+                                                     bg.coords[s2][0],
+                                                     bg.coords[s2][1])
+                i_vec = i2 - i1
+
+                #i_rej will be orthogonal to s1_vec in the direction
+                #of s2
+                i_rej = cuv.vector_rejection(i_vec, s1_vec)
+
+                #plane_vec will be orthogonal to s1_vec and to the direction
+                # of s2
+                plane_vec = np.cross(i_rej, s1_vec)
+
+                # s2_proj is in the intersection plane
+                s2_proj_in = cuv.vector_rejection(s2_vec, plane_vec)
+                # s2 proj_out is out of the intersection plane
+                s2_proj_out = cuv.vector_rejection(s2_vec, i_rej)
+
+                start_point = bg.coords[s1][0] + 5 * bg.twists[s1][0]
+
+                ortho_vec = i_rej
+                ortho_offset = cuv.magnitude(i_rej)
+        
+                ang1 = cuv.vec_angle(s2_proj_in, s1_vec)
+                ang2 = cuv.vec_angle(s2_proj_out, s1_vec)
+                dist = cuv.magnitude(i_vec) + 0.0001
+
+                lateral_offset = m.sqrt(dist * dist - ortho_offset * ortho_offset)
+
+                if lateral_offset > 10:
+                    continue
+
+                #cud.pv('cuv.vec_angle(s2_proj_in, s1_vec)')
+                #self.add_segment(start_point, start_point + 10 * cuv.normalize(s2_vec),  'white', 0.5)
+                #self.add_segment(start_point, start_point + 5 * cuv.normalize(plane_vec),  'magenta', 0.5)
+                #self.add_segment(start_point, start_point + 5 * cuv.normalize(i_vec),  'cyan', 0.5)
+                #self.add_segment(i1, i1 + i_rej,  'cyan', 0.5)
+                self.add_segment(start_point, start_point + 7 * cuv.normalize(s2_proj_in),  'white', 1.5)
+                #self.add_segment(start_point, start_point + 7 * cuv.normalize(s2_proj_out),  'blue', 0.5)
 
     def chain_to_pymol(self, chain):
         '''
