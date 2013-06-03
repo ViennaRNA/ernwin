@@ -9,8 +9,6 @@ import itertools as it
 import math
 import warnings
 
-import scipy.ndimage as sn
-import scipy.spatial as ss
 import Bio.KDTree as kd
 import numpy as np
 import numpy.linalg as nl
@@ -875,6 +873,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
     def load_stem_orientation_data(self, filename):
         import pandas as pa
+        import scipy.ndimage as sn
+
         stats = pa.read_csv(filename,header=None, sep=' ')
         t = stats
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()

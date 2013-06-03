@@ -49,7 +49,7 @@ function annotate_secondary_structure {
     #$SCRIPT_DIR/mcannotate-to-bpseq.py temp.pdb temp.mcannotate > temp.bpseq
     ./$LOCAL_SCRIPT_DIR/mcannotate_to_bpseq.py $OUTPUT_DIR/temp.mcannotate > $OUTPUT_DIR/temp.bpseq
 
-    python $K2N_PATH -f bpseq -F vienna $OUTPUT_DIR/temp.bpseq > $OUTPUT_DIR/temp.ss
+    python $K2N_PATH -f bpseq -F vienna $OUTPUT_DIR/temp.bpseq | sed "s/> Nested structure/>${pdb}/" > $OUTPUT_DIR/temp.ss
     cat $OUTPUT_DIR/temp.ss | tail -n 2 | tr '.' 'x' > $OUTPUT_DIR/temp.tofold
     cat $OUTPUT_DIR/temp.ss | tail -n 2 | head -n 1 > $OUTPUT_DIR/temp.seq
     cat $OUTPUT_DIR/temp.ss | tail -n 1 | tr '.' 'x' > $OUTPUT_DIR/temp.const

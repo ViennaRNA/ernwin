@@ -758,9 +758,11 @@ class BulgeGraph:
         (s2b, s2e) = self.get_sides(c[1], bulge)
 
         if len(bd) == 2:
-            dims = (abs(bd[1] - bd[0]), 0)
+            dims = (abs(bd[1] - bd[0]), 1000)
         else:
             dims = (abs(bd[1] - bd[0]), abs(bd[3] - bd[2]))
+
+        cud.pv('dims')
 
         if s1b == s2b:
             assert(s1b == 0)

@@ -442,14 +442,20 @@ class SpatialModel:
         self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
         for b in self.bg.bulges():
             if b not in self.bg.sampled.keys():
+                print >>sys.stderr, "%s not sampled" % (b)
                 continue
 
             size = self.bg.get_bulge_dimensions(b)
-
             sb = self.bg.sampled[b]
+
+            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], sb[1])[0]
+            size = (size1, size2)
+
+            cud.pv('b, sb, len(sb), size')
             for ang_s in cbs.get_angle_stats()[size[0]][size[1]][sb[1]]:
-                #print >>sys.stderr, "some stuff", b
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
+                    print >>sys.stderr, "some stuff", b
+
                     self.angle_defs[b][sb[1]] = ang_s
 
         self.loop_defs = dict()

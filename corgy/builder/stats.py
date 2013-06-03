@@ -402,11 +402,12 @@ def get_angle_stat_dims(s1, s2, angle_type, min_entries=1):
     @param min_entries: The minimum number of stats that have to be available
     '''
     available_stats = []
+    angle_stats = get_angle_stats()
 
-    for k1 in ConstructionStats.angle_stats.keys():
-        for k2 in ConstructionStats.angle_stats[k1].keys():
-            for k3 in ConstructionStats.angle_stats[k1][k2].keys():
-                if k3 == angle_type and len(ConstructionStats.angle_stats[k1][k2][k3]) >= min_entries:
+    for k1 in angle_stats.keys():
+        for k2 in angle_stats[k1].keys():
+            for k3 in angle_stats[k1][k2].keys():
+                if k3 == angle_type and len(angle_stats[k1][k2][k3]) >= min_entries:
                     dist = m.sqrt((k1 - s1) ** 2 + (k2 - s2) ** 2)
                     available_stats += [(dist, k1,k2,k3)]
 
