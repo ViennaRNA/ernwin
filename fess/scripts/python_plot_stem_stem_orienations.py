@@ -31,9 +31,9 @@ def main():
     real_stats = pa.read_csv(options.real_stats, header=None, sep=' ', names=column_names)
     sampled_stats = pa.read_csv(options.sampled_stats, header=None, sep=' ', names=column_names)
 
-    min_dist = 0
+    min_dist = 15 
     max_dist = 35
-    max_lat_dist = 15
+    max_lat_dist = 10
 
     real_stats = real_stats[np.logical_and(real_stats["dist"] < max_dist, real_stats["dist"] > min_dist)]
 

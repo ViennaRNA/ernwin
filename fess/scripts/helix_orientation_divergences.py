@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 import collections as c
+import scipy.cluster.hierarchy as sch
+import itertools as it
 import random
 import numpy as np
 import math as m
@@ -18,7 +20,7 @@ from mpl_toolkits.mplot3d import proj3d
 
 import corgy.utilities.debug as cud
 
-def get_nearest_dimension_sizes(bulge_size, stat_counts, min_entries = 10):
+def get_nearest_dimension_sizes(bulge_size, stat_counts, min_entries = 20):
     '''
     Classify all the bulge sizes according to their distance from the
     one being analyzed. Then pick the next n closest such that the total
@@ -87,8 +89,8 @@ def main():
         sys.exit(1)
 
     column_names = ['type', 'pdb', 's1', 's2', 'u', 'v', 't', 'r', 'u1', 'v1', 'atype', 'something1', 'something2', 'sth3', 'sth4']
-    real_stats = pa.read_csv('fess/stats/temp.real.stats', header=None, sep=' ', names=column_names, engine='python')
-    sampled_stats = pa.read_csv('fess/stats/temp.sampled.stats', header=None, sep=' ', names=column_names, engine='python')
+    real_stats = pa.read_csv('fess/stats/temp.real.stats', header=None, sep=' ', names=column_names)
+    sampled_stats = pa.read_csv('fess/stats/temp.sampled.stats', header=None, sep=' ', names=column_names)
 
     real_stats = real_stats[real_stats["type"] == "angle"]
     real_stat_dims = map(tuple, real_stats[['s1', 's2', 'atype']].as_matrix())
@@ -99,15 +101,36 @@ def main():
         stat_counts[sc] += 1
 
     cud.pv('stat_counts')
+    histograms = dict()
     for b in stat_counts.keys():
         selected_sizes = get_nearest_dimension_sizes(b, stat_counts)
         cud.pv('b, selected_sizes')
 
         combined_real = []
-        combined_sampled = []
 
+        # get the statistics that correspond to the selected sampled sizes
         for ss in selected_sizes:
             ss_r = real_stats[real_stats["s1"] == ss[0]]
+            ss_r = ss_r[ss_r["s2"] == ss[1]]
+            ss_r = ss_r[ss_r["atype"] == ss[2]]
+
+            combined_real += list(ss_r[['u','v']].as_matrix())
+
+        num_points = len(combined_real)
+        combined_real = np.array(combined_real)
+        histograms[b] = (np.histogram2d(combined_real[:,0], combined_real[:,1], range=[[0, m.pi], [-m.pi, m.pi]])[0] + 1) / float(num_points)
+
+    dists = []
+    for k1, k2 in it.combinations(histograms.keys(), 2):
+        kl = histograms[k1] * (histograms[k1] / histograms[k2])
+        kl = sum(map(sum, kl))
+        dists += [kl]
+
+    Z = sch.linkage(dists)
+    cud.pv('Z')
+    sch.dendrogram(Z, labels = histograms.keys())
+    plt.show()
+    sys.exit(1)
 
     real_us = real_stats[['u', 'v']].as_matrix()
     sampled_us = sampled_stats[['u','v']].as_matrix()
