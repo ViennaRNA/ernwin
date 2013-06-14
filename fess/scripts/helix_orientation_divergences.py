@@ -7,6 +7,7 @@ import random
 import numpy as np
 import math as m
 import corgy.builder.stats as cbs
+
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
 import sys, pandas as pa
@@ -19,6 +20,30 @@ from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d
 
 import corgy.utilities.debug as cud
+import corgy.utilities.vector as cuv
+
+def get_certain_angle_stats(stats, angle_type):
+    '''
+    Return an index containing only the statisitcs corresponding to
+    this type of angle.
+    '''
+    ss = angle_type
+    ss_r = stats[stats["s1"] == ss[0]]
+    ss_r = ss_r[ss_r["s2"] == ss[1]]
+    ss_r = ss_r[ss_r["atype"] == ss[2]]
+    return ss_r
+
+def spherical_distance(phi1, phi2, theta1, theta2):
+    '''
+    Returns the distance between the coordinates on the unit sphere.
+    '''
+    cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) + 
+           math.cos(phi1)*math.cos(phi2))
+    arc = math.acos( cos )
+
+    # Remember to multiply arc by the radius of the earth 
+    # in your favorite set of units to get length.
+    return arc
 
 def get_nearest_dimension_sizes(bulge_size, stat_counts, min_entries = 20):
     '''
@@ -47,7 +72,7 @@ def get_nearest_dimension_sizes(bulge_size, stat_counts, min_entries = 20):
         if cumulative_num_entries >= min_entries:
             break
 
-    return selected_sizes
+    return (selected_sizes, cumulative_num_entries)
 
 class Arrow3D(FancyArrowPatch):
     '''
@@ -79,6 +104,8 @@ def main():
     parser.add_option('-r', '--resolution', dest='resolution', default=10, help="The resolution of the resulting plot", type='int')
     parser.add_option('-a', '--angle', dest='angle', default=0, help="The angle of the camera", type='float')
     parser.add_option('-f', '--fig-name', dest='fig_name', default='', help="The name of the file to save the figure to. If it is not specified, the figure will not be saved", type='str')
+    parser.add_option('-i', '--interior_loops', dest='interior_loops', default=False, help='Cluster only the interior loops', action='store_true')
+    parser.add_option('-m', '--multi_loops', dest='multi_loops', default=False, help='Cluster only the interior loops', action='store_true')
 
     #parser.add_option('-u', '--useless', dest='uselesss', default=False, action='store_true', help='Another useless option')
 
@@ -89,8 +116,8 @@ def main():
         sys.exit(1)
 
     column_names = ['type', 'pdb', 's1', 's2', 'u', 'v', 't', 'r', 'u1', 'v1', 'atype', 'something1', 'something2', 'sth3', 'sth4']
-    real_stats = pa.read_csv('fess/stats/temp.real.stats', header=None, sep=' ', names=column_names)
-    sampled_stats = pa.read_csv('fess/stats/temp.sampled.stats', header=None, sep=' ', names=column_names)
+    real_stats = pa.read_csv('fess/stats/temp.real.stats', header=None, sep=' ', names=column_names, engine='python')
+    sampled_stats = pa.read_csv('fess/stats/temp.sampled.stats', header=None, sep=' ', names=column_names, engine='python')
 
     real_stats = real_stats[real_stats["type"] == "angle"]
     real_stat_dims = map(tuple, real_stats[['s1', 's2', 'atype']].as_matrix())
@@ -103,37 +130,84 @@ def main():
     cud.pv('stat_counts')
     histograms = dict()
     for b in stat_counts.keys():
-        selected_sizes = get_nearest_dimension_sizes(b, stat_counts)
+        if b[2] != 2.:
+            # only look at type 2 angles
+            continue
+
+        if options.interior_loops:
+            if b[0] == 1000 or b[1] == 1000:
+                continue
+        if options.multi_loops:
+            if b[0] != 1000 and b[1] != 1000:
+                continue
+
+        (selected_sizes, count) = get_nearest_dimension_sizes(b, stat_counts, 1)
+
+        if count < 3:
+            continue
+
         cud.pv('b, selected_sizes')
 
         combined_real = []
 
         # get the statistics that correspond to the selected sampled sizes
         for ss in selected_sizes:
-            ss_r = real_stats[real_stats["s1"] == ss[0]]
-            ss_r = ss_r[ss_r["s2"] == ss[1]]
-            ss_r = ss_r[ss_r["atype"] == ss[2]]
+            ss_r = get_certain_angle_stats(real_stats, ss)
 
             combined_real += list(ss_r[['u','v']].as_matrix())
 
         num_points = len(combined_real)
         combined_real = np.array(combined_real)
-        histograms[b] = (np.histogram2d(combined_real[:,0], combined_real[:,1], range=[[0, m.pi], [-m.pi, m.pi]])[0] + 1) / float(num_points)
+        #histograms[b] = (np.histogram2d(combined_real[:,0], combined_real[:,1], range=[[0, m.pi], [-m.pi, m.pi]])[0] + 0.5) / float(num_points)
+        histograms[b] = combined_real
 
     dists = []
+    named_dists = dict()
+    pp_dists = dict()
     for k1, k2 in it.combinations(histograms.keys(), 2):
+        per_point_distances = []
+        for p1 in histograms[k1]:
+            point_distances = []
+            for p2 in histograms[k2]:
+                point_distances += [cuv.magnitude(p1 - p2)]
+            per_point_distances += [min(point_distances)]
+
+        for p2 in histograms[k2]:
+            point_distances = []
+            for p1 in histograms[k1]:
+                point_distances += [cuv.magnitude(p1-p2)]
+            per_point_distances += [min(point_distances)]
+
+        dists += [max(per_point_distances)]
+        named_dists[(k1,k2)] = max(per_point_distances)
+        pp_dists[(k1,k2)] = per_point_distances
+
+        '''
         kl = histograms[k1] * (histograms[k1] / histograms[k2])
         kl = sum(map(sum, kl))
         dists += [kl]
+        '''
 
-    Z = sch.linkage(dists)
+    cud.pv('dists')
+    Z = sch.complete(dists)
     cud.pv('Z')
-    sch.dendrogram(Z, labels = histograms.keys())
+    sch.dendrogram(Z, labels = histograms.keys(), leaf_rotation=90)
+    plt.subplots_adjust(bottom=0.25)
+    
     plt.show()
     sys.exit(1)
 
-    real_us = real_stats[['u', 'v']].as_matrix()
-    sampled_us = sampled_stats[['u','v']].as_matrix()
+    k1 = (6,7,2)
+    k2 = (5,6,2)
+
+    rs = get_certain_angle_stats(real_stats, k1)
+    ss = get_certain_angle_stats(real_stats, k2)
+
+    cud.pv('named_dists[(k1,k2)]')
+    cud.pv('pp_dists[(k1,k2)]')
+
+    real_us = rs[['u', 'v']].as_matrix()
+    sampled_us = ss[['u','v']].as_matrix()
 
     U_r = real_us[:,0]
     V_r = real_us[:,1]
@@ -152,14 +226,12 @@ def main():
     kl = pseudo_r * (pseudo_r / pseudo_s)
     cud.pv('kl')
     cud.pv('sum(map(sum, kl))')
-    sys.exit(1)
-
 
     X_r = np.sin(U_r) * np.cos(V_r)
     Y_r = np.sin(U_r) * np.sin(V_r)
     Z_r = np.cos(U_r)
 
-    r = 0.8
+    r = 1.
     X_s = r * np.sin(U_s) * np.cos(V_s)
     Y_s = r * np.sin(U_s) * np.sin(V_s)
     Z_s = r * np.cos(U_s)
@@ -179,6 +251,12 @@ def main():
 
     ax.plot(X_r, Y_r, Z_r, 'bo', alpha=0.3)
     ax.plot(X_s, Y_s, Z_s, 'ro', alpha=0.3)
+
+    u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+    x=np.cos(u)*np.sin(v)
+    y=np.sin(u)*np.sin(v)
+    z=np.cos(v)
+    ax.plot_wireframe(x, y, z, color="y")
 
     #surf = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=colors,
     #       linewidth=0, antialiased=False)

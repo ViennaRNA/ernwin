@@ -168,6 +168,7 @@ def find_bulges_and_stems(brackets):
 
     context_depths[0] = 0
 
+
     i = 0
     for i in range(len(brackets)):
         #print >> sys.stderr, "bracket:", brackets[i]

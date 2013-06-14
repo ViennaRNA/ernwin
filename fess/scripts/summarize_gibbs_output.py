@@ -112,12 +112,12 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
 
         # Adjust the numbering so that the histograms are under the plots
         plot_nums =[i for i in range(1, rows * cols * 2 + 1)]
-        print "plot_nums:", plot_nums, len(plot_nums)
+        #print "plot_nums:", plot_nums, len(plot_nums)
         plot_nums = np.array(plot_nums)
-        print rows, cols
+        #print rows, cols
         plot_nums = plot_nums.reshape((rows * 2, cols))
-        print plot_nums
-        print plot_nums.T
+        #print plot_nums
+        #print plot_nums.T
         plot_nums =  np.array(plot_nums.T).reshape((rows * cols * 2,))
         plot_nums
 
@@ -161,7 +161,7 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
             row = counter / 3
             col = counter - 3 * (counter / 3)
 
-            print "row:", row, "col:", col
+            #print "row:", row, "col:", col
 
             ax_plot = fig.add_subplot(rows*2, cols, plot_nums[counter])
             ax_hist = fig.add_subplot(rows*2, cols, plot_nums[counter+1])
@@ -191,6 +191,7 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
 
     if plot:
         fig.tight_layout()
+        plt.savefig('current_plot.png', bbox_inches='tight')
         plt.show()
 
     sum_rmsds = [0. for i in densest_rmsds.items()[0][1]]
@@ -220,6 +221,13 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    # summarize by the lowest energy
+    rmsds = c.defaultdict(list)
+    for arg in args:
+        op.walk(arg, visit_dir, rmsds)
+    summarize_rmsds(rmsds, options.compact, args[0], nth=options.nth_best)
+
+    # summarize by the structure with the greatest density
     rmsds = c.defaultdict(list)
     if options.density:
         random_rmsds = None
@@ -229,11 +237,6 @@ def main():
 
         op.walk(args[0], density_visit_dir, rmsds)
         summarize_rmsds_by_density(rmsds, options.plot, random_rmsds=random_rmsds)
-    else:
-        for arg in args:
-            op.walk(arg, visit_dir, rmsds)
-
-        summarize_rmsds(rmsds, options.compact, args[0], nth=options.nth_best)
 
 if __name__ == '__main__':
     main()

@@ -2,6 +2,8 @@
 
 import sys, os
 
+import corgy.utilities.debug as cud
+
 def error_exit(message):
     print >>sys.stderr, message
     sys.exit(1)
@@ -240,6 +242,10 @@ def find_bulges_and_stems(brackets):
     dots_end = 0
 
     context_depths[0] = 0
+    cud.pv('len([b for b in brackets if b == "("])')
+    cud.pv('len([b for b in brackets if b == ")"])')
+
+    cud.pv('brackets')
 
     i = 0
     for i in range(len(brackets)):
@@ -271,9 +277,13 @@ def find_bulges_and_stems(brackets):
             stem_pairs.append((opens.pop(), i))
             #print >>sys.stderr,i+1, "Close bracket, context:", context, "depth:", context_depths[context]
 
+            if prev == '(':
+                bulges = add_bulge(bulges, (i-1, i), context, "4")
+
             context_depths[context] -= 1
 
             if context_depths[context] == 0:
+                cud.pv('bulges')
                 finished_bulges += bulges[context]
                 bulges[context] = []
                 context -= 1

@@ -1299,7 +1299,7 @@ class LoopLoopEnergy(EnergyFunction):
         for l in interacting_lengths.keys():
             interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
 
-        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
+        return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs) 
 
     def eval_energy(self, sm, background=True):
         self.interaction_energies = c.defaultdict(int)
