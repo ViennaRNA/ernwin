@@ -10,7 +10,7 @@ import corgy.builder.config as cbc
 
 import corgy.graph.graph_pdb as cgg
 
-from random import sample, random, seed
+from random import sample, random, seed, randint
 from numpy import allclose, seterr
 
 from corgy.graph.bulge_graph import BulgeGraph
@@ -188,9 +188,17 @@ def main():
         stat.step_save = options.step_save
 
         if options.mcmc_sampler:
-            samplers += [cbs.MCMCSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
+            sm = SpatialModel(copy.deepcopy(bg))
+            sm.constraint_energy = cbe.CombinedEnergy([cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy()])
+            sm.junction_constraint_energy = cbe.RoughJunctionClosureEnergy()
+            #sm.constraint_energy = cbe.CombinedEnergy([cbe.RoughJunctionClosureEnergy()])
+            #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy()])
+            #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
+            samplers += [cbs.MCMCSampler(sm, energy, stat)]
         else:
-            samplers += [GibbsBGSampler(SpatialModel(copy.deepcopy(bg)), energy, stat)]
+            sm = SpatialModel(copy.deepcopy(bg))
+            sm.constraint_energy = cbe.StemVirtualResClashEnergy()
+            samplers += [GibbsBGSampler(sm, energy, stat)]
         silent = True
 
     for i in range(options.iterations):
@@ -207,9 +215,20 @@ def main():
         pass
 
 if __name__ == '__main__':
+    seed_num = randint(0, sys.maxint)
     try:
+        #seed_num=3221009412965193567
+        #seed_num=4987859958555737937
+        #seed_num=4862246145078431235
+        #seed_num=2202257950156889158
+        #seed_num=2125471369035665828
+        #seed_num=8635950677344279734
+        #seed_num=6881563699643510798
+        seed_num=8663615665126825303
+        seed(seed_num)
         main()
     except:
         #pdb.post_mortem()
+        print >>sys.stderr, "random seed:", seed_num
         raise
 

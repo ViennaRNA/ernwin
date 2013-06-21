@@ -235,6 +235,7 @@ class AngleStat:
         return (self.r1, self.u1, self.v1)
 
     def __str__(self):
+        '''
         out_str = "angle %s %d %d %f %f %f %f %f %f %d %s" % (self.pdb_name,
                                                               self.dim1,
                                                               self.dim2,
@@ -246,6 +247,16 @@ class AngleStat:
                                                               self.v1,
                                                               self.ang_type,
                                                               " ".join(map(str, self.define)))
+        '''
+        out_str = "angle %s %d %d %f %f %f %f %f %f" % (self.pdb_name,
+                                                              self.dim1,
+                                                              self.dim2,
+                                                              self.u,
+                                                              self.v,
+                                                              self.t,
+                                                              self.r1,
+                                                              self.u1,
+                                                              self.v1)
         return out_str
 
 class ContinuousAngleStats():

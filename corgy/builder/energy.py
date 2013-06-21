@@ -47,7 +47,9 @@ class EnergyFunction(object):
     def __init__(self):
         self.interaction_energies = None
 
-    def eval_energy(self, sm, background=True):
+        self.bad_bulges = []
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         '''
         The base energy function simply returns a random number.
         '''
@@ -123,7 +125,7 @@ class RandomEnergy(EnergyFunction):
     def __init__(self):
         super(RandomEnergy, self).__init__()
 
-    def eval_energy(self, sm, background=True):
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         return rand.uniform(-5, 3)
 
 class DistanceIterator:
@@ -170,6 +172,7 @@ class CombinedEnergy:
     def __init__(self, energies=[], uncalibrated_energies=[]):
         self.energies = energies
         self.uncalibrated_energies = uncalibrated_energies
+        self.bad_bulges = []
 
     def save_energy(self, energy, directory):
         if not os.path.exists(directory):
@@ -201,15 +204,19 @@ class CombinedEnergy:
 
         self.save_energy(self, filename)
 
-    def eval_energy(self, sm, verbose=False, background=True):
+    def eval_energy(self, sm, verbose=False, background=True, nodes=None, new_nodes=None):
         total_energy = 0.
+        self.bad_bulges = []
 
         for energy in self.uncalibrated_energies:
-            total_energy += energy.eval_energy(sm)
+            #cud.pv('energy')
+            total_energy += energy.eval_energy(sm, background, nodes, new_nodes)
+            self.bad_bulges += energy.bad_bulges
     
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background)
+            contrib = energy.eval_energy(sm, background, nodes=nodes, new_nodes=nodes)
 
+            self.bad_bulges += energy.bad_bulges
             total_energy += contrib
 
             if verbose:
@@ -612,13 +619,20 @@ class CoarseStemClashEnergy(EnergyFunction):
     def __init__(self):
         super(CoarseStemClashEnergy, self).__init__()
 
-    def eval_energy(self, sm, background=False):
+    def eval_energy(self, sm, background=False, nodes=None, new_nodes=None):
+        return 0.
         bg = sm.bg
         min_distance = 8.45
         energy = 0.
         #print list(bg.stems())
 
+        if nodes == None:
+            nodes = sm.bg.defines.keys()
+
         for (s1, s2) in it.combinations(bg.stems(), 2):
+            if s1 not in nodes or s2 not in nodes:
+                continue
+
             #print s1, s2
             if bg.are_any_adjacent_stems(s1, s2):
                 continue
@@ -643,6 +657,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
     def __init__(self):
         super(StemVirtualResClashEnergy, self).__init__()
+        self.bad_bulges = []
 
     def virtual_residue_atom_clashes_kd(self):
         '''
@@ -720,7 +735,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         print >>sys.stderr, "clashes1", clashes
         return clashes
 
-    def eval_energy(self, sm, background=False):
+    def eval_energy(self, sm, background=False, nodes = None, new_nodes = None):
         '''
         Cound how many clashes of virtual residues there are.
 
@@ -739,7 +754,10 @@ class StemVirtualResClashEnergy(EnergyFunction):
         points = []
         energy = 0.
 
-        for d in sm.bg.defines.keys():
+        if nodes == None:
+            nodes = sm.bg.defines.keys()
+
+        for d in nodes:
             if d[0] == 's':
                 s = d
                 s_len = bg.stem_length(s)
@@ -763,12 +781,19 @@ class StemVirtualResClashEnergy(EnergyFunction):
         #print len(kk.query_pairs(7.))
 
         indeces = kdt.all_get_indices()
+        potential_clashes = 0
         for (ia,ib) in indeces:
             (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
             (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
 
+            if new_nodes != None:
+                if s1 not in new_nodes and s2 not in new_nodes:
+                    continue
+
             if s1 == s2:
                 continue
+
+            potential_clashes += 1
 
             if (s1,i1,a1) not in self.vras.keys():
                 self.vras[(s1,i1,a1)] = cgg.virtual_residue_atoms(bg, s1, i1, a1)
@@ -778,6 +803,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
+        cud.pv('potential_clashes')
         return energy
 
 class StemClashEnergy(EnergyFunction):
@@ -1027,9 +1053,14 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     def __init__(self):
         super(RoughJunctionClosureEnergy, self).__init__()
 
-    def eval_energy(self, sm, background=True):
+
+    def eval_energy(self, sm, background=True, nodes = None, new_nodes = None):
         bg = sm.bg
-        all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and (len(bg.edges[d]) == 2 and bg.weights[d] == 1)])
+        #if nodes == None:
+        nodes = bg.defines.keys()
+
+        self.bad_bulges = []
+        all_bulges = set([d for d in nodes if d[0] != 's' and (len(bg.edges[d]) == 2 and bg.weights[d] == 1)])
         energy = 0.
         #closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
@@ -1045,6 +1076,10 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
 
             if (dist > cutoff_distance):
+                self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
+                #cud.pv('bulge, dist, cutoff_distance, self.bad_bulges')
+                cud.pv('bulge, dist, cutoff_distance')
+                #cud.pv('nodes')
                 #print "bulge:", bulge, "bl:", bl, "cutoff_distance:", cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
 
@@ -1090,7 +1125,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         orig_kde = stats.gaussian_kde(orig_angles)
         return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 4.)
 
-    def eval_energy(self, sm, background=True):
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         energy = 0
         self.interaction_energies = c.defaultdict(float)
         
@@ -1301,7 +1336,7 @@ class LoopLoopEnergy(EnergyFunction):
 
         return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs) 
 
-    def eval_energy(self, sm, background=True):
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         self.interaction_energies = c.defaultdict(int)
         if self.real_data == None:
             (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')

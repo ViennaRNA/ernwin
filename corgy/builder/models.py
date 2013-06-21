@@ -2,6 +2,7 @@
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
+import random
 import os
 import warnings
 import numpy as np
@@ -10,6 +11,7 @@ import math
 import sys
 import collections as c
 import random as rand
+import collections as c
 
 import corgy.builder.config as cbc
 import corgy.builder.stats as cbs
@@ -258,7 +260,7 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
 
     return reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library, stem)
 
-def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e)):
+def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name=''):
     '''
     Place a new stem with a particular orientation with respect
     to the previous stem.
@@ -270,12 +272,18 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e)):
     @param (s1b, s1e): Which side of the first stem to place the second on.
     '''
     stem = StemModel()
-
+    
     stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
     start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
     stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
     twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
 
+    '''
+    if stem_name == 's10':
+        #cud.pv('stem1_basis')
+        #cud.pv('bulge_params.position_params()')
+        cud.pv('cuv.magnitude(start_location)')
+    '''
 
     mid1 = prev_stem.mids[s1e] + start_location
     mid2 = mid1 + stem_orientation
@@ -307,8 +315,10 @@ class SpatialModel:
         self.bulges = dict()
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
+        self.constraint_energy = None
 
         self.bg = bg
+        self.add_to_skip()
 
     def sample_stats(self):
         self.sample_angles()
@@ -317,6 +327,61 @@ class SpatialModel:
         self.sample_fiveprime()
         self.sample_threeprime()
 
+    def resample(self, d):
+        #cud.pv('"pre-resampled", d')
+        if d[0] == 's':
+            self.sample_stem(d)
+        else:
+            if len(self.bg.edges[d]) == 2:
+                self.sample_angle(d)
+        #cud.pv('"post-resampled", d, str(self.stem_defs[d])')
+
+    def sample_angle(self, d):
+        size = self.bg.get_bulge_dimensions(d)
+
+        #HACK to overcome some sparse statistics
+        #TODO: remove this
+        '''
+        if size == (1,7):
+            size = (2,7)
+        if size == (2,7):
+            size = (3,7)
+        '''
+
+        angle_defs = self.angle_defs
+
+        connections = list(self.bg.edges[d])
+        (s1b, s1e) = self.bg.get_sides(connections[0], d)
+        (s2b, s2e) = self.bg.get_sides(connections[1], d)
+        dir1 = self.bg.get_stem_direction(connections[0], connections[1])
+        dir2 = self.bg.get_stem_direction(connections[1], connections[0])
+
+        ang_type1 = cbs.end_ang_types[(s1b, s2b, dir1)]
+        ang_type3 = cbs.end_ang_types[(s2b, s1b, dir2)]
+
+        try:
+            #cud.pv('len(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])')
+            #cud.pv('len(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])')
+            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])
+            #angle_defs[d][ang_type2] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type2])
+            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])
+            #angle_defs[d][ang_type4] = choice(cb.get_angle_stats()[size[0]][size[1]][ang_type4])
+        except IndexError:
+            #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
+            #cud.pv('ang_type1')
+            #cud.pv('ang_type3')
+
+            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size1][size2][ang_type1])
+            #print >>sys.stderr, "Using size instead:", size1, size2
+            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size1][size2][ang_type3])
+            #print >>sys.stderr, "Using size instead:", size1, size2
+            '''
+            print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
+            print cbs.get_angle_stat_dims(size[0], size[1], ang_type3)
+            '''
+
     def sample_angles(self):
         '''
         Sample statistics for each bulge region. In this case they'll be random.
@@ -324,7 +389,7 @@ class SpatialModel:
         @return: A dictionary where the key is the name of a bulge and the value is a 
             statistic for the angles of that bulge.
         '''
-        angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
+        self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
         '''
         angle_defs['start'][0][1] = cbs.AngleStat()
         angle_defs['start'][1][0] = cbs.AngleStat()
@@ -333,53 +398,23 @@ class SpatialModel:
         for d in self.bg.defines.keys():
             if d[0] != 's': 
                 if len(self.bg.edges[d]) == 2:
-                    size = self.bg.get_bulge_dimensions(d)
-
-                    #HACK to overcome some sparse statistics
-                    #TODO: remove this
-                    '''
-                    if size == (1,7):
-                        size = (2,7)
-                    if size == (2,7):
-                        size = (3,7)
-                    '''
-
-                    connections = list(self.bg.edges[d])
-                    (s1b, s1e) = self.bg.get_sides(connections[0], d)
-                    (s2b, s2e) = self.bg.get_sides(connections[1], d)
-                    dir1 = self.bg.get_stem_direction(connections[0], connections[1])
-                    dir2 = self.bg.get_stem_direction(connections[1], connections[0])
-
-                    ang_type1 = cbs.end_ang_types[(s1b, s2b, dir1)]
-                    ang_type3 = cbs.end_ang_types[(s2b, s1b, dir2)]
-
-                    try:
-                        angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])
-                        #angle_defs[d][ang_type2] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type2])
-                        angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])
-                        #angle_defs[d][ang_type4] = choice(cb.get_angle_stats()[size[0]][size[1]][ang_type4])
-                    except IndexError:
-                        print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
-                        cud.pv('ang_type1')
-                        cud.pv('ang_type3')
-
-                        (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-                        angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size1][size2][ang_type1])
-                        print >>sys.stderr, "Using size instead:", size1, size2
-                        (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-                        angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size1][size2][ang_type3])
-                        print >>sys.stderr, "Using size instead:", size1, size2
-                        '''
-                        print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
-                        print cbs.get_angle_stat_dims(size[0], size[1], ang_type3)
-                        '''
+                    self.sample_angle(d)
                 '''
                 else:
                     angle_defs[d][0][0] = cbs.AngleStat()
                     pass
                 '''
 
-        self.angle_defs = angle_defs
+        #self.angle_defs = angle_defs
+
+    def sample_stem(self, d):
+        stem_defs = self.stem_defs
+        define = self.bg.defines[d]
+        length = abs(define[1] - define[0])
+
+        # retrieve a random entry from the StemStatsDict collection
+        ss = choice(cbs.get_stem_stats()[length])
+        stem_defs[d] = ss
 
     def sample_stems(self):
         '''
@@ -387,18 +422,11 @@ class SpatialModel:
 
         @return: A dictionary containing statistics about the stems in the structure.
         '''
-        stem_defs = dict()
+        self.stem_defs = dict()
 
         for d in self.bg.defines.keys():
             if d[0] == 's':
-                define = self.bg.defines[d]
-                length = abs(define[1] - define[0])
-
-                # retrieve a random entry from the StemStatsDict collection
-                ss = choice(cbs.get_stem_stats()[length])
-                stem_defs[d] = ss
-
-        self.stem_defs = stem_defs
+                self.sample_stem(d)
 
     def sample_native_stems(self):
         '''
@@ -451,7 +479,7 @@ class SpatialModel:
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], sb[1])[0]
             size = (size1, size2)
 
-            cud.pv('b, sb, len(sb), size')
+            #cud.pv('b, sb, len(sb), size')
             for ang_s in cbs.get_angle_stats()[size[0]][size[1]][sb[1]]:
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
                     print >>sys.stderr, "some stuff", b
@@ -666,6 +694,7 @@ class SpatialModel:
         Return a random set of parameters with which to create a bulge.
         '''
         if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
+            #cud.pv('"over here"')
             return cbs.AngleStat()
 
         ang_type = cbs.end_ang_types[(s1b, s2b, direction)]
@@ -685,7 +714,17 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
-        stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e))
+
+        stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
+        '''
+        if stem_name == 's10':
+            cud.pv('"holla"')
+            cud.pv('bulge_params')
+            cud.pv('stem')
+            cud.pv('s1b, s1e')
+            cud.pv('self.stems["s12"].twists[1]')
+        '''
+
         stem.name = stem_name
 
         if self.build_chain:
@@ -721,6 +760,20 @@ class SpatialModel:
                     self.bulges[d] = BulgeModel((s1mid, s2mid))
                     self.closed_bulges += [d]
 
+    def stem_to_coords(self, stem):
+        sm = self.stems[stem]
+
+        self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
+        self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
+
+        '''
+        for edge in self.bg.edges[stem]:
+            if self.bg.weights[edge] == 2:
+                cgg.add_virtual_residues(self.bg, edge)
+        '''
+
+        cgg.add_virtual_residues(self.bg, stem)
+
     def elements_to_coords(self):
         '''
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
@@ -728,18 +781,7 @@ class SpatialModel:
 
         #for stem in self.stems.keys():
         for stem in self.newly_added_stems:
-            sm = self.stems[stem]
-
-            self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
-            self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
-
-            '''
-            for edge in self.bg.edges[stem]:
-                if self.bg.weights[edge] == 2:
-                    cgg.add_virtual_residues(self.bg, edge)
-            '''
-
-            cgg.add_virtual_residues(self.bg, stem)
+            self.stem_to_coords(stem)
 
         for bulge in self.bulges.keys():
             bm = self.bulges[bulge]
@@ -761,8 +803,8 @@ class SpatialModel:
         to_visit = [first_node]
 
         while len(to_visit) > 0:
-            #to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
-            rand.shuffle(to_visit)
+            to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
+            #rand.shuffle(to_visit)
             (curr_node, prev_node) = to_visit.pop()
 
             while curr_node in visited:
@@ -771,6 +813,8 @@ class SpatialModel:
                 else:
                     self.visit_order = visited
                     return self.sampled_bulges
+
+            #cud.pv('curr_node, self.bg.stem_length(curr_node)')
 
             #print curr_node, prev_node
 
@@ -798,7 +842,33 @@ class SpatialModel:
         self.save_sampled_fiveprimes()
         self.save_sampled_threeprimes()
 
-    def traverse_and_build(self, start=''):
+    def add_to_skip(self):
+        '''
+        Build a minimum spanning tree of the bulge graph.
+        '''
+        to_skip = set()
+        visited = set()
+
+        for d in self.bg.defines.keys():
+            if d in visited:
+                continue
+
+            visited.add(d)
+
+            loop = self.bg.find_bulge_loop(d, 1000000) + [d]
+            if len(loop) > 1:
+                loop_w_sizes = [(self.bg.stem_length(l), l) for l in loop if l[0] != 's']
+                loop_w_sizes += [(0, l) for l in loop if l[0] == 's']
+                to_remove = max(loop_w_sizes)[1]
+                cud.pv('to_remove, loop')
+                to_skip.add(to_remove)
+
+            for l in loop:
+                visited.add(l)
+
+        self.to_skip = to_skip
+
+    def traverse_and_build(self, start='start'):
         '''
         Build a 3D structure from the graph in self.bg.
 
@@ -807,7 +877,11 @@ class SpatialModel:
 
         Once all of the stems have been added, the bulges and loops
         are added.
+
+        If a constraint energy is provided, then the nascent structure
+        must fullfill the constraint at every step of the process.
         '''
+        constraint_energy = self.constraint_energy
 
         #print >>sys.stderr, "traverse_and_build"
         self.visited = set()
@@ -819,8 +893,12 @@ class SpatialModel:
         self.closed_bulges = []
         self.newly_added_stems = []
 
+        new_visited = []
         # the start node should be a loop region
         self.to_visit = [self.find_start_node()]
+        paths = c.defaultdict(list)
+
+        self.visit_order = []
 
         counter = 0
         '''
@@ -833,68 +911,183 @@ class SpatialModel:
         if start == '':
             started = True
 
-        while len(self.to_visit) > 0:
-            self.to_visit.sort(key=lambda x: -self.bg.stem_length(x[0]))
-            
-            (curr_node, prev_node, prev_stem) = self.to_visit.pop()
+        restart=False
 
-            while curr_node in self.visited:
-                if len(self.to_visit) > 0:
-                    (curr_node, prev_node, prev_stem) = self.to_visit.pop()
-                else:
-                    self.finish_building()
-                    return
-                    
-            self.visited.add(curr_node)
-            stem = prev_stem
+        #cud.pv('self.to_skip')
+        #print "starting:"
 
-            if prev_node == start:
-                started = True
-
-            if curr_node[0] == 's':
-                params = self.get_random_stem_stats(curr_node)
-
-                if prev_node == 'start':
-                    (s1b, s1e) = (1, 0)
-                else:
-                    (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
-
-                # get some parameters for the previous bulge
-                #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
-                (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
-                direction = self.bg.get_stem_direction(prev_stem.name, curr_node)
-
-                prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b, direction))
-                self.sampled_bulges += [prev_node]
-                if len(self.bg.edges[prev_node]) == 2:
-                    self.sampled_bulge_sides += [(prev_node, (ps1b, s1b, direction))]
-
-                # the previous stem should always be in the direction(0, 1) 
-                if started:
-                    #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
-                    #print "ps1b:", ps1b, "ps1e", ps1e
-                    stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
-                    self.newly_added_stems += [curr_node]
-
-                    # the following is done to maintain the invariant that mids[s1b] is
-                    # always in the direction of the bulge from which s1b was obtained
-                    # i.e. s1e -> s1b -> bulge -> s2b -> s2e
-                    #self.stems[curr_node] = stem
-
-                    if s1b == 1:
-                        self.stems[curr_node] = stem.reverse()
+        while True:
+            #cud.pv('"starting"')
+            while len(self.to_visit) > 0:
+                self.to_visit.sort(key=lambda x: ('a' if x[1][0] == 's' else x[1][0], -self.bg.stem_length(x[1])))
+                
+                (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
+                tbc = True
+                while curr_node in self.visited or curr_node in self.to_skip:
+                    if len(self.to_visit) > 0:
+                        (curr_node, prev_node, prev_stem) = self.to_visit.pop()
                     else:
-                        self.stems[curr_node] = stem
-                else:
-                    if s1b == 1:
-                        stem = self.stems[curr_node].reverse()
+                        #self.finish_building()
+                        tbc = False
+                        break
+
+                if not tbc:
+                    break
+
+                #cud.pv('[(t[0], self.bg.stem_length(t[1])) for t in self.to_visit]')
+
+                #cud.pv('curr_node, prev_node, self.bg.stem_length(curr_node)')
+                #cud.pv('curr_node,prev_node')
+                        
+                paths[curr_node] += [curr_node]
+                paths[curr_node] += paths[prev_node]
+
+                self.visited.add(curr_node)
+
+                v = list(self.visited)
+                v.sort()
+
+                '''
+                if curr_node == 's10':
+                    cud.pv('curr_node')
+                    cud.pv('v')
+
+                cud.pv('curr_node, "s10" in self.visited')
+                '''
+
+                stem = prev_stem
+
+                #if curr_node == start:
+                if start in paths[curr_node] or start == 'start':
+                    started = True
+
+                if curr_node[0] == 's':
+                    params = self.get_random_stem_stats(curr_node)
+
+                    if prev_node == 'start':
+                        (s1b, s1e) = (1, 0)
                     else:
-                        stem = self.stems[curr_node]
+                        (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 
-            for edge in self.bg.edges[curr_node]:
-                if edge not in self.visited:
-                    self.to_visit.append((edge, curr_node, stem))
+                    # get some parameters for the previous bulge
+                    #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
+                    (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
+                    direction = self.bg.get_stem_direction(prev_stem.name, curr_node)
 
-            counter += 1
+                    prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b, direction))
+                    self.sampled_bulges += [prev_node]
+                    if len(self.bg.edges[prev_node]) == 2:
+                        self.sampled_bulge_sides += [(prev_node, (ps1b, s1b, direction))]
+
+                    # the previous stem should always be in the direction(0, 1) 
+                    if started:
+                        new_visited += [curr_node]
+                        '''
+                        if curr_node == 's10':
+                            print "started prev_node:", prev_node, "curr_node:", curr_node, "start:", start
+                        '''
+                        #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
+                        #print "ps1b:", ps1b, "ps1e", ps1e
+                        #cud.pv('prev_node, str(prev_params)')
+                        self.visit_order += [prev_node]
+                        stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
+                        self.newly_added_stems += [curr_node]
+
+                        # the following is done to maintain the invariant that mids[s1b] is
+                        # always in the direction of the bulge from which s1b was obtained
+                        # i.e. s1e -> s1b -> bulge -> s2b -> s2e
+                        #self.stems[curr_node] = stem
+
+                        if s1b == 1:
+                            self.stems[curr_node] = stem.reverse()
+                        else:
+                            self.stems[curr_node] = stem
+
+
+                        self.stem_to_coords(curr_node)
+
+                        if constraint_energy != None and not restart:
+                            #cud.pv('new_visited')
+                            cud.pv('len(self.visited), len(new_visited)')
+                            e1 = constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = new_visited)
+                            #e1 = constraint_energy.eval_energy(self)
+                            #cud.pv('e1')
+                            #cud.pv('curr_node, e1')
+
+                            #cud.pv('self.visited')
+                            #cud.pv('"pre", e1')
+                            #cud.pv('constraint_energy.eval_energy(self)')
+                            if e1 > 10:
+                                for p in paths[curr_node]:
+                                    if p[0] == 's':
+                                        continue
+
+                                    if random.random() < 0.5:
+                                        break
+
+                                to_change = p
+                                restart=True
+                            else:
+                                #cud.pv('"passing", start, curr_node, len(self.visited), len(new_visited)')
+                                pass
+
+                            new_visited = []
+
+                    else:
+                        #cud.pv('"unstarted", curr_node')
+                        #cud.pv('paths[curr_node], start')
+                        '''
+                        if curr_node == 's13':
+                            print "unstarted prev_node:", prev_node, "start:", start
+                        '''
+                        if s1b == 1:
+                            stem = self.stems[curr_node].reverse()
+                        else:
+                            stem = self.stems[curr_node]
+
+                to_append = []
+                for edge in self.bg.edges[curr_node]:
+                    if edge not in self.visited:
+                        to_append.append((edge, curr_node, stem))
+                        to_append.sort(key=lambda x: -self.bg.stem_length(x[1]))
+
+                self.to_visit += to_append
+
+                counter += 1
+
+            if self.junction_constraint_energy != None:
+                e1 = self.junction_constraint_energy.eval_energy(self)
+
+                if e1 > 0.:
+                    cud.pv('self.junction_constraint_energy.bad_bulges')
+                    to_change = random.choice(self.junction_constraint_energy.bad_bulges)
+                    restart = True
+
+            if restart:
+                self.resample(to_change)
+                cud.pv('to_change, e1, paths[to_change]')
+                #cud.pv('to_change')
+                #cud.pv('e1')
+                self.sampled_bulges = []
+                self.sampled_bulge_sides = []
+                self.closed_bulges = []
+                self.newly_added_stems = []
+                self.visited = set()
+                self.to_visit = [self.find_start_node()]
+                self.visit_order = []
+                #paths = c.defaultdict(list)
+                paths = c.defaultdict(list)
+                start = to_change
+                #start = 'start'
+                started = False
+                new_visited = []
+                #cud.pv('start')
+                #sys.exit(1)
+                #self.traverse_and_build(to_change)
+                #return
+                restart = False
+            else:
+                break
+
         self.finish_building()
 

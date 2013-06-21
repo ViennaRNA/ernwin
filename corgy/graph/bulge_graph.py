@@ -581,7 +581,6 @@ class BulgeGraph:
         return random.choice(loops)
 
     def get_seq(self, key):
-        #cud.pv('self.defines[key]')
         seq = self.seq[self.defines[key][0]:self.defines[key][1]-1]
         return seq
 
@@ -753,8 +752,6 @@ class BulgeGraph:
         prev_stem = self.connections(bulge)[0]
         c = self.connections(bulge)
 
-        #cud.pv('bulge')
-
         (s1b, s1e) = self.get_sides(c[0], bulge)
         (s2b, s2e) = self.get_sides(c[1], bulge)
 
@@ -762,8 +759,6 @@ class BulgeGraph:
             dims = (abs(bd[1] - bd[0]), 1000)
         else:
             dims = (abs(bd[1] - bd[0]), abs(bd[3] - bd[2]))
-
-        cud.pv('dims')
 
         if s1b == s2b:
             assert(s1b == 0)
@@ -888,7 +883,6 @@ class BulgeGraph:
             if stem > longest_stem:
                 longest_stem = stem
 
-        #cud.pv('longest_stem')
         return longest_stem[1]
 
 
@@ -1338,8 +1332,6 @@ class BulgeGraph:
         i1 = def1[side*2] - f1[0]
         i2 = def1[side*2 + 1] - f1[0]
 
-        #cud.pv('i1')
-        #cud.pv('i2')
         '''
         if b == self.length:
             b -= 1
@@ -1535,7 +1527,7 @@ class BulgeGraph:
 
         return new_vertex
 
-    def find_bulge_loop(self, vertex):
+    def find_bulge_loop(self, vertex, max_len = 4):
         '''
         Find a set of nodes that form a loop containing the
         given vertex and being no greater than 4 nodes long.
@@ -1557,7 +1549,7 @@ class BulgeGraph:
 
             for key in self.edges[current]:
                 if key == vertex and depth > 1:
-                    if len(in_path[:depth+1]) > 4:
+                    if len(in_path[:depth+1]) > max_len:
                         continue
                     else:
                         return in_path[:depth+1]

@@ -331,6 +331,24 @@ class MCMCSampler:
         self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
         sm.sample_stats()
+        constraint_energy = sm.constraint_energy
+        junction_constraint_energy = sm.junction_constraint_energy
+        sm.constraint_energy = None
+        sm.junction_constraint_energy = None
+        sm.traverse_and_build()
+        sm.constraint_energy = constraint_energy
+        sm.junction_constraint_energy = junction_constraint_energy
+        sm.traverse_and_build()
+        sm.constraint_energy = None
+        sm.junction_constraint_energy = None
+        cud.pv('constraint_energy.eval_energy(sm)')
+        cud.pv('junction_constraint_energy.eval_energy(sm)')
+        sm.traverse_and_build()
+        cud.pv('constraint_energy.eval_energy(sm)')
+        cud.pv('junction_constraint_energy.eval_energy(sm)')
+        cud.pv('energy_function.eval_energy(sm)')
+        self.prev_energy = energy_function.eval_energy(sm)
+        sys.exit(1)
         sm.get_sampled_bulges()
 
     def change_angle(self):
@@ -360,6 +378,7 @@ class MCMCSampler:
 
         #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
+        #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
         self.sm.angle_defs[bulge][ang_type1] = pa
         self.sm.traverse_and_build()
@@ -369,12 +388,14 @@ class MCMCSampler:
         if energy > self.prev_energy:
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
+                #cud.pv('self.sm.angle_defs[bulge][ang_type1]')
+                #cud.pv('prev_angle')
                 self.sm.angle_defs[bulge][ang_type1] = prev_angle
                 self.sm.traverse_and_build(start=bulge)
-                #print "skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                #print "angle skipping:", bulge,  math.exp(self.prev_energy - energy), self.prev_energy, energy
+                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
-                #print "accepting:", energy, self.prev_energy, math.exp(self.prev_energy - energy)
-                #print "accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                #print "angle accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
@@ -395,6 +416,7 @@ class MCMCSampler:
 
         #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
+        #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_stem = self.sm.stem_defs[stem]
         #cud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.stem_defs[stem] = pa
@@ -404,10 +426,11 @@ class MCMCSampler:
         if energy > self.prev_energy:
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.stem_defs[stem] = prev_stem
-                self.sm.traverse_and_build(start=stem)
-                #print "loop skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                self.sm.traverse_and_build()
+                #print "stem skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
-                #print "loop accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                #print "stem accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
@@ -443,6 +466,7 @@ class MCMCSampler:
 
         #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
+        #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_loop = self.sm.loop_defs[loop]
         #cud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.loop_defs[loop] = pa
@@ -454,7 +478,9 @@ class MCMCSampler:
                 self.sm.loop_defs[loop] = prev_loop
                 self.sm.traverse_and_build(start=loop)
                 #print "loop skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
+                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
+                
                 #print "loop accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
