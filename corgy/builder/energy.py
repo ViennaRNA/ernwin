@@ -214,7 +214,7 @@ class CombinedEnergy:
             self.bad_bulges += energy.bad_bulges
     
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background, nodes=nodes, new_nodes=nodes)
+            contrib = energy.eval_energy(sm, background, nodes=nodes, new_nodes=new_nodes)
 
             self.bad_bulges += energy.bad_bulges
             total_energy += contrib
@@ -703,6 +703,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if abs(resn1 - resn2) == 1:
                 continue
 
+            self.bad_bulges += [key1[0], key2[0]]
             clashes += 1
 
         return clashes
@@ -747,6 +748,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.vras = dict()
         self.bases = dict()
         self.bg = sm.bg
+        self.bad_bulges = []
 
         l = []
         bg = sm.bg
@@ -756,6 +758,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         if nodes == None:
             nodes = sm.bg.defines.keys()
+
+         
 
         for d in nodes:
             if d[0] == 's':
@@ -769,22 +773,51 @@ class StemVirtualResClashEnergy(EnergyFunction):
                     points += [(p+ mult * v_l, d, i, 1)]
                     points += [(p+ mult * v_r, d, i, 0)]
 
-        coords = np.vstack([p[0] for p in points])
+        if new_nodes == None:
+            coords = np.vstack([p[0] for p in points])
+            clash_pairs = []
 
-        #kk = ss.KDTree(np.array(l))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            kdt = kd.KDTree(3)
-            kdt.set_coords(coords)
-            kdt.all_search(10.)
-        #print len(kdt.all_get_indices())
-        #print len(kk.query_pairs(7.))
+            #kk = ss.KDTree(np.array(l))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                kdt = kd.KDTree(3)
+                kdt.set_coords(coords)
+                kdt.all_search(10.)
+            #print len(kdt.all_get_indices())
+            #print len(kk.query_pairs(7.))
 
-        indeces = kdt.all_get_indices()
+            indeces = kdt.all_get_indices()
+            for (ia,ib) in indeces:
+                (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
+                (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
+                clash_pairs += [((s1,i1,a2), (s2,i2,a2))]
+        else:
+            new_points = []
+            indeces = []
+            clash_pairs = []
+            for d in new_nodes:
+                if d[0] == 's':
+                    s = d
+                    s_len = bg.stem_length(s)
+                    #stem_inv = bg.stem_invs[s]
+
+                    for i in range(s_len):
+                        (p, v, v_l, v_r) = bg.v3dposs[d][i]
+
+                        new_points += [(p+ mult * v_l, d, i, 1)]
+                        new_points += [(p+ mult * v_r, d, i, 0)]
+
+            #cud.pv('len(new_nodes)')
+            for i,p in enumerate(points):
+                for ni, newp in enumerate(new_points):
+                    if p[1] == newp[1]:
+                        continue
+                    if cuv.magnitude(p[0] - newp[0]) < 10.:
+                        clash_pairs += [(p[1:], newp[1:])]
+                        #cud.pv('clash_pairs')
+
         potential_clashes = 0
-        for (ia,ib) in indeces:
-            (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
-            (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
+        for (s1, i1, a1), (s2,i2,a2) in clash_pairs:
 
             if new_nodes != None:
                 if s1 not in new_nodes and s2 not in new_nodes:
@@ -803,7 +836,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
-        cud.pv('potential_clashes')
+        #cud.pv('potential_clashes')
         return energy
 
 class StemClashEnergy(EnergyFunction):
@@ -1306,6 +1339,7 @@ class CheatingEnergy(EnergyFunction):
 
 class LoopLoopEnergy(EnergyFunction):
     def __init__(self):
+        super(LoopLoopEnergy, self).__init__()
         self.real_data = None
         self.fake_data = None
 

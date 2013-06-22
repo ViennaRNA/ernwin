@@ -919,7 +919,7 @@ class SpatialModel:
         while True:
             #cud.pv('"starting"')
             while len(self.to_visit) > 0:
-                self.to_visit.sort(key=lambda x: ('a' if x[1][0] == 's' else x[1][0], -self.bg.stem_length(x[1])))
+                #self.to_visit.sort(key=lambda x: ('a' if x[1][0] == 's' else x[1][0], -self.bg.stem_length(x[1])))
                 
                 (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
                 tbc = True
@@ -1008,7 +1008,7 @@ class SpatialModel:
 
                         if constraint_energy != None and not restart:
                             #cud.pv('new_visited')
-                            cud.pv('len(self.visited), len(new_visited)')
+                            #cud.pv('len(self.visited), len(new_visited)')
                             e1 = constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = new_visited)
                             #e1 = constraint_energy.eval_energy(self)
                             #cud.pv('e1')
@@ -1018,19 +1018,29 @@ class SpatialModel:
                             #cud.pv('"pre", e1')
                             #cud.pv('constraint_energy.eval_energy(self)')
                             if e1 > 10:
-                                for p in paths[curr_node]:
+                                bb = set(self.constraint_energy.bad_bulges)
+                                bp = []
+                                for b in bb:
+                                    bp += [(len(paths[b]), b)]
+
+                                bp.sort()
+                                sb = max((bp))[1]
+                                #sb = random.choice(list(bb))
+                                #cud.pv('bp')
+                                #cud.pv('max(bp)')
+
+                                for p in paths[sb]:
                                     if p[0] == 's':
                                         continue
-
-                                    if random.random() < 0.5:
+                                    if random.random() < 0.8:
                                         break
 
                                 to_change = p
-                                restart=True
+                                restart = True
+                                break
                             else:
                                 #cud.pv('"passing", start, curr_node, len(self.visited), len(new_visited)')
                                 pass
-
                             new_visited = []
 
                     else:
@@ -1055,13 +1065,38 @@ class SpatialModel:
 
                 counter += 1
 
-            if self.junction_constraint_energy != None:
+            if not restart and self.constraint_energy != None:
+                e1 = self.constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = None)
+                if e1 > 0.:
+                    #cud.pv('set(self.constraint_energy.bad_bulges)')
+                    bb = set(self.constraint_energy.bad_bulges)
+                    bp = []
+                    for b in bb:
+                        bp += [(len(paths[b]), b)]
+
+                    bp.sort()
+                    sb = max((bp))[1]
+                    #sb = random.choice(list(bb))
+                    #cud.pv('bp')
+
+                    for p in paths[sb]:
+                        if p[0] == 's':
+                            continue
+                        if random.random() < 0.5:
+                            break
+
+                    to_change = p
+                    restart = True
+
+            if not restart and self.junction_constraint_energy != None:
                 e1 = self.junction_constraint_energy.eval_energy(self)
 
                 if e1 > 0.:
                     cud.pv('self.junction_constraint_energy.bad_bulges')
                     to_change = random.choice(self.junction_constraint_energy.bad_bulges)
                     restart = True
+
+
 
             if restart:
                 self.resample(to_change)

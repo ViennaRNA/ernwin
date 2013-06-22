@@ -348,7 +348,7 @@ class MCMCSampler:
         cud.pv('junction_constraint_energy.eval_energy(sm)')
         cud.pv('energy_function.eval_energy(sm)')
         self.prev_energy = energy_function.eval_energy(sm)
-        sys.exit(1)
+        #sys.exit(1)
         sm.get_sampled_bulges()
 
     def change_angle(self):
