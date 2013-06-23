@@ -1156,7 +1156,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         #return cek.gaussian_kde(sampled_angles, bw_method=0.1)
         #cud.pv('sampled_angles')
         orig_kde = stats.gaussian_kde(orig_angles)
-        return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 4.)
+        return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 2.)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         energy = 0
@@ -1372,7 +1372,7 @@ class LoopLoopEnergy(EnergyFunction):
 
     def calc_energy(self, dist):
         p_r = self.real_d_given_i(dist) / self.real_d(dist)
-        p_s = self.sampled_d_given_i(dist) / self.sampled_d(dist)
+        p_s = self.fake_d_given_i(dist) / self.fake_d(dist)
 
         return np.log((p_r + p_s) / p_s)
 
@@ -1397,11 +1397,13 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             dist = cuv.magnitude(i1 - i2)
+            #cud.pv('dist')
             num += 1
-            contrib = self.calc_energy(x)
+            contrib = self.calc_energy(dist)
 
             key = tuple(sorted([l1,l2]))
             contribs[key] += [contrib]
+            energy += contrib
         
         if num == 0:
             return 0

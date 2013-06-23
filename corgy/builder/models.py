@@ -316,9 +316,13 @@ class SpatialModel:
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
         self.constraint_energy = None
+        self.junction_constraint_energy = None
 
         self.bg = bg
         self.add_to_skip()
+        
+        for s in bg.stems():
+            cgg.add_virtual_residues(self.bg,s)
 
     def sample_stats(self):
         self.sample_angles()

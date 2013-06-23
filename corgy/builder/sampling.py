@@ -196,6 +196,7 @@ class SamplingStatistics:
         self.save_n_best = save_n_best
         self.sm_orig = sm_orig
         self.energy_orig = None
+        self.step_save = False
 
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
@@ -267,8 +268,10 @@ class SamplingStatistics:
             output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
             if self.output_file != sys.stdout:
                 print output_str.strip()
-            self.output_file.write(output_str)
-            self.output_file.flush()
+
+            if self.output_file != None:
+                self.output_file.write(output_str)
+                self.output_file.flush()
 
         self.update_plots(energy, r)
 
@@ -341,12 +344,12 @@ class MCMCSampler:
         sm.traverse_and_build()
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
-        cud.pv('constraint_energy.eval_energy(sm)')
-        cud.pv('junction_constraint_energy.eval_energy(sm)')
+        #cud.pv('constraint_energy.eval_energy(sm)')
+        #cud.pv('junction_constraint_energy.eval_energy(sm)')
         sm.traverse_and_build()
-        cud.pv('constraint_energy.eval_energy(sm)')
-        cud.pv('junction_constraint_energy.eval_energy(sm)')
-        cud.pv('energy_function.eval_energy(sm)')
+        #cud.pv('constraint_energy.eval_energy(sm)')
+        #cud.pv('junction_constraint_energy.eval_energy(sm)')
+        #cud.pv('energy_function.eval_energy(sm)')
         self.prev_energy = energy_function.eval_energy(sm)
         #sys.exit(1)
         sm.get_sampled_bulges()
