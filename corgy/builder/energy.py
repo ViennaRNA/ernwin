@@ -1370,6 +1370,12 @@ class LoopLoopEnergy(EnergyFunction):
 
         return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs) 
 
+    def calc_energy(self, dist):
+        p_r = self.real_d_given_i(dist) / self.real_d(dist)
+        p_s = self.sampled_d_given_i(dist) / self.sampled_d(dist)
+
+        return np.log((p_r + p_s) / p_s)
+
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         self.interaction_energies = c.defaultdict(int)
         if self.real_data == None:
@@ -1382,20 +1388,6 @@ class LoopLoopEnergy(EnergyFunction):
         energy = 0
         contribs = c.defaultdict(list)
 
-        x = np.linspace(0, 50, 100)
-
-        '''
-        import matplotlib.pyplot as plt
-
-        fig = plt.figure()
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
-
-        ax.plot(x, self.real_d_given_i(x) / self.real_d(x), 'g', label="real")
-        ax.plot(x, self.fake_d_given_i(x) / self.fake_d(x), 'r', label="sampled")
-
-        plt.show()
-        '''
-
         for (l1, l2) in it.combinations(sm.bg.loops(), 2):
             if l1 == l2:
                 continue
@@ -1404,57 +1396,22 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            x = cuv.magnitude(i1 - i2)
-
-            if x < 4.:
-                continue
-
-            if x > 40.:
-                x = 40
-
+            dist = cuv.magnitude(i1 - i2)
             num += 1
+            contrib = self.calc_energy(x)
 
-            real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
-            fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
-
-            #contrib = real_i_given_d - fake_i_given_d
-            contrib = my_log(real_i_given_d/fake_i_given_d)
-            #cud.pv('l1,l2,contrib,x')
-
-            iprob = self.real_iprobs[sm.bg.get_length(l1)]
-
-            #energy += iprob * contrib
             key = tuple(sorted([l1,l2]))
-            #contribs[key] += [5. * contrib]
             contribs[key] += [contrib]
-            #cud.pv('x, contrib')
-
-            #energy += contrib
         
         if num == 0:
             return 0
 
+        '''
         for k in contribs.keys():
             energy += max(contribs[k])
             self.interaction_energies[k] += max(contribs[k])
-
-
+        '''
         return -energy;
-        '''
-        x = np.linspace(min(self.real_data), max(self.real_data))
-
-        real_i_given_d = self.real_d_given_i(x) / self.real_d(x)
-        fake_i_given_d = self.fake_d_given_i(x) / self.fake_d(x)
-
-        import matplotlib.pyplot as plt
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.plot(x, my_log(real_i_given_d), 'g')
-        ax.plot(x, my_log(fake_i_given_d), 'r')
-        ax.plot(x, my_log(real_i_given_d / fake_i_given_d), 'b')
-        plt.show()
-        '''
 
 class LoopJunctionEnergy(LoopLoopEnergy):
 
