@@ -44,6 +44,7 @@ def optimal_superposition(crds1, crds2):
         v[:, -1] = -v[:, -1]
     return numpy.dot(v, w_tr)
   
+
 '''
 def main():
     if len(sys.argv) < 3:

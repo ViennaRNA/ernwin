@@ -8,6 +8,7 @@ import copy
 import itertools as it
 import math
 import warnings
+import pylab
 
 import Bio.KDTree as kd
 import numpy as np
@@ -1152,11 +1153,13 @@ class StemStemOrientationEnergy(EnergyFunction):
             orig_angles += [angles]
             #sampled_angles += [2*math.pi - angles]
 
+        #ax = pylab.axes()
+        #ax.hist(orig_angles, alpha=0.3)
         #return cek.gaussian_kde(sa)
         #return cek.gaussian_kde(sampled_angles, bw_method=0.1)
         #cud.pv('sampled_angles')
         orig_kde = stats.gaussian_kde(orig_angles)
-        return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 2.)
+        return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 1.)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         energy = 0
@@ -1371,10 +1374,10 @@ class LoopLoopEnergy(EnergyFunction):
         return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs) 
 
     def calc_energy(self, dist):
-        p_r = self.real_d_given_i(dist) / self.real_d(dist)
-        p_s = self.fake_d_given_i(dist) / self.fake_d(dist)
+        p_r = np.log(self.real_d_given_i(dist)) - np.log(self.real_d(dist))
+        p_s = np.log(self.fake_d_given_i(dist)) - np.log(self.fake_d(dist))
 
-        return np.log((p_r + p_s) / p_s)
+        return np.log(np.exp(p_r) + np.exp(p_s)) -  p_s
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         self.interaction_energies = c.defaultdict(int)

@@ -242,6 +242,7 @@ class SamplingStatistics:
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
+        self.energy_rmsd_structs = sorted_energies[:10]
 
         if r > self.highest_rmsd:
             self.highest_rmsd = r

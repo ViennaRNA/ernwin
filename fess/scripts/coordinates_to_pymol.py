@@ -91,6 +91,9 @@ def main():
         pymol_printer.draw_segments = False
 
 
+    translation_matrix = np.zeros(3)
+    rotation_matrix = np.identity(3)
+
     for i in range(len(bgs)):
         bg = bgs[i]
         pymol_printer.reset()
@@ -137,9 +140,6 @@ def main():
 
             translation_matrix = sm.get_transform(longest_stem)
             rotation_matrix = sm.get_rotation(longest_stem)
-        else:
-            translation_matrix = np.zeros(3)
-            rotation_matrix = np.identity(3)
 
         #cud.pv('translation_matrix')
         #cud.pv('rotation_matrix')
