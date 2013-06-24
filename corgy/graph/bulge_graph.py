@@ -823,6 +823,8 @@ class BulgeGraph:
 
                             del merge_defs[key1] 
                             done = False
+
+
     def stems(self):
         for d in self.defines.keys():
             if d[0] == 's':
@@ -1757,6 +1759,17 @@ class BulgeGraph:
 
                     if len(bulge_loop) == 0:
                         break
+
+        for d in self.loops():
+            if self.stem_length(d) == 2:
+                del self.defines[d]
+
+                for e in self.edges:
+                    if d in self.edges[e]:
+                        self.edges[e].remove(d)
+                del self.edges[d]
+
+        #sys.exit(1)
 
     def parse_graph(self, filename):
         """
