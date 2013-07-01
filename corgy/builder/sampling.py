@@ -332,7 +332,7 @@ class MCMCSampler:
         self.energy_function = energy_function
         self.stats = stats
         self.prev_energy = 100000000000.
-        self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        #self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
         sm.sample_stats()
         constraint_energy = sm.constraint_energy

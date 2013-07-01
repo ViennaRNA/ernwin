@@ -43,7 +43,7 @@ OUTPUT_PREPARE_DIR=${OUTPUT_DIR}/prepare
 
 LOCAL_SCRIPT_DIR=fess/scripts
 
-./$LOCAL_SCRIPT_DIR/coordinates_to_pymol.py --letters --stem-atoms --longrange -m $MAX_STEM_DISTANCE $TEXT $OUTPUT_GRAPH_DIR/temp.comp > $OUTPUT_PYMOL_DIR/coarse_grain.pym 
+./$LOCAL_SCRIPT_DIR/coordinates_to_pymol.py --letters --longrange -m $MAX_STEM_DISTANCE $TEXT $OUTPUT_GRAPH_DIR/temp.comp > $OUTPUT_PYMOL_DIR/coarse_grain.pym 
 ./$LOCAL_SCRIPT_DIR/graph_to_pymol.py $OUTPUT_GRAPH_DIR/temp.comp $OUTPUT_PYMOL_DIR/coarse_grain.pym > $OUTPUT_PYMOL_DIR/cartoon.pml
 
 if [[ ! -z $BASENORMALS ]]

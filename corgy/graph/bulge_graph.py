@@ -829,6 +829,11 @@ class BulgeGraph:
         for d in self.defines.keys():
             if d[0] == 's':
                 yield d
+    
+    def stem_base_pairs(self, s):
+        d = self.defines[s]
+        for i in range(self.stem_length(s)):
+            yield (d[0] + i, d[3] - i)
 
     def elements(self):
         for d in self.defines.keys():
@@ -1885,3 +1890,5 @@ class BulgeGraph:
         else:
             return self.defines[stem][2] + i
 
+    def connected(self, d1, d2):
+        return True if d1 in self.edges[d2] else False

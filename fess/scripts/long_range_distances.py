@@ -7,6 +7,7 @@ from optparse import OptionParser
 
 from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import vec_distance
+import corgy.utilities.debug as cud
 import corgy.utilities.vector as cuv
 import corgy.graph.graph_pdb as cgg
 
@@ -23,6 +24,13 @@ def output_long_range_distances(bg):
             (i1,i2) = cuv.line_segment_distance(bg.coords[key1][0], bg.coords[key1][1],
                                              bg.coords[key2][0], bg.coords[key2][1])
 
+            vec1 = bg.coords[key1][1] - bg.coords[key2][0]
+            basis = cuv.create_orthonormal_basis(vec1)
+            cud.pv('i1, i2')
+            coords2 = cuv.change_basis(i2 - i1, basis, cuv.standard_basis)
+            (r, u, v) = cuv.spherical_polar_to_cartesian(coords2)
+
+            
             #print "%s %s %f" % (key1, key2, vec_distance(point1, point2))
             seq1 = 'x'
             seq2 = 'x'
@@ -39,10 +47,13 @@ def output_long_range_distances(bg):
                                          bg.get_type(key2),
                                          bg.get_length(key2),
                                          cuv.magnitude(i2-i1),
-                                         seq1, seq2, "Y")
+                                         seq1, seq2, "Y", v)
 
 def output_all_distances(bg):
     for (key1, key2) in it.permutations(bg.defines.keys(), 2):
+        if bg.connected(key1, key2):
+            continue
+
         longrange = "N"
 
         if key2 in bg.longrange[key1]:
@@ -51,20 +62,40 @@ def output_all_distances(bg):
         #point1 = bg.get_point(key1)
         #point2 = bg.get_point(key2)
 
-        (i1,i2) = cuv.line_segment_distance(bg.coords[key1][0], bg.coords[key1][1],
-                                         bg.coords[key2][0], bg.coords[key2][1])
+        try:
+            (i1,i2) = cuv.line_segment_distance(bg.coords[key1][0], bg.coords[key1][1],
+                                             bg.coords[key2][0], bg.coords[key2][1])
+
+
+            if abs(cuv.magnitude(i2 - i1)) < 0.000001:
+                continue
+
+            vec1 = bg.coords[key1][1] - bg.coords[key1][0]
+            '''
+            basis = cuv.create_orthonormal_basis(vec1)
+            coords2 = cuv.change_basis(i2 - i1, basis, cuv.standard_basis)
+            (r, u, v) = cuv.spherical_cartesian_to_polar(coords2)
+            '''
+            v = cuv.vec_angle(vec1, i2 - i1)
+
+        except KeyError as ke:
+            #print >>sys.stderr, 'Skipping %s or %s.' % (key1, key2)
+            continue
 
         #print "%s %s %f" % (key1, key2, vec_distance(point1, point2))
         seq1 = 'x'
         seq2 = 'x'
-        receptor_angle = 0.
 
+
+        '''
+        receptor_angle = 0.
         if bg.get_type(key1) != 's' and bg.get_type(key1) != 'i' and bg.get_length(key1) > 1:
             seq1 = bg.get_seq(key1)
         if bg.get_type(key2) != 's' and bg.get_type(key2) != 'i'and bg.get_length(key2) > 1:
             seq2 = bg.get_seq(key2)
         if bg.get_type(key1) == 'l' and bg.get_type(key2) == 's':
             receptor_angle = cgg.receptor_angle(bg, key1, key2)
+        '''
 
         print "%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
                                      bg.get_type(key1), 
@@ -73,7 +104,7 @@ def output_all_distances(bg):
                                      bg.get_type(key2),
                                      bg.get_length(key2),
                                      cuv.magnitude(i2-i1),
-                                     seq1, seq2, longrange, receptor_angle)
+                                     seq1, seq2, longrange, v)
 def main():
     parser = OptionParser()
 

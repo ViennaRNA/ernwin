@@ -26,7 +26,7 @@ import corgy.utilities.average_stem_vres_atom_positions as cua
 import scipy.optimize as so
 import numpy.linalg as nl
 
-catom_name = 'C1*'
+catom_name = 'C3*'
 
 def stem_stem_orientation(bg, s1, s2):
     '''
@@ -388,7 +388,7 @@ def get_centroid(chain, residue_num):
     atoms = []
     for i in residue_num:
         try:
-            atoms += [chain[i]['C1*']]
+            atoms += [chain[i][catom_name]]
         except KeyError:
             # the C1* atom probably doesn't exist
             continue
@@ -415,7 +415,7 @@ def get_furthest_c_alpha(chain, stem_end, ld):
     furthest_pos = stem_end
 
     for i in range(ld[0]+1, ld[1]):
-        c_apos = chain[i]['C1*'].get_vector().get_array()
+        c_apos = chain[i][catom_name].get_vector().get_array()
         dist = cuv.magnitude(stem_end - c_apos)
 
         if dist > max_dist:
@@ -580,21 +580,12 @@ def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
 
     for rn in residue_numbers:
         #atom_poss += [chain[rn]['C1*'].get_vector().get_array()]
-        try:
-            '''
-            for atom in chain[rn].get_list():
-                atom_poss += [atom.get_vector().get_array()]
-            '''
-
-            atom_poss += [ideal_chain[rn]['P'].get_vector().get_array()]
-            atom_poss += [ideal_chain[rn]['O3*'].get_vector().get_array()]
-            atom_poss += [ideal_chain[rn]['C3*'].get_vector().get_array()]
-            atom_poss += [ideal_chain[rn]['C4*'].get_vector().get_array()]
-            atom_poss += [ideal_chain[rn]['C5*'].get_vector().get_array()]
-            atom_poss += [ideal_chain[rn]['O5*'].get_vector().get_array()]
-            atom_poss += [ideal_chain[rn]['C1*'].get_vector().get_array()]
-        except KeyError as ke:
-            pass
+        pot_atoms = ['P', 'O3*', 'C3*', 'C4*', 'C5*', 'O5*', 'C1*']
+        for atom in pot_atoms:
+            try:
+                atom_poss += [ideal_chain[rn][atom].get_vector().get_array()]
+            except KeyError as ke:
+                pass
             #cud.pv('ke')
 
     mids =  fit_circle(est_mids, np.array(atom_poss), start_pos, end_pos)

@@ -8,7 +8,7 @@ import copy
 import itertools as it
 import math
 import warnings
-import pylab
+#import pylab
 
 import Bio.KDTree as kd
 import numpy as np
@@ -17,6 +17,7 @@ import random as rand
 
 import collections as c
 
+import scipy.stats as ss
 import corgy.utilities.vector as cuv
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
@@ -1131,6 +1132,9 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.real_data = None
         self.fake_data = None
 
+        self.angles = []
+        self.beta=False
+
         '''
         import matplotlib.pyplot as plt
         xs = np.linspace(0,1.57,1000)
@@ -1147,10 +1151,13 @@ class StemStemOrientationEnergy(EnergyFunction):
         for col in self.cols:
             angles = t[np.all([t[t.columns[0]] < self.max_dist, t[t.columns[4]] < self.max_lateral_dist], axis=0)][t.columns[col]].values
             #sampled_angles += [[rand.choice(angles) for i in range(self.sample_num)]]
+            '''
             sampled_angles += [np.concatenate([angles,
                                                -angles,
                                                2*math.pi - angles])]
+            '''
             orig_angles += [angles]
+            sampled_angles += [angles]
             #sampled_angles += [2*math.pi - angles]
 
         #ax = pylab.axes()
@@ -1158,8 +1165,15 @@ class StemStemOrientationEnergy(EnergyFunction):
         #return cek.gaussian_kde(sa)
         #return cek.gaussian_kde(sampled_angles, bw_method=0.1)
         #cud.pv('sampled_angles')
+        self.angles += orig_angles
         orig_kde = stats.gaussian_kde(orig_angles)
-        return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 1.)
+
+        if self.beta == True:
+            f = ss.beta.fit(angles, floc=0, fscale=max(angles))
+            return lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+        else:
+        #return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 1.)
+            return stats.gaussian_kde(angles, bw_method=orig_kde.factor / 1.)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         energy = 0
@@ -1418,6 +1432,108 @@ class LoopLoopEnergy(EnergyFunction):
         '''
         return -energy;
 
+class InteractionProbEnergy(EnergyFunction):
+    def __init__(self):
+        super(InteractionProbEnergy, self).__init__()
+        self.real_data = None
+        self.fake_data = None
+
+        self.loop_loop = dict()
+        self.loop_loop_y = dict()
+        self.loop_loop_n = dict()
+        self.p_i = dict()
+        self.ps = dict()
+        self.ex_ps = dict()
+        self.lb = dict()
+        self.lb_a = dict()
+        self.b = dict()
+        self.b_a = dict()
+
+        self.load_data('fess/stats/temp.longrange.stats', dtype='real')
+        self.load_data('fess/stats/temp.longrange.stats.sampled', dtype='sampled')
+
+        self.calc_expected_energies('real')
+        self.calc_expected_energies('sampled')
+
+    def load_data(self, filename, dtype='real'):
+        import pandas as pa
+
+        t = pa.read_csv(filename, header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
+
+        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
+        self.loop_loop[dtype] = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
+        #self.loop_loop[dtype] = t[t.type1 == "l"]
+        self.loop_loop_y[dtype] = self.loop_loop[dtype][self.loop_loop[dtype].longrange == 'Y']
+        self.loop_loop_n[dtype] = self.loop_loop[dtype][self.loop_loop[dtype].longrange == 'N']
+
+        self.b[dtype] = ss.beta.fit(self.loop_loop_y[dtype]['dist'], floc=0, fscale=max(self.loop_loop_y[dtype]['dist']))
+        self.b_a[dtype] = ss.beta.fit(self.loop_loop[dtype]['dist'], floc=0, fscale=max(self.loop_loop[dtype]['dist']))
+
+        self.lb[dtype] = lambda x: ss.beta.pdf(x, self.b[dtype][0], self.b[dtype][1], self.b[dtype][2], self.b[dtype][3])
+        self.lb_a[dtype] = lambda x: ss.beta.pdf(x, self.b_a[dtype][0], self.b_a[dtype][1], self.b_a[dtype][2], self.b_a[dtype][3])
+
+        len_y = float(len(self.loop_loop_y[dtype]['dist']))
+        len_a = float(len(self.loop_loop[dtype]['dist']))
+        
+        self.p_i[dtype] = lambda x: (len_y * self.lb[dtype](x)) / (len_a * self.lb_a[dtype](x))
+        
+    def calc_node_p(self, bg, node):
+        total_p = 1.
+
+        for d in bg.loops():
+            if not bg.connected(d, node):
+                l1 = d
+                l2 = node
+
+                if l1 in bg.coords and l2 in bg.coords:
+                    (i1,i2) = cuv.line_segment_distance(bg.coords[l1][0], 
+                                                        bg.coords[l1][1],
+                                                        bg.coords[l2][0],
+                                                        bg.coords[l2][1])
+                else: 
+                    # some degenerate loops don't have coords
+                    continue
+
+                dist = cuv.magnitude(i2 - i1)
+                if dist > 40. or dist < 0.0001:
+                    continue
+                
+                #cud.pv('dist, self.p_i["real"](dist)')
+                total_p *= 1. - self.p_i['real'](dist)
+
+        return total_p
+
+    def calc_expected_energies(self, dtype='real'):
+        loops = set(self.loop_loop[dtype]['key1'])
+        
+        ps = []
+
+        for loop in loops:
+            interactions = self.loop_loop[dtype][self.loop_loop[dtype]['key1'] == loop]
+            total_p = 1.
+
+            for d in interactions['dist']:
+                if d < 40:
+                    total_p *= 1 - self.p_i['real'](d)
+
+            ps += [total_p]
+
+        self.ps[dtype] = ps
+        self.ex_ps[dtype] = ss.gaussian_kde(ps)
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        bg = sm.bg
+        energy = 0.
+
+        for node in bg.loops():
+            p = self.calc_node_p(bg, node)
+
+            energy += self.ex_ps['real'](p) - self.ex_ps['sampled'](p)
+            #cud.pv('p, energy')
+
+        return -energy
+
 class LoopJunctionEnergy(LoopLoopEnergy):
 
     def load_data(self, filename):
@@ -1427,7 +1543,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
         t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
-        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "m")]
+        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
@@ -1551,6 +1667,8 @@ class LoopBulgeEnergy(LoopLoopEnergy):
             return 0
 
         return -energy;
+
+
 class NLoopLoopEnergy(EnergyFunction):
     def __init__(self):
         self.real_dist = None
