@@ -4,6 +4,7 @@ import sys
 
 from corgy.builder.rmsd import centered_rmsd
 from corgy.graph.bulge_graph import BulgeGraph
+import corgy.graph.graph_pdb as cgg
 
 def main():
     if len(sys.argv) < 3:
@@ -14,7 +15,8 @@ def main():
     bg1 = BulgeGraph(sys.argv[1])
     bg2 = BulgeGraph(sys.argv[2])
 
-    print "rmsd:", centered_rmsd(bg1.get_centers(), bg2.get_centers())
+    #print "rmsd:", centered_rmsd(bg1.get_centers(), bg2.get_centers())
+    print cgg.bg_rmsd(bg1, bg2)
 
 
 if __name__ == '__main__':

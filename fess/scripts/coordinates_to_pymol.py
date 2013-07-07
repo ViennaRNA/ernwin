@@ -45,6 +45,7 @@ def main():
     parser.add_option('-a', '--align', dest='align', default=False, action='store_true', help="Align all of the structure so as to minimize the rmsd")
     parser.add_option('', '--letters', dest='letters', default=False, action='store_true', help="Print the letters of each base in the approximate positions")
     parser.add_option('', '--stem-stem-orientations', dest='stem_stem_orientations', default=False, action='store_true', help="show vectors indicating the stem stem orientations")
+    parser.add_option('', '--pairwise-distances', dest='pairwise_distances', default=False, action='store_true')
 
     (options, args) = parser.parse_args()
     
@@ -113,6 +114,11 @@ def main():
                 if k[0] == 's':
                     bg.twists[k] = (np.dot(rot_mat, bg.twists[k][0]),
                                     np.dot(rot_mat, bg.twists[k][1]))
+
+            if i > 0:
+                if options.pairwise_distances:
+                    for d in bg.defines.keys():
+                        pymol_printer.add_segment(bgs[0].get_point(d), bgs[i].get_point(d), 'cyan', 0.5)
 
         if not options.movie:
             if len(bgs) > 1 and i == 0:

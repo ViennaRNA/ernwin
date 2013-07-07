@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import numpy, sys
+import numpy as np
 #from corgy.graph.bulge_graph import BulgeGraph
 from corgy.utilities.vector import center_on_centroid
 
@@ -19,6 +20,7 @@ def rmsd(crds1, crds2):
         s[-1] = - s[-1]
     E0 = sum(sum(crds1 * crds1)) + \
        sum(sum(crds2 * crds2))
+
     rmsd_sq = (E0 - 2.0*sum(s)) / float(n_vec)
     rmsd_sq = max([rmsd_sq, 0.0])
     return numpy.sqrt(rmsd_sq)
@@ -30,6 +32,14 @@ def centered_rmsd(crds1, crds2):
     '''
     crds1 = center_on_centroid(crds1)
     crds2 = center_on_centroid(crds2)
+
+    os = optimal_superposition(crds1, crds2)
+    crds_aligned = np.dot(crds1, os)
+
+    s2 = sum(sum((crds2 - crds_aligned) * (crds2 - crds_aligned)))
+    diff_vecs = (crds2 - crds_aligned)
+    sums = np.sum(diff_vecs * diff_vecs, axis=1)
+    sqrts = np.sqrt(sums)
 
     return rmsd(crds1, crds2)
 

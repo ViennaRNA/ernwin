@@ -54,7 +54,7 @@ def visit_dir(rmsds, dirname, names):
             # group(4) = rmsd
             rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(5)), float(m.group(4)), filename, trial_id, float(m1.group(3)), float(m1.group(4)))]
 
-def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
+def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
     keys = rmsds.keys()
     #keys.sort(key=lambda x: min([k[1] for k in rmsds[x]]))
     keys.sort()
@@ -69,7 +69,9 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
         key = (key1,key2)
         rmsds[key].sort(key=lambda x: x[0])
 
-        if compact:
+        if minimal:
+            print "ernwin", key2, rmsds[key][nth][1]
+        elif compact:
             print base_dir, key2, rmsds[key][nth][4]
         else:
             pdb_name = key2 
@@ -86,14 +88,14 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0):
 
             print "[",pdb_name + "/" + trial_num,"|", pdb_len,"]", "[", str(rmsd), "::", str(energy) , "(" , str(native_energy), ")" , "]", "<", "%.2f" % (ratio), ">", str(best_rmsd), str(worst_rmsd)
 
-        min_rmsds += [rmsds[key][nth][1]]
-        ratios += [ratio]
-        best_rmsds += [best_rmsd]
-        worst_rmsds += [worst_rmsd]
+            min_rmsds += [rmsds[key][nth][1]]
+            ratios += [ratio]
+            best_rmsds += [best_rmsd]
+            worst_rmsds += [worst_rmsd]
 
     min_rmsds.sort()
 
-    if not compact:
+    if not compact and not minimal:
         print "average: %.2f median %.2f avg_ratio: %.2f avg_best_rmsd: %.2f avg_worst_rmsd: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)), np.mean(np.array(best_rmsds)), np.mean(np.array(worst_rmsds)))
 
 def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
@@ -214,6 +216,7 @@ def main():
     parser.add_option('-d', '--density', dest='density', default=False, action='store_true', help='Display the rmsd of the structure with the greatest probability density in terms of the sampled structures.')
     parser.add_option('-p', '--plot', dest='plot', default=False, action='store_true', help='Plot the densities.')
     parser.add_option('-r', '--random', dest='random', default=None, help='Location of the random energies')
+    parser.add_option('-m', '--minimal', dest='minimal', default=False, action='store_true', help='Display a minimal output consisting of the pdb name and the rmsd')
 
     (options, args) = parser.parse_args()
 
@@ -225,7 +228,7 @@ def main():
     rmsds = c.defaultdict(list)
     for arg in args:
         op.walk(arg, visit_dir, rmsds)
-    summarize_rmsds(rmsds, options.compact, args[0], nth=options.nth_best)
+    summarize_rmsds(rmsds, options.compact, args[0], nth=options.nth_best, minimal=options.minimal)
 
     # summarize by the structure with the greatest density
     rmsds = c.defaultdict(list)
