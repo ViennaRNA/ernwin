@@ -1475,7 +1475,7 @@ def add_stem_information_from_pdb_chain(bg, chain):
             mids = get_mids(chain, bg.defines[d])
             twists = get_twists(chain, bg.defines[d])
 
-            bg.coords[d] = (mids[0], mids[1])
+            bg.coords[d] = (mids[0].get_array(), mids[1].get_array())
             bg.twists[d] = (twists[0], twists[1])
             bg.sampled[d] = [bg.name] + bg.defines[d]
             #print_segment(mids[0].get_array(), mids[1].get_array(), "green", 2.4, d)

@@ -42,6 +42,8 @@ def main():
     parser.add_option('-r', '--resolution', dest='resolution', default=10, help="The resolution of the resulting plot", type='int')
     parser.add_option('-a', '--angle', dest='angle', default=0, help="The angle of the camera", type='float')
     parser.add_option('-f', '--fig-name', dest='fig_name', default='', help="The name of the file to save the figure to. If it is not specified, the figure will not be saved", type='str')
+    parser.add_option('-n', '--native-stats', dest='native_stats', default='fess/stats/temp.real.stats', help='The location of the file containing the statistics of the native structure.')
+    parser.add_option('-s', '--sampled-stats', dest='sampled_stats', default='fess/stats/temp.sampled.stats', help='The location of the file containing the statistics of the sampled structure.')
 
     #parser.add_option('-u', '--useless', dest='uselesss', default=False, action='store_true', help='Another useless option')
 
@@ -52,8 +54,8 @@ def main():
         sys.exit(1)
 
     column_names = ['type', 'pdb', 's1', 's2', 'u', 'v', 't', 'r', 'u1', 'v1', 'atype', 'something1', 'something2', 'sth3', 'sth4']
-    real_stats = pa.read_csv('fess/stats/temp.real.stats', header=None, sep=' ', names=column_names, engine='python')
-    sampled_stats = pa.read_csv('fess/stats/temp.sampled.stats', header=None, sep=' ', names=column_names, engine='python')
+    real_stats = pa.read_csv(options.native_stats, header=None, sep=' ', names=column_names, engine='python')
+    sampled_stats = pa.read_csv(options.sampled_stats, header=None, sep=' ', names=column_names, engine='python')
 
     real_stats = real_stats[real_stats["type"] == "angle"]
     real_us = real_stats[['u', 'v']].as_matrix()
