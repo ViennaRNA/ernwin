@@ -3,12 +3,7 @@ import unittest, os
 import corgy.graph.graph_pdb as cgg
 import corgy.graph.bulge_graph as cgb
 import corgy.utilities.debug as cud
-import corgy.visual.pymol as cvp
 
-import corgy.graph.graph_pdb as cgg
-
-from corgy.graph.graph_pdb import get_mids, get_twists, get_stem_orientation_parameters
-from corgy.graph.graph_pdb import get_stem_twist_and_bulge_vecs, stem2_orient_from_stem1
 from corgy.graph.graph_pdb import get_stem_separation_parameters, twist2_orient_from_stem1
 from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
 
@@ -137,8 +132,8 @@ class TestGraphPDBFunctions(unittest.TestCase):
     def test_base_normals(self):
         filename = os.path.join(Configuration.test_input_dir, "1gid/prepare/temp.pdb")
 
-        bn = cgg.base_normals(filename)
-        cud.pv('bn')
+        #bn = cgg.base_normals(filename)
+        #cud.pv('bn')
 
     def test_mids_and_twists(self):
         '''
@@ -325,6 +320,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
         return
         '''
 
+        import corgy.visual.pymol as cvp
         pp = cvp.PymolPrinter()
         for s in bg.stems():
             cud.pv('(s, bg.stem_length(s))')

@@ -1226,7 +1226,6 @@ class BulgeGraph:
         bg.seq = self.seq
         bg.length = self.length
 
-        bg.sampled_stems = self.sampled_stems.copy()
         bg.coords = self.coords.copy()
         bg.twists = self.twists.copy()
         bg.edges = self.edges.copy()
@@ -1373,10 +1372,7 @@ class BulgeGraph:
         '''
         #print "stems:", stems
         stem_stems = dict()
-        define_text = ""
-        connect_text = ""
         for i in range(len(stems)):
-            stem = stems[i]
             for j in range(i+1, len(stems)):
                 for k1 in range(2):
                     # don't fear the for loop

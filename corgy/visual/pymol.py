@@ -6,18 +6,18 @@ import itertools as it
 import math as m
 import numpy as np
 import uuid
+import collections as col
 
 import corgy.graph.graph_pdb as cgg
 import corgy.utilities.average_stem_vres_atom_positions as cua
 import corgy.utilities.debug as cud
-import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
 import corgy.builder.models as cbm
 
 import Bio.PDB.Model as bpm
-import Bio.PDB.Chain as bpc
 import Bio.PDB.Structure as bps
 import Bio.PDB as bp
+
 
 class PymolPrinter:
     def __init__(self):
@@ -36,12 +36,14 @@ class PymolPrinter:
         self.add_loops = True
         self.chain = None
         self.max_stem_distances = 0
-        self.draw_axes=False
-        self.draw_segments=True
+        self.add_letters = False
+        self.draw_axes = False
+        self.draw_segments = True
         self.pdb_file = None
         self.movie = False
-        self.prev_obj_name = ''     #The name of the previously created object which needs to be hidden
-                                    #when creating a movie
+        self.prev_obj_name = ''     # The name of the previously created
+                                    # object which needs to be hidden
+                                    # when creating a movie
 
     def get_color_vec(self, color):
         if color == 'green':
@@ -65,21 +67,20 @@ class PymolPrinter:
         else:
             return [0.0, 0.0, 0.0]
 
-    def add_sphere(self, p, color='green', width=0.2, text="", color_rgb = None):
-        if self.override_color != None:
+    def add_sphere(self, p, color='green', width=0.2, text="",
+                   color_rgb=None):
+        if self.override_color is not None:
             color = self.override_color
-        
-        if color_rgb == None:
+
+        if color_rgb is None:
             color_rgb = self.get_color_vec(color)
 
         self.new_spheres += [(np.array(p), color_rgb, width, text)]
-
 
     def transform_spheres(self, translation, rotation):
         for (p, color, width, text) in self.new_spheres:
             p -= translation
 
-            new_p = np.dot(rotation, p)
             self.spheres += [(p, color, width, text)]
 
         self.new_spheres = []
@@ -94,8 +95,7 @@ class PymolPrinter:
         p = new_p
         n = new_n
         '''
-
-        if self.override_color != None:
+        if self.override_color is not None:
             color = self.override_color
 
         #assert(not allclose(p, n))
@@ -119,24 +119,33 @@ class PymolPrinter:
 
         for (p, color, width, text) in self.new_spheres:
             color_vec = color
-            s += "COLOR, %s," % (",  ".join([str(c) for c in color_vec])) + '\n'
-            s += "SPHERE, %s, %f," % (", ".join([str(pi) for pi in p]), width) + '\n'
+            s += "COLOR, %s," % (",  ".join([str(c) for c in color_vec]))
+            s += '\n'
+            s += "SPHERE, %s, %f," % (", ".join([str(pi) for pi in p]),
+                                      width)
+            s += '\n'
 
         return s
-    
+
     def pymol_axis_string(self):
-        w = 0.12 # cylinder width 
-        l = 10.0 # cylinder length
-        h = 3.0 # cone hight
-        d = w * 2.618 # cone base diameter
+        w = 0.12  # cylinder width
+        l = 10.0  # cylinder length
+        h = 3.0  # cone hight
+        d = w * 2.618  # cone base diameter
         s = ""
-         
-        s += "CYLINDER, 0.0, 0.0, 0.0,   %f, 0.0, 0.0, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0," % (l, w)
-        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0,   %f, 0.0, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0," % (l, w)
-        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0, 0.0,   %f, %f, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0," % (l, w)
-        s += "CONE,   %f, 0.0, 0.0, %f, 0.0, 0.0, %f, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0," % (l, h+l, d)
-        s += "CONE, 0.0, %f, 0.0, 0.0, %f, 0.0, %f, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0," % (l, h+l, d)
-        s += "CONE, 0.0, 0.0, %f, 0.0, 0.0, %f, %f, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0," % (l, h+l, d)
+
+        s += "CYLINDER, 0.0, 0.0, 0.0,   %f, 0.0, 0.0, %f" % (l, w)
+        s += " 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,"
+        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0,   %f, 0.0, %f, " % (l, w)
+        s += "0.0, 0.0, 1.0, 0.0, 0.0, 1.0,"
+        s += "CYLINDER, 0.0, 0.0, 0.0, 0.0, 0.0,   %f, %f, " % (l, w)
+        s += "1.0, 0.0, 0.0, 1.0, 0.0, 0.0,"
+        s += "CONE,   %f, 0.0, 0.0, %f, 0.0, 0.0, %f, " % (l, h + l, d)
+        s += "0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0,"
+        s += "CONE, 0.0, %f, 0.0, 0.0, %f, 0.0, %f, " % (l, h + l, d)
+        s += "0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0,"
+        s += "CONE, 0.0, 0.0, %f, 0.0, 0.0, %f, %f, " % (l, h + l, d)
+        s += "0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,"
 
         return s
 
@@ -147,10 +156,13 @@ class PymolPrinter:
 
         self.segments += self.new_segments
 
-        for seg  in self.segments:
-            (p,n,color,width, text) = seg
+        for seg in self.segments:
+            (p, n, color, width, text) = seg
             color_vec = [str(c) for c in self.get_color_vec(color)]
-            s += " CYLINDER, %f, %f, %f, %f, %f, %f, %f, %s, %s," % (p[0], p[1], p[2], n[0], n[1], n[2], width, ", ".join(color_vec), ", ".join(color_vec)) + '\n'
+            s += " CYLINDER, %f, %f, %f, %f, %f, %f, " % (p[0], p[1], p[2],
+                                                          n[0], n[1], n[2])
+            s += "%f, %s, %s," % (width, ", ".join(color_vec),
+                                  ", ".join(color_vec)) + '\n'
 
         return s
 
@@ -164,12 +176,12 @@ class PymolPrinter:
             if len(text) == 0:
                 continue
 
-            # generate a unique identifier for every object so that other scripts
-            # can add others that don't clash
-            uid = str(uuid.uuid4()).replace('-','x')
+            # generate a unique identifier for every object so that other
+            # scripts can add others that don't clash
+            uid = str(uuid.uuid4()).replace('-', 'x')
             uids += [uid]
 
-            s +=  "cgox_%s = []" % (uid) + '\n'
+            s += "cgox_%s = []" % (uid) + '\n'
 
             comp1 = cuv.normalize(n - p)
 
@@ -180,29 +192,31 @@ class PymolPrinter:
 
             pos = (p + n) / 2.0 + 3 * comp2
             #pos = p + (n - p) / 4.0 + 3 * comp2
-            font = 1
             axes = [list(comp1 * 2), list(comp2 * 2), list(comp3 * 2)]
 
-            text = "%s: %.1f" % (text, cuv.magnitude(n-p))
+            text = "%s: %.1f" % (text, cuv.magnitude(n - p))
             #text = "%s" % (text)
 
-            s += "cyl_text(cgox_%s, plain, %s, \"%s\", 0.20, axes=%s)" % (uid, str(list(pos)), text, str(axes)) + '\n'
-            pa_s += "pa_%s = cmd.pseudoatom(pos=%s,b=1.0, label=\"%s\")\n" % (uid, str(list(pos)), text)
+            s += "cyl_text(cgox_%s, plain, %s, " % (uid, str(list(pos)))
+            s += "\"%s\", 0.20, axes=%s)" % (text, str(axes)) + '\n'
+            pa_s += "pa_%s = cmd.pseudoatom(pos=%s," % (uid, str(list(pos)))
+            pa_s += "b=1.0, label=\"%s\")\n" % (text)
             counter += 1
 
         for (text, pos) in self.labels:
-            uid = str(uuid.uuid4()).replace('-','x')
+            uid = str(uuid.uuid4()).replace('-', 'x')
             uids += [uid]
 
-            pa_s += "pa_%s = cmd.pseudoatom(pos=%s,b=1.0, label=\"%s\")\n" % (uid, str(list(pos)), text)
+            pa_s += "pa_%s = cmd.pseudoatom(pos=%s," % (uid, str(list(pos)))
+            pa_s += "b=1.0, label=\"%s\")\n" % (text)
 
-        s +=  "cmd.set(\"cgo_line_radius\",0.03)" + '\n'
+        s += "cmd.set(\"cgo_line_radius\",0.03)" + '\n'
         for i in range(counter):
-            s += "cmd.load_cgo(cgox_%s, \'cgox%s\')" % (uids[i], uids[i]) + '\n'
+            s += "cmd.load_cgo(cgox_%s, " % (uids[i])
+            s += "\'cgox%s\')" % (uids[i]) + '\n'
         s += "cmd.zoom(\"all\", 2.0)" + '\n'
 
         return pa_s
-
 
     def pymol_string(self):
         '''
@@ -233,22 +247,22 @@ class PymolPrinter:
         '''
         If the BulgeGraph has a chain created for it, dump that as well.
 
-        @param filename: The filename of the pdb file to which the chain coordinates will be written.
+        @param filename: The filename of the pdb file to which the chain
+                         coordinates will be written.
         '''
-        if self.chain == None:
+        if self.chain is None:
             return
 
         self.chain.child_list.sort()
-        m = bpm.Model(' ')
+        mod = bpm.Model(' ')
         s = bps.Structure(' ')
 
-        m.add(self.chain)
-        s.add(m)
+        mod.add(self.chain)
+        s.add(mod)
 
         io = bp.PDBIO()
         io.set_structure(s)
         io.save(filename)
-
 
     def dump_pymol_file(self, filename):
         '''
@@ -264,7 +278,8 @@ class PymolPrinter:
         # Output the pdb structure
         self.dump_pdb(filename + ".pdb")
 
-        # Output the script file for loading the pdb and coarse grained structure
+        # Output the script file for loading the pdb and coarse grained
+        # structure
         f = open(filename + ".pml", 'w')
         f.write("run %s" % (filename + ".pym"))
         f.close()
@@ -279,22 +294,24 @@ class PymolPrinter:
 
     def pymol_intro_string(self):
         self.cgo_uid = str(uuid.uuid4()).replace('-', 'x')
-        s  = "from pymol.cgo import *" + '\n'
+        s = "from pymol.cgo import *" + '\n'
         s += "from pymol import cmd" + '\n'
         s += "from pymol.vfont import plain" + '\n'
         s += "obj%s = [" % (self.cgo_uid) + '\n'
         return s
 
     def pymol_outro_string(self):
-        s =  "]" + '\n'
+        s = "]" + '\n'
 
         if self.movie:
-            s += "cmd.load_cgo(obj%s, 'ss%s', %d)" % (self.cgo_uid, self.cgo_uid, self.state) + '\n'
+            s += "cmd.load_cgo(obj%s, 'ss%s', %d)" % (self.cgo_uid,
+                                                      self.cgo_uid,
+                                                      self.state) + '\n'
             self.prev_obj_name = self.cgo_uid
-            #s += "cmd.load_cgo(obj%s, 'ssx', %d)" % (self.cgo_uid, self.state) + '\n'
             self.state += 1
         else:
-            s += "cmd.load_cgo(obj%s, 'ss%s')" % (self.cgo_uid, self.cgo_uid) + '\n'
+            s += "cmd.load_cgo(obj%s, 'ss%s')" % (self.cgo_uid,
+                                                  self.cgo_uid) + '\n'
 
         return s
 
@@ -304,22 +321,25 @@ class PymolPrinter:
         '''
         out_str = ''
         for (box, color) in self.boxes:
-            uid = str(uuid.uuid4()).replace('-','x')
+            uid = str(uuid.uuid4()).replace('-', 'x')
             color_vec = [str(c) for c in self.get_color_vec(color)]
             out_str += 'obj%s = [\n' % (uid)
             out_str += "LINEWIDTH, .8, \n"
             out_str += "BEGIN, LINES, \n"
-            out_str += "COLOR, %s," % (",  ".join([str(c) for c in color_vec])) + '\n'
+            out_str += "COLOR, %s," % (",  ".join([str(c) for c in color_vec]))
+            out_str += '\n'
             for corner in box:
-                out_str += "VERTEX, %f, %f, %f, \n" % (corner[0], corner[1], corner[2])
+                out_str += "VERTEX, %f, %f, %f, \n" % (corner[0],
+                                                       corner[1],
+                                                       corner[2])
             out_str += 'END \n'
             out_str += '] \n'
             out_str += "cmd.load_cgo(obj%s, 'ss%s')\n" % (uid, uid)
 
         return out_str
 
-
-    def add_stem_like_core(self, coords, twists, stem_len, key, color = 'green', width=2.4):
+    def add_stem_like_core(self, coords, twists, stem_len, key,
+                           color='green', width=2.4):
         (p, n) = coords
         (twist1o, twist2o) = twists
 
@@ -356,7 +376,8 @@ class PymolPrinter:
 
         for i in range(stem_len):
             #(pos, vec) = cgg.virtual_res_3d_pos(bg, key, i)
-            (pos, vec_c, vec_l, vec_r) = cgg.virtual_res_3d_pos_core((p,n), twists, i, stem_len)
+            res = cgg.virtual_res_3d_pos_core((p, n), twists, i, stem_len)
+            (pos, vec_c, vec_l, vec_r) = res
             self.add_segment(pos, pos + mult * vec_c, "orange", width, '')
 
             if self.add_letters:
@@ -371,8 +392,9 @@ class PymolPrinter:
         self.add_sphere(n + mult * twist2, "white", width, key)
         '''
 
-    def add_stem_like(self, bg, key, color = 'green', width=2.4):
-        return self.add_stem_like_core(bg.coords[key], bg.twists[key], bg.stem_length(key), key, color, width)
+    def add_stem_like(self, bg, key, color='green', width=2.4):
+        return self.add_stem_like_core(bg.coords[key], bg.twists[key],
+                                       bg.stem_length(key), key, color, width)
 
     def draw_bounding_boxes(self, bg, s):
         '''
@@ -382,10 +404,11 @@ class PymolPrinter:
         @param bg: The BulgeGraph
         @param s: The name of the stem
         '''
-        if self.pdb_file == None:
+        if self.pdb_file is None:
             return
 
-        chain = list(bp.PDBParser().get_structure('temp', self.pdb_file).get_chains())[0]
+        struct = bp.PDBParser().get_structure('temp', self.pdb_file)
+        chain = list(struct.get_chains())[0]
 
         for i in range(bg.stem_length(s)):
             (origin, bases, bb) = cgg.bounding_boxes(bg, chain, s, i)
@@ -393,55 +416,59 @@ class PymolPrinter:
                 (n, x) = bb[k]
 
                 corners = [
-                            [n[0], n[1], n[2]],
-                        [n[0], n[1], x[2]],
+                          [n[0], n[1], n[2]],
+                          [n[0], n[1], x[2]],
 
-                        [n[0], x[1], n[2]],
-                        [n[0], x[1], x[2]],
+                          [n[0], x[1], n[2]],
+                          [n[0], x[1], x[2]],
 
-                        [x[0], n[1], n[2]],
-                        [x[0], n[1], x[2]],
+                          [x[0], n[1], n[2]],
+                          [x[0], n[1], x[2]],
 
-                        [x[0], x[1], n[2]],
-                        [x[0], x[1], x[2]],
+                          [x[0], x[1], n[2]],
+                          [x[0], x[1], x[2]],
 
-                        [n[0], n[1], n[2]],
-                        [x[0], n[1], n[2]],
+                          [n[0], n[1], n[2]],
+                          [x[0], n[1], n[2]],
 
-                        [n[0], x[1], n[2]],
-                        [x[0], x[1], n[2]],
+                          [n[0], x[1], n[2]],
+                          [x[0], x[1], n[2]],
 
-                        [n[0], x[1], x[2]],
-                        [x[0], x[1], x[2]],
+                          [n[0], x[1], x[2]],
+                          [x[0], x[1], x[2]],
 
-                        [n[0], n[1], x[2]],
-                        [x[0], n[1], x[2]],
+                          [n[0], n[1], x[2]],
+                          [x[0], n[1], x[2]],
 
-                        [n[0], n[1], n[2]],
-                        [n[0], x[1], n[2]],
+                          [n[0], n[1], n[2]],
+                          [n[0], x[1], n[2]],
 
-                        [x[0], n[1], n[2]],
-                        [x[0], x[1], n[2]],
+                          [x[0], n[1], n[2]],
+                          [x[0], x[1], n[2]],
 
-                        [n[0], n[1], x[2]],
-                        [n[0], x[1], x[2]],
+                          [n[0], n[1], x[2]],
+                          [n[0], x[1], x[2]],
 
-                        [x[0], n[1], x[2]],
-                        [x[0], x[1], x[2]]]
+                          [x[0], n[1], x[2]],
+                          [x[0], x[1], x[2]]]
 
                 new_corners = []
                 for corner in corners:
-                    new_corners += [origin + cuv.change_basis(np.array(corner), cuv.standard_basis, bases[k])]
+                    new_corners += [origin + cuv.change_basis(np.array(corner),
+                                    cuv.standard_basis, bases[k])]
                 corners = np.array(new_corners)
 
-                #corners = vpos + cuv.change_basis(corners, cuv.standard_basis, basis)
                 if k == 0:
                     self.boxes += [(corners, 'yellow')]
-                    self.add_sphere(corners[0], 'yellow', 0.4, '', [238/255., 221/255., 130/255.])
-                    self.add_sphere(corners[7], 'yellow', 0.4, '', [184/255.,134/255.,11/255.])
+                    self.add_sphere(corners[0], 'yellow', 0.4, '',
+                                    [238 / 255., 221 / 255., 130 / 255.])
+                    self.add_sphere(corners[7], 'yellow', 0.4, '',
+                                    [184 / 255., 134 / 255., 11 / 255.])
                 else:
-                    self.add_sphere(corners[0], 'purple', 0.4, '', [238/255., 130/255., 238/255.])
-                    self.add_sphere(corners[7], 'purple', 0.4, '', [208/255., 32/255., 144/255.])
+                    self.add_sphere(corners[0], 'purple', 0.4, '',
+                                    [238 / 255., 130 / 255., 238 / 255.])
+                    self.add_sphere(corners[7], 'purple', 0.4, '',
+                                    [208 / 255., 32 / 255., 144 / 255.])
                     self.boxes += [(corners, 'purple')]
 
     def coordinates_to_pymol(self, bg):
@@ -451,20 +478,27 @@ class PymolPrinter:
 
         for key in bg.coords.keys():
             (p, n) = bg.coords[key]
-        
+
             if key[0] == 's':
                 self.add_stem_like(bg, key)
                 self.draw_bounding_boxes(bg, key)
             else:
                 if self.add_loops:
                     if key in loops:
-                        self.add_segment(p, n, "blue", 1.0, key + " " + str(bg.get_length(key)))
+                        self.add_segment(p, n, "blue", 1.0,
+                                         key + " " + str(bg.get_length(key)))
                 if len(bg.edges[key]) == 2:
                     if bg.weights[key] == 1:
                         if key in sampled_bulges:
-                            self.add_segment(p, n, "red", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
+                            seg_name = key + " "
+                            seg_name += str(bg.defines[key][1] -
+                                            bg.defines[key][0]) + ""
+                            self.add_segment(p, n, "red", 1.0, seg_name)
                         else:
-                            self.add_segment(p, n, "orange", 1.0, key + " " + str(bg.defines[key][1] - bg.defines[key][0]) + "")
+                            self.add_segment(p, n, "orange", 1.0,
+                                             key + " " +
+                                             str(bg.defines[key][1] -
+                                             bg.defines[key][0]) + "")
                     else:
                         #self.add_stem_like(bg, key, "yellow", 1.0)
                         self.add_segment(p, n, "yellow", 1.0, key)
@@ -485,35 +519,41 @@ class PymolPrinter:
             for key1 in bg.longrange.keys():
                 for key2 in bg.longrange[key1]:
                     try:
-                        (point1, point2) = cuv.line_segment_distance(sm.bg.coords[key1][0],
-                                                                      sm.bg.coords[key1][1],
-                                                                      sm.bg.coords[key2][0],
-                                                                      sm.bg.coords[key2][1])
+
+                        p = cuv.line_segment_distance(sm.bg.coords[key1][0],
+                                                      sm.bg.coords[key1][1],
+                                                      sm.bg.coords[key2][0],
+                                                      sm.bg.coords[key2][1])
+                        (point1, point2) = p
 
                         #point1 = bg.get_point(key1)
                         #point2 = bg.get_point(key2)
 
-                        self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
-                        self.add_segment(point1, point2, "purple", 0.3, key1 + " " + key2)
+                        self.add_segment(point1, point2, "purple",
+                                         0.3, key1 + " " + key2)
+                        self.add_segment(point1, point2, "purple",
+                                         0.3, key1 + " " + key2)
                     except:
                         continue
 
         print >>sys.stderr, "energy_function:", self.energy_function
         # print the contributions of the energy function, if one is specified
-        if self.energy_function != None:
+        if self.energy_function is not None:
             print >>sys.stderr, "key"
             sum_energy = 0.
 
-            int_energies = list(self.energy_function.iterate_over_interaction_energies(bg, background=False))
+            e_func = self.energy_function
+            e_func_iter = e_func.interaction_energy_iter(bg, background=False)
+            int_energies = list(e_func_iter)
             max_energy = max(int_energies, key=lambda x: x[1])
             print >>sys.stderr, "max_energy:", max_energy
 
             for (interaction, energy) in int_energies:
-                (p, n) = (bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+                (p, n) = (bg.get_point(interaction[0]),
+                          bg.get_point(interaction[1]))
                 scaled_energy = - max_energy[1] + energy
 
-                print >>sys.stderr, "Adding segment:", energy, scaled_energy, np.exp(scaled_energy) 
-                self.add_segment(p, n, 'purple', 3 * np.exp(scaled_energy) )
+                self.add_segment(p, n, 'purple', 3 * np.exp(scaled_energy))
 
                 sum_energy += energy
 
@@ -529,7 +569,7 @@ class PymolPrinter:
                 if s1 != 's65':
                     if s2 != 's65':
                         continue
-                
+
                 s1_vec = bg.coords[s1][1] - bg.coords[s1][0]
                 s2_vec = bg.coords[s2][1] - bg.coords[s2][0]
                 (i1, i2) = cuv.line_segment_distance(bg.coords[s1][0],
@@ -549,29 +589,38 @@ class PymolPrinter:
                 # s2_proj is in the intersection plane
                 s2_proj_in = cuv.vector_rejection(s2_vec, plane_vec)
                 # s2 proj_out is out of the intersection plane
-                s2_proj_out = cuv.vector_rejection(s2_vec, i_rej)
+                #s2_proj_out = cuv.vector_rejection(s2_vec, i_rej)
 
                 start_point = bg.coords[s1][0] + 5 * bg.twists[s1][0]
-
-                ortho_vec = i_rej
                 ortho_offset = cuv.magnitude(i_rej)
-        
-                ang1 = cuv.vec_angle(s2_proj_in, s1_vec)
-                ang2 = cuv.vec_angle(s2_proj_out, s1_vec)
                 dist = cuv.magnitude(i_vec) + 0.0001
 
-                lateral_offset = m.sqrt(dist * dist - ortho_offset * ortho_offset)
+                lateral_offset = m.sqrt(dist ** 2 - ortho_offset ** 2)
 
                 if lateral_offset > 10:
                     continue
 
+                '''
                 #cud.pv('cuv.vec_angle(s2_proj_in, s1_vec)')
-                #self.add_segment(start_point, start_point + 10 * cuv.normalize(s2_vec),  'white', 0.5)
-                #self.add_segment(start_point, start_point + 5 * cuv.normalize(plane_vec),  'magenta', 0.5)
-                #self.add_segment(start_point, start_point + 5 * cuv.normalize(i_vec),  'cyan', 0.5)
+                #self.add_segment(start_point,
+                                  start_point + 10 * cuv.normalize(s2_vec),
+                                  'white', 0.5)
+                #self.add_segment(start_point,
+                                  start_point + 5 * cuv.normalize(plane_vec),
+                                  'magenta', 0.5)
+                #self.add_segment(start_point,
+                                  start_point + 5 * cuv.normalize(i_vec),
+                                  'cyan', 0.5)
                 #self.add_segment(i1, i1 + i_rej,  'cyan', 0.5)
-                self.add_segment(start_point, start_point + 7 * cuv.normalize(s2_proj_in),  'white', 1.5)
-                #self.add_segment(start_point, start_point + 7 * cuv.normalize(s2_proj_out),  'blue', 0.5)
+                '''
+                self.add_segment(start_point,
+                                 start_point + 7 * cuv.normalize(s2_proj_in),
+                                 'white', 1.5)
+                '''
+                #self.add_segment(start_point,
+                                  start_point + 7 * cuv.normalize(s2_proj_out),
+                                  'blue', 0.5)
+                '''
 
     def chain_to_pymol(self, chain):
         '''
@@ -582,7 +631,7 @@ class PymolPrinter:
     def load_flex_stats(self, flex_file):
         f = open(flex_file, 'r')
 
-        d = DefaultDict(DefaultDict(0.))
+        d = col.defaultdict(lambda: col.defaultdict(float))
 
         for line in f.readlines():
             parts = line.strip().split(' ')
@@ -601,7 +650,7 @@ class PymolPrinter:
                     p = (coords[1] + coords[0]) / 2.
 
                     bd = bg.defines[key]
-                    
+
                     if len(bd) == 2:
                         #out_str += "0 %d" % (abs(bd[1] - bd[0]) + 1)
                         dims = (0, abs(bd[1] - bd[0]) + 1)
@@ -616,7 +665,6 @@ class PymolPrinter:
                             self.add_sphere(p, "red", flex, key)
                         else:
                             self.add_sphere(p, "yellow", flex, key)
-
 
     def centers_to_pymol(self, bg):
         for key in bg.defines.keys():
@@ -665,8 +713,9 @@ class PymolPrinter:
                     if a[0] == 'P' and i == 0:
                         first_p[j] = new_coords
                     if a[0] == 'P':
-                        if prev_p[j] != None:
-                            self.add_segment(prev_p[j], new_coords, colors[j], 0.7)
+                        if prev_p[j] is not None:
+                            self.add_segment(prev_p[j], new_coords,
+                                             colors[j], 0.7)
                         prev_p[j] = new_coords
                     if a[0] == 'O3*' and i == 0:
                         first_o3[j] = new_coords
@@ -675,13 +724,3 @@ class PymolPrinter:
 
         self.add_segment(prev_p[0], last_o3[0], colors[0], 0.7)
         self.add_segment(first_p[1], first_o3[1], colors[1], 0.7)
-
-def print_angle_stats():
-    angles = []
-
-    for i in range(0, len(segments)):
-        s1 = segments[i-1][1] - segments[i-1][0]
-        s2 = segments[i][1] - segments[i][0]
-
-        angles += [vec_angle(s1, s2)]
-

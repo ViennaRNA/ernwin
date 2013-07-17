@@ -441,11 +441,6 @@ class SpatialModel:
         '''
         stem_defs = dict()
 
-        '''
-        for d in self.bg.sampled_stems.keys():
-            stem_defs[d] = self.bg.get_stem_stats(d) 
-
-        '''
         for stats in cbs.get_stem_stats().values():
             for stat in stats:
                 for d in self.bg.sampled.keys():
@@ -633,7 +628,6 @@ class SpatialModel:
         '''
         for sd in self.stem_defs.items():
             self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
-            #print "self.bg.sampled_stems[sd[0]]:", self.bg.sampled_stems[sd[0]]
 
     def save_sampled_angles(self):
         for (bulge, (s1b, s2b, direction)) in self.sampled_bulge_sides:

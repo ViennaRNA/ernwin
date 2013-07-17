@@ -57,7 +57,7 @@ class EnergyFunction(object):
         '''
         return rand.random()
 
-    def iterate_over_interaction_energies(self, bg, background):
+    def interaction_energy_iter(self, bg, background):
         sm = cbm.SpatialModel(bg)
 
         for stem in bg.stems():
@@ -100,12 +100,12 @@ class EnergyFunction(object):
         stats.silent = True
 
         # if not background energy function is provided, then the background
-        # distribution is simply the proposal distribution implicit in 
+        # distribution is simply the proposal distribution implicit in
         # cbs.GibbsBGSampler
 
         if bg_energy == None:
             bg_energy = EnergyFunction()
-        
+
         gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, stats)
         for _ in range(iterations):
             gs.step()
@@ -118,8 +118,8 @@ class EnergyFunction(object):
         selected_structs = [s[2] for s in selected]
 
         self.calc_bg_parameters(selected_structs)
-             
-        
+
+
 class RandomEnergy(EnergyFunction):
     '''
     An energy function that always just returns a random value.
@@ -187,7 +187,7 @@ class CombinedEnergy:
     def calibrate(self, sm, iterations=40, bg_energy=None, output_dir='/home/mescalin/pkerp/projects/ernwin/energies'):
         '''
         Calibrate each of the energies by taking into account the
-        background distribution induced by non-energy directed 
+        background distribution induced by non-energy directed
         sampling.
         '''
         self.energies[0].calibrate(sm, iterations)
@@ -214,7 +214,7 @@ class CombinedEnergy:
             #cud.pv('energy')
             total_energy += energy.eval_energy(sm, background, nodes, new_nodes)
             self.bad_bulges += energy.bad_bulges
-    
+
         for energy in self.energies:
             contrib = energy.eval_energy(sm, background, nodes=nodes, new_nodes=new_nodes)
 
@@ -266,9 +266,9 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         Calculate the energy parameters of a given distribution.
 
         In this case, the structs parameter contains a list of structures. These structures
-        will have a particular distribution of this energy function. The distribution of 
+        will have a particular distribution of this energy function. The distribution of
         energies of these structures will be the background distribution.
-        
+
         @param structs: The structures to used to define the background energy distribution.
         '''
         interaction_distances = c.defaultdict(list)
@@ -276,7 +276,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         for bg in structs:
 
             defines = list(bg.defines.keys())
-        
+
             for j in range(len(defines)):
                 for k in range(j+1, len(defines)):
                     if defines[j] not in bg.edges[defines[k]]:
@@ -337,7 +337,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             bgp = bgf(distance)
         else:
             fgp = fg(distance)
-        
+
         #energy = my_log(fgp) - my_log(bgp)
         energy = fgp - bgp
 
@@ -359,7 +359,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
                         bg.calc_bp_distances()
                     if  bg.bp_distances[defines[j]][defines[k]] < 10:
                         continue
-                
+
                     interaction = tuple(sorted([defines[j], defines[k]]))
 
                     energy = self.get_energy_contribution(bg, interaction, background)
@@ -388,19 +388,19 @@ class SkewNormalInteractionEnergy(EnergyFunction):
 
         for interaction in sorted_interactions_falling:
             if energy_counts[interaction[0]] < num_best and energy_counts[interaction[1]] < num_best:
-                energy_counts[interaction[0]] += 1 
+                energy_counts[interaction[0]] += 1
                 energy_counts[interaction[1]] += 1
                 new_energies[interaction] = energies[interaction]
 
         energy_counts = c.defaultdict(int)
         for interaction in sorted_interactions_rising:
             if energy_counts[interaction[0]] < num_worst and energy_counts[interaction[1]] < num_worst:
-                energy_counts[interaction[0]] += 1 
+                energy_counts[interaction[0]] += 1
                 energy_counts[interaction[1]] += 1
                 new_energies[interaction] = energies[interaction]
 
         return new_energies
-        
+
     def eval_energy(self, sm, background=True):
         energy_total = 0.
         bg = sm.bg
@@ -463,9 +463,9 @@ class JunctionClosureEnergy(EnergyFunction):
         Calculate the energy parameters of a given distribution.
 
         In this case, the structs parameter contains a list of structures. These structures
-        will have a particular distribution of this energy function. The distribution of 
+        will have a particular distribution of this energy function. The distribution of
         energies of these structures will be the background distribution.
-        
+
         @param structs: The structures used to define the background energy distribution.
         '''
         bg = structs[0]
@@ -503,7 +503,7 @@ class JunctionClosureEnergy(EnergyFunction):
             '''
 
     def eval_energy(self, sm, background=True):
-        #bulge = 'b5' 
+        #bulge = 'b5'
         bg = sm.bg
         all_bulges = set([d for d in bg.defines.keys() if d[0] != 's' and len(bg.edges[d]) == 2])
         closed_bulges = all_bulges.difference(sm.sampled_bulges)
@@ -523,7 +523,7 @@ class JunctionClosureEnergy(EnergyFunction):
                 energy += -(fgd(dist) - bgd(dist))
             else:
                 energy += -fgd(dist)
-        
+
         #print "energy:", energy
         #print "energy[0]:", energy[0]
 
@@ -566,7 +566,7 @@ class LongRangeInteractionCount(EnergyFunction):
         total_interactions = self.count_interactions(bg)
         target_interactions = gradient * np.sqrt(total_interactions) + intercept
         self.distance_iterator = di
-        
+
         return target_interactions
 
     def calc_fg_parameters(self, bg):
@@ -577,15 +577,15 @@ class LongRangeInteractionCount(EnergyFunction):
         Calculate the energy parameters of a given distribution.
 
         In this case, the structs parameter contains a list of structures. These structures
-        will have a particular distribution of this energy function. The distribution of 
+        will have a particular distribution of this energy function. The distribution of
         energies of these structures will be the background distribution.
-        
+
         @param structs: The structures to used to define the background energy distribution.
         '''
         interactions = [self.count_interactions(struct) for struct in structs]
         rand.shuffle(interactions)
         self.bgf = cus.interpolated_kde([float(interaction) for interaction in interactions])
-            
+
     def count_interactions(self, bg):
         '''
         Count the number of long range interactions that occur in the structure.
@@ -617,7 +617,7 @@ class CoarseStemClashEnergy(EnergyFunction):
     '''
     Determine if two stems clash.
     '''
-    
+
     def __init__(self):
         super(CoarseStemClashEnergy, self).__init__()
 
@@ -761,7 +761,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         if nodes == None:
             nodes = sm.bg.defines.keys()
 
-         
+
 
         for d in nodes:
             if d[0] == 's':
@@ -883,7 +883,7 @@ class DistanceEnergy(EnergyFunction):
             d1 = cuv.magnitude(sm.bg.get_point(f) - sm.bg.get_point(t))
 
             energy += abs(d1 - d)
-        
+
         return energy
 
 class GaussianHelixOrientationEnergy(EnergyFunction):
@@ -897,7 +897,7 @@ class GaussianHelixOrientationEnergy(EnergyFunction):
         stats = pa.read_csv(filename,header=None, sep=' ')
         t = stats
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
-        
+
         return cek.gaussian_kde(points.T)
 
 
@@ -974,7 +974,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                 score += -350.
 
         return score
-                    
+
 
     def eval_energy(self, sm, background=True):
         bg = sm.bg
@@ -1103,8 +1103,8 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             bl = bg.defines[bulge][1] - bg.defines[bulge][0] - 1
             #dist = cgg.junction_virtual_res_distance(bg, bulge)
             dist = cgg.junction_virtual_atom_distance(bg, bulge)
-            
-            # 
+
+            #
             #cutoff_distance = (bl) * 5.9 + 13.4
             #cutoff_distance = (bl) * 5.908 + 11.309
             cutoff_distance = (bl) * 6.4 + 6.4
@@ -1140,7 +1140,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         xs = np.linspace(0,1.57,1000)
         plt.plot(xs, self.real_data(xs), 'g')
         plt.plot(xs, self.fake_data(xs), 'r')
-        plt.show() 
+        plt.show()
         '''
 
     def load_stem_stem_data(self, filename):
@@ -1178,7 +1178,7 @@ class StemStemOrientationEnergy(EnergyFunction):
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         energy = 0
         self.interaction_energies = c.defaultdict(float)
-        
+
         if self.real_data == None:
             col = 0
             self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
@@ -1213,7 +1213,7 @@ class StemStemOrientationEnergy(EnergyFunction):
             pass
 
         return -energy
-                
+
 class StemCoverageEnergy(EnergyFunction):
     def __init__(self):
         self.max_dist = 22
@@ -1261,7 +1261,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
         #new_ratios = [rand.choice(ratios) for i in range(5000)]
         #new_ratios = ratios
-        
+
         #new_ratios += list(np.linspace(self.min_ratio, self.max_ratio, 100))
         new_ratios = ratios
 
@@ -1278,9 +1278,9 @@ class CylinderIntersectionEnergy(EnergyFunction):
             cyl_vec = cuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
             cyl = [cyl[0] - extension * cyl_vec,
                    cyl[1] + extension * cyl_vec]
-            
+
             line_len = cuv.magnitude(line[1] - line[0])
-            intersects = cuv.cylinder_line_intersection(cyl, line, 
+            intersects = cuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
                 cud.pv('exiting')
@@ -1324,7 +1324,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
             ax_hist = fig.add_subplot(1,1,1)
             ax_hist.plot(xs, my_log(self.real_data(xs)), 'b')
             ax_hist.plot(xs, my_log(self.fake_data(xs)), 'r')
-            
+
             plt.show()
             '''
 
@@ -1370,7 +1370,7 @@ class LoopLoopEnergy(EnergyFunction):
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
-        
+
         interacting_lengths = c.defaultdict(int)
         all_lengths = c.defaultdict(int)
 
@@ -1385,7 +1385,7 @@ class LoopLoopEnergy(EnergyFunction):
         for l in interacting_lengths.keys():
             interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
 
-        return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs) 
+        return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs)
 
     def calc_energy(self, dist):
         p_r = np.log(self.real_d_given_i(dist)) - np.log(self.real_d(dist))
@@ -1409,7 +1409,7 @@ class LoopLoopEnergy(EnergyFunction):
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
@@ -1421,7 +1421,7 @@ class LoopLoopEnergy(EnergyFunction):
             key = tuple(sorted([l1,l2]))
             contribs[key] += [contrib]
             energy += contrib
-        
+
         if num == 0:
             return 0
 
@@ -1475,9 +1475,9 @@ class InteractionProbEnergy(EnergyFunction):
 
         len_y = float(len(self.loop_loop_y[dtype]['dist']))
         len_a = float(len(self.loop_loop[dtype]['dist']))
-        
+
         self.p_i[dtype] = lambda x: (len_y * self.lb[dtype](x)) / (len_a * self.lb_a[dtype](x))
-        
+
     def calc_node_p(self, bg, node):
         total_p = 1.
 
@@ -1487,18 +1487,18 @@ class InteractionProbEnergy(EnergyFunction):
                 l2 = node
 
                 if l1 in bg.coords and l2 in bg.coords:
-                    (i1,i2) = cuv.line_segment_distance(bg.coords[l1][0], 
+                    (i1,i2) = cuv.line_segment_distance(bg.coords[l1][0],
                                                         bg.coords[l1][1],
                                                         bg.coords[l2][0],
                                                         bg.coords[l2][1])
-                else: 
+                else:
                     # some degenerate loops don't have coords
                     continue
 
                 dist = cuv.magnitude(i2 - i1)
                 if dist > 40. or dist < 0.0001:
                     continue
-                
+
                 #cud.pv('dist, self.p_i["real"](dist)')
                 total_p *= 1. - self.p_i['real'](dist)
 
@@ -1506,7 +1506,7 @@ class InteractionProbEnergy(EnergyFunction):
 
     def calc_expected_energies(self, dtype='real'):
         loops = set(self.loop_loop[dtype]['key1'])
-        
+
         ps = []
 
         for loop in loops:
@@ -1550,7 +1550,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
-        
+
         interacting_lengths = c.defaultdict(int)
         all_lengths = c.defaultdict(int)
 
@@ -1565,7 +1565,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
         for l in interacting_lengths.keys():
             interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
 
-        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs)
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
@@ -1578,7 +1578,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
         energy = 0
         for l1 in sm.bg.loops():
             for l2 in sm.bg.multiloops():
-                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
@@ -1630,7 +1630,7 @@ class LoopBulgeEnergy(LoopLoopEnergy):
         for l in interacting_lengths.keys():
             interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
 
-        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs) 
+        return (loop_loop.dist.values, cek.gaussian_kde(loop_loop_y.dist), cek.gaussian_kde(loop_loop.dist), interaction_probs)
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
@@ -1643,7 +1643,7 @@ class LoopBulgeEnergy(LoopLoopEnergy):
         energy = 0
         for l1 in sm.bg.loops():
             for l2 in sm.bg.bulges():
-                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
@@ -1662,7 +1662,7 @@ class LoopBulgeEnergy(LoopLoopEnergy):
                 iprob = self.real_iprobs[sm.bg.get_length(l1)]
 
                 energy += iprob * contrib
-            
+
         if num == 0:
             return 0
 
@@ -1741,11 +1741,11 @@ class NLoopLoopEnergy(EnergyFunction):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        return (loop_loop.dist.values, 
-                cek.gaussian_kde(loop_loop_y.dist), 
-                cek.gaussian_kde(loop_loop.dist), 
-                loop_loop.len1.values, 
-                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
+        return (loop_loop.dist.values,
+                cek.gaussian_kde(loop_loop_y.dist),
+                cek.gaussian_kde(loop_loop.dist),
+                loop_loop.len1.values,
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]),
                 cek.gaussian_kde([float(f) for f in loop_loop.len1.values]))
 
     def interaction_prob(self, sm, l1):
@@ -1754,14 +1754,14 @@ class NLoopLoopEnergy(EnergyFunction):
         '''
 
         total_p = 0.
-        p_i_l1_given_s = (self.real_s_given_i(sm.bg.get_length(l1)) / 
+        p_i_l1_given_s = (self.real_s_given_i(sm.bg.get_length(l1)) /
                           self.real_s(sm.bg.get_length(l1)))
 
         for l2 in sm.bg.loops():
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
@@ -1770,9 +1770,9 @@ class NLoopLoopEnergy(EnergyFunction):
             if d > 50:
                 continue
 
-            p_i_given_d = (self.real_d_given_i(d) / 
+            p_i_given_d = (self.real_d_given_i(d) /
                            self.real_d(d))
-            p_i_l2_given_s = (self.real_s_given_i(sm.bg.get_length(l2)) / 
+            p_i_l2_given_s = (self.real_s_given_i(sm.bg.get_length(l2)) /
                               self.real_s(sm.bg.get_length(l2)))
             contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s
             #total_p += (p_i_given_d * p_i_l2_given_s)
@@ -1801,7 +1801,7 @@ class NLoopLoopEnergy(EnergyFunction):
             energy += self.ger[s](p) - self.ges[s](p)
 
         return -energy
-            
+
 
 class NLoopJunctionEnergy(EnergyFunction):
     def __init__(self):
@@ -1877,12 +1877,12 @@ class NLoopJunctionEnergy(EnergyFunction):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        return (loop_loop.dist.values, 
-                cek.gaussian_kde(loop_loop_y.dist), 
-                cek.gaussian_kde(loop_loop.dist), 
-                loop_loop.len1.values, 
-                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
-                cek.gaussian_kde([float(f) for f in loop_loop_y.len2.values]), 
+        return (loop_loop.dist.values,
+                cek.gaussian_kde(loop_loop_y.dist),
+                cek.gaussian_kde(loop_loop.dist),
+                loop_loop.len1.values,
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]),
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len2.values]),
                 cek.gaussian_kde([float(f) for f in loop_loop.len1.values]),
                 cek.gaussian_kde([float(f) for f in loop_loop.len2.values]))
 
@@ -1892,14 +1892,14 @@ class NLoopJunctionEnergy(EnergyFunction):
         '''
 
         total_p = 0.
-        p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) / 
+        p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) /
                           self.real_s1(sm.bg.get_length(l1)))
 
         for l2 in sm.bg.loops():
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
@@ -1908,9 +1908,9 @@ class NLoopJunctionEnergy(EnergyFunction):
             if d > 50:
                 continue
 
-            p_i_given_d = (self.real_d_given_i(d) / 
+            p_i_given_d = (self.real_d_given_i(d) /
                            self.real_d(d))
-            p_i_l2_given_s = (self.real_s2_given_i(sm.bg.get_length(l2)) / 
+            p_i_l2_given_s = (self.real_s2_given_i(sm.bg.get_length(l2)) /
                               self.real_s2(sm.bg.get_length(l2)))
             contrib = p_i_l1_given_s * p_i_given_d * p_i_l2_given_s
             #total_p += (p_i_given_d * p_i_l2_given_s)
@@ -2017,12 +2017,12 @@ class NLoopStemEnergy(EnergyFunction):
 
         cud.pv('loop_loop_y.angle.values')
 
-        return (loop_loop.dist.values, 
-                cek.gaussian_kde(loop_loop_y.dist), 
-                cek.gaussian_kde(loop_loop.dist), 
-                loop_loop.len1.values, 
-                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]), 
-                cek.gaussian_kde([float(f) for f in loop_loop_y.len2.values]), 
+        return (loop_loop.dist.values,
+                cek.gaussian_kde(loop_loop_y.dist),
+                cek.gaussian_kde(loop_loop.dist),
+                loop_loop.len1.values,
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len1.values]),
+                cek.gaussian_kde([float(f) for f in loop_loop_y.len2.values]),
                 cek.gaussian_kde([float(f) for f in loop_loop.len1.values]),
                 cek.gaussian_kde([float(f) for f in loop_loop.len2.values]),
                 cek.gaussian_kde([float(f) for f in loop_loop_y.angle.values]),
@@ -2034,14 +2034,14 @@ class NLoopStemEnergy(EnergyFunction):
         '''
 
         total_p = 0.
-        p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) / 
+        p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) /
                           self.real_s1(sm.bg.get_length(l1)))
 
         for l2 in sm.bg.stems():
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0], 
+            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
@@ -2052,9 +2052,9 @@ class NLoopStemEnergy(EnergyFunction):
 
             angle = cgg.receptor_angle(sm.bg, l1, l2)
 
-            p_i_given_d = (self.real_d_given_i(d) / 
+            p_i_given_d = (self.real_d_given_i(d) /
                            self.real_d(d))
-            p_i_l2_given_s = (self.real_s2_given_i(sm.bg.get_length(l2)) / 
+            p_i_l2_given_s = (self.real_s2_given_i(sm.bg.get_length(l2)) /
                               self.real_s2(sm.bg.get_length(l2)))
             p_i_given_a = (self.real_a_given_i(angle) / self.real_a(angle))
 
