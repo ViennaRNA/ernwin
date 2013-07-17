@@ -85,7 +85,7 @@ def is_covalent(contact):
         return True
 
     ((r1, c1), (r2, c2)) = sorted((r1a, r2a), key=lambda x: x[0].id[1])
-    
+
     if r1.id == r2.id:
         if tuple(sorted((c1.name, c2.name))) in interactions_set:
             return True
@@ -171,10 +171,10 @@ def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
     c2_list.sort(key=lambda x: x.id[1])
 
     for r1,r2 in zip(c1_list, c2_list):
-        if sidechains: 
+        if sidechains:
             anames = backbone_atoms + a_names[c1[i].resname.strip()]
         else:
-            anames = backbone_atoms 
+            anames = backbone_atoms
         #anames = a_5_names + a_3_names
 
         for a in anames:
@@ -208,6 +208,17 @@ def pdb_rmsd(c1, c2, sidechains=False, superimpose=True, apply_sup=False):
         #cud.pv('cuv.vector_set_rmsd(crvs1, crvs2)')
         #return (len(all_atoms1), brmsd.rmsd(crvs1, crvs2), None)
         return (len(all_atoms1), cuv.vector_set_rmsd(crvs1, crvs2), None)
+
+def get_first_chain(filename):
+    '''
+    Load a PDB file using the Bio.PDB module and return the first chain.
+
+    @param filename: The path to the pdb file
+    '''
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        s = bpdb.PDBParser().get_structure('t', filename)
+        return list(s.get_chains())[0]
 
 def pdb_file_rmsd(fn1, fn2):
     '''

@@ -22,6 +22,7 @@ import Bio.PDB as bp
 class PymolPrinter:
     def __init__(self):
         self.state = 2
+        self.stem_stem_orientations = None
         self.new_segments = []
         self.segments = []
         self.labels = []
@@ -559,7 +560,7 @@ class PymolPrinter:
 
             cud.pv("sum_energy")
 
-        if self.stem_stem_orienations:
+        if self.stem_stem_orientations is not None:
             for (s1, s2) in it.permutations(bg.stems(), 2):
                 '''
                 if bg.are_adjacent_stems(s1, s2):
