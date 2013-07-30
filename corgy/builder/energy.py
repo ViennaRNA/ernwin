@@ -1,21 +1,22 @@
 #!/usr/bin/python
 
-import time
 import pdb
-import pickle, os
+import pickle
+import os
 import Bio.PDB as bpdb
 import copy
 import itertools as it
 import math
 import warnings
+import pandas as pa
 #import pylab
 
 import Bio.KDTree as kd
 import numpy as np
-import numpy.linalg as nl
 import random as rand
 
 import collections as c
+import os.path as op
 
 import scipy.stats as ss
 import corgy.utilities.vector as cuv
@@ -23,7 +24,6 @@ import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
 import corgy.exp.kde as cek
 import corgy.builder.models as cbm
-import corgy.builder.reconstructor as rtor
 import corgy.utilities.statistics as cus
 import corgy.builder.sampling as cbs
 import corgy.builder.config as cbc
@@ -34,12 +34,15 @@ import scipy.stats as stats
 #import scipy.stats as ss
 import sys
 
+
 def my_log(x):
     return np.log(x + 1e-200)
+
 
 class MissingTargetException(Exception):
     def __init__(self, message):
         Exception.__init__(self, message)
+
 
 class EnergyFunction(object):
     '''
@@ -63,7 +66,6 @@ class EnergyFunction(object):
         for stem in bg.stems():
             cgg.add_virtual_residues(bg, stem)
 
-
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
             if abs(self.interaction_energies[key]) > 0.0000001:
@@ -86,7 +88,7 @@ class EnergyFunction(object):
         '''
         pass
 
-    def calibrate(self, sm, iterations = 10, bg_energy = None):
+    def calibrate(self, sm, iterations=10, bg_energy=None):
         '''
         Calibrate this energy function.
 
@@ -96,17 +98,17 @@ class EnergyFunction(object):
         '''
         self.calc_fg_parameters(sm.bg)
 
-        stats = cbs.SamplingStatistics(sm)
-        stats.silent = True
+        sampling_stats = cbs.SamplingStatistics(sm)
+        sampling_stats.silent = True
 
         # if not background energy function is provided, then the background
         # distribution is simply the proposal distribution implicit in
         # cbs.GibbsBGSampler
 
-        if bg_energy == None:
+        if bg_energy is None:
             bg_energy = EnergyFunction()
 
-        gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, stats)
+        gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, sampling_stats)
         for _ in range(iterations):
             gs.step()
 
@@ -129,6 +131,7 @@ class RandomEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         return rand.uniform(-5, 3)
+
 
 class DistanceIterator:
     '''
@@ -155,7 +158,7 @@ class DistanceIterator:
         keys = bg.defines.keys()
 
         for i in range(len(keys)):
-            for j in range(i+1, len(keys)):
+            for j in range(i + 1, len(keys)):
                 d1 = keys[i]
                 d2 = keys[j]
 
@@ -168,7 +171,6 @@ class DistanceIterator:
                 if dist > self.min_distance and dist < self.max_distance:
                     yield tuple(sorted([d1, d2]))
 
-lri_iter = DistanceIterator(6., 25.)
 
 class CombinedEnergy:
     def __init__(self, energies=[], uncalibrated_energies=[]):
@@ -180,11 +182,14 @@ class CombinedEnergy:
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        filename = os.path.join(directory, energy.__class__.__name__ + ".energy")
+        filename = os.path.join(directory,
+                                energy.__class__.__name__ + ".energy")
         print "saving filename:", filename
         pickle.dump(energy, open(filename, 'w'))
 
-    def calibrate(self, sm, iterations=40, bg_energy=None, output_dir='/home/mescalin/pkerp/projects/ernwin/energies'):
+    def calibrate(self, sm, iterations=40,
+                  bg_energy=None,
+                  output_dir='/home/mescalin/pkerp/projects/ernwin/energies'):
         '''
         Calibrate each of the energies by taking into account the
         background distribution induced by non-energy directed
@@ -202,17 +207,20 @@ class CombinedEnergy:
             self.energies[i].calibrate(sm, iterations, ce)
 
             self.save_energy(self.energies[i], filename)
-            filename = os.path.join(filename, self.energies[i].__class__.__name__)
+            filename = os.path.join(filename,
+                                    self.energies[i].__class__.__name__)
 
         self.save_energy(self, filename)
 
-    def eval_energy(self, sm, verbose=False, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, verbose=False, background=True,
+                    nodes=None, new_nodes=None):
         total_energy = 0.
         self.bad_bulges = []
 
         for energy in self.uncalibrated_energies:
             #cud.pv('energy')
-            total_energy += energy.eval_energy(sm, background, nodes, new_nodes)
+            total_energy += energy.eval_energy(sm, background,
+                                               nodes, new_nodes)
             self.bad_bulges += energy.bad_bulges
 
         for energy in self.energies:
@@ -225,6 +233,7 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         return total_energy
+
 
 class SkewNormalInteractionEnergy(EnergyFunction):
     '''
@@ -241,11 +250,14 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         self.fg = None
         self.bgs = dict()
 
-    def get_target_distribution(self, long_range_stats_fn='../fess/stats/temp.longrange.contact'):
+    def get_target_distribution(self, long_range_stats_fn):
         '''
         Get the target distribution of long range interaction
         lengths.
         '''
+        if long_range_stats_fn is None:
+            long_range_stats_fn = '../fess/stats/temp.longrange.contact'
+
         f = open(long_range_stats_fn, 'r')
         lengths = []
 
@@ -255,21 +267,24 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             lengths += [float(parts[2])]
 
         print "len(lengths):", len(lengths)
-        lengths = lengths[::len(lengths)/100]
+        lengths = lengths[::len(lengths) / 100]
         self.fg = cus.interpolated_kde(lengths)
 
     def calc_fg_parameters(self, bg):
-        self.get_target_distribution(cbc.Configuration.longrange_contact_stats_fn)
+        conf = cbc.Configuration
+        self.get_target_distribution(conf.longrange_contact_stats_fn)
 
     def calc_bg_parameters(self, structs):
         '''
         Calculate the energy parameters of a given distribution.
 
-        In this case, the structs parameter contains a list of structures. These structures
-        will have a particular distribution of this energy function. The distribution of
-        energies of these structures will be the background distribution.
+        In this case, the structs parameter contains a list of structures.
+        These structures will have a particular distribution of this energy
+        function. The distribution of energies of these structures will be the
+        background distribution.
 
-        @param structs: The structures to used to define the background energy distribution.
+        @param structs: The structures to used to define the background energy
+                        distribution.
         '''
         interaction_distances = c.defaultdict(list)
 
@@ -278,11 +293,13 @@ class SkewNormalInteractionEnergy(EnergyFunction):
             defines = list(bg.defines.keys())
 
             for j in range(len(defines)):
-                for k in range(j+1, len(defines)):
+                for k in range(j + 1, len(defines)):
                     if defines[j] not in bg.edges[defines[k]]:
                         interaction = tuple(sorted([defines[j], defines[k]]))
 
-                        distance = cuv.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+                        p0 = bg.get_point(interaction[0])
+                        p1 = bg.get_point(interaction[1])
+                        distance = cuv.vec_distance(p0, p1)
                         interaction_distances[interaction] += [distance]
 
         for interaction in interaction_distances.keys():
@@ -528,6 +545,8 @@ class JunctionClosureEnergy(EnergyFunction):
         #print "energy[0]:", energy[0]
 
         return energy[0]
+
+lri_iter = DistanceIterator(6., 25.)
 
 class LongRangeInteractionCount(EnergyFunction):
     '''
@@ -948,9 +967,9 @@ class ImgHelixOrientationEnergy(EnergyFunction):
         img = np.zeros(n_points)
         for p in points:
             ixs = [int((p[j] - min_dims[j]) / self.res) for j in xrange(points.shape[1])]
-            img[ixs[0],ixs[1],ixs[2]] += 1
+            img[ixs[0], ixs[1], ixs[2]] += 1
 
-        img = sn.gaussian_filter(img, (3,3,3))
+        img = sn.gaussian_filter(img, (3, 3, 3))
 
         return (img, min_dims)
 
@@ -963,10 +982,14 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             ixs_fake = [int((p[j] - self.fake_min_dims[j]) / self.res) for j in xrange(points.shape[1])]
 
             try:
-                #val_real = my_log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
-                #val_fake = my_log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
-                val_real = np.log(self.real_img[ixs_real[0], ixs_real[1], ixs_real[2]])
-                val_fake = np.log(self.fake_img[ixs_fake[0], ixs_fake[1], ixs_fake[2]])
+                #val_real = my_log(self.real_img[ixs_real[0], ixs_real[1],
+                #                                ixs_real[2]])
+                #val_fake = my_log(self.fake_img[ixs_fake[0], ixs_fake[1],
+                #                                 ixs_fake[2]])
+                val_real = np.log(self.real_img[ixs_real[0],
+                                                ixs_real[1], ixs_real[2]])
+                val_fake = np.log(self.fake_img[ixs_fake[0],
+                                                ixs_fake[1], ixs_fake[2]])
                 #val_fake = 0.
 
                 score += val_real - val_fake
@@ -975,25 +998,22 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         return score
 
-
     def eval_energy(self, sm, background=True):
         bg = sm.bg
         stems = [d for d in bg.defines.keys() if d[0] == 's']
-        #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]
+        #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2
+        #or bg.weights[d] == 0)]
         score = 0.
         points = []
-        s1_start = np.zeros(3)
-        s1_end = np.zeros(3)
         r2_spos = np.zeros(3)
 
         vposs = sm.bg.vposs
-        vbasis = sm.bg.vbases
         invs = sm.bg.vinvs
 
         max_distance = 500.
 
-        starts = c.defaultdict( dict )
-        ends = c.defaultdict( dict )
+        starts = c.defaultdict(dict)
+        ends = c.defaultdict(dict)
         points = []
 
         self.interaction_energies = c.defaultdict(int)
@@ -1002,7 +1022,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             for stem in bg.stems():
                 cgg.add_virtual_residues(bg, stem)
 
-        # pre-calculate all virtual positions and their change of basis matrices
+        # pre-calculate all virtual positions and their change
+        # of basis matrices
         for s in stems:
 
             for i in range(bg.stem_length(s)):
@@ -1010,7 +1031,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
         # pre-calculate the start and end positions of each virtual res
         for s in stems:
-            s_len = bg.stem_length(s) # bg.defines[s][1] - bg.defines[s][0] + 1
+            s_len = bg.stem_length(s)
             s1_0_pos = vposs[s][0]
             s1_len_pos = vposs[s][s_len - 1]
 
@@ -1039,21 +1060,15 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             for s2 in stems:
                 stem_interactions[(s1, s2)] = 0.
 
-        for (ia,ib) in indices:
-            point_energies = []
-
+        for (ia, ib) in indices:
             for (i1, i2) in [(ia, ib), (ib, ia)]:
-                point_energy = 0
-                s1,l = points[i1][1:]
-                s2,k = points[i2][1:]
+                s1, l = points[i1][1:]
+                s2, k = points[i2][1:]
 
                 s1_pos = vposs[s1][l]
 
                 if s1 != s2 and not bg.are_adjacent_stems(s1, s2):
                     s2_pos = vposs[s2][k]
-
-                    s1_end = ends[s1][l]
-                    s1_start = starts[s1][l]
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
@@ -1066,7 +1081,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
                         #point_energy += point_score
                         stem_interactions[(s1,s2)] += point_score
                         count += 1
-                        #self.interaction_energies[tuple(sorted([s1, s2]))] += -point_score
+                        #self.interaction_energies[tuple(sorted([s1, s2]))]
+                        #+= -point_score
 
         energy1 = 0.
         ses = []
@@ -1074,7 +1090,7 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             se = min(stem_interactions[(s1, s2)], stem_interactions[(s2, s1)])
             #se = (stem_interactions[(s1,s2)] + stem_interactions[(s2,s1)]) / 2
             energy1 += se
-            self.interaction_energies[tuple(sorted([s1,s2]))] = se
+            self.interaction_energies[tuple(sorted([s1, s2]))] = se
             if abs(se) > 0.00001:
                 ses += [se]
 
@@ -1084,12 +1100,12 @@ class ImgHelixOrientationEnergy(EnergyFunction):
             return 1000000
         return -score
 
+
 class RoughJunctionClosureEnergy(EnergyFunction):
     def __init__(self):
         super(RoughJunctionClosureEnergy, self).__init__()
 
-
-    def eval_energy(self, sm, background=True, nodes = None, new_nodes = None):
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         bg = sm.bg
         #if nodes == None:
         nodes = bg.defines.keys()
@@ -1109,16 +1125,17 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             #cutoff_distance = (bl) * 5.908 + 11.309
             cutoff_distance = (bl) * 6.4 + 6.4
 
-
             if (dist > cutoff_distance):
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
                 #cud.pv('bulge, dist, cutoff_distance, self.bad_bulges')
                 cud.pv('bulge, dist, cutoff_distance')
                 #cud.pv('nodes')
-                #print "bulge:", bulge, "bl:", bl, "cutoff_distance:", cutoff_distance, "dist:", dist
+                #print "bulge:", bulge, "bl:", bl, "cutoff_distance:",
+                # cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
 
         return energy
+
 
 class StemStemOrientationEnergy(EnergyFunction):
     def __init__(self, cols=[2]):
@@ -1133,7 +1150,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.fake_data = None
 
         self.angles = []
-        self.beta=False
+        self.beta = False
 
         '''
         import matplotlib.pyplot as plt
@@ -1168,18 +1185,17 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.angles += orig_angles
         orig_kde = stats.gaussian_kde(orig_angles)
 
-        if self.beta == True:
+        if self.beta is True:
             f = ss.beta.fit(angles, floc=0, fscale=max(angles))
             return lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
         else:
-        #return stats.gaussian_kde(sampled_angles, bw_method=orig_kde.factor / 1.)
             return stats.gaussian_kde(angles, bw_method=orig_kde.factor / 1.)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         energy = 0
         self.interaction_energies = c.defaultdict(float)
 
-        if self.real_data == None:
+        if self.real_data is None:
             col = 0
             self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
             self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
@@ -1189,7 +1205,7 @@ class StemStemOrientationEnergy(EnergyFunction):
             if sm.bg.are_adjacent_stems(s1, s2):
                 continue
 
-            orientation = cgg.stem_stem_orientation(sm.bg, s1,s2)
+            orientation = cgg.stem_stem_orientation(sm.bg, s1, s2)
             if orientation[0] < self.max_dist and orientation[4] < self.max_lateral_dist:
                 angs = []
                 for col in self.cols:
@@ -1291,7 +1307,9 @@ class CylinderIntersectionEnergy(EnergyFunction):
             else:
                 #in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
                 cyl_basis = cuv.create_orthonormal_basis(cyl_vec)
-                intersects_t = cuv.change_basis(intersects.T, cyl_basis, cuv.standard_basis).T
+                intersects_t = cuv.change_basis(intersects.T,
+                                                cyl_basis,
+                                                cuv.standard_basis).T
                 #in_cyl_len = abs(intersects[1][0] - intersects[0][0])
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
 
@@ -1330,10 +1348,9 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
         energy = 0.
-        for (key,val) in cyl_fractions.items():
+        for (key, val) in cyl_fractions.items():
             real = my_log(self.real_kde(val))
             fake = my_log(max(self.fake_kde(val), self.fake_min))
-
 
             energy += (real - fake)
 
@@ -1364,12 +1381,11 @@ class LoopLoopEnergy(EnergyFunction):
         import pandas as pa
 
         t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2',
+                     'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
-        #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
-        loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
         interacting_lengths = c.defaultdict(int)
         all_lengths = c.defaultdict(int)
@@ -1385,21 +1401,20 @@ class LoopLoopEnergy(EnergyFunction):
         for l in interacting_lengths.keys():
             interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
 
-        return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist), stats.gaussian_kde(loop_loop.dist), interaction_probs)
+        return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist),
+                stats.gaussian_kde(loop_loop.dist), interaction_probs)
 
     def calc_energy(self, dist):
         p_r = np.log(self.real_d_given_i(dist)) - np.log(self.real_d(dist))
         p_s = np.log(self.fake_d_given_i(dist)) - np.log(self.fake_d(dist))
 
-        return np.log(np.exp(p_r) + np.exp(p_s)) -  p_s
+        return np.log(np.exp(p_r) + np.exp(p_s)) - p_s
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         self.interaction_energies = c.defaultdict(int)
         if self.real_data == None:
             (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
             (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
-
-        p_i = 1.
 
         num = 0
         energy = 0
@@ -1409,7 +1424,7 @@ class LoopLoopEnergy(EnergyFunction):
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+            (i1, i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
@@ -1418,7 +1433,7 @@ class LoopLoopEnergy(EnergyFunction):
             num += 1
             contrib = self.calc_energy(dist)
 
-            key = tuple(sorted([l1,l2]))
+            key = tuple(sorted([l1, l2]))
             contribs[key] += [contrib]
             energy += contrib
 
@@ -1430,7 +1445,8 @@ class LoopLoopEnergy(EnergyFunction):
             energy += max(contribs[k])
             self.interaction_energies[k] += max(contribs[k])
         '''
-        return -energy;
+        return -energy
+
 
 class InteractionProbEnergy(EnergyFunction):
     def __init__(self):
@@ -1450,7 +1466,8 @@ class InteractionProbEnergy(EnergyFunction):
         self.b_a = dict()
 
         self.load_data('fess/stats/temp.longrange.stats', dtype='real')
-        self.load_data('fess/stats/temp.longrange.stats.sampled', dtype='sampled')
+        self.load_data('fess/stats/temp.longrange.stats.sampled',
+                       dtype='sampled')
 
         self.calc_expected_energies('real')
         self.calc_expected_energies('sampled')
@@ -1462,13 +1479,18 @@ class InteractionProbEnergy(EnergyFunction):
         t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
-        self.loop_loop[dtype] = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
+        self.loop_loop[dtype] = t[np.logical_and(t.type1 == "l",
+                                                 t.type2 == "l")]
         #self.loop_loop[dtype] = t[t.type1 == "l"]
         self.loop_loop_y[dtype] = self.loop_loop[dtype][self.loop_loop[dtype].longrange == 'Y']
         self.loop_loop_n[dtype] = self.loop_loop[dtype][self.loop_loop[dtype].longrange == 'N']
 
-        self.b[dtype] = ss.beta.fit(self.loop_loop_y[dtype]['dist'], floc=0, fscale=max(self.loop_loop_y[dtype]['dist']))
-        self.b_a[dtype] = ss.beta.fit(self.loop_loop[dtype]['dist'], floc=0, fscale=max(self.loop_loop[dtype]['dist']))
+        self.b[dtype] = ss.beta.fit(self.loop_loop_y[dtype]['dist'],
+                                    floc=0,
+                                    fscale=max(self.loop_loop_y[dtype]['dist']))
+        self.b_a[dtype] = ss.beta.fit(self.loop_loop[dtype]['dist'],
+                                      floc=0,
+                                      fscale=max(self.loop_loop[dtype]['dist']))
 
         self.lb[dtype] = lambda x: ss.beta.pdf(x, self.b[dtype][0], self.b[dtype][1], self.b[dtype][2], self.b[dtype][3])
         self.lb_a[dtype] = lambda x: ss.beta.pdf(x, self.b_a[dtype][0], self.b_a[dtype][1], self.b_a[dtype][2], self.b_a[dtype][3])
@@ -1487,7 +1509,7 @@ class InteractionProbEnergy(EnergyFunction):
                 l2 = node
 
                 if l1 in bg.coords and l2 in bg.coords:
-                    (i1,i2) = cuv.line_segment_distance(bg.coords[l1][0],
+                    (i1, i2) = cuv.line_segment_distance(bg.coords[l1][0],
                                                         bg.coords[l1][1],
                                                         bg.coords[l2][0],
                                                         bg.coords[l2][1])
@@ -1712,7 +1734,7 @@ class NLoopLoopEnergy(EnergyFunction):
         fig = plt.figure()
         for i in range(16):
             cud.pv('i')
-            ax = fig.add_subplot(4,4,i)
+            ax = fig.add_subplot(4, 4, i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
@@ -2085,3 +2107,81 @@ class NLoopStemEnergy(EnergyFunction):
             energy += self.ger[s](p) - self.ges[s](p)
 
         return -energy
+
+
+def read_angles_file(filename):
+    '''
+    Read a file containing angle statistics. This file is usually created by
+    the graph_to_angles.py script.
+
+    @param filename: The name of the file.close
+    '''
+    column_names = ['type', 'pdb', 's1', 's2', 'u', 'v', 't', 'r', 'u1', 'v1',
+                    'atype', 'something1', 'something2', 'sth3', 'sth4']
+    stats = pa.read_csv(filename, header=None, sep=' ',
+                        names=column_names, engine='python')
+    return stats
+
+
+def select_angle(stats):
+    '''
+    Select the statistics which pertain to angles.
+    '''
+    stats = stats[stats['type'] == 'angle']
+    stats = stats[['v', 'u']].as_matrix()
+    return stats
+
+
+def wrap(stats):
+    stats = np.vstack([stats + [0, -2 * math.pi],
+                   stats + [0, 0],
+                   stats + [0, 2 * math.pi],
+                   stats + [math.pi, -2 * math.pi],
+                   stats + [math.pi, 0],
+                   stats + [math.pi, 2 * math.pi],
+                   stats + [-math.pi, -2 * math.pi],
+                   stats + [-math.pi, 0],
+                   stats + [-math.pi, 2 * math.pi]] )
+    return stats
+
+class AdjacentStemEnergy(EnergyFunction):
+    '''
+    An energy function to help approximate the distribution of inter-stem
+    orientations for adjacent stems.
+    '''
+
+    def __init__(self):
+        self.sampled_stats_fn = '~/coarse/1jj2_rosetta/stats/temp.angles'
+        self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
+
+        self.real_stats_fn = '~/coarse/1jj2_rosetta/stats/temp.angles'
+        self.real_stats_fn = op.expanduser(self.real_stats_fn)
+
+        self.real_dist = None
+        self.sampled_dist = None
+
+        pass
+
+    def eval_energy(self, sm, background=True):
+        bg = sm.bg
+
+        if self.real_dist is None:
+            self.real_stats = read_angles_file(self.real_stats_fn)
+            self.sampled_stats = read_angles_file(self.sampled_stats_fn)
+
+            self.real_stats = select_angle(self.real_stats)
+            self.sampled_stats = select_angle(self.sampled_stats)
+
+            self.wr_real_stats = wrap(self.real_stats)
+            self.wr_sampled_stats = wrap(self.sampled_stats)
+
+            self.real_dist = ss.gaussian_kde(self.real_stats)
+            self.sampled_dist = ss.gaussian_kde(self.sampled_stats)
+
+            self.wr_real_dist = ss.gaussian_kde(self.wr_real_stats)
+            self.wr_sampled_dist = ss.gaussian_kde(self.wr_sampled_stats)
+
+        for s in bg.stems():
+            for edge in bg.edges[s]:
+                if len(bg.edges[edge]) == 2:
+                    angle_stat = bg.get_bulge_angle_stats(edge)

@@ -597,7 +597,8 @@ def get_mids_core_a(chain, start1, start2, end1, end2, use_template=True):
                  chain[start2][catom_name].get_vector().get_array()) / 2.
 
     start1_catom = chain[start1 + real_stem_length][catom_name]
-    start2_catom = chain[start2 + real_stem_length][catom_name]
+    start2_catom = chain[start2 - real_stem_length][catom_name]
+
     end_pos = (start1_catom.get_vector().get_array() +
                start2_catom.get_vector().get_array()) / 2.
 
@@ -653,7 +654,9 @@ def get_mids_core(chain, start1, start2, end1, end2, use_template=True):
     filename = op.join(cbc.Configuration.stem_fragment_dir,
                        template_filename)
     ideal_chain = cup.get_first_chain(filename)
-    chain = extract_define_residues([start1, end1, end2, start2], ideal_chain)
+    #cud.pv('template_filename')
+    #cud.pv('start1, end1, end2, start2')
+    chain = extract_define_residues([start1, end1, end2, start2], chain)
 
     rotran = cup.pdb_rmsd(chain, ideal_chain, sidechains=False,
                           superimpose=True, apply_sup=False)[2]

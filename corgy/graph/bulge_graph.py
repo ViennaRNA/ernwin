@@ -34,7 +34,7 @@ def any_difference_of_one(stem, bulge):
     :param bulge: A couple (2-tuple) indicating the first and last position
                   of the bulge.
 
-    :return: True if there is an overlap between the stem nucleotides and the 
+    :return: True if there is an overlap between the stem nucleotides and the
                   bulge nucleotides
              False otherwise
     '''
@@ -80,7 +80,7 @@ def print_bulges(bulges):
     '''
     Print the names and definitions of the bulges.
 
-    :param bulges: A list of tuples of the form [(s, e)] where s and e are the 
+    :param bulges: A list of tuples of the form [(s, e)] where s and e are the
                    numbers of the nucleotides at the start and end of the bulge.
     '''
     for i in range(len(bulges)):
@@ -118,7 +118,7 @@ def condense_stem_pairs(stem_pairs):
             if start_pair != None:
                 stems += [(start_pair, prev_pair)]
             start_pair = pair
-    
+
         prev_pair = pair
 
     if start_pair != None:
@@ -202,12 +202,12 @@ def find_bulges_and_stems(brackets):
                 finished_bulges += bulges[context]
                 bulges[context] = []
                 context -= 1
- 
+
 
             if prev == '.':
                 dots_end = i-1
                 bulges = add_bulge(bulges, (dots_start-1, dots_end+1), context, "2")
-  
+
         if brackets[i] == '.':
             if prev == '.':
                 continue
@@ -225,7 +225,7 @@ def find_bulges_and_stems(brackets):
     elif prev == ')':
         bulges = add_bulge(bulges, (i+1, i), context, "8")
     """
-    
+
     if context in bulges.keys():
         finished_bulges += bulges[context]
 
@@ -234,7 +234,7 @@ def find_bulges_and_stems(brackets):
 
     stem_pairs.sort()
     stems = condense_stem_pairs(stem_pairs)
-    
+
     return (finished_bulges, stems)
 
 class BulgeGraph:
@@ -271,7 +271,7 @@ class BulgeGraph:
         # store which bulges were merged
         self.merge_defs = dict()
         self.longrange = c.defaultdict( set )
-        
+
         self.bp_distances = None
 
         if filename != None:
@@ -314,7 +314,7 @@ class BulgeGraph:
             for i in range(0, len(define), 2):
                 a = [int(define[i]), int(define[i+1])]
                 a.sort()
-                
+
                 if key[0] != 's':
                     if a[0] != 0:
                         a[0] += 1
@@ -447,7 +447,7 @@ class BulgeGraph:
 
         return (cbs.end_ang_types[(s1b, s2b, direction1)],
                 cbs.end_ang_types[(s2b, s1b, direction2)])
-         
+
 
     def get_bulge_angle_stats(self, bulge):
         '''
@@ -646,7 +646,7 @@ class BulgeGraph:
 
         The values are calculated using a slight variation of the Floyd Warshall Algorithm.
 
-        The result is stored in the double dict self.bp_distances. 
+        The result is stored in the double dict self.bp_distances.
         '''
 
         dist = cuds.DefaultDict(cuds.DefaultDict(0))
@@ -658,15 +658,15 @@ class BulgeGraph:
         for i in defs:
             for j in defs:
                 dist[i][j] = 10000000
-                
+
                 if i == j:
                     dist[i][j] = 0
 
                 if j in self.edges[i]:
                     dist[i][j] = 0
-                    
+
                     # stem_sides stores which side of stem i points
-                    # to stem j 
+                    # to stem j
                     # if i or j is a bulge, then the stored side is
                     # for the stem
                     if i[0] == 's':
@@ -676,7 +676,7 @@ class BulgeGraph:
                         stem_sides[j][i] = self.get_sides(j, i)[0]
                         stem_sides[i][j] = self.get_sides(j, i)[0]
 
-        sys.stderr.write('Calculating base pair distances')
+        #sys.stderr.write('Calculating base pair distances')
         for k in defs:
             sys.stderr.write('.')
             sys.stderr.flush()
@@ -689,7 +689,7 @@ class BulgeGraph:
                         # that the two nodes being connected are on opposide sides of it
                         if stem_sides[i][k] == stem_sides[j][k]:
                             inter_distance = 0
-                    
+
                     if dist[i][j] > dist[i][k] + inter_distance + dist[k][j]:
                         dist[i][j] = dist[i][k] + inter_distance + dist[k][j]
                         #sides[i][j] = (s1b, s2b)
@@ -727,7 +727,7 @@ class BulgeGraph:
 
             visited.add(curr_node)
 
-            if curr_node[0] == 's': 
+            if curr_node[0] == 's':
                 path += [(prev_stem, prev_node, curr_node)]
                 for edge in self.edges[curr_node]:
                     to_visit.append((curr_node, curr_node, edge))
@@ -821,7 +821,7 @@ class BulgeGraph:
                             del values[k]
                             values += merge_defs[key1]
 
-                            del merge_defs[key1] 
+                            del merge_defs[key1]
                             done = False
 
 
@@ -829,7 +829,7 @@ class BulgeGraph:
         for d in self.defines.keys():
             if d[0] == 's':
                 yield d
-    
+
     def stem_base_pairs(self, s):
         d = self.defines[s]
         for i in range(self.stem_length(s)):
@@ -843,7 +843,7 @@ class BulgeGraph:
         for d in self.defines.keys():
             if d[0] != 's' and self.weights[d] == 1 and len(self.edges[d]) == 2:
                 yield d
-    
+
     def same_stem_end(self, sd):
         if sd == 0:
             return 3
@@ -897,7 +897,7 @@ class BulgeGraph:
         for d in self.defines.keys():
             if self.weights[d] == 2 or d[0] == 's':
                 yield d
-    
+
     def bulges(self):
         for d in self.defines.keys():
             if d[0] != 's' and len(self.edges[d]) == 2:
@@ -905,7 +905,7 @@ class BulgeGraph:
 
     def multiloops(self):
         for d in self.defines.keys():
-            if (d[0] != 's' and len(self.edges[d]) == 2 and 
+            if (d[0] != 's' and len(self.edges[d]) == 2 and
                 self.weights[d] == 1 and self.defines[d][0] != 0 and
                 self.defines[d][1] != self.length):
                 yield d
@@ -1052,7 +1052,7 @@ class BulgeGraph:
             for val in self.merge_defs[key]:
                 out_str += " %s" % (key)
             print out_str
-    
+
     # Take the define lines, combine them with the merge definitions
     # and output the actual merged coords of each motif
     def print_merged_defines(self, defines):
@@ -1069,11 +1069,11 @@ class BulgeGraph:
                 out_str += " %s" % (orig_define)
 
             print out_str
-        
+
         for define in defines.keys():
             if define not in merged:
                 print "define %s %s" % (define, " ".join(defines[define]))
-            
+
     def get_connect_str(self):
         whole_str = ''
         for key in self.edges:
@@ -1107,7 +1107,7 @@ class BulgeGraph:
         Get the array of twists for this node. If the node is a stem,
         then the twists will simply those stored in the array.
 
-        If the node is an interior loop or a junction segment, 
+        If the node is an interior loop or a junction segment,
         then the twists will be the ones that are adjacent to it.
 
         If the node is a hairpin loop or a free end, then only
@@ -1123,16 +1123,16 @@ class BulgeGraph:
 
         if len(connections) == 1:
             return (cuv.normalize(cuv.vector_rejection(
-                             self.twists[connections[0]][s1b],
-                             self.coords[connections[0]][1] - 
-                             self.coords[connections[0]][0])),)
+                                  self.twists[connections[0]][s1b],
+                                  self.coords[connections[0]][1] -
+                                  self.coords[connections[0]][0])),)
 
         if len(connections) == 2:
             # interior loop or junction segment
             (s2b, s2e) = self.get_sides(connections[1], node)
 
-            bulge_vec = (self.coords[connections[0]][s1b] - 
-                         self.coords[connections[1]][s2b]) 
+            bulge_vec = (self.coords[connections[0]][s1b] -
+                         self.coords[connections[1]][s2b])
 
             return (cuv.normalize(cuv.vector_rejection(
                     self.twists[connections[0]][s1b],
@@ -1162,10 +1162,10 @@ class BulgeGraph:
             self.coords[key] = new_coords
 
     # Print the graph in the form
-    # 
+    #
     # s1 b1 b2
-    # 
-    # Which would imply that s1 is connected to b1 and b2 
+    #
+    # Which would imply that s1 is connected to b1 and b2
     def print_me(self):
         print self.get_connect_str()
 
@@ -1182,7 +1182,7 @@ class BulgeGraph:
             out_str += "coord %s %s %s" % (key, " ".join([str(pt) for pt in p]), " ".join([str(pt) for pt in n]))
             out_str += '\n'
         return out_str
-    
+
     def get_twist_str(self):
         out_str = ''
         for key in self.twists.keys():
@@ -1218,7 +1218,7 @@ class BulgeGraph:
         out_str += self.get_long_range_str()
 
         return out_str
-    
+
     def copy(self):
         bg = BulgeGraph()
 
@@ -1257,7 +1257,7 @@ class BulgeGraph:
                       where s1 and e1 are the nucleotides at one end of the stem
                       and s2 and e2 are the nucleotides at the other.
 
-        :param bulges: A list of tuples of the form [(s, e)] where s and e are the 
+        :param bulges: A list of tuples of the form [(s, e)] where s and e are the
                        numbers of the nucleotides at the start and end of the bulge.
         '''
         for i in range(len(stems)):
@@ -1301,7 +1301,7 @@ class BulgeGraph:
             m1 = 1
 
         return (m1, m2)
-        
+
 
     def get_flanking_sequence(self, bulge_name, side=0):
         if len(self.seq) == 0:
@@ -1314,12 +1314,12 @@ class BulgeGraph:
     def get_flanking_handles(self, bulge_name, side=0):
         '''
         Get the indices of the residues for fitting bulge regions.
-        
+
         So if there is a loop like so (between residues 7 and 16):
 
         (((...))))
         7890123456
-          ^   ^  
+          ^   ^
 
         Then residues 9 and 13 will be used as the handles against which
         to align the fitted region.
@@ -1356,7 +1356,7 @@ class BulgeGraph:
         Determine which stems are connected to each other. A stem can be connected to
         another stem when there is an interior loop with an unpaired nucleotide on
         one side. In this case, a bulge will be created on the other side, but it
-        will only consist of the two paired bases around where the unpaired base 
+        will only consist of the two paired bases around where the unpaired base
         would be if it existed.
 
         The defines for these bulges will be printed as well as the connection strings
@@ -1367,7 +1367,7 @@ class BulgeGraph:
                       and s2 and e2 are the nucleotides at the other.
         :param bulge_counter: The number of bulges that have been encountered so far.
 
-        :returns: A dictionary indexed by the number of a stem, containing a set of the 
+        :returns: A dictionary indexed by the number of a stem, containing a set of the
                  other stems that the index is connected to.
         '''
         #print "stems:", stems
@@ -1421,7 +1421,7 @@ class BulgeGraph:
         Make defines like this:
 
         define x0 2 124 124 3 4 125 127 5 5
-        
+
         Into this:
 
         define x0 2 3 5 124 127
@@ -1451,7 +1451,7 @@ class BulgeGraph:
                     if f1 == -1 and t1 == -2:
                         del self.defines[key][j]
                         del self.defines[key][j]
-                        
+
                         new_j = 0
                         continue
 
@@ -1477,7 +1477,7 @@ class BulgeGraph:
                         del self.defines[key][k]
 
                         #print >>sys.stderr, "post self.defines[key]:", self.defines[key]
-                        
+
                         new_j = 0
 
                         break
@@ -1556,7 +1556,7 @@ class BulgeGraph:
                         continue
                     else:
                         return in_path[:depth+1]
-                
+
                 if key not in visited:
                     to_visit.append((key, depth+1))
         return []
@@ -1595,9 +1595,9 @@ class BulgeGraph:
 
     def get_bulge_vertices(self):
         """
-        Get all of the vertices which define a bulge. 
+        Get all of the vertices which define a bulge.
 
-        A bulge vertex can only have two connections: to the two stems which it links. 
+        A bulge vertex can only have two connections: to the two stems which it links.
         Futhermore, each of these stems can
         """
 
@@ -1606,7 +1606,7 @@ class BulgeGraph:
         for vertex in self.edges:
             if self.weights[vertex] == 2:
                 vertices += [vertex]
-        
+
         return vertices
 
     def get_bulge_vertex_names(self):
@@ -1670,9 +1670,9 @@ class BulgeGraph:
                     if d[i] == be[j]:
                         #print >>sys.stderr, key, edge
                         bulge_sides[i / 2].add(edge)
-        
+
         #print >>sys.stderr, "bulge_sides:", bulge_sides
-        
+
         new_nodes = [0,0]
         for i in range(2):
             new_node = self.get_vertex()
@@ -1686,7 +1686,7 @@ class BulgeGraph:
                     bd = self.defines[bulge]
                 else:
                     continue
-                
+
                 for edge in self.edges[bulge]:
                     edges.add(edge)
 
@@ -1696,7 +1696,7 @@ class BulgeGraph:
 
             edges.remove(key)
             #print >> sys.stderr, "new_node", new_node, "edges:", edges, "mins:", mins, "maxs:", maxs
-           
+
             self.add_node(new_node, edges, [mins, maxs], self.weights[bulge])
             new_nodes[i] = new_node
 
@@ -1852,7 +1852,7 @@ class BulgeGraph:
             se1 = stems[i][1][0]+1
             se2 = stems[i][1][1]+1
 
-            self.defines['s%d' % (i)] = [min(ss1,se1), max(ss1,se1), 
+            self.defines['s%d' % (i)] = [min(ss1,se1), max(ss1,se1),
                                          min(ss2,se2), max(ss2,se2)]
             self.weights['s%d' % (i)] = 1
         for i in range(len(bulges)):
