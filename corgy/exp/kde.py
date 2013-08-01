@@ -21,7 +21,7 @@
 import warnings
 
 import sys
-import scipy.spatial.kdtree as ssk
+#import scipy.spatial.kdtree as ssk
 import Bio.KDTree as kd
 
 # Scipy imports.

@@ -182,3 +182,38 @@ class InterpolatedMultiKDE:
         return self.evaluate(data)
 
 
+class SphericalHistogram:
+    '''
+    Create a histogram on the sphere by first positioning a number of points
+    more or less equally over the surface of the sphere.
+    '''
+    def __init__(self, data, nbins=10):
+        import scipy.spatial as ss
+
+        self.points = self.get_sphere_points()
+        self.counts = [0 for i in range(len(self.points))]
+        self.kd_tree = ss.KDTree(self.points)
+
+        for p in data:
+            i = self.kd_tree.query(p)[1]
+            self.counts[i] += 1
+
+    def get_sphere_points(self):
+        """ each point you get will be of form 'x, y, z'; in cartesian coordinates
+            eg. the 'l2 distance' from the origion [0., 0., 0.] for each point will be 1.0 
+            ------------
+            converted from:  http://web.archive.org/web/20120421191837/http://www.cgafaq.info/wiki/Evenly_distributed_points_on_sphere ) 
+        """
+        dlong = pi*(3.0-sqrt(5.0))  # ~2.39996323 
+        dz   =  2.0 / self.nbins
+        long =  0.0
+        z    =  1.0 - dz/2.0
+        ptsOnSphere =[]
+        for k in range( 0, self.nbins):
+            r    = sqrt(1.0-z*z)
+            ptNew = (cos(long)*r, sin(long)*r, z)
+            ptsOnSphere.append( ptNew )
+            z    = z - dz
+            long = long + dlong
+
+        return ptsOnSphere

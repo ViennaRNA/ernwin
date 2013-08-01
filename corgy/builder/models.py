@@ -322,7 +322,11 @@ class SpatialModel:
         self.add_to_skip()
         
         for s in bg.stems():
-            cgg.add_virtual_residues(self.bg,s)
+            try:
+                cgg.add_virtual_residues(self.bg,s)
+            except KeyError:
+                # The structure is probably new and doesnt have coordinates yet
+                continue
 
     def sample_stats(self):
         self.sample_angles()
@@ -858,7 +862,7 @@ class SpatialModel:
                 loop_w_sizes = [(self.bg.stem_length(l), l) for l in loop if l[0] != 's']
                 loop_w_sizes += [(0, l) for l in loop if l[0] == 's']
                 to_remove = max(loop_w_sizes)[1]
-                cud.pv('to_remove, loop')
+                #cud.pv('to_remove, loop')
                 to_skip.add(to_remove)
 
             for l in loop:

@@ -8,7 +8,7 @@ import copy
 import itertools as it
 import math
 import warnings
-import pandas as pa
+#import pandas as pa
 #import pylab
 
 import Bio.KDTree as kd
@@ -18,19 +18,19 @@ import random as rand
 import collections as c
 import os.path as op
 
-import scipy.stats as ss
+#import scipy.stats as ss
 import corgy.utilities.vector as cuv
 import corgy.graph.bulge_graph as cgb
 import corgy.graph.graph_pdb as cgg
-import corgy.exp.kde as cek
+#import corgy.exp.kde as cek
 import corgy.builder.models as cbm
-import corgy.utilities.statistics as cus
-import corgy.builder.sampling as cbs
+#import corgy.utilities.statistics as cus
+#import corgy.builder.sampling as cbs
 import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
 import corgy.builder.rmsd as cbr
 
-import scipy.stats as stats
+#import scipy.stats as stats
 #import scipy.stats as ss
 import sys
 
@@ -256,7 +256,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         lengths.
         '''
         if long_range_stats_fn is None:
-            long_range_stats_fn = '../fess/stats/temp.longrange.contact'
+            long_range_stats_fn = op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.contact')
 
         f = open(long_range_stats_fn, 'r')
         lengths = []
@@ -908,8 +908,8 @@ class DistanceEnergy(EnergyFunction):
 class GaussianHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         super(GaussianHelixOrientationEnergy, self).__init__()
-        self.real_kde = self.load_stem_orientation_data('fess/stats/stem_nt.stats')
-        self.fake_kde = self.load_stem_orientation_data('fess/stats/stem_nt_sampled.stats')
+        self.real_kde = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_nt.stats'))
+        self.fake_kde = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_nt_sampled.stats'))
 
     def load_stem_orientation_data(self, filename):
         import pandas as pa
@@ -944,8 +944,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         super(ImgHelixOrientationEnergy).__init__()
         self.res = 2.
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt.stats')
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_bulge_nt.stats'))
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_bulge_nt_sampled.stats'))
         '''
         self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_truncated.stats')
         self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled_truncated.stats')
@@ -1197,8 +1197,8 @@ class StemStemOrientationEnergy(EnergyFunction):
 
         if self.real_data is None:
             col = 0
-            self.real_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
-            self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
+            self.real_data = self.load_stem_stem_data(op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations.csv'))
+            self.fake_data = self.load_stem_stem_data(op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv'))
             #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
         for (s1,s2) in it.permutations(sm.bg.stems(), r=2):
@@ -1327,8 +1327,8 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
     def eval_energy(self, sm , background=True):
         if self.real_data == None:
-            (self.real_data, self.real_kde) = self.load_data('fess/stats/cylinder_intersection_fractions.csv')
-            (self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_sampled.csv')
+            (self.real_data, self.real_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions.csv'))
+            (self.fake_data, self.fake_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions_sampled.csv'))
             #(self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_%s.csv' % (sm.bg.name))
 
             self.fake_min = min(self.fake_kde(self.fake_data))
@@ -1413,8 +1413,8 @@ class LoopLoopEnergy(EnergyFunction):
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         self.interaction_energies = c.defaultdict(int)
         if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
 
         num = 0
         energy = 0
@@ -1465,8 +1465,8 @@ class InteractionProbEnergy(EnergyFunction):
         self.b = dict()
         self.b_a = dict()
 
-        self.load_data('fess/stats/temp.longrange.stats', dtype='real')
-        self.load_data('fess/stats/temp.longrange.stats.sampled',
+        self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'), dtype='real')
+        self.load_data(op.expanduser('fess/stats/temp.longrange.stats.sampled'),
                        dtype='sampled')
 
         self.calc_expected_energies('real')
@@ -1591,8 +1591,8 @@ class LoopJunctionEnergy(LoopLoopEnergy):
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
 
         p_i = 1.
 
@@ -1656,8 +1656,8 @@ class LoopBulgeEnergy(LoopLoopEnergy):
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
 
         p_i = 1.
 
@@ -1700,8 +1700,8 @@ class NLoopLoopEnergy(EnergyFunction):
         self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
 
         # Store the total probabilities for each loop length
         # The loop length is the index and the total probabilites seen
@@ -1834,8 +1834,8 @@ class NLoopJunctionEnergy(EnergyFunction):
         self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2) = self.load_data('fess/stats/temp.longrange.stats')
-            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s1_given_i, self.fake_s2_given_i, self.real_s1, self.fake_s2) = self.load_data('fess/stats/temp.longrange.stats.sampled')
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s1_given_i, self.fake_s2_given_i, self.real_s1, self.fake_s2) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
 
         # Store the total probabilities for each loop length
         # The loop length is the index and the total probabilites seen
@@ -1973,7 +1973,7 @@ class NLoopStemEnergy(EnergyFunction):
         self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2, self.real_a_given_i, self.real_a) = self.load_data('fess/stats/temp.longrange.stats')
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2, self.real_a_given_i, self.real_a) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
 
         # Store the total probabilities for each loop length
         # The loop length is the index and the total probabilites seen
@@ -2133,15 +2133,15 @@ def select_angle(stats):
 
 
 def wrap(stats):
-    stats = np.vstack([stats + [0, -2 * math.pi],
+    stats = np.vstack([stats + [0, -math.pi],
                    stats + [0, 0],
-                   stats + [0, 2 * math.pi],
-                   stats + [math.pi, -2 * math.pi],
-                   stats + [math.pi, 0],
-                   stats + [math.pi, 2 * math.pi],
-                   stats + [-math.pi, -2 * math.pi],
-                   stats + [-math.pi, 0],
-                   stats + [-math.pi, 2 * math.pi]] )
+                   stats + [0, math.pi],
+                   stats + [2 * math.pi, -math.pi],
+                   stats + [2 * math.pi, 0],
+                   stats + [2 * math.pi, math.pi],
+                   stats + [-2 * math.pi, -math.pi],
+                   stats + [-2 * math.pi, 0],
+                   stats + [-2 * math.pi, math.pi]] )
     return stats
 
 class AdjacentStemEnergy(EnergyFunction):
@@ -2154,7 +2154,7 @@ class AdjacentStemEnergy(EnergyFunction):
         self.sampled_stats_fn = '~/coarse/1jj2_rosetta/stats/temp.angles'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
 
-        self.real_stats_fn = '~/coarse/1jj2_rosetta/stats/temp.angles'
+        self.real_stats_fn = '~/coarse/1jj2/stats/temp.angles'
         self.real_stats_fn = op.expanduser(self.real_stats_fn)
 
         self.real_dist = None
@@ -2175,13 +2175,30 @@ class AdjacentStemEnergy(EnergyFunction):
             self.wr_real_stats = wrap(self.real_stats)
             self.wr_sampled_stats = wrap(self.sampled_stats)
 
-            self.real_dist = ss.gaussian_kde(self.real_stats)
-            self.sampled_dist = ss.gaussian_kde(self.sampled_stats)
+            self.real_dist = ss.gaussian_kde(self.real_stats.T)
+            self.sampled_dist = ss.gaussian_kde(self.sampled_stats.T)
 
-            self.wr_real_dist = ss.gaussian_kde(self.wr_real_stats)
-            self.wr_sampled_dist = ss.gaussian_kde(self.wr_sampled_stats)
+            self.wr_real_dist = ss.gaussian_kde(self.wr_real_stats.T)
+            self.wr_sampled_dist = ss.gaussian_kde(self.wr_sampled_stats.T)
 
-        for s in bg.stems():
-            for edge in bg.edges[s]:
-                if len(bg.edges[edge]) == 2:
-                    angle_stat = bg.get_bulge_angle_stats(edge)
+        energy = 0.
+        for d in bg.defines.keys():
+            if d[0] != 's' and len(bg.edges[d]) == 2:
+                (as1, as2) = bg.get_bulge_angle_stats(d)
+
+                #print "as1", as1
+                #print "as1.u", as1.u
+
+                real = my_log(self.wr_real_dist((as1.u, as1.v)))
+                fake = my_log(self.wr_sampled_dist((as1.u, as1.v)))
+
+                energy += real - fake
+
+                real = my_log(self.wr_real_dist((as2.u, as2.v)))
+                fake = my_log(self.wr_sampled_dist((as2.u, as2.v)))
+
+                energy += real - fake
+
+        cud.pv('energy')
+        return energy
+

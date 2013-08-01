@@ -3,6 +3,7 @@
 from optparse import OptionParser
 from bisect import bisect
 import copy
+import os.path as op
 
 import corgy.utilities.debug as cud
 import corgy.builder.sampling as cbs
@@ -36,6 +37,94 @@ def draw_helper():
     draw()
     pass
 
+def bgs_from_fasta(fasta_file):
+    bgs = []
+
+    with open(fasta_file, 'r') as f:
+        # assume there is only one sequence and dotplot in the fastdp file
+        lines = f.readlines()
+        for line in lines:
+            if line.strip() == '':
+                continue
+
+            if line[0] == '>':
+                bg = BulgeGraph()
+                bg.name = line[1:].strip()
+                counter = 0
+            if counter % 3 == 1:
+                bg.seq = line.strip()
+                bg.length = len(bg.seq)
+            if counter % 3 == 2:
+                bg.from_dotbracket(line.strip())
+                bgs += [bg]
+
+            counter += 1
+    return  bgs
+
+def predict(bg, energies_to_sample, options):
+    sm = SpatialModel(bg)
+
+    if not os.path.exists(options.output_dir):
+        os.makedirs(options.output_dir)
+    if options.output_file == None or options.output_file == sys.stdout:
+        options.output_file = sys.stdout
+    else:
+        options.output_file = open(options.output_file, 'w')
+
+    cbc.Configuration.sampling_output_dir = op.join(options.output_dir, bg.name)
+    if not os.path.exists(cbc.Configuration.sampling_output_dir):
+        os.makedirs(cbc.Configuration.sampling_output_dir)
+
+    if options.eval_energy:
+        for s in sm.bg.stems():
+            cgg.add_virtual_residues(sm.bg, s)
+
+        for energy in energies_to_sample:
+            cud.pv('energy.eval_energy(sm)')
+        sys.exit(1)
+
+    if options.plot:
+        plotter = StatisticsPlotter()
+    else:
+        plotter = None
+
+    colors = ['g','y','r']
+    samplers = []
+    stats = []
+
+    # only samples from the first energy will be saved
+    silent = False
+
+    for color,energy in zip(colors, energies_to_sample):
+        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best)
+        stat.step_save = options.step_save
+
+        if options.mcmc_sampler:
+            sm = SpatialModel(copy.deepcopy(bg))
+            sm.constraint_energy = cbe.CombinedEnergy([cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy()])
+            sm.junction_constraint_energy = cbe.RoughJunctionClosureEnergy()
+            #sm.constraint_energy = cbe.CombinedEnergy([cbe.RoughJunctionClosureEnergy()])
+            #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy()])
+            #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
+            samplers += [cbs.MCMCSampler(sm, energy, stat)]
+        else:
+            sm = SpatialModel(copy.deepcopy(bg))
+            sm.constraint_energy = cbe.StemVirtualResClashEnergy()
+            samplers += [GibbsBGSampler(sm, energy, stat)]
+        silent = True
+
+    for i in range(options.iterations):
+        for s in samplers:
+            s.step()
+
+    #stats.print_final_stats(energy_function)
+    #stats.save_top()
+
+    if plotter:
+        plotter.finish()
+        #plotter.plt.ioff()
+        #plt.show()
+        pass
 def main():
     #seed(2)
     #seterr(all='ignore')
@@ -75,57 +164,14 @@ def main():
 
     (options, args) = parser.parse_args()
 
-    if len(args) < 1 and options.secondary_structure == '':
+    if len(args) < 1 and options.secondary_structure is False and options.fasta == '':
         print "Usage: ./gibbs.py temp.comp"
         sys.exit(1)
 
-    if options.fasta != '':
-        with open(options.fasta, 'r') as f:
-            # assume there is only one sequence and dotplot in the fastdp file
-            lines = f.readlines()
-            id_line = lines[0].strip()[1:]
-            secondary_structure = lines[-1].strip()
-            sequence_str = lines[-2].strip()
-
-        options.output_dir = os.path.join(options.output_dir, id_line)
-        cud.pv('options.output_dir')
-        bg = BulgeGraph()
-        bg.seq = sequence_str
-        bg.length = len(bg.seq)
-        bg.from_dotbracket(secondary_structure)
-        bg.dump()
-
-    elif options.secondary_structure:
-        if options.sequence_file == '' and options.sequence_str != '':
-            print >>sys.stderr, "Sequence needs to be provided with --sequence"
-        print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
-        bg = BulgeGraph()
-
-        if options.sequence_file != '':
-            with open(options.sequence, 'r') as f:
-                seq = "".join(f.readlines())
-                bg.seq = seq.upper()
-        else:
-            bg.seq = options.sequence_str
-
-        bg.from_dotbracket_file(args[0])
-    else:
-        bg = BulgeGraph(args[0])
-
-    #bg.calc_bp_distances()
-    sm = SpatialModel(bg)
-
-    if not os.path.exists(options.output_dir):
-        os.makedirs(options.output_dir)
-    if options.output_file == None:
-        options.output_file = sys.stdout
-    else:
-        options.output_file = open(options.output_file, 'w')
-
-    cbc.Configuration.sampling_output_dir = options.output_dir
+    cud.pv('args')
+    cud.pv('options.secondary_structure')
 
     energies_to_sample = []
-
     if options.n_loop_energy:
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.NLoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.NLoopLoopEnergy(), cbe.NLoopStemEnergy()])]
@@ -190,69 +236,35 @@ def main():
         bg.calc_bp_distances()
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
     '''
-    if options.eval_energy:
-        for s in sm.bg.stems():
-            cgg.add_virtual_residues(sm.bg, s)
 
-        for energy in energies_to_sample:
-            cud.pv('energy.eval_energy(sm)')
-        sys.exit(1)
+    if options.fasta != '':
+        bgs = bgs_from_fasta(options.fasta)
 
-    if options.plot:
-        plotter = StatisticsPlotter()
-    else:
-        plotter = None
+    elif options.secondary_structure:
+        if options.sequence_file == '' and options.sequence_str != '':
+            print >>sys.stderr, "Sequence needs to be provided with --sequence"
+        print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
+        bg = BulgeGraph()
 
-    colors = ['g','y','r']
-    samplers = []
-    stats = []
-
-    # only samples from the first energy will be saved
-    silent = False
-
-    for color,energy in zip(colors, energies_to_sample):
-        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best)
-        stat.step_save = options.step_save
-
-        if options.mcmc_sampler:
-            sm = SpatialModel(copy.deepcopy(bg))
-            sm.constraint_energy = cbe.CombinedEnergy([cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy()])
-            sm.junction_constraint_energy = cbe.RoughJunctionClosureEnergy()
-            #sm.constraint_energy = cbe.CombinedEnergy([cbe.RoughJunctionClosureEnergy()])
-            #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy()])
-            #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
-            samplers += [cbs.MCMCSampler(sm, energy, stat)]
+        if options.sequence_file != '':
+            with open(options.sequence, 'r') as f:
+                seq = "".join(f.readlines())
+                bg.seq = seq.upper()
         else:
-            sm = SpatialModel(copy.deepcopy(bg))
-            sm.constraint_energy = cbe.StemVirtualResClashEnergy()
-            samplers += [GibbsBGSampler(sm, energy, stat)]
-        silent = True
+            bg.seq = options.sequence_str
 
-    for i in range(options.iterations):
-        for s in samplers:
-            s.step()
+        bg.from_dotbracket_file(args[0])
+        bgs = [bg]
+    else:
+        bgs = [BulgeGraph(args[0])]
 
-    #stats.print_final_stats(energy_function)
-    #stats.save_top()
-
-    if plotter:
-        plotter.finish()
-        #plotter.plt.ioff()
-        #plt.show()
-        pass
+    #bg.calc_bp_distances()
+    for bg in bgs:
+        predict(bg, energies_to_sample, options)
 
 if __name__ == '__main__':
     seed_num = randint(0, sys.maxint)
     try:
-        #seed_num=3221009412965193567
-        #seed_num=4987859958555737937
-        #seed_num=4862246145078431235
-        #seed_num=2202257950156889158
-        #seed_num=2125471369035665828
-        #seed_num=8635950677344279734
-        #seed_num=6881563699643510798
-        #seed_num=8663615665126825303
-        #seed_num=5927641497132074495
         seed(seed_num)
         main()
     except:

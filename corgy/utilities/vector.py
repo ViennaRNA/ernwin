@@ -8,7 +8,7 @@ import math as m
 import numpy.linalg as nl
 import numpy.testing as nt
 import random as rand
-import scipy as sp
+#import scipy as sp
 
 null_array = np.array([0., 0., 0.])
 
@@ -377,6 +377,7 @@ def rotation_matrix_weave(axis, theta, mat = None):
         mat[3*2 + 2] = a*a+d*d-b*b-c*c;
     """
 
+    import scipy as sp
     sp.weave.inline(code, ['axis', 'theta', 'mat'], support_code = support, libraries = ['m'])
 
     return mat

@@ -3,7 +3,7 @@
 import sys
 
 import random as rand
-import scipy.stats as ss
+#import scipy.stats as ss
 import numpy as np
 import collections as c
 import math as m
