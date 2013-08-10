@@ -20,7 +20,7 @@ import corgy.utilities.pdb as cup
 import corgy.utilities.vector as cuv
 import corgy.utilities.average_stem_vres_atom_positions as cua
 
-#import scipy.optimize as so
+import scipy.optimize as so
 
 catom_name = 'C3*'
 

@@ -240,3 +240,57 @@ def pdb_file_rmsd(fn1, fn2):
     rmsd = pdb_rmsd(c1, c2)
 
     return rmsd
+
+def get_biggest_chain(in_filename, out_filename):
+    '''
+    Load the PDB file located at filename, select the longest
+    chain, and save the file to out_filename.
+
+    @param in_filename: The location of the original file.
+    @param out_filename: The location of the file containing just
+                         the largest chain.
+    '''
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        s = bpdb.PDBParser().get_structure('temp', in_filename)
+
+    chains = list(s.get_chains())
+    biggest = 0
+    biggest_len = 0
+
+    for i in range(len(chains)):
+        c = chains[i]
+        res_list = list(c.get_list())
+        
+        #print >> sys.stderr, res_list[0].resname
+        rna = False
+
+        # Only count RNA residues
+        num_residues = 0
+        for res in res_list:
+            if (res.resname.strip() == 'A' or
+                res.resname.strip() == 'C' or
+                res.resname.strip() == 'G' or
+                res.resname.strip() == 'U'):
+                num_residues += 1
+                break
+
+        if num_residues > biggest_len:
+            biggest = i
+            biggest_len = num_residues
+
+    orig_chain = chains[biggest]
+
+    # only output the chain we deemed biggest
+    class FirstChainSelect(bpdb.Select):
+        def accept_chain(self, chain):
+            if chain.get_id() == orig_chain.get_id():
+                return 1
+            else:
+                return 0
+
+    io=bpdb.PDBIO()
+    io.set_structure(s)
+
+    io.save(out_filename, FirstChainSelect())

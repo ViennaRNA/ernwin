@@ -30,8 +30,8 @@ import corgy.builder.config as cbc
 import corgy.utilities.debug as cud
 import corgy.builder.rmsd as cbr
 
-#import scipy.stats as stats
-#import scipy.stats as ss
+import scipy.stats as stats
+import scipy.stats as ss
 import sys
 
 

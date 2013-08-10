@@ -421,6 +421,7 @@ class SpatialModel:
         length = abs(define[1] - define[0])
 
         # retrieve a random entry from the StemStatsDict collection
+        cud.pv('length')
         ss = choice(cbs.get_stem_stats()[length])
         stem_defs[d] = ss
 
