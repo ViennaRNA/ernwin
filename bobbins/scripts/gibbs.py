@@ -40,6 +40,10 @@ def draw_helper():
 def bgs_from_fasta(fasta_file):
     bgs = []
 
+    if not op.exists(fasta_file):
+        print >>sys.stderr, "The specified fasta file does not exist: %s" \
+                % (fasta_file)
+
     with open(fasta_file, 'r') as f:
         # assume there is only one sequence and dotplot in the fastdp file
         lines = f.readlines()

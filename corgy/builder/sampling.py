@@ -358,6 +358,11 @@ class MCMCSampler:
     def change_angle(self):
         # pick a random bulge to vary
         bulge = self.sm.bg.get_random_bulge()
+
+        if bulge == None:
+            # this structure has no bulges
+            return
+
         while bulge not in self.sm.sampled_bulges:
             bulge = self.sm.bg.get_random_bulge()
 

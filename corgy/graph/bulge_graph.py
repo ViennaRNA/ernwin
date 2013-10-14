@@ -554,6 +554,9 @@ class BulgeGraph:
             if d[0] != 's' and len(self.edges[d]) == 2:
                 bulges += [d]
 
+        if len(bulges) == 0:
+            return None
+
         return random.choice(bulges)
 
     def get_random_stem(self):
