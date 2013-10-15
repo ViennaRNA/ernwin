@@ -707,7 +707,9 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         if handles[0] != 0 and handles[1] != seq_len:
             align_starts(stem_chain, chain_unclosed_loop, [(a,b,i1,i2)], end=0)
         
-        (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, (a, b, i1, i2))
+        cud.pv('(a,b,i1,i2)')
+        cud.pv('handles')
+        (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, [(a, b, i1, i2)])
         if handles[0] == 0 or handles[1] == seq_len:
             r_start = 0.
         else:
@@ -773,7 +775,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
         # This should be taken care of in a more elegant
         # manner, but it'll have to wait until it causes
         # a problem
-        return
+        return None
 
     # get some diagnostic information
     bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
@@ -834,8 +836,11 @@ def reconstruct_loops(chain, sm, samples=40, consider_contacts=False):
                 args += [(chain, sm, d, 0, samples, consider_contacts)]
 
     #pool = mp.Pool(processes=4)
-    r = parmap(reconstruct_loop, args)
-    #r = [reconstruct_loop(*arg) for arg in args]
+    #r = parmap(reconstruct_loop, args)
+    r = [reconstruct_loop(*arg) for arg in args]
+    r = [x for x in r if x is not None]
+    cud.pv('r')
+
     for ((a,b,i1,i2), best_loop_chain, min_r) in r:
         add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), sm.bg.length)
 

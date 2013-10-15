@@ -21,6 +21,7 @@ def main():
     parser.add_option('','--drop-into-debugger', dest='drop_into_debugger', default=False, action='store_true')
     parser.add_option('-f', '--fragments', dest='fragments', default=False, action='store_true', help='Reconstruct using fragments.')
     parser.add_option('', '--output-file', dest='output_file', default='out.pdb', type='str')
+    parser.add_option('-s', '--samples', dest='samples', default=10, type='int', help='The number of samples to get from Barnacle')
 
     (options, args) = parser.parse_args()
 
@@ -82,7 +83,7 @@ def main():
         else:
             try:
                 #rtor.reconstruct_loop(chain, sm, 'b17', 0)
-                rtor.reconstruct_loops(chain, sm, samples=40, consider_contacts=True)
+                rtor.reconstruct_loops(chain, sm, samples=options.samples, consider_contacts=True)
             except Exception as e:
                 if options.drop_into_debugger:
                     pdb.post_mortem()
