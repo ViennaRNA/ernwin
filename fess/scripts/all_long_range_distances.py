@@ -2,8 +2,8 @@
 
 import sys
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.vector import vec_distance
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.utilities.vector import vec_distance
 
 def output_all_distances(bg):
     for key1 in bg.defines.keys():

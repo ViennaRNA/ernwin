@@ -3,8 +3,8 @@
 import sys
 from optparse import OptionParser
 
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
 
 import itertools as it
 

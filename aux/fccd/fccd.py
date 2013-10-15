@@ -10,7 +10,7 @@ from numpy.random import random
 from numpy import array, dot
 from numpy.linalg import det, svd
 
-from corgy.utilities.vector import vec_angle, magnitude
+from borgy.utilities.vector import vec_angle, magnitude
 #from LinearAlgebra import singular_value_decomposition, determinant
 #from RandomArray import random, normal
 

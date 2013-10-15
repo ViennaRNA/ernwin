@@ -3,9 +3,9 @@
 import sys
 
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.energy import LongRangeInteractionCount, CombinedEnergy
-from corgy.builder.energy import DistanceIterator
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.builder.energy import LongRangeInteractionCount, CombinedEnergy
+from borgy.builder.energy import DistanceIterator
 
 def main():
     if len(sys.argv) < 2:

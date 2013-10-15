@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
 import sys
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.vector import vec_distance
-from corgy.graph.graph_pdb import get_bulge_centroid, get_mids
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.utilities.vector import vec_distance
+from borgy.graph.graph_pdb import get_bulge_centroid, get_mids
 
 from numpy import dot
 

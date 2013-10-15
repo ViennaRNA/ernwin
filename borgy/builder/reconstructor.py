@@ -1,21 +1,21 @@
 import multiprocessing as mp
 import warnings
 
-import corgy.builder.models as models
+import borgy.builder.models as models
 import os.path as op
 
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.vector as cuv
-import corgy.utilities.debug as cud
-import corgy.utilities.pdb as cup
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
+import borgy.utilities.pdb as cup
 
-import corgy.builder.ccd as cbc
-import corgy.aux.ccd.cytvec as cv
+import borgy.builder.ccd as cbc
+import borgy.aux.ccd.cytvec as cv
 
-import corgy.builder.rmsd as brmsd
+import borgy.builder.rmsd as brmsd
 
-#import corgy.aux.Barnacle as barn
-import corgy.aux.CPDB.src.examples.BarnacleCPDB as barn
+#import borgy.aux.Barnacle as barn
+import borgy.aux.CPDB.src.examples.BarnacleCPDB as barn
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
@@ -27,7 +27,7 @@ import scipy.stats as ss
 from scipy.stats import norm, poisson
 
 import os, math, sys
-import corgy.builder.config as conf
+import borgy.builder.config as conf
 import copy, time
 import random as rand
 
@@ -766,15 +766,6 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
     bg = sm.bg
     seq = bg.get_flanking_sequence(ld, side)
     (a,b,i1,i2) = bg.get_flanking_handles(ld, side)
-
-    # get some diagnostic information
-    bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
-    dist = cuv.vec_distance(bg.coords[ld][1], bg.coords[ld][0])
-    dist2 = get_flanking_stem_vres_distance(bg, ld)
-    dist3 = cgg.junction_virtual_atom_distance(bg, ld)
-
-    sys.stderr.write("reconstructing %s ([%d], %d, %.2f, %.2f, %.2f):" % (ld, len(bg.edges[ld]), bl, dist, dist2, dist3))
-    '''
     if a == 0 and b == 1:
         # the loop is just a placeholder and doesn't
         # have a length.
@@ -783,7 +774,15 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
         # manner, but it'll have to wait until it causes
         # a problem
         return
-    '''
+
+    # get some diagnostic information
+    bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
+    dist = cuv.vec_distance(bg.coords[ld][1], bg.coords[ld][0])
+    dist2 = get_flanking_stem_vres_distance(bg, ld)
+    #dist3 = cgg.junction_virtual_atom_distance(bg, ld)
+    dist3 = 0.
+
+    sys.stderr.write("reconstructing %s ([%d], %d, %.2f, %.2f, %.2f):" % (ld, len(bg.edges[ld]), bl, dist, dist2, dist3))
 
     (best_loop_chain, min_r) = build_loop(chain, seq, (a,b,i1,i2), bg.length, samples, consider_contacts, consider_starting_pos)
 
@@ -1219,7 +1218,12 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
     @param ld: The name of the loop to reconstruct.
     '''
 
-    fiveprime_def = sm.fiveprime_defs[ld]
+    try:
+        fiveprime_def = sm.fiveprime_defs[ld]
+    except:
+        print "ld", ld, "sm.bg.defines[ld]", sm.bg.defines[ld]
+        reconstruct_loop(chain, sm, ld)
+        return
 
     if fiveprime_def.define[1] - fiveprime_def.define[0] == 1:
         return

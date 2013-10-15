@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-import corgy.graph.bulge_graph as cgb
+import borgy.graph.bulge_graph as cgb
 
 def main():
     parser = OptionParser()

@@ -3,17 +3,17 @@
 import collections as c
 import sys, random, copy
 import numpy as np
-import corgy.exp.kde as cek
+import borgy.exp.kde as cek
 import math, os
 
 #import matplotlib.pyplot as plt
 
-import corgy.builder.config as cbc
-import corgy.builder.stats as cbs
-import corgy.graph.graph_pdb as cgg
-import corgy.builder.rmsd as cbr
-import corgy.builder.models as cbm
-import corgy.utilities.debug as cud
+import borgy.builder.config as cbc
+import borgy.builder.stats as cbs
+import borgy.graph.graph_pdb as cgg
+import borgy.builder.rmsd as cbr
+import borgy.builder.models as cbm
+import borgy.utilities.debug as cud
 
 import numpy as np
 

@@ -3,9 +3,9 @@
 import sys
 from optparse import OptionParser
 
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-import corgy.builder.rmsd as cbr
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+import borgy.builder.rmsd as cbr
 
 def main():
     usage = './bg_rmsd.py s1.coord s2.coord'

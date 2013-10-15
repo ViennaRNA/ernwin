@@ -4,14 +4,14 @@ import sys, pdb
 import numpy as np
 from optparse import OptionParser
 
-import corgy.builder.stats as cbs
-import corgy.builder.reconstructor as rtor 
-import corgy.builder.models as models
+import borgy.builder.stats as cbs
+import borgy.builder.reconstructor as rtor 
+import borgy.builder.models as models
 
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
 
-from corgy.graph.bulge_graph import BulgeGraph
+from borgy.graph.bulge_graph import BulgeGraph
 
 def main():
     parser = OptionParser()

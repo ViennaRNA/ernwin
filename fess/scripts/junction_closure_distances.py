@@ -6,13 +6,13 @@ import math
 import numpy as np
 from optparse import OptionParser
 
-import corgy.builder.models as cbm
-import corgy.builder.reconstructor as cbr
-import corgy.builder.stats as cbs
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
+import borgy.builder.models as cbm
+import borgy.builder.reconstructor as cbr
+import borgy.builder.stats as cbs
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
 
 def get_random_stem_stats():
     '''

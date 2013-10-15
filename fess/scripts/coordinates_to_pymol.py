@@ -3,18 +3,18 @@
 from optparse import OptionParser
 import sys, pickle
 
-import corgy.builder.energy as cbe
+import borgy.builder.energy as cbe
 import numpy as np
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.visual.pymol import PymolPrinter
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.visual.pymol import PymolPrinter
 
-import corgy.builder.models as cbm
-import corgy.builder.rmsd as cbr
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
-import corgy.utilities.average_stem_vres_atom_positions as cua
+import borgy.builder.models as cbm
+import borgy.builder.rmsd as cbr
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.utilities.average_stem_vres_atom_positions as cua
 
 def main():
     if len(sys.argv) < 2:

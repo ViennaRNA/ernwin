@@ -5,9 +5,9 @@ import sys
 from optparse import OptionParser
 import pickle
 
-import corgy.builder.energy as cbe
-import corgy.builder.models as cbm
-import corgy.graph.bulge_graph as cgb
+import borgy.builder.energy as cbe
+import borgy.builder.models as cbm
+import borgy.graph.bulge_graph as cgb
 
 def main():
     parser = OptionParser()

@@ -3,8 +3,8 @@
 import sys
 from optparse import OptionParser
 
-from corgy.utilities.vector import normalize, rotation_matrix_weave
-from corgy.utilities.vector import vec_angle, magnitude
+from borgy.utilities.vector import normalize, rotation_matrix_weave
+from borgy.utilities.vector import vec_angle, magnitude
 
 from numpy import array, dot, cross, allclose, eye, ones
 from numpy.random import random

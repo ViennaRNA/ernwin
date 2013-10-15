@@ -8,11 +8,11 @@ import numpy as np
 import uuid
 import collections as col
 
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.average_stem_vres_atom_positions as cua
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
-import corgy.builder.models as cbm
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.average_stem_vres_atom_positions as cua
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.builder.models as cbm
 
 import Bio.PDB.Model as bpm
 import Bio.PDB.Structure as bps

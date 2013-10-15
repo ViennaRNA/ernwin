@@ -3,8 +3,8 @@
 import sys
 from optparse import OptionParser
 
-import corgy.graph.bulge_graph as cgb
-import corgy.builder.energy as cbe
+import borgy.graph.bulge_graph as cgb
+import borgy.builder.energy as cbe
 
 def main():
     usage = './cylinder_intersection_energies.py bulge_graph'

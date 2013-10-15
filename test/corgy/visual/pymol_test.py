@@ -1,9 +1,9 @@
 import unittest
 
-from corgy.visual.pymol import PymolPrinter
-from corgy.builder.models import SpatialModel
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.config import Configuration
+from borgy.visual.pymol import PymolPrinter
+from borgy.builder.models import SpatialModel
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.builder.config import Configuration
 
 import os
 

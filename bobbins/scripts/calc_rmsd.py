@@ -2,9 +2,9 @@
 
 import sys
 
-from corgy.builder.rmsd import centered_rmsd
-from corgy.graph.bulge_graph import BulgeGraph
-import corgy.graph.graph_pdb as cgg
+from borgy.builder.rmsd import centered_rmsd
+from borgy.graph.bulge_graph import BulgeGraph
+import borgy.graph.graph_pdb as cgg
 
 def main():
     if len(sys.argv) < 3:

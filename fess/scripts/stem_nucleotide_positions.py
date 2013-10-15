@@ -5,13 +5,13 @@ from optparse import OptionParser
 
 import numpy as np
 
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
 
-import corgy.builder.config as cbc
+import borgy.builder.config as cbc
 
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
 
 def connected_stems(bg, s1, s2):
     for edge in bg.edges[s1]:

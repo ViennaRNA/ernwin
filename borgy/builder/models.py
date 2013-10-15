@@ -13,11 +13,11 @@ import collections as c
 import random as rand
 import collections as c
 
-import corgy.builder.config as cbc
-import corgy.builder.stats as cbs
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.vector as cuv
-import corgy.utilities.debug as cud
+import borgy.builder.config as cbc
+import borgy.builder.stats as cbs
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
 
 from random import choice, uniform
 from math import pi

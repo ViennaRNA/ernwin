@@ -3,17 +3,17 @@
 import sys, os
 import warnings
 import numpy as np
-import corgy.builder.stats as cbs
+import borgy.builder.stats as cbs
 from optparse import OptionParser
 import random
-import corgy.builder.config as cbc
-import corgy.builder.models as cbm
-import corgy.builder.stats as cbs
-import corgy.builder.reconstructor as rtor
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
-import corgy.utilities.pdb as cup
-import corgy.visual.pymol as cvp
+import borgy.builder.config as cbc
+import borgy.builder.models as cbm
+import borgy.builder.stats as cbs
+import borgy.builder.reconstructor as rtor
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
+import borgy.utilities.pdb as cup
+import borgy.visual.pymol as cvp
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc

@@ -2,14 +2,14 @@
 
 import sys
 
-import corgy.graph.bulge_graph as cgb
-import corgy.utilities.vector as cuv
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
+import borgy.graph.bulge_graph as cgb
+import borgy.utilities.vector as cuv
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
 
 def print_new_bulge_angles(bg):
     '''
-    This should be refactored to use the corgy.builder.stats.AngleStat class.
+    This should be refactored to use the borgy.builder.stats.AngleStat class.
     '''
     for define in bg.defines.keys():
         if define[0] != 's' and len(bg.edges[define]) == 2:

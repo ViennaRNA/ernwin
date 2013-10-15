@@ -3,9 +3,9 @@ import time
 
 import scipy.interpolate as si
 import scipy.stats as ss
-import corgy.utilities.statistics as cus
+import borgy.utilities.statistics as cus
 
-from corgy.utilities.statistics import interpolated_kde
+from borgy.utilities.statistics import interpolated_kde
 from scipy.stats import norm
 from scipy.stats import gaussian_kde
 import matplotlib.pylab as pl

@@ -5,11 +5,11 @@ import itertools as it
 
 from optparse import OptionParser
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.vector import vec_distance
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
-import corgy.graph.graph_pdb as cgg
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.utilities.vector import vec_distance
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.graph.graph_pdb as cgg
 
 from collections import defaultdict
 

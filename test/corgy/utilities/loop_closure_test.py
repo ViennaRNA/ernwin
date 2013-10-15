@@ -8,12 +8,12 @@ import numpy as np
 from math import acos
 from copy import copy
 
-from corgy.visual.pymol import PymolPrinter
-from corgy.builder.config import Configuration
+from borgy.visual.pymol import PymolPrinter
+from borgy.builder.config import Configuration
 
-from corgy.utilities.vector import get_non_colinear_unit_vector, normalize
-from corgy.utilities.vector import rotation_matrix, vec_angle, magnitude
-from corgy.utilities.vector import get_random_vector
+from borgy.utilities.vector import get_non_colinear_unit_vector, normalize
+from borgy.utilities.vector import rotation_matrix, vec_angle, magnitude
+from borgy.utilities.vector import get_random_vector
 
 from random import uniform, random
 

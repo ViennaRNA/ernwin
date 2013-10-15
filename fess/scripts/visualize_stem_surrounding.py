@@ -8,15 +8,15 @@ import numpy as np
 import scipy.stats as ss
 import scipy.ndimage as sn
 
-import corgy.builder.config as cbc
-import corgy.builder.energy as cbe
-import corgy.exp.kde as cek
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.colormap as cuc
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
-import corgy.visual.pymol as cvp
+import borgy.builder.config as cbc
+import borgy.builder.energy as cbe
+import borgy.exp.kde as cek
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.colormap as cuc
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.visual.pymol as cvp
 
 import matplotlib.pyplot as plt
 import pandas as pa

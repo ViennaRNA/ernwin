@@ -1,9 +1,9 @@
 import unittest
 
-from corgy.builder.rmsd import centered_rmsd
+from borgy.builder.rmsd import centered_rmsd
 
-from corgy.utilities.vector import get_inter_distances, get_random_vector
-from corgy.utilities.vector import rotation_matrix
+from borgy.utilities.vector import get_inter_distances, get_random_vector
+from borgy.utilities.vector import rotation_matrix
 
 from random import uniform
 

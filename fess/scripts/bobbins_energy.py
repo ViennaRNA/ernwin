@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 import sys
-from corgy.builder.energy import LongRangeDistanceEnergy
-from corgy.graph.bulge_graph import BulgeGraph
+from borgy.builder.energy import LongRangeDistanceEnergy
+from borgy.graph.bulge_graph import BulgeGraph
 
 def main():
     if len(sys.argv) < 2:

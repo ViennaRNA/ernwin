@@ -8,16 +8,16 @@ import traceback
 from sys import stderr
 
 from optparse import OptionParser
-from corgy.builder.energy import LongRangeInteractionCount, CombinedEnergy
-from corgy.builder.energy import JunctionClosureEnergy, SkewNormalInteractionEnergy
-from corgy.builder.models import SpatialModel
+from borgy.builder.energy import LongRangeInteractionCount, CombinedEnergy
+from borgy.builder.energy import JunctionClosureEnergy, SkewNormalInteractionEnergy
+from borgy.builder.models import SpatialModel
 
-import corgy.builder.energy as cbe
-import corgy.builder.config as conf
+import borgy.builder.energy as cbe
+import borgy.builder.config as conf
 
 import os, pdb
 
-from corgy.graph.bulge_graph import BulgeGraph
+from borgy.graph.bulge_graph import BulgeGraph
 import numpy as np
 
 def main():

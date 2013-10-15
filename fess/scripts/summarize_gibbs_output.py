@@ -7,7 +7,7 @@ import numpy as np
 import scipy.stats as ss
 import math as m
 
-import corgy.utilities.debug as cud
+import borgy.utilities.debug as cud
 
 from optparse import OptionParser
 

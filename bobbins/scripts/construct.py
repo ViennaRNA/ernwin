@@ -3,14 +3,14 @@
 from optparse import OptionParser
 from bobbins_config import ConstructionConfig
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.data_structures import DefaultDict
-from corgy.builder.models import SpatialModel
-from corgy.builder.energy import LongRangeDistanceEnergy
-from corgy.utilities.vector import get_vector_centroid, center_on_centroid
-from corgy.builder.rmsd import rmsd, optimal_superposition
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.utilities.data_structures import DefaultDict
+from borgy.builder.models import SpatialModel
+from borgy.builder.energy import LongRangeDistanceEnergy
+from borgy.utilities.vector import get_vector_centroid, center_on_centroid
+from borgy.builder.rmsd import rmsd, optimal_superposition
 
-from corgy.builder.stats import AngleStatsDict, StemStatsDict
+from borgy.builder.stats import AngleStatsDict, StemStatsDict
 
 import copy
 import sys

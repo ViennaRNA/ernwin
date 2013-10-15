@@ -4,8 +4,8 @@ import nose.tools as nt
 
 import time
 import os
-import corgy.aux.Barnacle as barn
-import corgy.aux.CPDB.src.examples.BarnacleCPDB as cbarn
+import borgy.aux.Barnacle as barn
+import borgy.aux.CPDB.src.examples.BarnacleCPDB as cbarn
 
 import numpy as np
 import numpy.linalg as nl
@@ -14,14 +14,14 @@ import random as rand
 import Bio.PDB as bp
 import pdb, sys, copy
 
-import corgy.builder.config as cbc
-import corgy.builder.models as cbm
-import corgy.builder.reconstructor as rtor
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
-import corgy.visual.pymol as cvp
+import borgy.builder.config as cbc
+import borgy.builder.models as cbm
+import borgy.builder.reconstructor as rtor
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.visual.pymol as cvp
 
 def get_random_orientation():
     '''

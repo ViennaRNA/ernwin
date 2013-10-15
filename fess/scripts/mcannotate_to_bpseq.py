@@ -2,7 +2,7 @@
 
 import sys
 
-from corgy.utilities.mcannotate import iterate_over_interactions, iterate_over_residue_list, parse_chain_base, get_dotplot
+from borgy.utilities.mcannotate import iterate_over_interactions, iterate_over_residue_list, parse_chain_base, get_dotplot
 
 
 def main():

@@ -2,8 +2,8 @@ import unittest
 import time
 import timeit
 
-import corgy.exp.kde as cek
-import corgy.utilities.debug as cud
+import borgy.exp.kde as cek
+import borgy.utilities.debug as cud
 
 import numpy as np
 import numpy.random as nr

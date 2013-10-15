@@ -2,9 +2,9 @@
 
 import numpy, sys
 import numpy as np
-#from corgy.graph.bulge_graph import BulgeGraph
-import corgy.utilities.debug as cud
-from corgy.utilities.vector import center_on_centroid
+#from borgy.graph.bulge_graph import BulgeGraph
+import borgy.utilities.debug as cud
+from borgy.utilities.vector import center_on_centroid
 
 # Shamelessly stolen from:
 # http://boscoh.com/protein/rmsd-root-mean-square-deviation

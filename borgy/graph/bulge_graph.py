@@ -6,11 +6,11 @@ import math
 import random
 import numpy as np
 
-import corgy.builder.stats as cbs
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.data_structures as cuds
-import corgy.utilities.vector as cuv
-import corgy.utilities.debug as cud
+import borgy.builder.stats as cbs
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.data_structures as cuds
+import borgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
 
 def error_exit(message):
     print >> sys.stderr, message

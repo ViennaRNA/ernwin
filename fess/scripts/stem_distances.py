@@ -4,9 +4,9 @@ import sys
 from optparse import OptionParser
 
 import itertools as it
-import corgy.graph.bulge_graph as cgb
-import corgy.utilities.vector as cuv
-import corgy.graph.graph_pdb as cgg
+import borgy.graph.bulge_graph as cgb
+import borgy.utilities.vector as cuv
+import borgy.graph.graph_pdb as cgg
 
 def main():
     usage = './stem_distances.py temp.comp'

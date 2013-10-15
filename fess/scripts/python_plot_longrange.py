@@ -8,7 +8,7 @@ import sys, numpy as np
 import scipy.stats as ss
 from optparse import OptionParser
 
-import corgy.builder.energy as cbe
+import borgy.builder.energy as cbe
 
 def main():
     usage = """

@@ -1,9 +1,9 @@
 import sys, warnings
 import numpy as np
 import Bio.PDB as bpdb
-import corgy.builder.rmsd as brmsd
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
+import borgy.builder.rmsd as brmsd
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
 
 backbone_atoms = ['P', 'O5*', 'C5*', 'C4*', 'C3*', 'O3*']
 ring_atoms = ['C4*', 'C3*', 'C2*', 'C1*', 'O4*']

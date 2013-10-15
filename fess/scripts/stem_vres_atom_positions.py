@@ -7,11 +7,11 @@ import collections as co
 
 import Bio.PDB as bp
 
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
 
-import corgy.visual.pymol as cvp
+import borgy.visual.pymol as cvp
 
 from optparse import OptionParser
 

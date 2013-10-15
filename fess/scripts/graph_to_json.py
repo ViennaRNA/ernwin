@@ -2,8 +2,8 @@
 
 import sys
 
-import corgy.graph.bulge_graph as cgb
-import corgy.visual.force_graph as cvf
+import borgy.graph.bulge_graph as cgb
+import borgy.visual.force_graph as cvf
 
 from optparse import OptionParser
 

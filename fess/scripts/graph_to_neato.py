@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys, math
-from corgy.graph.bulge_graph import BulgeGraph
+from borgy.graph.bulge_graph import BulgeGraph
 
 def print_neato(bg):
     stems = bg.get_bulged_stem_names()

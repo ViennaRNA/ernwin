@@ -3,8 +3,8 @@
 import sys
 from optparse import OptionParser
 
-import corgy.graph.graph_pdb as cgg
-import corgy.visual.pymol as cvp
+import borgy.graph.graph_pdb as cgg
+import borgy.visual.pymol as cvp
 
 def print_base_normals(pdb_file):
     '''

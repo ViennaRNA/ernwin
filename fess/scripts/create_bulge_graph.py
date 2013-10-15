@@ -2,7 +2,7 @@
 
 import sys, os
 
-import corgy.utilities.debug as cud
+import borgy.utilities.debug as cud
 
 def error_exit(message):
     print >>sys.stderr, message

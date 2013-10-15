@@ -4,8 +4,8 @@ import sys, math
 import warnings
 from Bio.PDB import *
 
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
 
 def newest_output_graph(bg, chain):
     cgg.add_stem_information_from_pdb_chain(bg, chain)

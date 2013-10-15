@@ -1,10 +1,10 @@
 import unittest, os
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.config import Configuration
-from corgy.builder.models import SpatialModel
-from corgy.builder.energy import RandomEnergy
-from corgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.builder.config import Configuration
+from borgy.builder.models import SpatialModel
+from borgy.builder.energy import RandomEnergy
+from borgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
 
 class TestGibbsSampler(unittest.TestCase):
 

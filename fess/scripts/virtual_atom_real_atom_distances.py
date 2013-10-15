@@ -4,11 +4,11 @@ import sys
 import warnings
 
 import Bio.PDB as bpdb
-import corgy.builder.config as cbc
-import corgy.builder.rmsd as cbr
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-import corgy.utilities.debug as cud
+import borgy.builder.config as cbc
+import borgy.builder.rmsd as cbr
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+import borgy.utilities.debug as cud
 
 from optparse import OptionParser
 

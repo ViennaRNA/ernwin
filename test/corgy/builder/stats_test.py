@@ -1,7 +1,7 @@
 import unittest
 import nose.tools as nt
 
-import corgy.builder.stats as cbs
+import borgy.builder.stats as cbs
 
 from numpy import pi
 

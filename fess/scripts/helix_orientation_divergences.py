@@ -6,7 +6,7 @@ import itertools as it
 import random
 import numpy as np
 import math as m
-import corgy.builder.stats as cbs
+import borgy.builder.stats as cbs
 
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
@@ -19,8 +19,8 @@ from mpl_toolkits.mplot3d import axes3d, Axes3D
 from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d
 
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
 
 def get_certain_angle_stats(stats, angle_type):
     '''

@@ -5,12 +5,12 @@ from random import uniform
 
 import numpy as np
 import random, time
-import corgy.utilities.vector as cuv
-import corgy.graph.bulge_graph as cgb
-import corgy.builder.config as cbc
-import corgy.builder.models as cbm
-import corgy.builder.stats as cbs
-import corgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.graph.bulge_graph as cgb
+import borgy.builder.config as cbc
+import borgy.builder.models as cbm
+import borgy.builder.stats as cbs
+import borgy.utilities.debug as cud
 
 class TestSpatialModel(unittest.TestCase):
     def setUp(self):

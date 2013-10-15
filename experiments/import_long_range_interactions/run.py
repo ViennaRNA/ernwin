@@ -3,10 +3,10 @@
 import sys, copy
 from optparse import OptionParser
 
-import corgy.graph.bulge_graph as cgb
-import corgy.builder.models as cbm
-import corgy.builder.energy as cbe
-import corgy.builder.sampling as cbs
+import borgy.graph.bulge_graph as cgb
+import borgy.builder.models as cbm
+import borgy.builder.energy as cbe
+import borgy.builder.sampling as cbs
 
 def main():
     parser = OptionParser()

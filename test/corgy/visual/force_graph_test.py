@@ -1,8 +1,8 @@
 import unittest
 
-import corgy.graph.bulge_graph as cgb
-import corgy.visual.force_graph as cvf
-import corgy.builder.config as cbc
+import borgy.graph.bulge_graph as cgb
+import borgy.visual.force_graph as cvf
+import borgy.builder.config as cbc
 
 import os
 

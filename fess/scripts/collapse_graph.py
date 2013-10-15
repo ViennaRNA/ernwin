@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-from corgy.graph.bulge_graph import BulgeGraph
+from borgy.graph.bulge_graph import BulgeGraph
 
 def main():
     if len(sys.argv) < 2:

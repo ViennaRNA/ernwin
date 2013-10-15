@@ -7,7 +7,7 @@ from optparse import OptionParser
 
 import Bio.PDB as bpdb
 
-import corgy.utilities.pdb as cup
+import borgy.utilities.pdb as cup
 
 
 def main():

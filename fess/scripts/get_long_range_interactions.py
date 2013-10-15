@@ -3,8 +3,8 @@
 from Bio.PDB import *
 import os, sys
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.utilities.mcannotate import iterate_over_interactions, get_interacting_base_pairs
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.utilities.mcannotate import iterate_over_interactions, get_interacting_base_pairs
 
 def main():
     if len(sys.argv) < 3:

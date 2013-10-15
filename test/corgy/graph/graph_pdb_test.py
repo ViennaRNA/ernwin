@@ -1,19 +1,19 @@
 import unittest, os
 
-import corgy.graph.graph_pdb as cgg
-import corgy.graph.bulge_graph as cgb
-import corgy.utilities.debug as cud
+import borgy.graph.graph_pdb as cgg
+import borgy.graph.bulge_graph as cgb
+import borgy.utilities.debug as cud
 
-from corgy.graph.graph_pdb import get_stem_separation_parameters, twist2_orient_from_stem1
-from corgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
+from borgy.graph.graph_pdb import get_stem_separation_parameters, twist2_orient_from_stem1
+from borgy.graph.graph_pdb import get_twist_angle, twist2_from_twist1
 
-from corgy.utilities.vector import get_vector_centroid, get_non_colinear_unit_vector
-from corgy.utilities.vector import create_orthonormal_basis, change_basis, get_standard_basis
-from corgy.utilities.vector import rotation_matrix, vec_angle
+from borgy.utilities.vector import get_vector_centroid, get_non_colinear_unit_vector
+from borgy.utilities.vector import create_orthonormal_basis, change_basis, get_standard_basis
+from borgy.utilities.vector import rotation_matrix, vec_angle
 
-from corgy.builder.config import Configuration
+from borgy.builder.config import Configuration
 
-import corgy.utilities.vector as cuv
+import borgy.utilities.vector as cuv
 import random, time
 import numpy as np
 
@@ -126,7 +126,7 @@ class TestGraphToAngles(unittest.TestCase):
 
 class TestGraphPDBFunctions(unittest.TestCase):
     '''
-    Tests for the functions in corgy.graph.graph_pdb.
+    Tests for the functions in borgy.graph.graph_pdb.
     '''
 
     def test_base_normals(self):
@@ -320,7 +320,7 @@ class TestGraphPDBFunctions(unittest.TestCase):
         return
         '''
 
-        import corgy.visual.pymol as cvp
+        import borgy.visual.pymol as cvp
         pp = cvp.PymolPrinter()
         for s in bg.stems():
             cud.pv('(s, bg.stem_length(s))')

@@ -35,8 +35,8 @@ from numpy.random import randint, multivariate_normal
 #import scipy.stats.stats as stats
 #import scipy.stats.mvn as mvn
 
-import corgy.utilities.vector as cuv
-import corgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
 
 __all__ = ['gaussian_kde',
 ]

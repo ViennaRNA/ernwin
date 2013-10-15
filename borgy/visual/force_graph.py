@@ -1,5 +1,5 @@
 
-import corgy.graph.bulge_graph as cgb
+import borgy.graph.bulge_graph as cgb
 
 def define_to_group(bg, d):
     if d[0] == 's':

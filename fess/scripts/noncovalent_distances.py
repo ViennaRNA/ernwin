@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-import corgy.utilities.pdb as cup
+import borgy.utilities.pdb as cup
 import Bio.PDB as bp
 
 def main():

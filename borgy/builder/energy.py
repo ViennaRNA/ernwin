@@ -19,16 +19,16 @@ import collections as c
 import os.path as op
 
 #import scipy.stats as ss
-import corgy.utilities.vector as cuv
-import corgy.graph.bulge_graph as cgb
-import corgy.graph.graph_pdb as cgg
-#import corgy.exp.kde as cek
-import corgy.builder.models as cbm
-#import corgy.utilities.statistics as cus
-#import corgy.builder.sampling as cbs
-import corgy.builder.config as cbc
-import corgy.utilities.debug as cud
-import corgy.builder.rmsd as cbr
+import borgy.utilities.vector as cuv
+import borgy.graph.bulge_graph as cgb
+import borgy.graph.graph_pdb as cgg
+#import borgy.exp.kde as cek
+import borgy.builder.models as cbm
+#import borgy.utilities.statistics as cus
+#import borgy.builder.sampling as cbs
+import borgy.builder.config as cbc
+import borgy.utilities.debug as cud
+import borgy.builder.rmsd as cbr
 
 import scipy.stats as stats
 import scipy.stats as ss

@@ -8,8 +8,8 @@ import numpy as np
 import collections as c
 import math as m
 
-import corgy.builder.config as cbc
-import corgy.utilities.debug as cud
+import borgy.builder.config as cbc
+import borgy.utilities.debug as cud
 
 avg_stem_bp_length = 2.24
 avg_twist_rotation_per_bp = 360 / 11.

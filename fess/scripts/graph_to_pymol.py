@@ -2,7 +2,7 @@
 
 import sys
 
-import corgy.graph.bulge_graph as cgb
+import borgy.graph.bulge_graph as cgb
 
 def color_stems(bg):
     stems = bg.get_bulged_stem_names()

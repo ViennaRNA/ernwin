@@ -2,15 +2,15 @@ import unittest
 import itertools as it
 import numpy as np
 
-import corgy.utilities.debug as cud
-import corgy.utilities.vector as cuv
+import borgy.utilities.debug as cud
+import borgy.utilities.vector as cuv
 
-from corgy.utilities.vector import normalize
-from corgy.utilities.vector import get_double_alignment_matrix, get_standard_basis, change_basis
-from corgy.utilities.vector import vec_angle, get_non_colinear_unit_vector
-from corgy.utilities.vector import spherical_cartesian_to_polar, spherical_polar_to_cartesian
-from corgy.utilities.vector import rotation_matrix, get_inter_distances
-from corgy.utilities.vector import get_random_vector, get_random_vector_pair, get_alignment_matrix
+from borgy.utilities.vector import normalize
+from borgy.utilities.vector import get_double_alignment_matrix, get_standard_basis, change_basis
+from borgy.utilities.vector import vec_angle, get_non_colinear_unit_vector
+from borgy.utilities.vector import spherical_cartesian_to_polar, spherical_polar_to_cartesian
+from borgy.utilities.vector import rotation_matrix, get_inter_distances
+from borgy.utilities.vector import get_random_vector, get_random_vector_pair, get_alignment_matrix
 
 from numpy import array, pi, dot, allclose, sqrt, cross
 from math import asin
@@ -27,7 +27,7 @@ class TestVectorFunctions(unittest.TestCase):
             self.assertTrue(dist <= cuv.magnitude(p2-p1))
 
     '''
-    Tests for some of the vector functions in corgy.utilities.vector.
+    Tests for some of the vector functions in borgy.utilities.vector.
     '''
     def test_line_segment_intersection(self):
         p1 = np.array([1., 0., 0.])
@@ -172,8 +172,8 @@ class TestVectorFunctions(unittest.TestCase):
         Test the parameterization of 3D cartesian coordinates to polar
         coordinates.
 
-        See corgy.utilities.vector.spherical_cartesian_to_polar and
-            corgy.utilities.vector.spherical_polar_to_cartesian
+        See borgy.utilities.vector.spherical_cartesian_to_polar and
+            borgy.utilities.vector.spherical_polar_to_cartesian
         '''
 
         test_cases = [

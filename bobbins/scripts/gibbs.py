@@ -5,25 +5,25 @@ from bisect import bisect
 import copy
 import os.path as op
 
-import corgy.utilities.debug as cud
-import corgy.builder.sampling as cbs
-import corgy.builder.config as cbc
+import borgy.utilities.debug as cud
+import borgy.builder.sampling as cbs
+import borgy.builder.config as cbc
 
-import corgy.graph.graph_pdb as cgg
+import borgy.graph.graph_pdb as cgg
 
 from random import sample, random, seed, randint
 from numpy import allclose, seterr
 
-from corgy.graph.bulge_graph import BulgeGraph
-from corgy.builder.models import SpatialModel
-from corgy.builder.rmsd import centered_rmsd
+from borgy.graph.bulge_graph import BulgeGraph
+from borgy.builder.models import SpatialModel
+from borgy.builder.rmsd import centered_rmsd
 
-from corgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
+from borgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
 
-from corgy.utilities.vector import get_vector_centroid, center_on_centroid
+from borgy.utilities.vector import get_vector_centroid, center_on_centroid
 
-import corgy.builder.config as conf
-import corgy.builder.energy as cbe
+import borgy.builder.config as conf
+import borgy.builder.energy as cbe
 import os
 
 import sys

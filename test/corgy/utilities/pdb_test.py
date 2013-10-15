@@ -1,9 +1,9 @@
 import unittest
-import corgy.aux.CPDB.src.examples.BarnacleCPDB as barn
+import borgy.aux.CPDB.src.examples.BarnacleCPDB as barn
 import Bio.PDB as bpdb
 
-import corgy.utilities.pdb as cup
-import corgy.utilities.debug as cud
+import borgy.utilities.pdb as cup
+import borgy.utilities.debug as cud
 
 class TestPDB(unittest.TestCase):
     def test_num_noncovalent_clashes(self):

@@ -4,8 +4,8 @@ import itertools as it
 
 import numpy as np
 
-import corgy.builder.config as cbc
-import corgy.graph.bulge_graph as cgb
+import borgy.builder.config as cbc
+import borgy.graph.bulge_graph as cgb
 
 import copy
 #import time

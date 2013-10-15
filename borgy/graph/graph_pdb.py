@@ -5,7 +5,7 @@ import Bio.PDB as bpdb
 import operator
 
 import os.path as op
-import corgy.builder.config as cbc
+import borgy.builder.config as cbc
 import warnings
 
 import math as m
@@ -13,12 +13,12 @@ import math as m
 import numpy as np
 import numpy.linalg as nl
 
-import corgy.builder.rmsd as cbr
-import corgy.utilities.debug as cud
-import corgy.utilities.my_math as cum
-import corgy.utilities.pdb as cup
-import corgy.utilities.vector as cuv
-import corgy.utilities.average_stem_vres_atom_positions as cua
+import borgy.builder.rmsd as cbr
+import borgy.utilities.debug as cud
+import borgy.utilities.my_math as cum
+import borgy.utilities.pdb as cup
+import borgy.utilities.vector as cuv
+import borgy.utilities.average_stem_vres_atom_positions as cua
 
 import scipy.optimize as so
 

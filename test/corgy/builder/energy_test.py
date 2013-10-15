@@ -1,18 +1,18 @@
 from nose.tools import nottest
 
-import corgy.utilities.debug as cud
-import corgy.graph.graph_pdb as cgg
-import corgy.graph.bulge_graph as cgb
-import corgy.exp.kde as cek
+import borgy.utilities.debug as cud
+import borgy.graph.graph_pdb as cgg
+import borgy.graph.bulge_graph as cgb
+import borgy.exp.kde as cek
 
-import corgy.builder.config as cbc
-import corgy.builder.energy as cbe
-import corgy.utilities.vector as cuv
+import borgy.builder.config as cbc
+import borgy.builder.energy as cbe
+import borgy.utilities.vector as cuv
 
 import collections
 import collections as c
 
-from corgy.builder.models import SpatialModel
+from borgy.builder.models import SpatialModel
 
 import sys, shutil, os, copy
 
