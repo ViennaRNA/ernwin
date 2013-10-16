@@ -555,7 +555,7 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
     return rmsd
     #return cuv.magnitude(sampled - target)
 
-def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_all_angles=True, move_front_angle=True):
+def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_all_angles=True, move_front_angle=True, no_close=False):
     '''
     Align the chain_loop so that it stretches from the end of one stem to the 
     start of the other.
@@ -578,10 +578,15 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         #start_index = indeces[handle[2]+1]
         end_index = indeces[handle[3]+1]
 
+        if no_close:
+            rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
+            return rmsd, chain_loop
+
         points = []
         #points += [indeces[handle[2]+1]]
 
         #points += indeces[handle[2]+1] #O3* -> P bond
+        cud.pv('move_all_angles')
         if move_all_angles:
             angle_to_move = range(handle[2]+1, handle[3]+1)
         else:
@@ -607,6 +612,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
         rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
 
+        cud.pv('iterations, rmsd')
+
         chain_loop = set_atom_coord_array(chain_loop, moving, handle[2], handle[3])
         '''
         assert(not np.allclose(moving_orig, moving))
@@ -623,10 +630,9 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         assert(np.allclose(distances, distances2))
         '''
 
-
     return (rmsd, chain_loop)
 
-def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True, move_front_angle=True):
+def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=True, move_front_angle=True, no_close=False):
     '''
     Align chain_loop to the scaffold present in chain.
 
@@ -657,7 +663,7 @@ def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=Tr
         loop_chain = chain_loop
         r = 0.000
     else:
-        r, loop_chain = close_fragment_loop(chain, chain_loop, handles, iterations=10000, move_all_angles=move_all_angles, move_front_angle=move_front_angle)
+        r, loop_chain = close_fragment_loop(chain, chain_loop, handles, iterations=10000, move_all_angles=move_all_angles, move_front_angle=move_front_angle, no_close=no_close)
 
     return (r, loop_chain)
 
@@ -683,6 +689,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
     @return: A Bio.PDB.Chain structure containing the best sampled loop.
     '''
     if consider_contacts:
+        print "considering contacts"
         model = barn.BarnacleCPDB(loop_seq, 1.9)
     else:
         model = barn.BarnacleCPDB(loop_seq, 0.)
@@ -705,16 +712,26 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         chain_unclosed_loop = copy.deepcopy(chain_loop)
 
         if handles[0] != 0 and handles[1] != seq_len:
-            align_starts(stem_chain, chain_unclosed_loop, [(a,b,i1,i2)], end=0)
+            align_starts(stem_chain, chain_unclosed_loop, [(a,b,i1,i2)], end=2)
         
         cud.pv('(a,b,i1,i2)')
         cud.pv('handles')
-        (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, chain_loop, [(a, b, i1, i2)])
+        loop_chain = copy.deepcopy(chain_unclosed_loop)
+        (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, loop_chain, [(a, b, i1, i2)], no_close=True)
+
+        output_chain(loop_chain, 'chain_loop1.pdb')
+        output_chain(chain_unclosed_loop, 'chain_loop2.pdb')
+
         if handles[0] == 0 or handles[1] == seq_len:
             r_start = 0.
         else:
-            r_start = cuv.magnitude(loop_chain[handles[2]+2]['P'] - 
-                                     chain_unclosed_loop[handles[2]+2]['P'])
+            '''
+            r_start = cuv.magnitude(loop_chain[handles[3]]['P'] - 
+                                     chain_unclosed_loop[handles[3]]['P'])
+            '''
+            r_start = cuv.magnitude(loop_chain[handles[2]]['P'] - 
+                                     chain_unclosed_loop[handles[3]]['P'])
+            
 
         orig_loop_chain = copy.deepcopy(loop_chain)
 
@@ -731,13 +748,16 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         sys.stderr.flush()
 
         if consider_starting_pos:
-            energy = (contacts2, r_start * r)
+            energy = (contacts2, r_start)
         else:
             energy = (contacts2, r)
 
         if energy > prev_energy:
             model.undo()
 
+        cud.pv('r_start')
+        cud.pv('r')
+        cud.pv('energy')
         prev_energy = energy
         if energy < min_energy:
             min_energy = energy
@@ -795,9 +815,10 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
     cup.trim_chain(best_loop_chain, i1, i2+1)
     sys.stderr.write('\n')
 
+    add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
+
     return ((a,b,i1,i2), best_loop_chain, min_r)
     
-    #add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
 
     #sys.stderr.flush()
 

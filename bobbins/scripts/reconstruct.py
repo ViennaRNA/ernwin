@@ -82,7 +82,8 @@ def main():
                 rtor.reconstruct_threeprime_with_fragment(chain, sm, t)
         else:
             try:
-                rtor.reconstruct_loop(chain, sm, 'b1', 0, samples=options.samples)
+                rtor.output_chain(chain, 'stems.pdb')
+                rtor.reconstruct_loop(chain, sm, 'b1', 0, samples=options.samples, consider_contacts=False)
                 #rtor.reconstruct_loops(chain, sm, samples=options.samples, consider_contacts=True)
             except Exception as e:
                 if options.drop_into_debugger:
