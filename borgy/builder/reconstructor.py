@@ -797,9 +797,9 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
 
     return ((a,b,i1,i2), best_loop_chain, min_r)
     
-    add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
+    #add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.length)
 
-    sys.stderr.flush()
+    #sys.stderr.flush()
 
 from multiprocessing import Process, Pipe
 from itertools import izip
