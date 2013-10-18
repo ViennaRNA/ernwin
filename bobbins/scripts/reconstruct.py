@@ -83,8 +83,8 @@ def main():
         else:
             try:
                 rtor.output_chain(chain, 'stems.pdb')
-                rtor.reconstruct_loop(chain, sm, 'b1', 0, samples=options.samples, consider_contacts=False)
-                #rtor.reconstruct_loops(chain, sm, samples=options.samples, consider_contacts=True)
+                #rtor.reconstruct_loop(chain, sm, 'b1', 0, samples=options.samples, consider_contacts=False)
+                rtor.reconstruct_loops(chain, sm, samples=options.samples, consider_contacts=False)
             except Exception as e:
                 if options.drop_into_debugger:
                     pdb.post_mortem()

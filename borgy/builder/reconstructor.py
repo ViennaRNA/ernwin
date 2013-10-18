@@ -69,11 +69,18 @@ def reconstruct_stems(sm, stem_library=dict()):
 
 def output_chain(chain, filename, fr=None, to=None):
     '''
-    Dump a chain to an output file.
+    Dump a chain to an output file. Remove the hydrogen atoms.
 
     @param chain: The Bio.PDB.Chain to dump.
     @param filename: The place to dump it.
     '''
+    class HSelect(bpdb.Select):
+        def accept_atom(self, atom):
+            if atom.name.find('H') >= 0:
+                return False
+            else:
+                return True
+
     m = bpdbm.Model(' ')
     s = bpdbs.Structure(' ')
 
@@ -82,7 +89,7 @@ def output_chain(chain, filename, fr=None, to=None):
 
     io = bpdb.PDBIO()
     io.set_structure(s)
-    io.save(filename)
+    io.save(filename, HSelect())
 
 def splice_stem(chain, define):
     '''
@@ -717,7 +724,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         cud.pv('(a,b,i1,i2)')
         cud.pv('handles')
         loop_chain = copy.deepcopy(chain_unclosed_loop)
-        (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, loop_chain, [(a, b, i1, i2)], no_close=True)
+        (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, loop_chain, [(a, b, i1, i2)], no_close=False)
 
         output_chain(loop_chain, 'chain_loop1.pdb')
         output_chain(chain_unclosed_loop, 'chain_loop2.pdb')
