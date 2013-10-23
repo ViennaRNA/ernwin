@@ -483,7 +483,8 @@ class BulgeGraph:
         ss = cbs.StemStat()
 
         ss.pdb_name = self.name
-        ss.bp_length = abs(self.defines[stem][0] - self.defines[stem][1])
+        #ss.bp_length = abs(self.defines[stem][0] - self.defines[stem][1])
+        ss.bp_length = self.stem_length(stem)
         ss.phys_length = cuv.magnitude(self.coords[stem][0] - self.coords[stem][1])
         ss.twist_angle = cgg.get_twist_angle(self.coords[stem], self.twists[stem])
         ss.define = self.defines[stem]
