@@ -143,7 +143,7 @@ class AngleStat:
     Class for storing an individual statistic about inter-helical angles.
     '''
 
-    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, ang_type='x', define=[]):
+    def __init__(self, pdb_name='', dim1=0, dim2=0, u=0, v=0, t=0, r1=0, u1=0, v1=0, ang_type='x', define=[], seqs=[]):
         self.pdb_name = pdb_name
         self.dim1 = dim1
         self.dim2 = dim2
@@ -159,6 +159,7 @@ class AngleStat:
         self.ang_type = ang_type
 
         self.define = define
+        self.seqs = seqs
 
     def __hash__(self):
         return id(self)
@@ -204,7 +205,13 @@ class AngleStat:
 
         self.ang_type = int(parts[10])
 
-        self.define = map(int,parts[11:])
+        if self.dim1 == 1000 or seld.dim2 == 1000:
+            def_len = 2
+        else:
+            def_len = 4
+
+        self.define = map(int,parts[11:11 + def_len])
+        self.seqs = parts[11+def_len:]
 
     def orientation_params(self):
         '''
@@ -248,7 +255,7 @@ class AngleStat:
                                                               self.ang_type,
                                                               " ".join(map(str, self.define)))
         '''
-        out_str = "angle %s %d %d %f %f %f %f %f %f" % (self.pdb_name,
+        out_str = "angle %s %d %d %f %f %f %f %f %f %s %s" % (self.pdb_name,
                                                               self.dim1,
                                                               self.dim2,
                                                               self.u,
@@ -256,7 +263,9 @@ class AngleStat:
                                                               self.t,
                                                               self.r1,
                                                               self.u1,
-                                                              self.v1)
+                                                              self.v1,
+                                                             " ".join(map(str, self.define)),
+                                                             " ".join(self.seqs))
         return out_str
 
 class ContinuousAngleStats():

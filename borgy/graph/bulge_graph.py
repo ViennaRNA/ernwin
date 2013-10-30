@@ -342,6 +342,28 @@ class BulgeGraph:
         return min(angle, math.pi - angle)
         #return angle
 
+    def get_define_seq_str(self, d):
+        '''
+        Get an array containing the sequences for the given define.
+        Non-stem sequences will contain the sequence without the overlapping
+        stem residues that are part of the define.
+
+        @param d: The define for which to get the sequences
+        @return: An array containing the sequences corresponding to the defines
+        '''
+        define = self.defines[d]
+        ranges = zip(*[iter(define)] * 2)
+
+        seqs = []
+        for r in ranges:
+            if d[0] == 's':
+                seqs += [self.seq[r[0]-1:r[1]]]
+            else:
+                seqs += [self.seq[r[0]:r[1]-1]]
+                #seqs += [self.seq[r[0]-1:r[1]]]
+
+        return seqs
+        
     def get_bulge_angle_stats_core(self, define, connections):
         '''
         Return the angle stats for a particular bulge. These stats describe the
@@ -362,8 +384,9 @@ class BulgeGraph:
 
         dims =self.get_bulge_dimensions(define)
         ang_type = cbs.end_ang_types[(s1b, s2b, self.get_stem_direction(connections[0], connections[1]))]
+        seqs = self.get_define_seq_str(define)
 
-        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, ang_type, self.defines[define])
+        angle_stat = cbs.AngleStat(self.name, dims[0], dims[1], u, v, t, r1, u1, v1, ang_type, self.defines[define], seqs)
 
         return angle_stat
 
