@@ -418,7 +418,7 @@ class SpatialModel:
     def sample_stem(self, d):
         stem_defs = self.stem_defs
         define = self.bg.defines[d]
-        length = abs(define[1] - define[0])
+        length = self.bg.stem_length(d)
 
         # retrieve a random entry from the StemStatsDict collection
         cud.pv('length')

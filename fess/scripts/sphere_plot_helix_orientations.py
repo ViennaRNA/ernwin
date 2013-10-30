@@ -57,12 +57,15 @@ def main():
     real_stats = pa.read_csv(options.native_stats, header=None, sep=' ', names=column_names, engine='python')
     sampled_stats = pa.read_csv(options.sampled_stats, header=None, sep=' ', names=column_names, engine='python')
 
+    sampled_stats = sampled_stats[sampled_stats["type"] == "angle"]
     real_stats = real_stats[real_stats["type"] == "angle"]
     real_us = real_stats[['u', 'v']].as_matrix()
     sampled_us = sampled_stats[['u','v']].as_matrix()
 
     real_us_orig = np.copy(real_us)
     sampled_us_orig = np.copy(sampled_us)
+
+    print len(real_us), len(sampled_us)
 
     real_us = np.vstack([real_us+[0,-2*m.pi], 
                          real_us+[0,0], 
