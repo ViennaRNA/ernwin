@@ -205,7 +205,7 @@ class AngleStat:
 
         self.ang_type = int(parts[10])
 
-        if self.dim1 == 1000 or seld.dim2 == 1000:
+        if self.dim1 == 1000 or self.dim2 == 1000:
             def_len = 2
         else:
             def_len = 4
