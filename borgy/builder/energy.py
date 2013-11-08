@@ -1148,6 +1148,9 @@ class StemStemOrientationEnergy(EnergyFunction):
 
         self.real_data = None
         self.fake_data = None
+        
+        self.fake_data_location = op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv')
+        self.real_data_location = op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations.csv')
 
         self.angles = []
         self.beta = False
@@ -1197,8 +1200,9 @@ class StemStemOrientationEnergy(EnergyFunction):
 
         if self.real_data is None:
             col = 0
-            self.real_data = self.load_stem_stem_data(op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations.csv'))
-            self.fake_data = self.load_stem_stem_data(op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv'))
+            self.real_data = self.load_stem_stem_data(self.real_data_location)
+            cud.pv('self.fake_data_location')
+            self.fake_data = self.load_stem_stem_data(self.fake_data_location)
             #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
         for (s1,s2) in it.permutations(sm.bg.stems(), r=2):

@@ -165,6 +165,7 @@ def main():
     parser.add_option('', '--ipe', dest='ipe', default=False, action='store_true', help="Use the interaction probability energy.")
     parser.add_option('', '--sipe', dest='sipe', default=False, action='store_true', help="Use the interaction probability energy.")
     parser.add_option('', '--fasta', dest='fasta', default='', help="Specify a fastdb file containing an identifier, a sequence and a dotbracket string indicating the secondary structure.", type='str')
+    parser.add_option('', '--stem-stem0-data', dest='stem_stem0_data', help='The location of the sampled stem-stem0 data', type='str', default='~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv')
 
     (options, args) = parser.parse_args()
 
@@ -204,6 +205,7 @@ def main():
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([0])])]
     if options.stem_stem0:
         sse = cbe.StemStemOrientationEnergy([0])
+        sse.fake_data_location = op.expanduser(options.stem_stem0_data)
         sse.max_dist = 1000.
         sse.max_lateral_dist = 1000.
         print >>sys.stderr, 'sse'
