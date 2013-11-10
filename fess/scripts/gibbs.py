@@ -5,25 +5,24 @@ from bisect import bisect
 import copy
 import os.path as op
 
-import borgy.utilities.debug as cud
-import borgy.builder.sampling as cbs
-import borgy.builder.config as cbc
+import forgi.utilities.debug as cud
+import fess.builder.sampling as cbs
+import fess.builder.config as cbc
 
-import borgy.graph.graph_pdb as cgg
+import forgi.threedee.utilities.graph_pdb as cgg
 
 from random import sample, random, seed, randint
 from numpy import allclose, seterr
 
-from borgy.graph.bulge_graph import BulgeGraph
-from borgy.builder.models import SpatialModel
-from borgy.builder.rmsd import centered_rmsd
+from forgi.graph.bulge_graph import BulgeGraph
+from fess.builder.models import SpatialModel
+from forgi.threedee.utilities.rmsd import centered_rmsd
 
-from borgy.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
+from fess.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
+from forgi.threed.utilities.vector import get_vector_centroid, center_on_centroid
 
-from borgy.utilities.vector import get_vector_centroid, center_on_centroid
-
-import borgy.builder.config as conf
-import borgy.builder.energy as cbe
+import fess.builder.config as conf
+import fess.builder.energy as cbe
 import os
 
 import sys
