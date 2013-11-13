@@ -20,7 +20,7 @@ import os.path as op
 
 #import scipy.stats as ss
 import borgy.utilities.vector as cuv
-import borgy.graph.bulge_graph as cgb
+import forgi.threedee.model.coarse_grain as ftmc
 import borgy.graph.graph_pdb as cgg
 #import borgy.exp.kde as cek
 import borgy.builder.models as cbm
@@ -1111,7 +1111,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
         nodes = bg.defines.keys()
 
         self.bad_bulges = []
-        all_bulges = set([d for d in nodes if d[0] != 's' and (len(bg.edges[d]) == 2 and bg.weights[d] == 1)])
+        all_bulges = set([d for d in nodes if d[0] == 'm'])
         energy = 0.
         #closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
@@ -1700,8 +1700,8 @@ class NLoopLoopEnergy(EnergyFunction):
         self.real_dist = None
         self.fake_dist = None
 
-        self.real_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
-        self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
+        self.real_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
+        self.fake_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
             (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
@@ -1834,8 +1834,8 @@ class NLoopJunctionEnergy(EnergyFunction):
         self.real_dist = None
         self.fake_dist = None
 
-        self.real_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
-        self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
+        self.real_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
+        self.fake_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
             (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
@@ -1973,8 +1973,8 @@ class NLoopStemEnergy(EnergyFunction):
         self.real_dist = None
         self.fake_dist = None
 
-        self.real_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
-        self.fake_struct = cbm.SpatialModel(cgb.BulgeGraph(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
+        self.real_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "1jj2/graph", "temp.comp")))
+        self.fake_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
             (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2, self.real_a_given_i, self.real_a) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))

@@ -2,7 +2,7 @@
 
 import sys
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.utilities.vector as cuv
 import borgy.graph.graph_pdb as cgg
 import borgy.utilities.debug as cud
@@ -82,7 +82,7 @@ def main():
     else:
         f = open(sys.argv[1], 'r')
 
-    bg = cgb.BulgeGraph(sys.argv[1])
+    bg = ttmc.CoarseGrainRNA(sys.argv[1])
     print_new_bulge_angles(bg)
     print_stem_stats(bg)
     print_loop_stats(bg)

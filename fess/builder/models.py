@@ -621,11 +621,18 @@ class SpatialModel:
         Find a node from which to begin building. This should ideally be a loop
         region as from there we can just randomly orient the first stem.
         '''
+        import traceback
+
+        traceback.print_stack()
+
         for define in self.bg.defines.keys():
-            if define[0] != 's' and self.bg.weights[define] == 1 and len(self.bg.edges[define]) == 1:
+            if define[0] == 'h' or define[0] == 'f' or define[0] == 't':
                 for edge in self.bg.edges[define]:
+                    return (edge, define, StemModel(edge))
+                    '''
+                    cud.pv('self.bg.get_sides(edge, define)')
                     if self.bg.get_sides(edge, define)[0] == 0:
-                        return (edge, define, StemModel(edge))
+                    '''
 
     def save_sampled_stems(self):
         '''
@@ -696,7 +703,8 @@ class SpatialModel:
         '''
         Return a random set of parameters with which to create a bulge.
         '''
-        if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
+        #if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
+        if name[0] == 'h':
             #cud.pv('"over here"')
             return cbs.AngleStat()
 
@@ -940,7 +948,7 @@ class SpatialModel:
                 #cud.pv('[(t[0], self.bg.stem_length(t[1])) for t in self.to_visit]')
 
                 #cud.pv('curr_node, prev_node, self.bg.stem_length(curr_node)')
-                #cud.pv('curr_node,prev_node')
+                cud.pv('curr_node,prev_node')
                         
                 paths[curr_node] += [curr_node]
                 paths[curr_node] += paths[prev_node]
@@ -968,6 +976,8 @@ class SpatialModel:
                     params = self.get_random_stem_stats(curr_node)
 
                     if prev_node == 'start':
+                        cud.pv('prev_node, curr_node')
+                        sys.exit(1)
                         (s1b, s1e) = (1, 0)
                     else:
                         (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
@@ -1020,7 +1030,12 @@ class SpatialModel:
                             #cud.pv('self.visited')
                             #cud.pv('"pre", e1')
                             #cud.pv('constraint_energy.eval_energy(self)')
+                            cud.pv('e1')
                             if e1 > 10:
+                                self.bg.to_file('bad1.cg')
+                                print >>sys.stderr, "exiting"
+                                sys.exit(1)
+
                                 bb = set(self.constraint_energy.bad_bulges)
                                 bp = []
                                 for b in bb:
@@ -1070,7 +1085,11 @@ class SpatialModel:
 
             if not restart and self.constraint_energy != None:
                 e1 = self.constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = None)
+                cud.pv('e1')
                 if e1 > 0.:
+                    self.bg.to_file('bad.cg')
+                    print >>sys.stderr, "exiting"
+                    sys.exit(1)
                     #cud.pv('set(self.constraint_energy.bad_bulges)')
                     bb = set(self.constraint_energy.bad_bulges)
                     bp = []
@@ -1094,12 +1113,14 @@ class SpatialModel:
             if not restart and self.junction_constraint_energy != None:
                 e1 = self.junction_constraint_energy.eval_energy(self)
 
+                cud.pv('e1')
                 if e1 > 0.:
+                    self.bg.to_file('bad2.cg')
+                    print >>sys.stderr, "exiting"
+                    sys.exit(1)
                     cud.pv('self.junction_constraint_energy.bad_bulges')
                     to_change = random.choice(self.junction_constraint_energy.bad_bulges)
                     restart = True
-
-
 
             if restart:
                 self.resample(to_change)

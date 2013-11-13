@@ -11,7 +11,7 @@ import scipy.ndimage as sn
 import borgy.builder.config as cbc
 import borgy.builder.energy as cbe
 import borgy.exp.kde as cek
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 import borgy.utilities.colormap as cuc
 import borgy.utilities.debug as cud

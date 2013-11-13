@@ -4,7 +4,7 @@ import sys, math
 import warnings
 from Bio.PDB import *
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 
 def newest_output_graph(bg, chain):
@@ -24,7 +24,7 @@ def main():
         s = PDBParser().get_structure('temp', pdb_name)
         chain = list(s.get_chains())[0]
 
-    bg = cgb.BulgeGraph(sys.argv[1])
+    bg = ttmc.CoarseGrainRNA(sys.argv[1])
 
     cgg.add_stem_information_from_pdb_chain(bg, chain)
     cgg.add_bulge_information_from_pdb_chain(bg, chain)

@@ -2,7 +2,7 @@
 
 import sys
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 
 def color_stems(bg):
     stems = bg.get_bulged_stem_names()
@@ -70,7 +70,7 @@ def main():
     print "set cartoon_ring_mode"
     print "set cartoon_tube_radius, .3"
 
-    bg = cgb.BulgeGraph(sys.argv[1])
+    bg = ttmc.CoarseGrainRNA(sys.argv[1])
     print "hide all"
     color_stems(bg)
     hide_stems(bg)

@@ -14,9 +14,9 @@ import forgi.threedee.utilities.graph_pdb as cgg
 from random import sample, random, seed, randint
 from numpy import allclose, seterr
 
-from forgi.graph.bulge_graph import BulgeGraph
-from fess.builder.models import SpatialModel
-from forgi.threedee.utilities.rmsd import centered_rmsd
+import forgi.threedee.model.coarse_grain as ftmc
+import fess.builder.models as fbm
+import forgi.threedee.utilities.rmsd as ftur
 
 from fess.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
 from forgi.threed.utilities.vector import get_vector_centroid, center_on_centroid
@@ -51,7 +51,7 @@ def bgs_from_fasta(fasta_file):
                 continue
 
             if line[0] == '>':
-                bg = BulgeGraph()
+                bg = ftmc.CoarseGrainRNA()
                 bg.name = line[1:].strip()
                 counter = 0
             if counter % 3 == 1:
@@ -65,7 +65,7 @@ def bgs_from_fasta(fasta_file):
     return  bgs
 
 def predict(bg, energies_to_sample, options):
-    sm = SpatialModel(bg)
+    sm = fbm.SpatialModel(bg)
 
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
@@ -103,7 +103,7 @@ def predict(bg, energies_to_sample, options):
         stat.step_save = options.step_save
 
         if options.mcmc_sampler:
-            sm = SpatialModel(copy.deepcopy(bg))
+            sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = cbe.CombinedEnergy([cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy()])
             sm.junction_constraint_energy = cbe.RoughJunctionClosureEnergy()
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.RoughJunctionClosureEnergy()])
@@ -111,7 +111,7 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
             samplers += [cbs.MCMCSampler(sm, energy, stat)]
         else:
-            sm = SpatialModel(copy.deepcopy(bg))
+            sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = cbe.StemVirtualResClashEnergy()
             samplers += [GibbsBGSampler(sm, energy, stat)]
         silent = True
@@ -249,7 +249,7 @@ def main():
         if options.sequence_file == '' and options.sequence_str != '':
             print >>sys.stderr, "Sequence needs to be provided with --sequence"
         print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
-        bg = BulgeGraph()
+        bg = ftmc.CoarseGrainRNA()
 
         if options.sequence_file != '':
             with open(options.sequence, 'r') as f:
@@ -261,7 +261,7 @@ def main():
         bg.from_dotbracket_file(args[0])
         bgs = [bg]
     else:
-        bgs = [BulgeGraph(args[0])]
+        bgs = [ftmc.CoarseGrainRNA(args[0])]
 
     #bg.calc_bp_distances()
     for bg in bgs:

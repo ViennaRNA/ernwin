@@ -5,7 +5,7 @@ import numpy as np
 
 import Bio.PDB as bp
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 
 import borgy.visual.pymol as cvp
@@ -30,7 +30,7 @@ def main():
         sys.exit(1)
 
     chain = list(bp.PDBParser().get_structure('temp', args[1]).get_chains())[0]
-    bg = cgb.BulgeGraph(args[0])
+    bg = ttmc.CoarseGrainRNA(args[0])
 
     pp = cvp.PymolPrinter()
     pp.draw_axes = True

@@ -3,7 +3,7 @@
 import collections as c
 import pdb
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.builder.config as cbc
 import borgy.builder.stats as cbs
 
@@ -52,7 +52,7 @@ def main():
         os.makedirs(cbc.Configuration.stem_fragment_dir)
 
     if len(args) == 1:
-        bg = cgb.BulgeGraph(args[0])
+        bg = ttmc.CoarseGrainRNA(args[0])
 
         for st in bg.elements():
             filename = '%s_%s.pdb' % (bg.name, "_".join(map(str, bg.defines[st])))

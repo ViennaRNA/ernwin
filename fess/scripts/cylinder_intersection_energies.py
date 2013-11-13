@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.builder.energy as cbe
 
 def main():
@@ -20,7 +20,7 @@ def main():
         sys.exit(1)
 
     for arg in args:
-        bg = cgb.BulgeGraph(arg)
+        bg = ttmc.CoarseGrainRNA(arg)
         cie = cbe.CylinderIntersectionEnergy()
         
         in_cyl_fractions = cie.calculate_intersection_coverages(bg)

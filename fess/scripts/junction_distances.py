@@ -4,7 +4,7 @@ import sys
 from optparse import OptionParser
 
 import itertools as it
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.utilities.vector as cuv
 import borgy.graph.graph_pdb as cgg
 
@@ -25,7 +25,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
+    bg = ttmc.CoarseGrainRNA(args[0])
     junctions = bg.stems()
 
     for (s1, s2) in it.combinations(bg.junctions(), 2):

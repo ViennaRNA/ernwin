@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 
 import itertools as it
@@ -44,7 +44,7 @@ def main():
         sys.exit(1)
 
     for arg in args:
-        bg = cgb.BulgeGraph(arg)
+        bg = ttmc.CoarseGrainRNA(arg)
         if options.loops:
             loop_loop_orientations(bg)
         else:

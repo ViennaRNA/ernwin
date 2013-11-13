@@ -2,7 +2,7 @@
 
 import sys
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.visual.force_graph as cvf
 
 from optparse import OptionParser
@@ -19,7 +19,7 @@ def main():
         print >>sys.stderr, "./graph_to_json temp.graph"
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
+    bg = ttmc.CoarseGrainRNA(args[0])
     json_str = cvf.convert_graph_to_fancy_json(bg)
     print json_str
 

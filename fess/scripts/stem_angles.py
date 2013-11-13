@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 
 def main():
     parser = OptionParser()
@@ -18,7 +18,7 @@ def main():
         print >>sys.stderr, "Print the angles between the stems in temp.comp"
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
+    bg = ttmc.CoarseGrainRNA(args[0])
 
     stems = [d for d in bg.defines.keys() if d[0] == 's']
 

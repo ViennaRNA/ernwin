@@ -5,7 +5,7 @@ from optparse import OptionParser
 
 import numpy as np
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 
 import borgy.builder.config as cbc
@@ -44,7 +44,7 @@ usage: %prog [options] temp.comp
         parser.print_help()
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
+    bg = ttmc.CoarseGrainRNA(args[0])
 
     stems = [d for d in bg.defines.keys() if d[0] == 's']
     #stems = [d for d in bg.defines.keys() if (bg.weights[d] == 2 or bg.weights[d] == 0)]

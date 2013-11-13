@@ -9,7 +9,7 @@ from optparse import OptionParser
 import borgy.builder.models as cbm
 import borgy.builder.reconstructor as cbr
 import borgy.builder.stats as cbs
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 import borgy.utilities.debug as cud
 import borgy.utilities.vector as cuv
@@ -84,7 +84,7 @@ def construct_test_graph(s1_stats, s2_stats, ang_stat, link_length):
 
 
     # create the bulge graph programmatically
-    bg = cgb.BulgeGraph()
+    bg = ttmc.CoarseGrainRNA()
     bg.seq = "".join([rand.choice(['A','C','G','U']) 
                       for i in xrange(new_d2[3])])
 

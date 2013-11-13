@@ -336,6 +336,7 @@ class MCMCSampler:
         self.prev_energy = 100000000000.
         #self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
+        print >>sys.stderr, "new MCMCSampler"
         sm.sample_stats()
         constraint_energy = sm.constraint_energy
         junction_constraint_energy = sm.junction_constraint_energy

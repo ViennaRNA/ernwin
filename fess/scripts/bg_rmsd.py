@@ -3,7 +3,7 @@
 import sys
 from optparse import OptionParser
 
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 import borgy.builder.rmsd as cbr
 
@@ -20,8 +20,8 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    bg1 = cgb.BulgeGraph(args[0])
-    bg2 = cgb.BulgeGraph(args[1])
+    bg1 = ttmc.CoarseGrainRNA(args[0])
+    bg2 = ttmc.CoarseGrainRNA(args[1])
 
     r1 = cgg.bg_virtual_residues(bg1)
     r2 = cgg.bg_virtual_residues(bg2)

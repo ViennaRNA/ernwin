@@ -6,7 +6,7 @@ import warnings
 import Bio.PDB as bpdb
 import borgy.builder.config as cbc
 import borgy.builder.rmsd as cbr
-import borgy.graph.bulge_graph as cgb
+import tess.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 import borgy.utilities.debug as cud
 
@@ -35,7 +35,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    bg = cgb.BulgeGraph(args[0])
+    bg = ttmc.CoarseGrainRNA(args[0])
     vposs = []
     rposs = []
     stem_length = 0
