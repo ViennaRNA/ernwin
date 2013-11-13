@@ -14,7 +14,7 @@ import random as rand
 import collections as c
 
 import fess.builder.config as cbc
-import fess.builder.stats as cbs
+import forgi.threedee.model.stats as cbs
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as cud
@@ -621,9 +621,12 @@ class SpatialModel:
         Find a node from which to begin building. This should ideally be a loop
         region as from there we can just randomly orient the first stem.
         '''
-        import traceback
 
-        traceback.print_stack()
+        cud.pv('list(self.bg.sorted_stem_iterator())')
+        edge = self.bg.sorted_stem_iterator().next()
+        define = 'start'
+        return (edge, define, StemModel(edge))
+
 
         for define in self.bg.defines.keys():
             if define[0] == 'h' or define[0] == 'f' or define[0] == 't':
@@ -948,7 +951,6 @@ class SpatialModel:
                 #cud.pv('[(t[0], self.bg.stem_length(t[1])) for t in self.to_visit]')
 
                 #cud.pv('curr_node, prev_node, self.bg.stem_length(curr_node)')
-                cud.pv('curr_node,prev_node')
                         
                 paths[curr_node] += [curr_node]
                 paths[curr_node] += paths[prev_node]
@@ -976,18 +978,21 @@ class SpatialModel:
                     params = self.get_random_stem_stats(curr_node)
 
                     if prev_node == 'start':
-                        cud.pv('prev_node, curr_node')
-                        sys.exit(1)
-                        (s1b, s1e) = (1, 0)
+                        (s1b, s1e) = (0, 1)
                     else:
                         (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 
                     # get some parameters for the previous bulge
                     #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
-                    (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
-                    direction = self.bg.get_stem_direction(prev_stem.name, curr_node)
+                    if prev_node == 'start':
+                        (ps1b, ps1e) = (1, 0)
+                        direction = 0
+                        prev_params = cbs.AngleStat()
+                    else:
+                        (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
+                        direction = self.bg.get_stem_direction(prev_stem.name, curr_node)
+                        prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b, direction))
 
-                    prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b, direction))
                     self.sampled_bulges += [prev_node]
                     if len(self.bg.edges[prev_node]) == 2:
                         self.sampled_bulge_sides += [(prev_node, (ps1b, s1b, direction))]
@@ -1003,6 +1008,8 @@ class SpatialModel:
                         #print "ps1b:", ps1b, "ps1e", ps1e
                         #cud.pv('prev_node, str(prev_params)')
                         self.visit_order += [prev_node]
+                        cud.pv('prev_params')
+                        cud.pv('prev_node, curr_node')
                         stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
                         self.newly_added_stems += [curr_node]
 
@@ -1011,6 +1018,7 @@ class SpatialModel:
                         # i.e. s1e -> s1b -> bulge -> s2b -> s2e
                         #self.stems[curr_node] = stem
 
+                        cud.pv('s1b')
                         if s1b == 1:
                             self.stems[curr_node] = stem.reverse()
                         else:

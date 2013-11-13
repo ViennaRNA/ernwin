@@ -9,7 +9,7 @@ import math, os
 #import matplotlib.pyplot as plt
 
 import fess.builder.config as cbc
-import fess.builder.stats as cbs
+import forgi.threedee.model.stats as cbs
 
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.utilities.debug as cud

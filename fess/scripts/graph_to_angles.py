@@ -2,7 +2,7 @@
 
 import sys
 
-import tess.threedee.model.coarse_grain as ttmc
+import forgi.threedee.model.coarse_grain as ttmc
 import borgy.utilities.vector as cuv
 import borgy.graph.graph_pdb as cgg
 import borgy.utilities.debug as cud
@@ -12,7 +12,7 @@ def print_new_bulge_angles(bg):
     This should be refactored to use the borgy.builder.stats.AngleStat class.
     '''
     for define in bg.defines.keys():
-        if define[0] != 's' and len(bg.edges[define]) == 2:
+        if define[0] == 'i' or define[0] == 'm':
             (as1, as2) = bg.get_bulge_angle_stats(define)
 
             print "angle", as1.pdb_name, as1.dim1, as1.dim2, as1.u, as1.v, as1.t, as1.r1, as1.u1, as1.v1, as1.ang_type, " ".join(map(str, as2.define)), " ".join(as1.seqs)
@@ -46,28 +46,21 @@ def get_loop_stat(bg, d):
 
 def print_loop_stats(bg):
     for d in bg.defines.keys():
-        if d[0] != 's':
-            if bg.weights[d] == 1 and len(bg.edges[d]) == 1 and bg.defines[d][0] != 0 and bg.defines[d][1] != bg.length:
-                # unpaired region
-
-                (base_pair_length, r, u, v) = get_loop_stat(bg, d)
-                print "loop", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
+        if d[0] == 'h':
+            (base_pair_length, r, u, v) = get_loop_stat(bg, d)
+            print "loop", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
 
 def print_5prime_unpaired(bg):
     for d in bg.defines.keys():
-        if d[0] != 's':
-            if len(bg.edges[d]) == 1 and bg.defines[d][0] == 0:
-                if bg.defines[d][1] == 1:
-                    continue
-                (base_pair_length, r, u, v) = get_loop_stat(bg, d)
-                print "5prime", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
+        if d[0] == 'f':
+            (base_pair_length, r, u, v) = get_loop_stat(bg, d)
+            print "5prime", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
 
 def print_3prime_unpaired(bg):
     for d in bg.defines.keys():
-        if d[0] != 's':
-            if len(bg.edges[d]) == 1 and bg.defines[d][1] == bg.length:
-                (base_pair_length, r, u, v) = get_loop_stat(bg, d)
-                print "3prime", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
+        if d[0] == 't':
+            (base_pair_length, r, u, v) = get_loop_stat(bg, d)
+            print "3prime", bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d]))
 
 def main():
     if len(sys.argv) < 2:
