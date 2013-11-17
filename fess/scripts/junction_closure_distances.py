@@ -1,18 +1,20 @@
 #!/usr/bin/python
 
-import sys
-import random as rand
-import math
-import numpy as np
 from optparse import OptionParser
 
-import borgy.builder.models as cbm
-import borgy.builder.reconstructor as cbr
-import borgy.builder.stats as cbs
-import tess.threedee.model.coarse_grain as ttmc
-import borgy.graph.graph_pdb as cgg
-import borgy.utilities.debug as cud
-import borgy.utilities.vector as cuv
+import numpy as np
+import math
+import random as rand
+import sys
+
+import fess.builder.models as cbm
+import fess.builder.reconstructor as cbr
+import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.model.stats as cbs
+import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.threedee.utilities.vector as cuv
+import forgi.utilities.debug as cud
+import forgi.utilities.stuff as fus
 
 def get_random_stem_stats():
     '''
@@ -56,54 +58,22 @@ def construct_test_graph(s1_stats, s2_stats, ang_stat, link_length):
 
     @return: A BulgeGraph of the described structure
     '''
-    s1_len = s1_stats.define[1] - s1_stats.define[0]
-    s2_len = s2_stats.define[1] - s2_stats.define[0]
+    s1_len = s1_stats.define[1] - s1_stats.define[0] + 1
+    s2_len = s2_stats.define[1] - s2_stats.define[0] + 1
 
-    # the new defines for the stem
-    new_d1 = range(4)
-    new_d2 = range(4)
-
-    #Start with a little loop so that the traversal can get started
     start_loop_len = 3
-    loop_d = [0, start_loop_len]
 
-    # shift the define of the first stem so that it is at the beginning
-    new_d1[0] = 3
-    new_d1[1] = 3 + s1_len
+    dotbracket = '%s%s%s%s%s%s' % ('.' * start_loop_len, 
+                                   '(' * s1_len,
+                                   ')' * s1_len,
+                                   '.' * link_length,
+                                   '(' * s2_len,
+                                   ')' * s2_len)
+    seq = fus.gen_random_sequence(len(dotbracket))
+    cg_db = ftmc.CoarseGrainRNA(dotbracket_str=dotbracket,
+                               seq=seq)
 
-    # no residues between the two strands of stem
-    new_d1[2] = new_d1[1] + 1
-    new_d1[3] = new_d1[2] + s1_len
-
-    # add the junction between the two stems
-    new_d2[0] = new_d1[3] + link_length + 1
-    new_d2[1] = new_d2[0] + s2_len
-
-    new_d2[2] = new_d2[1] + 1
-    new_d2[3] = new_d2[2] + s2_len
-
-
-    # create the bulge graph programmatically
-    bg = ttmc.CoarseGrainRNA()
-    bg.seq = "".join([rand.choice(['A','C','G','U']) 
-                      for i in xrange(new_d2[3])])
-
-    bg.defines['s1'] = new_d1
-    bg.defines['s2'] = new_d2
-    bg.defines['b1'] = [new_d1[3], new_d2[0]]
-    bg.defines['b2'] = loop_d
-
-    bg.edges['s1'] = set(['b1', 'b2'])
-    bg.edges['s2'] = set(['b1'])
-    bg.edges['b1'] = set(['s1', 's2'])
-    bg.edges['b2'] = set(['s1'])
-
-    bg.weights['s1'] = 2
-    bg.weights['s2'] = 2
-    bg.weights['b1'] = 1
-    bg.weights['b2'] = 1
-
-    return bg
+    return cg_db
 
 def bulge_virtual_residue_distance(bg, ld):
     '''
@@ -169,7 +139,6 @@ def main():
     parser.add_option('-o', '--output_file', dest='output_file', default=None,
                     help="The file to dump the output to", type='string')
 
-
     (options, args) = parser.parse_args()
 
     if options.all_lengths:
@@ -184,7 +153,7 @@ def main():
 
     for k in xrange(start_len, options.num_nucleotides+1):
         min_len = 0. + 3. * k
-        max_len = 12. + 7. * k
+        max_len = 12. + 8. * k
 
         for d in np.linspace(min_len, max_len, options.iterations):
             s1 = get_random_stem_stats()
@@ -209,12 +178,13 @@ def main():
 
             # Indiciate which statistics to use for the 3D model construction
             sm.sample_stats()
-            sm.stem_defs['s1'] = s1
-            sm.stem_defs['s2'] = s2
-            sm.angle_defs['b1'][0][0] = ang_stat
-            sm.angle_defs['b1'][0][1] = ang_stat
-            sm.angle_defs['b1'][1][0] = ang_stat
-            sm.angle_defs['b1'][1][1] = ang_stat
+
+            sm.stem_defs['s0'] = s1
+            sm.stem_defs['s1'] = s2
+            sm.angle_defs['m0'][0][0] = ang_stat
+            sm.angle_defs['m0'][0][1] = ang_stat
+            sm.angle_defs['m0'][1][0] = ang_stat
+            sm.angle_defs['m0'][1][1] = ang_stat
 
             # Create the model
             sm.traverse_and_build()
@@ -229,23 +199,21 @@ def main():
                 # Just issue a warning and keep on truckin'
                 print >>sys.stderr, "Missing fragment..."
                 print >>sys.stderr, ie
-                continue
             
             try:
-                ((a,b,i1,i2), best_loop_chain, min_dist) = cbr.reconstruct_loop(chain, sm, 'b1', side=0, samples=3, 
+                ((a,b,i1,i2), best_loop_chain, min_dist) = cbr.reconstruct_loop(chain, sm, 'm0', side=0, samples=3, 
                                      consider_contacts=False, consider_starting_pos=False)
 
                 # Calculate the distances in the coarse grain model
-                dist1 = bulge_length(bg, 'b1')
-                dist2 = bulge_virtual_residue_distance(bg, 'b1')
-                dist3 = bulge_virtual_atom_distance(bg, 'b1')
+                dist1 = bulge_length(bg, 'm0')
+                dist2 = bulge_virtual_residue_distance(bg, 'm0')
+                dist3 = bulge_virtual_atom_distance(bg, 'm0')
 
                 output.write("%d %f %f %f %f\n" % (k, dist1, dist2, dist3, min_dist))
                 output.flush()
                 #print k, dist1, dist2, dist3, min_dist
             except Exception as e:
                 print >>sys.stderr, e
-                continue
 
 if __name__ == "__main__":
     main()

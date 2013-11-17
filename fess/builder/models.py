@@ -197,7 +197,10 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     '''
     Reconstruct a particular stem.
     '''
+    cud.pv('orig_def')
+    cud.pv('stem_def')
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
+    cud.pv('filename')
     '''
     stem_def.define = [1375, 1376, 1638, 1639]
     filename = '1jj2_1375_1376_1638_1639.pdb'
@@ -421,7 +424,6 @@ class SpatialModel:
         length = self.bg.stem_length(d)
 
         # retrieve a random entry from the StemStatsDict collection
-        cud.pv('length')
         ss = choice(cbs.get_stem_stats()[length])
         stem_defs[d] = ss
 
