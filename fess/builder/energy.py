@@ -1208,7 +1208,7 @@ class StemStemOrientationEnergy(EnergyFunction):
             #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
         for (s1,s2) in it.permutations(sm.bg.stem_iterator(), r=2):
-            if sm.bg.are_adjacent_stems(s1, s2):
+            if sm.bg.are_adjacent_stems(s1, s2, multiloops_count = False):
                 continue
 
             orientation = cgg.stem_stem_orientation(sm.bg, s1, s2)

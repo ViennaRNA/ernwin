@@ -7,6 +7,7 @@ import os.path as op
 
 import forgi.utilities.debug as cud
 import fess.builder.sampling as cbs
+import forgi.threedee.model.stats as ftms
 import fess.builder.config as cbc
 
 import forgi.threedee.utilities.graph_pdb as cgg
@@ -109,6 +110,7 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.RoughJunctionClosureEnergy()])
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
+
             samplers += [cbs.MCMCSampler(sm, energy, stat)]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
@@ -165,8 +167,11 @@ def main():
     parser.add_option('', '--sipe', dest='sipe', default=False, action='store_true', help="Use the interaction probability energy.")
     parser.add_option('', '--fasta', dest='fasta', default='', help="Specify a fastdb file containing an identifier, a sequence and a dotbracket string indicating the secondary structure.", type='str')
     parser.add_option('', '--stem-stem0-data', dest='stem_stem0_data', help='The location of the sampled stem-stem0 data', type='str', default='~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv')
+    parser.add_option('', '--stats-file', dest='stats_file', 
+                      default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
 
     (options, args) = parser.parse_args()
+
 
     if len(args) < 1 and options.secondary_structure is False and options.fasta == '':
         print "Usage: ./gibbs.py temp.comp"
@@ -174,6 +179,13 @@ def main():
 
     cud.pv('args')
     cud.pv('options.secondary_structure')
+
+    if options.stats_file != '':
+        stats = ftms.get_angle_stats(options.stats_file)
+        stats = ftms.get_loop_stats(options.stats_file)
+        stats = ftms.get_stem_stats(options.stats_file)
+        cbc.Configuration.stats_file = options.stats_file
+        print >>sys.stderr, "options.stats_file:", cbc.Configuration.stats_file
 
     energies_to_sample = []
     if options.n_loop_energy:
