@@ -38,13 +38,14 @@ def get_random_angle_stat(min_len=0., max_len=100.):
 
     @return: A random AngleStat
     '''
-    return cbs.AngleStat('', 0, 0,
+    a =  cbs.AngleStat('', 0, 0,
                              rand.uniform(0, math.pi),
                              rand.uniform(0, 2 * math.pi),
                              rand.uniform(0, 2 * math.pi),
                              rand.uniform(min_len, max_len),
                              rand.uniform(0, math.pi),
                              rand.uniform(0, 2 * math.pi))
+    return a
 
 def construct_test_graph(s1_stats, s2_stats, ang_stat, link_length):
     '''
@@ -72,6 +73,8 @@ def construct_test_graph(s1_stats, s2_stats, ang_stat, link_length):
     seq = fus.gen_random_sequence(len(dotbracket))
     cg_db = ftmc.CoarseGrainRNA(dotbracket_str=dotbracket,
                                seq=seq)
+    cud.pv('cg_db.to_bg_string()')
+    cud.pv('cg_db.get_bulge_dimensions("m0")')
 
     return cg_db
 
@@ -153,7 +156,7 @@ def main():
 
     for k in xrange(start_len, options.num_nucleotides+1):
         min_len = 0. + 3. * k
-        max_len = 12. + 8. * k
+        max_len = 12. + 7. * k
 
         for d in np.linspace(min_len, max_len, options.iterations):
             s1 = get_random_stem_stats()
@@ -181,14 +184,13 @@ def main():
 
             sm.stem_defs['s0'] = s1
             sm.stem_defs['s1'] = s2
-            sm.angle_defs['m0'][0][0] = ang_stat
-            sm.angle_defs['m0'][0][1] = ang_stat
-            sm.angle_defs['m0'][1][0] = ang_stat
-            sm.angle_defs['m0'][1][1] = ang_stat
+            sm.angle_defs['m0'][2] = ang_stat
+            sm.angle_defs['m0'][4] = ang_stat
+            sm.angle_defs['m0'][5] = ang_stat
+            sm.angle_defs['m0'][6] = ang_stat
 
             # Create the model
             sm.traverse_and_build()
-
             #sm.bg.output('out.bg')
 
             # Reconstruct the stems
@@ -199,7 +201,10 @@ def main():
                 # Just issue a warning and keep on truckin'
                 print >>sys.stderr, "Missing fragment..."
                 print >>sys.stderr, ie
-            
+            except KeyError as ke:
+                print >>sys.stderr, "KeyError in reconstructing stems..."
+                print >>sys.stderr, ke
+
             try:
                 ((a,b,i1,i2), best_loop_chain, min_dist) = cbr.reconstruct_loop(chain, sm, 'm0', side=0, samples=3, 
                                      consider_contacts=False, consider_starting_pos=False)

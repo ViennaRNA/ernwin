@@ -197,10 +197,7 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     '''
     Reconstruct a particular stem.
     '''
-    cud.pv('orig_def')
-    cud.pv('stem_def')
     filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-    cud.pv('filename')
     '''
     stem_def.define = [1375, 1376, 1638, 1639]
     filename = '1jj2_1375_1376_1638_1639.pdb'
@@ -281,13 +278,6 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
     twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
 
-    '''
-    if stem_name == 's10':
-        #cud.pv('stem1_basis')
-        #cud.pv('bulge_params.position_params()')
-        cud.pv('cuv.magnitude(start_location)')
-    '''
-
     mid1 = prev_stem.mids[s1e] + start_location
     mid2 = mid1 + stem_orientation
 
@@ -339,13 +329,11 @@ class SpatialModel:
         self.sample_threeprime()
 
     def resample(self, d):
-        #cud.pv('"pre-resampled", d')
         if d[0] == 's':
             self.sample_stem(d)
         else:
             if len(self.bg.edges[d]) == 2:
                 self.sample_angle(d)
-        #cud.pv('"post-resampled", d, str(self.stem_defs[d])')
 
     def sample_angle(self, d):
         size = self.bg.get_bulge_dimensions(d)
@@ -371,16 +359,12 @@ class SpatialModel:
         ang_type3 = cbs.end_ang_types[(s2b, s1b, dir2)]
 
         try:
-            #cud.pv('len(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])')
-            #cud.pv('len(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])')
             angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])
             #angle_defs[d][ang_type2] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type2])
             angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])
             #angle_defs[d][ang_type4] = choice(cb.get_angle_stats()[size[0]][size[1]][ang_type4])
         except IndexError:
             #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
-            #cud.pv('ang_type1')
-            #cud.pv('ang_type3')
 
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
             angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size1][size2][ang_type1])
@@ -485,7 +469,6 @@ class SpatialModel:
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], sb[1])[0]
             size = (size1, size2)
 
-            #cud.pv('b, sb, len(sb), size')
             for ang_s in cbs.get_angle_stats()[size[0]][size[1]][sb[1]]:
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
                     print >>sys.stderr, "some stuff", b
@@ -624,7 +607,6 @@ class SpatialModel:
         region as from there we can just randomly orient the first stem.
         '''
 
-        cud.pv('list(self.bg.sorted_stem_iterator())')
         edge = self.bg.sorted_stem_iterator().next()
         define = 'start'
         return (edge, define, StemModel(edge))
@@ -634,10 +616,6 @@ class SpatialModel:
             if define[0] == 'h' or define[0] == 'f' or define[0] == 't':
                 for edge in self.bg.edges[define]:
                     return (edge, define, StemModel(edge))
-                    '''
-                    cud.pv('self.bg.get_sides(edge, define)')
-                    if self.bg.get_sides(edge, define)[0] == 0:
-                    '''
 
     def save_sampled_stems(self):
         '''
@@ -710,7 +688,6 @@ class SpatialModel:
         '''
         #if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
         if name[0] == 'h':
-            #cud.pv('"over here"')
             return cbs.AngleStat()
 
         ang_type = cbs.end_ang_types[(s1b, s2b, direction)]
@@ -732,14 +709,6 @@ class SpatialModel:
         '''
 
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
-        '''
-        if stem_name == 's10':
-            cud.pv('"holla"')
-            cud.pv('bulge_params')
-            cud.pv('stem')
-            cud.pv('s1b, s1e')
-            cud.pv('self.stems["s12"].twists[1]')
-        '''
 
         stem.name = stem_name
 
@@ -830,8 +799,6 @@ class SpatialModel:
                     self.visit_order = visited
                     return self.sampled_bulges
 
-            #cud.pv('curr_node, self.bg.stem_length(curr_node)')
-
             #print curr_node, prev_node
 
             visited.add(curr_node)
@@ -876,7 +843,6 @@ class SpatialModel:
                 loop_w_sizes = [(self.bg.stem_length(l), l) for l in loop if l[0] != 's']
                 loop_w_sizes += [(0, l) for l in loop if l[0] == 's']
                 to_remove = max(loop_w_sizes)[1]
-                #cud.pv('to_remove, loop')
                 to_skip.add(to_remove)
 
             for l in loop:
@@ -929,11 +895,9 @@ class SpatialModel:
 
         restart=False
 
-        #cud.pv('self.to_skip')
         #print "starting:"
 
         while True:
-            #cud.pv('"starting"')
             while len(self.to_visit) > 0:
                 #self.to_visit.sort(key=lambda x: ('a' if x[1][0] == 's' else x[1][0], -self.bg.stem_length(x[1])))
                 
@@ -950,10 +914,6 @@ class SpatialModel:
                 if not tbc:
                     break
 
-                #cud.pv('[(t[0], self.bg.stem_length(t[1])) for t in self.to_visit]')
-
-                #cud.pv('curr_node, prev_node, self.bg.stem_length(curr_node)')
-                        
                 paths[curr_node] += [curr_node]
                 paths[curr_node] += paths[prev_node]
 
@@ -961,14 +921,6 @@ class SpatialModel:
 
                 v = list(self.visited)
                 v.sort()
-
-                '''
-                if curr_node == 's10':
-                    cud.pv('curr_node')
-                    cud.pv('v')
-
-                cud.pv('curr_node, "s10" in self.visited')
-                '''
 
                 stem = prev_stem
 
@@ -1008,10 +960,7 @@ class SpatialModel:
                         '''
                         #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
                         #print "ps1b:", ps1b, "ps1e", ps1e
-                        #cud.pv('prev_node, str(prev_params)')
                         self.visit_order += [prev_node]
-                        cud.pv('prev_params')
-                        cud.pv('prev_node, curr_node')
                         stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
                         self.newly_added_stems += [curr_node]
 
@@ -1020,7 +969,6 @@ class SpatialModel:
                         # i.e. s1e -> s1b -> bulge -> s2b -> s2e
                         #self.stems[curr_node] = stem
 
-                        cud.pv('s1b')
                         if s1b == 1:
                             self.stems[curr_node] = stem.reverse()
                         else:
@@ -1030,21 +978,12 @@ class SpatialModel:
                         self.stem_to_coords(curr_node)
 
                         if constraint_energy != None and not restart:
-                            #cud.pv('new_visited')
-                            #cud.pv('len(self.visited), len(new_visited)')
                             e1 = constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = new_visited)
                             #e1 = constraint_energy.eval_energy(self)
-                            #cud.pv('e1')
-                            #cud.pv('curr_node, e1')
-
-                            #cud.pv('self.visited')
-                            #cud.pv('"pre", e1')
-                            #cud.pv('constraint_energy.eval_energy(self)')
-                            cud.pv('e1')
                             if e1 > 10:
-                                self.bg.to_file('bad1.cg')
-                                print >>sys.stderr, "exiting"
-                                sys.exit(1)
+                                #self.bg.to_file('bad1.cg')
+                                #print >>sys.stderr, "exiting0", e1
+                                #sys.exit(1)
 
                                 bb = set(self.constraint_energy.bad_bulges)
                                 bp = []
@@ -1054,8 +993,6 @@ class SpatialModel:
                                 bp.sort()
                                 sb = max((bp))[1]
                                 #sb = random.choice(list(bb))
-                                #cud.pv('bp')
-                                #cud.pv('max(bp)')
 
                                 for p in paths[sb]:
                                     if p[0] == 's':
@@ -1067,13 +1004,10 @@ class SpatialModel:
                                 restart = True
                                 break
                             else:
-                                #cud.pv('"passing", start, curr_node, len(self.visited), len(new_visited)')
                                 pass
                             new_visited = []
 
                     else:
-                        #cud.pv('"unstarted", curr_node')
-                        #cud.pv('paths[curr_node], start')
                         '''
                         if curr_node == 's13':
                             print "unstarted prev_node:", prev_node, "start:", start
@@ -1095,12 +1029,10 @@ class SpatialModel:
 
             if not restart and self.constraint_energy != None:
                 e1 = self.constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = None)
-                cud.pv('e1')
                 if e1 > 0.:
-                    self.bg.to_file('bad.cg')
-                    print >>sys.stderr, "exiting"
-                    sys.exit(1)
-                    #cud.pv('set(self.constraint_energy.bad_bulges)')
+                    #self.bg.to_file('bad.cg')
+                    #print >>sys.stderr, "exiting1", e1
+                    #sys.exit(1)
                     bb = set(self.constraint_energy.bad_bulges)
                     bp = []
                     for b in bb:
@@ -1109,7 +1041,6 @@ class SpatialModel:
                     bp.sort()
                     sb = max((bp))[1]
                     #sb = random.choice(list(bb))
-                    #cud.pv('bp')
 
                     for p in paths[sb]:
                         if p[0] == 's':
@@ -1123,20 +1054,15 @@ class SpatialModel:
             if not restart and self.junction_constraint_energy != None:
                 e1 = self.junction_constraint_energy.eval_energy(self)
 
-                cud.pv('e1')
                 if e1 > 0.:
-                    self.bg.to_file('bad2.cg')
-                    print >>sys.stderr, "exiting"
-                    sys.exit(1)
-                    cud.pv('self.junction_constraint_energy.bad_bulges')
+                    #self.bg.to_file('bad2.cg')
+                    #print >>sys.stderr, "exiting2", e1
+                    #sys.exit(1)
                     to_change = random.choice(self.junction_constraint_energy.bad_bulges)
                     restart = True
 
             if restart:
                 self.resample(to_change)
-                cud.pv('to_change, e1, paths[to_change]')
-                #cud.pv('to_change')
-                #cud.pv('e1')
                 self.sampled_bulges = []
                 self.sampled_bulge_sides = []
                 self.closed_bulges = []
@@ -1150,7 +1076,6 @@ class SpatialModel:
                 #start = 'start'
                 started = False
                 new_visited = []
-                #cud.pv('start')
                 #sys.exit(1)
                 #self.traverse_and_build(to_change)
                 #return

@@ -1116,14 +1116,16 @@ class RoughJunctionClosureEnergy(EnergyFunction):
         #closed_bulges = all_bulges.difference(sm.sampled_bulges)
 
         for bulge in all_bulges:
-            bl = bg.defines[bulge][1] - bg.defines[bulge][0] - 1
+            #bl = bg.defines[bulge][1] - bg.defines[bulge][0] - 1
+            bl = bg.get_bulge_dimensions(bulge)[0]
             #dist = cgg.junction_virtual_res_distance(bg, bulge)
             dist = cgg.junction_virtual_atom_distance(bg, bulge)
 
             #
             #cutoff_distance = (bl) * 5.9 + 13.4
             #cutoff_distance = (bl) * 5.908 + 11.309
-            cutoff_distance = (bl) * 6.4 + 6.4
+            #cutoff_distance = (bl) * 6.4 + 6.4
+            cutoff_distance = (bl) * 6.22 + 14.0
 
             if (dist > cutoff_distance):
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
@@ -1205,7 +1207,7 @@ class StemStemOrientationEnergy(EnergyFunction):
             self.fake_data = self.load_stem_stem_data(self.fake_data_location)
             #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
-        for (s1,s2) in it.permutations(sm.bg.stems(), r=2):
+        for (s1,s2) in it.permutations(sm.bg.stem_iterator(), r=2):
             if sm.bg.are_adjacent_stems(s1, s2):
                 continue
 
@@ -1303,7 +1305,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
             intersects = cuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
-                cud.pv('exiting')
+                cud.pv('exiting 107231')
                 sys.exit(1)
 
             if len(intersects) == 0:

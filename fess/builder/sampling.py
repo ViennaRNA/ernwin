@@ -223,7 +223,7 @@ class SamplingStatistics:
         if self.energy_orig == None:
             self.energy_orig = 0.
             try:
-                for s in sm.bg.stems():
+                for s in sm.bg.stem_iterator():
                     cgg.add_virtual_residues(self.sm_orig.bg, s)
                 self.energy_orig = energy_function.eval_energy(self.sm_orig)
             except KeyError:
@@ -268,7 +268,7 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
             if self.output_file != sys.stdout:
                 print output_str.strip()
 
@@ -283,7 +283,7 @@ class SamplingStatistics:
                 self.save_top(self.save_n_best)
 
         if self.step_save:
-            sm.bg.output(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
+            sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
             
 
     def save_top(self, n = 100000):
@@ -296,7 +296,7 @@ class SamplingStatistics:
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
 
         for i in range(n):
-            sorted_energies[i][2].output(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
+            sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
 
     def update_plots(self, energy, rmsd):
         '''
@@ -358,16 +358,56 @@ class MCMCSampler:
         #sys.exit(1)
         sm.get_sampled_bulges()
 
+    def get_random_bulge(self, bg):
+        '''
+        Return a random interior or multiloop from the structure.
+        
+        @param bg: A forgi.graph.BulgeGraph data structure.
+        @return: The name of one of the bulges in bg selected randomly
+        '''
+        bulges = []
+        for d in bg.defines.keys():
+            if d[0] == 'i' or d[0] == 'm':
+                bulges += [d]
+        return random.choice(bulges)
+
+    def get_random_stem(self, bg):
+        '''
+        Return a random stem from the bulge graph.
+        
+        @param bg: A forgi.graph.BulgeGraph data structure.
+        @return: The name of one of the stems in bg selected randomly
+        '''
+        bulges = []
+        for d in bg.defines.keys():
+            if d[0] == 's':
+                bulges += [d]
+        return random.choice(bulges)
+
+    def get_random_loop(self, bg):
+        '''
+        Return a random hairpin loop from the bulge graph.
+        
+        @param bg: A forgi.graph.BulgeGraph data structure.
+        @return: The name of one of the hairpins in bg selected randomly
+        '''
+        bulges = []
+        for d in bg.defines.keys():
+            if d[0] == 'h':
+                bulges += [d]
+
+        return random.choice(bulges)
+
     def change_angle(self):
         # pick a random bulge to vary
-        bulge = self.sm.bg.get_random_bulge()
+        bulge = self.get_random_bulge(self.sm.bg)
 
         if bulge == None:
             # this structure has no bulges
             return
 
         while bulge not in self.sm.sampled_bulges:
-            bulge = self.sm.bg.get_random_bulge()
+            bulge = self.get_random_bulge(self.sm.bg)
 
         dims = self.sm.bg.get_bulge_dimensions(bulge)
 
@@ -414,7 +454,7 @@ class MCMCSampler:
 
     def change_stem(self):
         # pick a random bulge to vary
-        stem = self.sm.bg.get_random_stem()
+        stem = self.get_random_stem(self.sm.bg)
         length = self.sm.bg.get_length(stem)
 
         # What are the potential angle statistics for it
@@ -464,7 +504,7 @@ class MCMCSampler:
 
     def change_loop(self):
         # pick a random bulge to vary
-        loop = self.sm.bg.get_random_loop()
+        loop = self.get_random_loop(self.sm.bg)
         length = self.sm.bg.get_length(loop)
 
         # What are the potential angle statistics for it
