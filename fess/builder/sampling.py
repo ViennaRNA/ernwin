@@ -413,12 +413,11 @@ class MCMCSampler:
 
         # What are the potential angle statistics for it
         #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
-        (bulge, (s1b, s2b, direction)) = random.choice(self.sm.sampled_bulge_sides)
+        (bulge, ang_type1) = random.choice(self.sm.sampled_bulge_sides)
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
         self.sm.traverse_and_build()
         # What are the potential angle statistics for it
-        ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
         try:
             possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
             pa = random.choice(possible_angles)
@@ -582,11 +581,10 @@ class GibbsBGSampler:
 
         # pick a random bulge to vary
         #bulge = self.sm.bg.get_random_bulge()
-        (bulge, (s1b, s2b, direction)) = random.choice(self.sm.sampled_bulge_sides)
+        (bulge, ang_type1) = random.choice(self.sm.sampled_bulge_sides)
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
         # What are the potential angle statistics for it
-        ang_type1 = cbs.end_ang_types[(s1b, s2b, direction)]
         (dist, size1, size2, type1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
         possible_angles = cbs.get_angle_stats()[size1][size2][ang_type1]
         #print >>sys.stderr, bulge, dims, len(possible_angles)

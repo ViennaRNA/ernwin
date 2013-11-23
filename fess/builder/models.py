@@ -355,14 +355,12 @@ class SpatialModel:
         dir1 = self.bg.get_stem_direction(connections[0], connections[1])
         dir2 = self.bg.get_stem_direction(connections[1], connections[0])
 
-        ang_type1 = cbs.end_ang_types[(s1b, s2b, dir1)]
-        ang_type3 = cbs.end_ang_types[(s2b, s1b, dir2)]
+        ang_type1 = self.bg.connection_type(d, connections)
+        ang_type3 = -ang_type1
 
         try:
             angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])
-            #angle_defs[d][ang_type2] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type2])
             angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])
-            #angle_defs[d][ang_type4] = choice(cb.get_angle_stats()[size[0]][size[1]][ang_type4])
         except IndexError:
             #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
 
@@ -625,8 +623,7 @@ class SpatialModel:
             self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
 
     def save_sampled_angles(self):
-        for (bulge, (s1b, s2b, direction)) in self.sampled_bulge_sides:
-            ang_type = cbs.end_ang_types[(s1b, s2b, direction)]
+        for (bulge, ang_type) in self.sampled_bulge_sides:
             ad = self.angle_defs[bulge][ang_type]
             self.bg.sampled[bulge] = [ad.pdb_name] + [ang_type] + ad.define
 
@@ -682,15 +679,13 @@ class SpatialModel:
 
         return self.stem_defs[name]
 
-    def get_random_bulge_stats(self, name, (s1b, s2b,direction)):
+    def get_random_bulge_stats(self, name, ang_type):
         '''
         Return a random set of parameters with which to create a bulge.
         '''
         #if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
         if name[0] == 'h':
             return cbs.AngleStat()
-
-        ang_type = cbs.end_ang_types[(s1b, s2b, direction)]
 
         return self.angle_defs[name][ang_type]
 
@@ -914,6 +909,7 @@ class SpatialModel:
                 if not tbc:
                     break
 
+                # keep track of the leaf to root paths
                 paths[curr_node] += [curr_node]
                 paths[curr_node] += paths[prev_node]
 
@@ -937,19 +933,25 @@ class SpatialModel:
                         (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
 
                     # get some parameters for the previous bulge
-                    #print "curr_node:", curr_node, "prev_stem.name", prev_stem.name
                     if prev_node == 'start':
                         (ps1b, ps1e) = (1, 0)
-                        direction = 0
+                        ang_type = 1
                         prev_params = cbs.AngleStat()
                     else:
+                        cud.pv('prev_stem.name')
+                        cud.pv('prev_node')
+                        cud.pv('curr_node')
                         (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
-                        direction = self.bg.get_stem_direction(prev_stem.name, curr_node)
-                        prev_params = self.get_random_bulge_stats(prev_node, (ps1b, s1b, direction))
+                        ang_type = self.bg.connection_type(prev_node, 
+                                                           [prev_stem.name, 
+                                                            curr_node])
+
+                        prev_params = self.get_random_bulge_stats(prev_node,
+                                                                 ang_type)
 
                     self.sampled_bulges += [prev_node]
                     if len(self.bg.edges[prev_node]) == 2:
-                        self.sampled_bulge_sides += [(prev_node, (ps1b, s1b, direction))]
+                        self.sampled_bulge_sides += [(prev_node, ang_type)]
 
                     # the previous stem should always be in the direction(0, 1) 
                     if started:
