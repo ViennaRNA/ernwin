@@ -1426,7 +1426,7 @@ class LoopLoopEnergy(EnergyFunction):
         energy = 0
         contribs = c.defaultdict(list)
 
-        for (l1, l2) in it.combinations(sm.bg.loops(), 2):
+        for (l1, l2) in it.combinations(sm.bg.hloop_iterator(), 2):
             if l1 == l2:
                 continue
 
@@ -1509,7 +1509,7 @@ class InteractionProbEnergy(EnergyFunction):
     def calc_node_p(self, bg, node):
         total_p = 1.
 
-        for d in bg.loops():
+        for d in bg.hloop_iterator():
             if not bg.connected(d, node):
                 l1 = d
                 l2 = node
@@ -1554,7 +1554,7 @@ class InteractionProbEnergy(EnergyFunction):
         bg = sm.bg
         energy = 0.
 
-        for node in bg.loops():
+        for node in bg.hloop_iterator():
             p = self.calc_node_p(bg, node)
 
             energy += self.ex_ps['real'](p) - self.ex_ps['sampled'](p)
@@ -1604,7 +1604,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
 
         num = 0
         energy = 0
-        for l1 in sm.bg.loops():
+        for l1 in sm.bg.hloop_iterator():
             for l2 in sm.bg.multiloops():
                 (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                     sm.bg.coords[l1][1],
@@ -1669,7 +1669,7 @@ class LoopBulgeEnergy(LoopLoopEnergy):
 
         num = 0
         energy = 0
-        for l1 in sm.bg.loops():
+        for l1 in sm.bg.hloop_iterator():
             for l2 in sm.bg.bulges():
                 (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
                                                     sm.bg.coords[l1][1],
@@ -1785,7 +1785,7 @@ class NLoopLoopEnergy(EnergyFunction):
         p_i_l1_given_s = (self.real_s_given_i(sm.bg.get_length(l1)) /
                           self.real_s(sm.bg.get_length(l1)))
 
-        for l2 in sm.bg.loops():
+        for l2 in sm.bg.hloop_iterator():
             if l1 == l2:
                 continue
 
@@ -1811,7 +1811,7 @@ class NLoopLoopEnergy(EnergyFunction):
 
     def all_interaction_probs(self, sm):
         total_ps = []
-        for l1 in sm.bg.loops():
+        for l1 in sm.bg.hoop_iterator():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
             #cud.pv('l1, sm.bg.get_length(l1), total_p')
@@ -1923,7 +1923,7 @@ class NLoopJunctionEnergy(EnergyFunction):
         p_i_l1_given_s = (self.real_s1_given_i(sm.bg.get_length(l1)) /
                           self.real_s1(sm.bg.get_length(l1)))
 
-        for l2 in sm.bg.loops():
+        for l2 in sm.bg.hloop_iterator():
             if l1 == l2:
                 continue
 
@@ -2095,7 +2095,7 @@ class NLoopStemEnergy(EnergyFunction):
 
     def all_interaction_probs(self, sm):
         total_ps = []
-        for l1 in sm.bg.loops():
+        for l1 in sm.bg.hloop_iterator():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
 

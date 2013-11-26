@@ -20,7 +20,7 @@ import fess.builder.models as fbm
 import forgi.threedee.utilities.rmsd as ftur
 
 from fess.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
-from forgi.threed.utilities.vector import get_vector_centroid, center_on_centroid
+from forgi.threedee.utilities.vector import get_vector_centroid, center_on_centroid
 
 import fess.builder.config as conf
 import fess.builder.energy as cbe

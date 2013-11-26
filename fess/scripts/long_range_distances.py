@@ -5,16 +5,13 @@ import itertools as it
 
 from optparse import OptionParser
 
-from borgy.graph.bulge_graph import BulgeGraph
-from borgy.utilities.vector import vec_distance
-import borgy.utilities.debug as cud
-import borgy.utilities.vector as cuv
-import borgy.graph.graph_pdb as cgg
+import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.utilities.vector as cuv
+import forgi.utilities.debug as cud
 
 from collections import defaultdict
 
 def output_long_range_distances(bg):
-
     for key1 in bg.longrange.keys():
         for key2 in bg.longrange[key1]:
 
@@ -26,32 +23,32 @@ def output_long_range_distances(bg):
 
             vec1 = bg.coords[key1][1] - bg.coords[key2][0]
             basis = cuv.create_orthonormal_basis(vec1)
-            cud.pv('i1, i2')
             coords2 = cuv.change_basis(i2 - i1, basis, cuv.standard_basis)
             (r, u, v) = cuv.spherical_polar_to_cartesian(coords2)
 
             
-            #print "%s %s %f" % (key1, key2, vec_distance(point1, point2))
             seq1 = 'x'
             seq2 = 'x'
 
-            if bg.get_type(key1) != 's' and bg.get_type(key1) != 'i':
+            '''
+            if key1[0] != 's' and key[0] != 'i':
                 seq1 = bg.get_seq(key1)
-            if bg.get_type(key2) != 's' and bg.get_type(key2) != 'i':
+            if key2[0] != 's' and key2[0] != 'i':
                 seq2 = bg.get_seq(key2)
+            '''
 
-            print "%s %s %d %s %s %d %f %s %s %s" % (key1, 
-                                         bg.get_type(key1), 
+            print "%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
+                                         key1[0], 
                                          bg.get_length(key1),
                                          key2, 
-                                         bg.get_type(key2),
+                                         key2[0],
                                          bg.get_length(key2),
                                          cuv.magnitude(i2-i1),
                                          seq1, seq2, "Y", v)
 
 def output_all_distances(bg):
     for (key1, key2) in it.permutations(bg.defines.keys(), 2):
-        if bg.connected(key1, key2):
+        if bg.has_connection(key1, key2):
             continue
 
         longrange = "N"
@@ -82,7 +79,6 @@ def output_all_distances(bg):
             #print >>sys.stderr, 'Skipping %s or %s.' % (key1, key2)
             continue
 
-        #print "%s %s %f" % (key1, key2, vec_distance(point1, point2))
         seq1 = 'x'
         seq2 = 'x'
 
@@ -98,10 +94,10 @@ def output_all_distances(bg):
         '''
 
         print "%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
-                                     bg.get_type(key1), 
+                                     key1[0], 
                                      bg.get_length(key1),
                                      key2, 
-                                     bg.get_type(key2),
+                                     key2[0],
                                      bg.get_length(key2),
                                      cuv.magnitude(i2-i1),
                                      seq1, seq2, longrange, v)
@@ -116,11 +112,11 @@ def main():
         print >>sys.stderr, "Usage: ./long_range_distances.py temp.comp"
         sys.exit(1)
 
-    bg = BulgeGraph(args[0])
+    bg = ftmc.CoarseGrainRNA(args[0])
 
     if options.all_pairs:
         output_all_distances(bg)
-    else:
+    else: 
         output_long_range_distances(bg)
 
     

@@ -938,9 +938,6 @@ class SpatialModel:
                         ang_type = 1
                         prev_params = cbs.AngleStat()
                     else:
-                        cud.pv('prev_stem.name')
-                        cud.pv('prev_node')
-                        cud.pv('curr_node')
                         (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
                         ang_type = self.bg.connection_type(prev_node, 
                                                            [prev_stem.name, 
