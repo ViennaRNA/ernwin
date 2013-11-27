@@ -1220,8 +1220,9 @@ class StemStemOrientationEnergy(EnergyFunction):
 
                 ang = np.array(angs)
                 #ang = min(ang, math.pi - ang)
-                real = my_log(self.real_data(ang) + self.fake_data(ang))
-                fake = my_log(self.fake_data(ang))
+                delta = 0.0001
+                real = my_log(self.real_data(ang) + delta)
+                fake = my_log(self.fake_data(ang) + delta)
                 #real = my_log( self.real_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
                 #fake = my_log( self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
 

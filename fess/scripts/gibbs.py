@@ -217,8 +217,8 @@ def main():
     if options.stem_stem0:
         sse = cbe.StemStemOrientationEnergy([0])
         sse.fake_data_location = op.expanduser(options.stem_stem0_data)
-        sse.max_dist = 1000.
-        sse.max_lateral_dist = 1000.
+        sse.max_dist = 100.
+        sse.max_lateral_dist = 40.
         print >>sys.stderr, 'sse'
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
     if options.stem_stem2:
