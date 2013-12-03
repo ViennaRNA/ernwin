@@ -2209,3 +2209,62 @@ class AdjacentStemEnergy(EnergyFunction):
         cud.pv('energy')
         return energy
 
+def get_coords(cg):
+    '''
+    Return a list of all the coordinates in this structure.
+    '''
+    coords = []
+    for s in cg.sorted_stem_iterator():
+        coords += [cg.coords[s][0]]
+        coords += [cg.coords[s][1]]
+    return coords
+
+import forgi.threedee.utilities.rmsd as ftur
+
+def length_and_rog(cg):
+    coords = get_coords(cg)
+    rog = ftur.radius_of_gyration(coords)
+    total_length = sum([len(list(cg.define_residue_num_iterator(d))) for d in cg.defines.keys()])
+    
+    return (total_length, rog)
+
+def length_and_rog_from_file(filename):
+    cg = ftmc.CoarseGrainRNA(op.expanduser(filename))
+    
+    return length_and_rog(cg)
+    
+class RadiusOfGyrationEnergy(EnergyFunction):
+    def __init__(self):
+        self.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration.csv'
+        self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
+
+        self.real_stats_fn = 'fess/stats/subgraph_radius_of_gyration_sampled.csv'
+        self.real_stats_fn = op.expanduser(self.real_stats_fn)
+
+        self.real_data = np.genfromtxt(op.expanduser(self.real_stats_fn), delimiter=' ')
+        self.sampled_data = np.genfromtxt(op.expanduser(self.sampled_stats_fn), delimiter=' ')
+
+        self.real_rogs = dict()
+        self.sampled_rogs = dict()
+        self.real_kdes = dict()
+        self.sampled_kdes = dict()
+
+    def eval_energy(self, sm, background=True):
+        cg = sm.bg
+        (length, rog) = length_and_rog(cg)
+
+        if length not in self.real_rogs.keys():
+            self.real_rogs[length] = self.real_data[np.logical_and(
+                self.real_data[:,0] > length - 10, self.real_data[:,0] < length + 10)]
+            self.sampled_rogs[length] = self.sampled_data[np.logical_and(
+                self.sampled_data[:,0] > length - 10, self.sampled_data[:,0] < length + 10)]
+
+            self.real_kdes[length] = ss.gaussian_kde(self.real_rogs[length][:,1])
+            self.sampled_kdes[length] = ss.gaussian_kde(self.sampled_rogs[length][:,1])
+
+        cud.pv('sm.bg.seq_length, rog')
+        cud.pv('self.real_kdes[length](rog)')
+        cud.pv('self.sampled_kdes[length](rog)')
+        energy = my_log(self.real_kdes[length](rog)) - my_log(self.sampled_kdes[length](rog))
+
+        return -energy
