@@ -2235,10 +2235,11 @@ def length_and_rog_from_file(filename):
     
 class RadiusOfGyrationEnergy(EnergyFunction):
     def __init__(self):
-        self.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration.csv'
+        super(RadiusOfGyrationEnergy, self).__init__()
+        self.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration_sampled.csv'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
 
-        self.real_stats_fn = 'fess/stats/subgraph_radius_of_gyration_sampled.csv'
+        self.real_stats_fn = 'fess/stats/subgraph_radius_of_gyration.csv'
         self.real_stats_fn = op.expanduser(self.real_stats_fn)
 
         self.real_data = np.genfromtxt(op.expanduser(self.real_stats_fn), delimiter=' ')
@@ -2249,22 +2250,30 @@ class RadiusOfGyrationEnergy(EnergyFunction):
         self.real_kdes = dict()
         self.sampled_kdes = dict()
 
-    def eval_energy(self, sm, background=True):
+        self.background=True
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         cg = sm.bg
         (length, rog) = length_and_rog(cg)
+        percent = 1.0
 
         if length not in self.real_rogs.keys():
             self.real_rogs[length] = self.real_data[np.logical_and(
-                self.real_data[:,0] > length - 10, self.real_data[:,0] < length + 10)]
+                self.real_data[:,0] > (1 - percent) * length, self.real_data[:,0] < length * ( 1 + percent ))]
             self.sampled_rogs[length] = self.sampled_data[np.logical_and(
-                self.sampled_data[:,0] > length - 10, self.sampled_data[:,0] < length + 10)]
+                self.sampled_data[:,0] > length * ( 1 - percent ), self.sampled_data[:,0] < length * ( 1 + percent ))]
 
             self.real_kdes[length] = ss.gaussian_kde(self.real_rogs[length][:,1])
             self.sampled_kdes[length] = ss.gaussian_kde(self.sampled_rogs[length][:,1])
 
-        cud.pv('sm.bg.seq_length, rog')
-        cud.pv('self.real_kdes[length](rog)')
-        cud.pv('self.sampled_kdes[length](rog)')
-        energy = my_log(self.real_kdes[length](rog)) - my_log(self.sampled_kdes[length](rog))
+        #cud.pv('sm.bg.seq_length, rog')
+        #cud.pv('self.real_kdes[length](rog)')
+        #cud.pv('self.sampled_kdes[length](rog)')
+        delta = 0.001 * self.sampled_kdes[length](rog)
+        if self.background:
+            energy = my_log(self.real_kdes[length](rog) + delta) - my_log(self.sampled_kdes[length](rog) + delta)
+        else:
+            energy = my_log(self.real_kdes[length](rog))
+
 
         return -energy
