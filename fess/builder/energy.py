@@ -2244,7 +2244,7 @@ class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
         return -rog
     
 class RadiusOfGyrationEnergy(EnergyFunction):
-    def __init__(self):
+    def __init__(self, dist_type="kde", adjustment=1.):
         super(RadiusOfGyrationEnergy, self).__init__()
         self.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration_sampled.csv'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
@@ -2261,6 +2261,9 @@ class RadiusOfGyrationEnergy(EnergyFunction):
         self.sampled_kdes = dict()
 
         self.background=True
+        self.dist_type = dist_type
+        self.adjustment = adjustment # the adjustment is used to enlarge or shrink
+                                     # a particular distribution
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         cg = sm.bg
@@ -2275,25 +2278,39 @@ class RadiusOfGyrationEnergy(EnergyFunction):
             self.sampled_rogs[length] = self.sampled_data[np.logical_and(
                 self.sampled_data[:,0] > length * ( 1 - percent ), self.sampled_data[:,0] < length * ( 1 + percent ))]
 
-            real_dists = self.sampled_rogs[length][:,1]
+            real_dists = self.real_rogs[length][:,1]
             sampled_dists = self.sampled_rogs[length][:,1]
 
             cud.pv('real_dists')
             cud.pv('sampled_dists')
 
-            floc = 0.9 * min(list(real_dists) + list(sampled_dists))
-            fscale = max(list(real_dists) + list(sampled_dists))
+            if self.dist_type == 'beta':
+                floc = 0.9 * min(list(self.adjustment * real_dists) + list(self.adjustment * sampled_dists))
+                fscale = max(list(real_dists) + list(sampled_dists))
 
-            f = ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
-            ks = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
-    
-            f1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
-            kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
+                f = ss.beta.fit(self.adjustment * sampled_dists, floc=floc, fscale=fscale)
+                ks = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+                cud.pv('f')
+        
+                f1 = ss.beta.fit(self.adjustment * real_dists, floc=floc, fscale=fscale)
+                kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
+                cud.pv('f1')
+            elif self.dist_type == "kde":
+                kr = ss.gaussian_kde(self.adjustment * self.real_rogs[length][:,1])
+                ks = ss.gaussian_kde(self.adjustment * self.sampled_rogs[length][:,1])
+            elif self.dist_type == "normal":
+                fr = ss.norm.fit(self.adjustment * self.real_rogs[length][:,1])
+                fs = ss.norm.fit(self.adjustment * self.sampled_rogs[length][:,1])
 
-            '''
-            self.real_kdes[length] = ss.gaussian_kde(self.real_rogs[length][:,1])
-            self.sampled_kdes[length] = ss.gaussian_kde(self.sampled_rogs[length][:,1])
-            '''
+                kr = lambda x: ss.norm.pdf(x, fr[0], fr[1])
+                ks = lambda x: ss.norm.pdf(x, fs[0], fs[1])
+            elif self.dist_type == "lognormal":
+                fr = ss.norm.fit(np.log(self.adjustment * self.real_rogs[length][:,1]))
+                fs = ss.norm.fit(np.log(self.adjustment * self.sampled_rogs[length][:,1]))
+
+                kr = lambda x: ss.norm.pdf(np.log(x), fr[0], fr[1])
+                ks = lambda x: ss.norm.pdf(np.log(x), fs[0], fs[1])
+
             self.real_kdes[length] = kr
             self.sampled_kdes[length] = ks
 
@@ -2305,6 +2322,5 @@ class RadiusOfGyrationEnergy(EnergyFunction):
             energy = my_log(self.real_kdes[length](rog) + delta) - my_log(self.sampled_kdes[length](rog) + delta)
         else:
             energy = my_log(self.real_kdes[length](rog))
-
 
         return -energy

@@ -236,7 +236,7 @@ def main():
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
 
     if options.simple_radius_of_gyration:
-        sse = cbe.SimpleRadiusOfGyration()
+        sse = cbe.RadiusOfGyrationEnergy(dist_type="beta", adjustment=0.6)
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
         
     if options.radius_of_gyration1:
@@ -253,7 +253,6 @@ def main():
         sse0.max_dist = 1000.
         sse0.max_lateral_dist = 1000.
         sse0.beta = True
-
 
         sse2 = cbe.StemStemOrientationEnergy([2])
 
