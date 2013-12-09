@@ -2232,6 +2232,16 @@ def length_and_rog_from_file(filename):
     cg = ftmc.CoarseGrainRNA(op.expanduser(filename))
     
     return length_and_rog(cg)
+
+class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
+    def __init__(self):
+        super(SimpleRadiusOfGyrationEnergy, self).__init__()
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        cg = sm.bg
+        (length, rog) = length_and_rog(cg)
+
+        return -rog
     
 class RadiusOfGyrationEnergy(EnergyFunction):
     def __init__(self):
@@ -2257,19 +2267,40 @@ class RadiusOfGyrationEnergy(EnergyFunction):
         (length, rog) = length_and_rog(cg)
         percent = 1.0
 
+        cud.pv('rog')
+
         if length not in self.real_rogs.keys():
             self.real_rogs[length] = self.real_data[np.logical_and(
                 self.real_data[:,0] > (1 - percent) * length, self.real_data[:,0] < length * ( 1 + percent ))]
             self.sampled_rogs[length] = self.sampled_data[np.logical_and(
                 self.sampled_data[:,0] > length * ( 1 - percent ), self.sampled_data[:,0] < length * ( 1 + percent ))]
 
+            real_dists = self.sampled_rogs[length][:,1]
+            sampled_dists = self.sampled_rogs[length][:,1]
+
+            cud.pv('real_dists')
+            cud.pv('sampled_dists')
+
+            floc = 0.9 * min(list(real_dists) + list(sampled_dists))
+            fscale = max(list(real_dists) + list(sampled_dists))
+
+            f = ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
+            ks = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+    
+            f1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
+            kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
+
+            '''
             self.real_kdes[length] = ss.gaussian_kde(self.real_rogs[length][:,1])
             self.sampled_kdes[length] = ss.gaussian_kde(self.sampled_rogs[length][:,1])
+            '''
+            self.real_kdes[length] = kr
+            self.sampled_kdes[length] = ks
 
         #cud.pv('sm.bg.seq_length, rog')
         #cud.pv('self.real_kdes[length](rog)')
         #cud.pv('self.sampled_kdes[length](rog)')
-        delta = 0.001 * self.sampled_kdes[length](rog)
+        delta = 0.000000000000001 * self.sampled_kdes[length](rog)
         if self.background:
             energy = my_log(self.real_kdes[length](rog) + delta) - my_log(self.sampled_kdes[length](rog) + delta)
         else:
