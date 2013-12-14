@@ -230,8 +230,10 @@ class SamplingStatistics:
                 # most likely no native structure was provided
                 pass
 
-        #energy = energy_function.eval_energy(sm.bg, background=True)
         energy = energy_function.eval_energy(sm, background=True)
+        #energy = self.sampled_energy
+        if self.sampled_energy != energy:
+            cud.pv('self.sampled_energy, energy')
 
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
@@ -436,6 +438,7 @@ class MCMCSampler:
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
         #cud.pv('self.prev_energy, energy')
+        self.stats.sampled_energy = energy
         if energy > self.prev_energy:
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
@@ -443,6 +446,7 @@ class MCMCSampler:
                 #cud.pv('prev_angle')
                 self.sm.angle_defs[bulge][ang_type1] = prev_angle
                 self.sm.traverse_and_build(start=bulge)
+                self.stats.sampled_energy = self.prev_energy
                 #print "angle skipping:", bulge,  math.exp(self.prev_energy - energy), self.prev_energy, energy
                 #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
@@ -450,6 +454,7 @@ class MCMCSampler:
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
+
 
     def change_stem(self):
         # pick a random bulge to vary
@@ -474,10 +479,12 @@ class MCMCSampler:
         self.sm.traverse_and_build()
 
         energy = self.energy_function.eval_energy(self.sm, background=True)
+        self.stats.sampled_energy = energy
         if energy > self.prev_energy:
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.stem_defs[stem] = prev_stem
                 self.sm.traverse_and_build()
+                self.stats.sampled_energy = self.prev_energy
                 #print "stem skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
@@ -524,10 +531,12 @@ class MCMCSampler:
         self.sm.traverse_and_build()
 
         energy = self.energy_function.eval_energy(self.sm, background=True)
+        self.stats.sampled_energy = energy
         if energy > self.prev_energy:
             if random.random() > math.exp(self.prev_energy - energy):
                 self.sm.loop_defs[loop] = prev_loop
                 self.sm.traverse_and_build(start=loop)
+                self.stats.sampled_energy = self.prev_energy
                 #print "loop skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:

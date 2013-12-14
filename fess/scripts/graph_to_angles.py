@@ -42,7 +42,7 @@ def print_stem_stats(bg):
     return out_str
 
 def get_loop_stat(bg, d):
-    base_pair_length = abs(bg.defines[d][0] - bg.defines[d][1])
+    base_pair_length = bg.get_length(d) #abs(bg.defines[d][0] - bg.defines[d][1])
     phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
 
     stem1 = list(bg.edges[d])[0]

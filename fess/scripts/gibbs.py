@@ -75,12 +75,16 @@ def predict(bg, energies_to_sample, options):
     else:
         options.output_file = open(options.output_file, 'w')
 
+
     cbc.Configuration.sampling_output_dir = op.join(options.output_dir, bg.name)
     if not os.path.exists(cbc.Configuration.sampling_output_dir):
         os.makedirs(cbc.Configuration.sampling_output_dir)
 
+    if options.log_to_file:
+        options.output_file = open(op.join(options.output_dir, bg.name, 'log.txt'), 'w')
+
     if options.eval_energy:
-        for s in sm.bg.stems():
+        for s in sm.bg.stem_iterator():
             cgg.add_virtual_residues(sm.bg, s)
 
         for energy in energies_to_sample:
@@ -118,9 +122,13 @@ def predict(bg, energies_to_sample, options):
             samplers += [GibbsBGSampler(sm, energy, stat)]
         silent = True
 
+    cud.pv('samplers')
     for i in range(options.iterations):
-        for s in samplers:
-            s.step()
+        if options.single_sampler:
+            samplers[0].step()
+        else:
+            for s in samplers:
+                s.step()
 
     #stats.print_final_stats(energy_function)
     #stats.save_top()
@@ -150,6 +158,7 @@ def main():
     parser.add_option('', '--stem-stem2', dest='stem_stem2', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--stem-stem02', dest='stem_stem02', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--radius-of-gyration', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--loop-radius-of-gyration', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--simple-radius-of-gyration', dest='simple_radius_of_gyration', default=False, action='store_true', help='Use the simple radius of gyration energy')
     parser.add_option('', '--radius-of-gyration1', dest='radius_of_gyration1', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--stem-stem012', dest='stem_stem012', default=False, action='store_true', help='Use the stem-stem orientation energy')
@@ -161,6 +170,8 @@ def main():
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
     parser.add_option('', '--output-dir', dest='output_dir', default='.', help='Directory to store the sampled_structures', type='str')
     parser.add_option('', '--output-file', dest='output_file', default=None, help='File to output the information about the sampling to. Defaults to standard out', type=str)
+    parser.add_option('', '--log-to-file', dest='log_to_file', default=False, help='Print a log of the output to a file in the directory where the best structures are stored.', action="store_true")
+
     parser.add_option('', '--save-n-best', dest='save_n_best', default=3, help='Save the best n structures.', type=int)
     parser.add_option('', '--step-save', dest='step_save', default=False, action='store_true', help="Save the structure at each step.")
     parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
@@ -174,6 +185,8 @@ def main():
     parser.add_option('', '--stats-file', dest='stats_file', 
                       default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
 
+    parser.add_option('', '--single-sampler', dest='single_sampler', 
+                      default=False, help='Use only a single sampler', action='store_true')
     (options, args) = parser.parse_args()
 
 
@@ -235,8 +248,14 @@ def main():
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
 
+    if options.loop_radius_of_gyration:
+        sse = cbe.RadiusOfGyrationEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy()])]
+
     if options.simple_radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy(dist_type="beta", adjustment=0.6)
+        sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
         
     if options.radius_of_gyration1:

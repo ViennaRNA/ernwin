@@ -1384,44 +1384,158 @@ class LoopLoopEnergy(EnergyFunction):
         self.real_data = None
         self.fake_data = None
 
-    def load_data(self, filename):
+        self.data_loaded = False
+
+        self.real_data_location = "~/projects/ernwin/fess/stats/temp.longrange.stats"
+        self.fake_data_location = "~/projects/ernwin/fess/stats/temp.longrange.random_radius_of_gyration_beta_16.stats"
+
+    def probs_by_length(self, tl):
+        tly = tl[tl['longrange'] == 'Y']
+        tln = tl[tl['longrange'] == 'N']
+        
+        nodes = dict()
+        node_lengths = dict()
+        
+        for r in tl[['key1', 'len1', 'longrange']].as_matrix():
+            if r[2] == 'Y':
+                nodes[r[0]] = 'Y'
+                node_lengths[r[0]] = r[1]
+                continue
+            
+            if r[0] not in nodes:
+                nodes[r[0]] = 'N'
+                node_lengths[r[0]] = r[1]
+                
+        lengths_y = [node_lengths[i] for i in nodes.keys() if nodes[i] == 'Y']
+        lengths_n = [node_lengths[i] for i in nodes.keys() if nodes[i] == 'N']
+        
+        # add pseudocounts
+        lengths_y += list(set(lengths_n))
+        
+        p_l = dict()
+        p_l_given_i = c.defaultdict(lambda: 1)
+        p_i_given_l = dict()
+        counts_y = c.Counter(lengths_y)
+        counts_a = c.Counter(lengths_y + lengths_n)
+        p_i = len(lengths_y) / float(len(lengths_y + lengths_n))
+        
+        for l in counts_a.keys():
+            p_l_given_i[l] = (counts_y[l]) / float(sum(counts_y.values()))
+            p_l[l] = counts_a[l] / float(sum(counts_a.values()))
+            p_i_given_l[l] = p_l_given_i[l] * p_i / p_l[l]
+        
+        return p_i_given_l
+
+    def get_p_i_given_l1_l2(self, p_i_given_l):
+        p_i_given_l1_l2 = dict()
+        
+        for l1,l2 in it.product(p_i_given_l.keys(), repeat=2):
+            #print l1, l2
+            p_i_given_l1_l2[(l1,l2)] = p_i_given_l[l1] * p_i_given_l[l2]
+        #print p_i_given_l1_l2
+        return p_i_given_l1_l2
+
+    def load_data(self, filename_real, filename_sampled):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2',
+        tr = pa.read_csv(filename_real, header=None, sep=' ')
+        tr.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2',
                      'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
-        loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
-        loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
+        ts = pa.read_csv(filename_sampled, header=None, sep=' ')
+        ts.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2',
+                     'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
-        interacting_lengths = c.defaultdict(int)
-        all_lengths = c.defaultdict(int)
+        tr = tr[tr.dist < 40.]
+        ts = ts[ts.dist < 40.]
 
-        for l in loop_loop_y.len1:
-            interacting_lengths[l] += 1
+        trl = tr[np.logical_and(tr['type1'] == 'h', tr['type2'] == 'h')]
+        trly = trl[trl['longrange'] == 'Y']
+        trln = trl[trl['longrange'] == 'N']
 
-        for l in loop_loop.len1:
-            all_lengths[l] += 1
+        tsl = ts[np.logical_and(ts['type1'] == 'h', ts['type2'] == 'h')]
+        tsly = tsl[tsl['longrange'] == 'Y']
+        tsln = tsl[tsl['longrange'] == 'N']
 
-        interaction_probs = c.defaultdict(float)
+        p_i_given_l = self.probs_by_length(tr)
+        self.p_i_given_l1_l2 = self.get_p_i_given_l1_l2(p_i_given_l)
 
-        for l in interacting_lengths.keys():
-            interaction_probs[l] = interacting_lengths[l] / float(all_lengths[l])
+        # data for interactions
 
-        return (loop_loop.dist.values, stats.gaussian_kde(loop_loop_y.dist),
-                stats.gaussian_kde(loop_loop.dist), interaction_probs)
+        real_dists = trly["dist"]
+        sampled_dists = tsly["dist"]
 
-    def calc_energy(self, dist):
-        p_r = np.log(self.real_d_given_i(dist)) - np.log(self.real_d(dist))
-        p_s = np.log(self.fake_d_given_i(dist)) - np.log(self.fake_d(dist))
+        #floc = 0.9 * min(list(real_dists) + list(sampled_dists))
+        floc = 0.
+        fscale = max(list(real_dists) + list(sampled_dists))
 
-        return np.log(np.exp(p_r) + np.exp(p_s)) - p_s
+        #import functools as ft
+
+        f = ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
+        ks = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+        #ks = ft.partial(ss.beta.pdf, {"a":f[0], "b": f[1], "loc":f[2], "scale":f[3]})
+    
+        f1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
+        kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
+        #kr = ft.partial(ss.beta.pdf, {"a":f1[0], "b": f1[1], "loc":f1[2], "scale":f1[3]})
+
+        #cud.pv('f1')
+
+        self.pr_d_given_i = kr
+        self.ps_d_given_i = ks
+
+        # data for no interactions
+
+        real_dists = trln["dist"]
+        sampled_dists = tsln["dist"]
+
+        fn1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
+        kr = lambda x: ss.beta.pdf(x, fn1[0], fn1[1], fn1[2], fn1[3])
+        #kr = ft.partial(ss.beta.pdf, {"a":fn1[0], "b": fn1[1], "loc":fn1[2], "scale":fn1[3]})
+        #cud.pv('f1')
+
+        fn= ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
+        ks = lambda x: ss.beta.pdf(x, fn[0], fn[1], fn[2], fn[3])
+        #ks = ft.partial(ss.beta.pdf, {"a":fn[0], "b": fn[1], "loc":fn[2], "scale":fn[3]})
+
+        self.pr_d_given_ic = kr
+        self.ps_d_given_ic = ks
+
+        self.data_loaded = True
+
+        #cud.pv('f1, fn1')
+        #cud.pv('self.pr_d_given_i(15), self.pr_d_given_ic(15)')
+
+    def calc_energy(self, dist, l1, l2):
+        pr_d_given_l1_l2 = self.p_i_given_l1_l2[(l1, l2)] * self.pr_d_given_i(dist)
+        pr_d_given_l1_l2 += (1 - self.p_i_given_l1_l2[(l1,l2)]) * self.pr_d_given_ic(dist)
+        pr = pr_d_given_l1_l2
+
+        #cud.pv('self.pr_d_given_i(dist)')
+        #cud.pv('self.pr_d_given_ic(dist)')
+        #cud.pv('pr')
+
+        ps_d_given_l1_l2 = self.p_i_given_l1_l2[(l1, l2)] * self.ps_d_given_i(dist)
+        ps_d_given_l1_l2 += (1 - self.p_i_given_l1_l2[(l1,l2)]) * self.ps_d_given_ic(dist)
+        ps = ps_d_given_l1_l2
+
+        #pr = self.pr_d_given_ic(dist)
+        #ps = 1. #self.ps_d_given_ic(dist)
+        #print "yo"
+
+        #cud.pv('self.ps_d_given_i(dist)')
+        #cud.pv('self.ps_d_given_ic(dist)')
+        #cud.pv('ps')
+
+        delta = 0.0001 * ps
+
+        return np.log(pr + delta) - np.log(ps + delta)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         self.interaction_energies = c.defaultdict(int)
-        if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
-            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
+        if self.data_loaded == False:
+            self.load_data(op.expanduser(self.real_data_location),
+                           op.expanduser(self.fake_data_location))
 
         num = 0
         energy = 0
@@ -1436,9 +1550,19 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             dist = cuv.magnitude(i1 - i2)
+            if dist > 35:
+                continue
+
             #cud.pv('dist')
             num += 1
-            contrib = self.calc_energy(dist)
+
+            len1 = sm.bg.get_length(l1)
+            len2 = sm.bg.get_length(l2)
+
+            #cud.pv('len1, len2, dist')
+
+            contrib = self.calc_energy(dist, len1, len2)
+            #cud.pv('contrib')
 
             key = tuple(sorted([l1, l2]))
             contribs[key] += [contrib]
@@ -2269,8 +2393,9 @@ class RadiusOfGyrationEnergy(EnergyFunction):
         cg = sm.bg
         (length, rog) = length_and_rog(cg)
         percent = 1.0
-
-        cud.pv('rog')
+        #import traceback as tb
+        #tb.print_stack()
+        #cud.pv('rog')
 
         if length not in self.real_rogs.keys():
             self.real_rogs[length] = self.real_data[np.logical_and(
@@ -2280,9 +2405,6 @@ class RadiusOfGyrationEnergy(EnergyFunction):
 
             real_dists = self.real_rogs[length][:,1]
             sampled_dists = self.sampled_rogs[length][:,1]
-
-            cud.pv('real_dists')
-            cud.pv('sampled_dists')
 
             if self.dist_type == 'beta':
                 floc = 0.9 * min(list(self.adjustment * real_dists) + list(self.adjustment * sampled_dists))
