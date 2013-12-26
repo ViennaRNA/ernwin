@@ -12,10 +12,10 @@ import borgy.utilities.debug as cud
 from optparse import OptionParser
 
 def density_visit_dir(rmsds, dirname, names):
-    if 'out.txt' not in names:
+    if 'log.txt' not in names:
         return
 
-    filename = op.join(dirname, 'out.txt')
+    filename = op.join(dirname, 'log.txt')
     trial_id = op.split(dirname)[1]
 
     with open(filename) as f:
@@ -31,10 +31,10 @@ def density_visit_dir(rmsds, dirname, names):
                 rmsds[pdb_name] += [(float(parts[4]), float(parts[5]))]
 
 def visit_dir(rmsds, dirname, names):
-    if 'out.txt' not in names:
+    if 'log.txt' not in names:
         return
 
-    filename = op.join(dirname, 'out.txt')
+    filename = op.join(dirname, 'log.txt')
     trial_id = op.split(dirname)[1]
 
     with open(filename) as f:

@@ -3,8 +3,8 @@
 import sys
 from optparse import OptionParser
 
-import tess.threedee.model.coarse_grain as ttmc
-import borgy.builder.energy as cbe
+import forgi.threedee.model.coarse_grain as ftmc
+import fess.builder.energy as cbe
 
 def main():
     usage = './cylinder_intersection_energies.py bulge_graph'
@@ -20,7 +20,7 @@ def main():
         sys.exit(1)
 
     for arg in args:
-        bg = ttmc.CoarseGrainRNA(arg)
+        bg = ftmc.CoarseGrainRNA(arg)
         cie = cbe.CylinderIntersectionEnergy()
         
         in_cyl_fractions = cie.calculate_intersection_coverages(bg)

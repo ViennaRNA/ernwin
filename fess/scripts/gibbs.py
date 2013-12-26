@@ -77,11 +77,15 @@ def predict(bg, energies_to_sample, options):
 
 
     cbc.Configuration.sampling_output_dir = op.join(options.output_dir, bg.name)
+
+    if options.output_dir_suffix != None:
+        cbc.Configuration.sampling_output_dir = op.join(cbc.Configuration.sampling_output_dir, options.output_dir_suffix)
+
     if not os.path.exists(cbc.Configuration.sampling_output_dir):
         os.makedirs(cbc.Configuration.sampling_output_dir)
 
     if options.log_to_file:
-        options.output_file = open(op.join(options.output_dir, bg.name, 'log.txt'), 'w')
+        options.output_file = open(op.join(cbc.Configuration.sampling_output_dir, 'log.txt'), 'w')
 
     if options.eval_energy:
         for s in sm.bg.stem_iterator():
@@ -158,7 +162,9 @@ def main():
     parser.add_option('', '--stem-stem2', dest='stem_stem2', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--stem-stem02', dest='stem_stem02', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--radius-of-gyration', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--cylinder-loop-radius-of-gyration', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--loop-radius-of-gyration', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--stem-loop-radius-of-gyration', dest='stem_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--simple-radius-of-gyration', dest='simple_radius_of_gyration', default=False, action='store_true', help='Use the simple radius of gyration energy')
     parser.add_option('', '--radius-of-gyration1', dest='radius_of_gyration1', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--stem-stem012', dest='stem_stem012', default=False, action='store_true', help='Use the stem-stem orientation energy')
@@ -184,10 +190,13 @@ def main():
     parser.add_option('', '--stem-stem0-data', dest='stem_stem0_data', help='The location of the sampled stem-stem0 data', type='str', default='~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv')
     parser.add_option('', '--stats-file', dest='stats_file', 
                       default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
+    parser.add_option('', '--output-dir-suffix', dest='output_dir_suffix', default=None, help="Specify an addition to the output directory", type='str')
 
     parser.add_option('', '--single-sampler', dest='single_sampler', 
                       default=False, help='Use only a single sampler', action='store_true')
     (options, args) = parser.parse_args()
+
+    cud.pv('options.stem_loop_radius_of_gyration')
 
 
     if len(args) < 1 and options.secondary_structure is False and options.fasta == '':
@@ -247,6 +256,24 @@ def main():
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+
+    if options.cylinder_loop_radius_of_gyration:
+        cie = cbe.CylinderIntersectionEnergy()
+        lle = cbe.LoopLoopEnergy()
+        rog = cbe.RadiusOfGyrationEnergy()
+        rog.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), rog, rog, cie])]
+
+    if options.stem_loop_radius_of_gyration:
+        sse1 = cbe.StemStemOrientationEnergy([2])
+        sse1.max_dist = 40
+        sse1.max_lateral_dist = 12.
+
+        sse1.real_data = sse1.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
+        sse1.fake_data = sse1.load_stem_stem_data('fess/stats/stem_stem_orientations_random_loop_radius_gyration_beta_29.csv')
+        sse = cbe.RadiusOfGyrationEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy(), sse1])]
 
     if options.loop_radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy()

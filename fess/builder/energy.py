@@ -1265,8 +1265,20 @@ class StemCoverageEnergy(EnergyFunction):
 
         return -math.log(len(covered) + 1)
 
+def merge(times):
+    saved = list(times[0])
+    for st, en in sorted([sorted(t) for t in times]):
+        if st <= saved[1]:
+            saved[1] = max(saved[1], en)
+        else:
+            yield tuple(saved)
+            saved[0] = st
+            saved[1] = en
+    yield tuple(saved)
+
 class CylinderIntersectionEnergy(EnergyFunction):
     def __init__(self):
+        super(CylinderIntersectionEnergy, self).__init__()
         self.max_dist = 30.
         self.min_ratio = 0.
         self.max_ratio = 30.
@@ -1292,15 +1304,23 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
     def calculate_intersection_coverages(self, bg):
         in_cyl_fractions = c.defaultdict(lambda: 0.001)
+        covered = c.defaultdict(list)
+        cyls = dict()
+        stem_iloops = list(bg.stem_iterator()) + list(bg.iloop_iterator())
 
-        for (s1, s2) in it.permutations(bg.stem_like(), 2):
+        if len(stem_iloops) == 1:
+            return {stem_iloops[0]:0.}
+
+        for (s1, s2) in it.permutations(list(bg.stem_iterator()) + list(bg.iloop_iterator()), 2):
             line = bg.coords[s1]
             cyl = bg.coords[s2]
-            extension = 20.
+            extension = 5.
 
+            # extend the cylinder on either side
             cyl_vec = cuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
             cyl = [cyl[0] - extension * cyl_vec,
                    cyl[1] + extension * cyl_vec]
+            cyls[s2] = cyl
 
             line_len = cuv.magnitude(line[1] - line[0])
             intersects = cuv.cylinder_line_intersection(cyl, line,
@@ -1314,11 +1334,15 @@ class CylinderIntersectionEnergy(EnergyFunction):
             else:
                 #in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
                 cyl_basis = cuv.create_orthonormal_basis(cyl_vec)
-                intersects_t = cuv.change_basis(intersects.T,
+                intersects_t = cuv.change_basis((intersects - cyl[0]).T,
                                                 cyl_basis,
                                                 cuv.standard_basis).T
-                #in_cyl_len = abs(intersects[1][0] - intersects[0][0])
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
+                covered[s1] += [(intersects_t[0][0], intersects_t[1][0])]
+                #cud.pv('s1, s2')
+                #cud.pv('line')
+                #cud.pv('cyl')
+                #cud.pv('intersects_t')
 
             '''
             if s1 == 's4':
@@ -1330,12 +1354,31 @@ class CylinderIntersectionEnergy(EnergyFunction):
             '''
 
             in_cyl_fractions[s1] += in_cyl_len / line_len
+
+        for s in list(bg.stem_iterator()) + list(bg.iloop_iterator()):
+            total_len = cuv.magnitude(cyls[s][1] - cyls[s][0])
+
+            if len(covered[s]) == 0:
+                continue
+
+            ms = list(merge(covered[s]))
+            cl = sum(map(lambda x: x[1] - x[0], ms))
+
+            in_cyl_fractions[s] = cl / total_len
+
+            #cud.pv('cl, total_len')
+
+            #cud.pv('covered[s]')
+            #cud.pv('ms')
+            #cud.pv('map(lambda x: x[1] - x[0], ms)')
+            #cud.pv('sum(map(lambda x: x[1] - x[0], ms))')
+
         return in_cyl_fractions
 
-    def eval_energy(self, sm , background=True):
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         if self.real_data == None:
             (self.real_data, self.real_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions.csv'))
-            (self.fake_data, self.fake_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions_sampled.csv'))
+            (self.fake_data, self.fake_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions_loop_radius_of_gyration_beta29.csv'))
             #(self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_%s.csv' % (sm.bg.name))
 
             self.fake_min = min(self.fake_kde(self.fake_data))
@@ -1354,19 +1397,26 @@ class CylinderIntersectionEnergy(EnergyFunction):
             '''
 
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
-        energy = 0.
+        energy = np.array([0.])
         for (key, val) in cyl_fractions.items():
-            real = my_log(self.real_kde(val))
-            fake = my_log(max(self.fake_kde(val), self.fake_min))
+            real = my_log(self.real_kde(val) + 0.0001 * self.fake_kde(val))
+            fake = my_log(self.fake_kde(val))
 
-            energy += (real - fake)
+            #cud.pv('key,val, real, fake')
+
+            '''
+            for i in sm.bg.iloop_iterator():
+                cud.pv('i, sm.bg.connections(i)')
+            '''
+
+            energy += sm.bg.stem_length(key) * (real - fake)
 
             #cud.pv('key, val, real, fake, real-fake')
 
             if np.isnan(energy):
                 pdb.set_trace()
 
-        return -energy
+        return -energy[0]
 
 class CheatingEnergy(EnergyFunction):
     def __init__(self, real_bg):
@@ -1423,6 +1473,15 @@ class LoopLoopEnergy(EnergyFunction):
             p_l_given_i[l] = (counts_y[l]) / float(sum(counts_y.values()))
             p_l[l] = counts_a[l] / float(sum(counts_a.values()))
             p_i_given_l[l] = p_l_given_i[l] * p_i / p_l[l]
+
+        # fill in the missing loop lengths
+        last_seen = i
+
+        for i in range(2, 30):
+            if i in p_i_given_l.keys():
+                last_seen = i
+            else:
+                p_i_given_l[i] = p_i_given_l[last_seen]
         
         return p_i_given_l
 
