@@ -19,16 +19,13 @@ import collections as c
 import os.path as op
 
 #import scipy.stats as ss
-import borgy.utilities.vector as cuv
+import forgi.threedee.utilities.vector as cuv
 import forgi.threedee.model.coarse_grain as ftmc
-import borgy.graph.graph_pdb as cgg
-#import borgy.exp.kde as cek
-import borgy.builder.models as cbm
-#import borgy.utilities.statistics as cus
-#import borgy.builder.sampling as cbs
-import borgy.builder.config as cbc
-import borgy.utilities.debug as cud
-import borgy.builder.rmsd as cbr
+import forgi.threedee.utilities.graph_pdb as cgg
+import fess.builder.models as cbm
+import fess.builder.config as cbc
+import fess.utilities.debug as cud
+import forgi.threedee.utilities.rmsd as cbr
 
 import scipy.stats as stats
 import scipy.stats as ss

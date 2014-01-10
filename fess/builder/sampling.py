@@ -198,7 +198,7 @@ class SamplingStatistics:
         self.save_n_best = save_n_best
         self.sm_orig = sm_orig
         self.energy_orig = None
-        self.step_save = False
+        self.step_save = 0
 
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
@@ -284,8 +284,9 @@ class SamplingStatistics:
             if not self.silent:
                 self.save_top(self.save_n_best)
 
-        if self.step_save:
-            sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
+        if self.step_save > 0:
+            if self.counter % self.step_save == 0:
+                sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
             
 
     def save_top(self, n = 100000):

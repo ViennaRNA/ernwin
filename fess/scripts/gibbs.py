@@ -47,6 +47,7 @@ def bgs_from_fasta(fasta_file):
     with open(fasta_file, 'r') as f:
         # assume there is only one sequence and dotplot in the fastdp file
         lines = f.readlines()
+        cud.pv('lines')
         for line in lines:
             if line.strip() == '':
                 continue
@@ -57,12 +58,18 @@ def bgs_from_fasta(fasta_file):
                 counter = 0
             if counter % 3 == 1:
                 bg.seq = line.strip()
-                bg.length = len(bg.seq)
+                bg.seq_length = len(bg.seq)
             if counter % 3 == 2:
+                seq = bg.seq
+                name = bg.name
                 bg.from_dotbracket(line.strip())
+                bg.seq = seq
+                bg.name = name
                 bgs += [bg]
 
             counter += 1
+
+            cud.pv('bg.seq')
     return  bgs
 
 def predict(bg, energies_to_sample, options):
@@ -179,7 +186,7 @@ def main():
     parser.add_option('', '--log-to-file', dest='log_to_file', default=False, help='Print a log of the output to a file in the directory where the best structures are stored.', action="store_true")
 
     parser.add_option('', '--save-n-best', dest='save_n_best', default=3, help='Save the best n structures.', type=int)
-    parser.add_option('', '--step-save', dest='step_save', default=False, action='store_true', help="Save the structure at each step.")
+    parser.add_option('', '--step-save', dest='step_save', default=0, help="Save the structure at every n'th step.", type='int')
     parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
     parser.add_option('', '--loop-stem-energy', dest='loop_stem_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
     parser.add_option('', '--n-loop-energy', dest='n_loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
