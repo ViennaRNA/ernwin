@@ -3,11 +3,10 @@
 import collections as c
 import pdb
 
-import tess.threedee.model.coarse_grain as ttmc
-import borgy.builder.config as cbc
-import borgy.builder.stats as cbs
-
-import borgy.utilities.debug as cud
+import forgi.threedee.model.coarse_grain as ttmc
+import forgi.threedee.model.stats as cbs
+import fess.builder.config as fbc
+import forgi.utilities.debug as cud
 
 from Bio.PDB import PDBIO, PDBParser, Select
 
@@ -37,27 +36,27 @@ def output_stem_fragment(define, s, out_file):
     io.set_structure(s)
     io.save(out_file, StemSelect())
 
-    print out_file
-
 def main():
     usage = './get_stem_fragments.py [temp.comp]'
     parser = OptionParser()
 
     #parser.add_option('-o', '--options', dest='some_option', default='yo', help="Place holder for a real option", type='str')
     #parser.add_option('-u', '--useless', dest='uselesss', default=False, action='store_true', help='Another useless option')
+    parser.add_option('-o', '--output-dir', dest='output_dir', default=fbc.Configuration.stem_fragment_dir, 
+                      help='The directory in which to output all of the fragments', type='str')
 
     (options, args) = parser.parse_args()
 
-    if not os.path.exists(cbc.Configuration.stem_fragment_dir):
-        os.makedirs(cbc.Configuration.stem_fragment_dir)
+    if not os.path.exists(options.output_dir):
+        os.makedirs(options.output_dir)
 
     if len(args) == 1:
         bg = ttmc.CoarseGrainRNA(args[0])
 
         for st in bg.elements():
             filename = '%s_%s.pdb' % (bg.name, "_".join(map(str, bg.defines[st])))
-            out_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
-            s = PDBParser().get_structure('t', os.path.join(cbc.Configuration.data_base_dir, "%s/prepare/temp.pdb" % (bg.name)))
+            out_file = os.path.join(options.output_dir, filename)
+            s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/prepare/temp.pdb" % (bg.name)))
             output_stem_fragment(bg.defines[st], s, out_file)
         sys.exit(0)
 
@@ -78,14 +77,17 @@ def main():
                     for k2 in sl[k1].keys():
                         t += sl[k1][k2]
                         #for k3 in sl[k1][k2].keys():
+            else:
+                cud.pv('type(sl)')
             for ss in t:
                 filename = '%s_%s.pdb' % (ss.pdb_name, "_".join(map(str, ss.define)))
-                out_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
+                out_file = os.path.join(options.output_dir, filename)
 
                 if ss.pdb_name != prev_pdb_name:
-                    s = PDBParser().get_structure('t', os.path.join(cbc.Configuration.data_base_dir, "%s/prepare/temp.pdb" % (ss.pdb_name)))
+                    s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/prepare/temp.pdb" % (ss.pdb_name)))
                     prev_pdb_name = ss.pdb_name
 
+                print out_file, ss.define
                 output_stem_fragment(ss.define, s, out_file)
 
 

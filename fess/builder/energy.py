@@ -19,7 +19,7 @@ import collections as c
 import os.path as op
 
 #import scipy.stats as ss
-import forgi.threedee.utilities.vector as cuv
+import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as cgg
 import fess.builder.models as cbm
@@ -162,7 +162,7 @@ class DistanceIterator:
                 point1 = bg.get_point(d1)
                 point2 = bg.get_point(d2)
 
-                dist = cuv.vec_distance(point1, point2)
+                dist = ftuv.vec_distance(point1, point2)
 
                 #if dist > 6.0 and dist < 25.0:
                 if dist > self.min_distance and dist < self.max_distance:
@@ -296,7 +296,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
 
                         p0 = bg.get_point(interaction[0])
                         p1 = bg.get_point(interaction[1])
-                        distance = cuv.vec_distance(p0, p1)
+                        distance = ftuv.vec_distance(p0, p1)
                         interaction_distances[interaction] += [distance]
 
         for interaction in interaction_distances.keys():
@@ -334,7 +334,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         '''
 
         fg = self.fg
-        distance = cuv.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+        distance = ftuv.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
 
         bgf = self.bgs[interaction]
         bgp = 1.
@@ -495,7 +495,7 @@ class JunctionClosureEnergy(EnergyFunction):
         for bg in structs:
             for bulge in closed_bulges:
                 bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
-                distance = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+                distance = ftuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
                 distances[bulge] += [distance]
 
         for bulge in closed_bulges:
@@ -530,7 +530,7 @@ class JunctionClosureEnergy(EnergyFunction):
             fgd = self.fgs[bl]
             bgd = self.bgs[bl]
 
-            dist = cuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+            dist = ftuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
             #print "bl:", bl, "dist:", dist
 
             if background:
@@ -655,12 +655,12 @@ class CoarseStemClashEnergy(EnergyFunction):
             if bg.are_any_adjacent_stems(s1, s2):
                 continue
 
-            closest_points = cuv.line_segment_distance(bg.coords[s1][0],
+            closest_points = ftuv.line_segment_distance(bg.coords[s1][0],
                                                        bg.coords[s1][1],
                                                        bg.coords[s2][0],
                                                        bg.coords[s2][1])
 
-            closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
+            closest_distance = ftuv.magnitude(closest_points[1] - closest_points[0])
             #print "s1, s2", s1, s2, closest_distance
 
             if closest_distance < min_distance:
@@ -748,7 +748,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         for a1 in atoms1.values():
             for a2 in atoms2.values():
                 if np.dot(a1-a2, a1-a2) < 1.8 ** 2:
-                #if cuv.magnitude(a1 - a2) < 1.8:
+                #if ftuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
         print >>sys.stderr, "clashes1", clashes
@@ -830,7 +830,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 for ni, newp in enumerate(new_points):
                     if p[1] == newp[1]:
                         continue
-                    if cuv.magnitude(p[0] - newp[0]) < 10.:
+                    if ftuv.magnitude(p[0] - newp[0]) < 10.:
                         clash_pairs += [(p[1:], newp[1:])]
                         #cud.pv('clash_pairs')
 
@@ -896,7 +896,7 @@ class DistanceEnergy(EnergyFunction):
             t = constraint[1]
             d = float(constraint[2])
 
-            d1 = cuv.magnitude(sm.bg.get_point(f) - sm.bg.get_point(t))
+            d1 = ftuv.magnitude(sm.bg.get_point(f) - sm.bg.get_point(t))
 
             energy += abs(d1 - d)
 
@@ -1069,8 +1069,8 @@ class ImgHelixOrientationEnergy(EnergyFunction):
 
                     np.dot(invs[s1][l], s2_pos - s1_pos, out=r2_spos)
 
-                    #if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
-                    #if cuv.magnitude(r2_spos) < max_distance and r2_spos[0] > -3 and r2_spos[0] < 3:
+                    #if ftuv.magnitude(r2_spos) < max_distance and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
+                    #if ftuv.magnitude(r2_spos) < max_distance and r2_spos[0] > -3 and r2_spos[0] < 3:
                     if True:
                         point_score = self.get_img_score([r2_spos])
                         #print "point_score:", point_score
@@ -1252,12 +1252,12 @@ class StemCoverageEnergy(EnergyFunction):
 
                 for j in range(bg.stem_length(s2)):
                     np = bg.vposs[s2][j] - bg.vposs[s1][i]
-                    new_pos = cuv.change_basis(np, basis, cuv.standard_basis)
+                    new_pos = ftuv.change_basis(np, basis, ftuv.standard_basis)
 
                     if abs(new_pos[0]) >= 2.:
                         continue
 
-                    if cuv.magnitude([0, new_pos[1], new_pos[2]]) < self.max_dist:
+                    if ftuv.magnitude([0, new_pos[1], new_pos[2]]) < self.max_dist:
                         covered.add((s1, i))
 
         return -math.log(len(covered) + 1)
@@ -1314,13 +1314,13 @@ class CylinderIntersectionEnergy(EnergyFunction):
             extension = 5.
 
             # extend the cylinder on either side
-            cyl_vec = cuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
+            cyl_vec = ftuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
             cyl = [cyl[0] - extension * cyl_vec,
                    cyl[1] + extension * cyl_vec]
             cyls[s2] = cyl
 
-            line_len = cuv.magnitude(line[1] - line[0])
-            intersects = cuv.cylinder_line_intersection(cyl, line,
+            line_len = ftuv.magnitude(line[1] - line[0])
+            intersects = ftuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
                 cud.pv('exiting 107231')
@@ -1329,11 +1329,11 @@ class CylinderIntersectionEnergy(EnergyFunction):
             if len(intersects) == 0:
                 in_cyl_len = 0.
             else:
-                #in_cyl_len = cuv.magnitude(intersects[1] - intersects[0])
-                cyl_basis = cuv.create_orthonormal_basis(cyl_vec)
-                intersects_t = cuv.change_basis((intersects - cyl[0]).T,
+                #in_cyl_len = ftuv.magnitude(intersects[1] - intersects[0])
+                cyl_basis = ftuv.create_orthonormal_basis(cyl_vec)
+                intersects_t = ftuv.change_basis((intersects - cyl[0]).T,
                                                 cyl_basis,
-                                                cuv.standard_basis).T
+                                                ftuv.standard_basis).T
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
                 covered[s1] += [(intersects_t[0][0], intersects_t[1][0])]
                 #cud.pv('s1, s2')
@@ -1353,7 +1353,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
             in_cyl_fractions[s1] += in_cyl_len / line_len
 
         for s in list(bg.stem_iterator()) + list(bg.iloop_iterator()):
-            total_len = cuv.magnitude(cyls[s][1] - cyls[s][0])
+            total_len = ftuv.magnitude(cyls[s][1] - cyls[s][0])
 
             if len(covered[s]) == 0:
                 continue
@@ -1601,11 +1601,11 @@ class LoopLoopEnergy(EnergyFunction):
             if l1 == l2:
                 continue
 
-            (i1, i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+            (i1, i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            dist = cuv.magnitude(i1 - i2)
+            dist = ftuv.magnitude(i1 - i2)
             if dist > 35:
                 continue
 
@@ -1696,7 +1696,7 @@ class InteractionProbEnergy(EnergyFunction):
                 l2 = node
 
                 if l1 in bg.coords and l2 in bg.coords:
-                    (i1, i2) = cuv.line_segment_distance(bg.coords[l1][0],
+                    (i1, i2) = ftuv.line_segment_distance(bg.coords[l1][0],
                                                         bg.coords[l1][1],
                                                         bg.coords[l2][0],
                                                         bg.coords[l2][1])
@@ -1704,7 +1704,7 @@ class InteractionProbEnergy(EnergyFunction):
                     # some degenerate loops don't have coords
                     continue
 
-                dist = cuv.magnitude(i2 - i1)
+                dist = ftuv.magnitude(i2 - i1)
                 if dist > 40. or dist < 0.0001:
                     continue
 
@@ -1787,11 +1787,11 @@ class LoopJunctionEnergy(LoopLoopEnergy):
         energy = 0
         for l1 in sm.bg.hloop_iterator():
             for l2 in sm.bg.multiloops():
-                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+                (i1,i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
-                x = cuv.magnitude(i1 - i2)
+                x = ftuv.magnitude(i1 - i2)
 
                 if x > 50.:
                     x = 50.
@@ -1852,11 +1852,11 @@ class LoopBulgeEnergy(LoopLoopEnergy):
         energy = 0
         for l1 in sm.bg.hloop_iterator():
             for l2 in sm.bg.bulges():
-                (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+                (i1,i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
-                x = cuv.magnitude(i1 - i2)
+                x = ftuv.magnitude(i1 - i2)
 
                 if x > 50.:
                     x = 50.
@@ -1970,11 +1970,11 @@ class NLoopLoopEnergy(EnergyFunction):
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+            (i1,i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = cuv.magnitude(i2 - i1)
+            d = ftuv.magnitude(i2 - i1)
             #cud.pv('l1, l2, d')
             if d > 50:
                 continue
@@ -2108,11 +2108,11 @@ class NLoopJunctionEnergy(EnergyFunction):
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+            (i1,i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = cuv.magnitude(i2 - i1)
+            d = ftuv.magnitude(i2 - i1)
             #cud.pv('l1, l2, d')
             if d > 50:
                 continue
@@ -2250,11 +2250,11 @@ class NLoopStemEnergy(EnergyFunction):
             if l1 == l2:
                 continue
 
-            (i1,i2) = cuv.line_segment_distance(sm.bg.coords[l1][0],
+            (i1,i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = cuv.magnitude(i2 - i1)
+            d = ftuv.magnitude(i2 - i1)
             #cud.pv('l1, l2, d')
             if d > 50:
                 continue
@@ -2501,4 +2501,147 @@ class RadiusOfGyrationEnergy(EnergyFunction):
         else:
             energy = my_log(self.real_kdes[length](rog))
 
+        return -energy
+
+class CoaxialityEnergy(EnergyFunction):
+    def __init__(self):
+        super(CoaxialityEnergy, self).__init__()
+
+        self.real_stats_fn = 'fess/stats/colinearities_1jj2.csv'
+        self.sampled_stats_fn = 'fess/stats/colinearities_1jj2_cylinder_intersection.csv'
+
+        self.real_kdes = dict()
+        self.sampled_kdes = dict()
+
+    def get_lengths_from_file(self, filename, length):
+        '''
+        Get the co-linearity lengths from a file.
+
+        @param filename: The filename that contains all of the coaxial lengths.
+        @param length: The length of the molecule.
+        @return: The set of colinearity lengths in the file.
+        '''
+        cls = c.defaultdict(list)
+
+        with open(filename, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                mol_size = int(parts[0])
+                lengths = map(int, parts[1:])
+                cls[mol_size] += lengths
+
+
+        mol_sizes = cls.keys()
+        #cud.pv('len(mol_sizes)')
+
+        mol_sizes = np.array(mol_sizes)
+        mol_sizes = mol_sizes[mol_sizes > length * .8]
+        mol_sizes = mol_sizes[mol_sizes < length * 1.2]
+
+        #cud.pv('mol_sizes')
+
+        all_lengths = [cls[l] for l in mol_sizes]
+        all_lengths = [i for s in all_lengths for i in s]
+
+        return all_lengths
+
+    def get_distribution_from_file(self, filename, length):
+        '''
+        Return a probability distribution of the co-axial lengths given a
+        molecule with a particular length.
+
+        @param filename: The filename that contains all of the coaxial lengths.
+        @param length: The length of the molecule.
+        @return: A probability distribution describing the lengths co-axial
+                 lengths in the provided file.
+        '''
+        #cud.pv('all_lengths')
+        lengths = self.get_lengths_from_file(filename, length)
+
+        floc = 0.
+        fscale = length
+
+        f = ss.beta.fit(lengths, floc=floc, fscale=fscale)
+        k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+        return k
+
+    def create_colinearity_adjacency_list(self, bg, width = 8.):
+        '''
+        Iterate through the graph and look at each pair of adjacent stems to see
+        which ones are not colinear.
+
+        @param bg: The bulge-graph structure.
+        @return: A set of pairs which contain elements separating non-colinear stems.
+        '''
+        fits = []
+        doesnt_fit = []
+        adjacencies = c.defaultdict(list)
+            
+        for e1, e2 in it.permutations(it.chain(bg.stem_iterator(), 
+                                 bg.iloop_iterator(), 
+                                 bg.mloop_iterator()), 2):
+            
+            if e1 in bg.edges[e2]:
+                # neighbors should be taken care of by the proposal distribution
+                continue
+            
+            c1 = bg.coords[e1]
+            c2 = bg.coords[e2]
+            
+            # find out which coordinates are closest to each other
+            min_dist = min([(ftuv.vec_distance(c1[0], c2[0]), 1),
+                         (ftuv.vec_distance(c1[0], c2[1]), 2),
+                         (ftuv.vec_distance(c1[1], c2[0]), 3),
+                         (ftuv.vec_distance(c1[1], c2[1]), 4)])
+            
+            if min_dist[0] > 100.:
+                continue
+            
+            if min_dist[1] == 1:
+                # the front end of the first element is closer to some part
+                # of the second element, that means we have to flip the stem
+                adjacent = ftuv.pin_fits_two_cyl(c1[::-1], c2, width)
+                adjacent = adjacent and ftuv.pin_fits_two_cyl(c2[::-1], c1, width)
+            elif min_dist[1] == 2:
+                adjacent = ftuv.pin_fits_two_cyl(c1[::-1], c2, width)
+                adjacent = adjacent and ftuv.pin_fits_two_cyl(c2, c1, width)
+            elif min_dist[1] == 3:
+                adjacent = ftuv.pin_fits_two_cyl(c1, c2, width)
+                adjacent = adjacent and ftuv.pin_fits_two_cyl(c2[::-1], c1, width)
+            else:
+                adjacent = ftuv.pin_fits_two_cyl(c1, c2, width)
+                adjacent = adjacent and ftuv.pin_fits_two_cyl(c2, c1, width)
+                
+            if adjacent:
+                adjacencies[e1] += [e2]
+        
+        return adjacencies
+
+    def create_colinearity_lengths(self, bg, width=8.):
+        '''
+        Create a list of the total lengths of the colinear clusters returned
+        by create_colinearity_adjacency_list.
+        '''
+        al = self.create_colinearity_adjacency_list(bg)
+
+        return [sum([bg.stem_length(j) for j in i]) + bg.stem_length(k) for (k,i) in al.items()] 
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        cg = sm.bg
+
+        if cg.seq_length not in self.real_kdes.keys():
+            self.real_kdes[cg.seq_length] = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
+            self.sampled_kdes[cg.seq_length] = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
+
+        kr = self.real_kdes[cg.seq_length]
+        ks = self.sampled_kdes[cg.seq_length]
+
+        lengths = self.create_colinearity_lengths(cg)
+        
+        energy = 0.
+
+        for length in lengths:
+            energy += my_log(kr(length)) - my_log(ks(length))
+
+        #cud.pv('energy')
         return -energy

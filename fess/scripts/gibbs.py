@@ -170,6 +170,7 @@ def main():
     parser.add_option('', '--stem-stem02', dest='stem_stem02', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--radius-of-gyration', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-loop-radius-of-gyration', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--coaxiality-cylinder-loop-radius-of-gyration', dest='coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the coaxiality, loop, and radius of gyration energy')
     parser.add_option('', '--loop-radius-of-gyration', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--stem-loop-radius-of-gyration', dest='stem_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--simple-radius-of-gyration', dest='simple_radius_of_gyration', default=False, action='store_true', help='Use the simple radius of gyration energy')
@@ -263,6 +264,15 @@ def main():
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+
+    if options.coaxiality_cylinder_loop_radius_of_gyration:
+        print >>sys.stderr, "Using the coaxiality energy."
+        cae = cbe.CoaxialityEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        lle = cbe.LoopLoopEnergy()
+        rog = cbe.RadiusOfGyrationEnergy()
+        rog.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), rog, rog, cie, cae])]
 
     if options.cylinder_loop_radius_of_gyration:
         cie = cbe.CylinderIntersectionEnergy()

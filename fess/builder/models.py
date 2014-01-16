@@ -2,6 +2,7 @@
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
+import itertools as it
 import random
 import os
 import warnings
@@ -203,6 +204,7 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     filename = '1jj2_1375_1376_1638_1639.pdb'
     '''
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
+    cud.pv('pdb_file')
 
     #print len(stem_library.keys())
     if filename in stem_library.keys():
@@ -216,7 +218,7 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
 
     align_chain_to_stem(chain, stem_def.define, stem, use_average_method)
 
-    for i in range(stem_def.bp_length+1):
+    for i in range(stem_def.bp_length):
         #print "i:", i
         if orig_def[0] + i in new_chain:
             new_chain.detach_child(new_chain[orig_def[0] + i].id)
@@ -456,7 +458,7 @@ class SpatialModel:
                     self.stem_defs[s] = ss
 
         self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
-        for b in self.bg.bulges():
+        for b in it.chain(self.bg.iloop_iterator(), self.bg.mloop_iterator()):
             if b not in self.bg.sampled.keys():
                 print >>sys.stderr, "%s not sampled" % (b)
                 continue
