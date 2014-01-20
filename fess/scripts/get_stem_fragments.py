@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import collections as c
+import itertools as it
 import pdb
 
 import forgi.threedee.model.coarse_grain as ttmc
@@ -56,39 +57,29 @@ def main():
         for st in bg.elements():
             filename = '%s_%s.pdb' % (bg.name, "_".join(map(str, bg.defines[st])))
             out_file = os.path.join(options.output_dir, filename)
-            s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/prepare/temp.pdb" % (bg.name)))
+            s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/temp.pdb" % (bg.name)))
             output_stem_fragment(bg.defines[st], s, out_file)
         sys.exit(0)
 
-    stats = [cbs.get_stem_stats(), cbs.get_angle_stats(), cbs.get_loop_stats()]
     #stats = [cbs.get_angle_stats(), cbs.get_loop_stats()]
     #stem_stats = cbs.get_stem_stats()
 
     structures = dict()
     prev_pdb_name = ''
 
-    for stat in stats:
-        for sl in stat.values():
-            t = sl
-            if type(sl) == c.defaultdict:
-                t = []
-                #pdb.set_trace()
-                for k1 in sl.keys():
-                    for k2 in sl[k1].keys():
-                        t += sl[k1][k2]
-                        #for k3 in sl[k1][k2].keys():
-            else:
-                cud.pv('type(sl)')
-            for ss in t:
-                filename = '%s_%s.pdb' % (ss.pdb_name, "_".join(map(str, ss.define)))
-                out_file = os.path.join(options.output_dir, filename)
+    for l in it.chain(cbs.get_angle_stats().values(), cbs.get_stem_stats().values(),
+                       cbs.get_loop_stats().values()):
+        for ss in l:
+            filename = '%s_%s.pdb' % (ss.pdb_name, "_".join(map(str, ss.define)))
+            out_file = os.path.join(options.output_dir, filename)
 
-                if ss.pdb_name != prev_pdb_name:
-                    s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/prepare/temp.pdb" % (ss.pdb_name)))
-                    prev_pdb_name = ss.pdb_name
+            if ss.pdb_name != prev_pdb_name:
+                cud.pv('ss.define, fbc.Configuration.data_base_dir, ss.pdb_name')
+                s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/temp.pdb" % (ss.pdb_name)))
+                prev_pdb_name = ss.pdb_name
 
-                print out_file, ss.define
-                output_stem_fragment(ss.define, s, out_file)
+            print out_file, ss.define
+            output_stem_fragment(ss.define, s, out_file)
 
 
 if __name__ == '__main__':

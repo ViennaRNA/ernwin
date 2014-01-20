@@ -361,16 +361,16 @@ class SpatialModel:
         ang_type3 = -ang_type1
 
         try:
-            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type1])
-            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size[0]][size[1]][ang_type3])
+            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[(size[0], size[1], ang_type1)])
+            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[(size[0], size[1], ang_type3)])
         except IndexError:
             #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
 
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[size1][size2][ang_type1])
+            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[(size1, size2, ang_type1)])
             #print >>sys.stderr, "Using size instead:", size1, size2
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[size1][size2][ang_type3])
+            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[(size1, size2, ang_type3)])
             #print >>sys.stderr, "Using size instead:", size1, size2
             '''
             print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
@@ -469,7 +469,7 @@ class SpatialModel:
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], sb[1])[0]
             size = (size1, size2)
 
-            for ang_s in cbs.get_angle_stats()[size[0]][size[1]][sb[1]]:
+            for ang_s in cbs.get_angle_stats()[(size[0], size[1], sb[1])]:
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
                     print >>sys.stderr, "some stuff", b
 

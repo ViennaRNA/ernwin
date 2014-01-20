@@ -422,11 +422,11 @@ class MCMCSampler:
         self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         try:
-            possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]][ang_type1]
+            possible_angles = cbs.get_angle_stats()[(dims[0], dims[1], ang_type1)]
             pa = random.choice(possible_angles)
         except IndexError:
             (dist, size1, size2, typ1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
-            possible_angles = cbs.get_angle_stats()[size1][size2][ang_type1]
+            possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
             pa = random.choice(possible_angles)
 
 
@@ -596,7 +596,7 @@ class GibbsBGSampler:
         
         # What are the potential angle statistics for it
         (dist, size1, size2, type1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
-        possible_angles = cbs.get_angle_stats()[size1][size2][ang_type1]
+        possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
         #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:

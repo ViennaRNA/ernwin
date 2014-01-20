@@ -214,11 +214,17 @@ class CombinedEnergy:
         total_energy = 0.
         self.bad_bulges = []
 
+        cud.pv('verbose')
         for energy in self.uncalibrated_energies:
             #cud.pv('energy')
-            total_energy += energy.eval_energy(sm, background,
+            
+            contrib = energy.eval_energy(sm, background,
                                                nodes, new_nodes)
+            total_energy += contrib
+
             self.bad_bulges += energy.bad_bulges
+            if verbose:
+                print energy.__class__.__name__, contrib
 
         for energy in self.energies:
             contrib = energy.eval_energy(sm, background, nodes=nodes, new_nodes=new_nodes)
@@ -228,6 +234,10 @@ class CombinedEnergy:
 
             if verbose:
                 print energy.__class__.__name__, contrib
+
+        if verbose:
+            print "--------------------------"
+            print "total_energy:", total_energy
 
         return total_energy
 
@@ -1395,6 +1405,8 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
         energy = np.array([0.])
+        total_length = 0
+
         for (key, val) in cyl_fractions.items():
             real = my_log(self.real_kde(val) + 0.0001 * self.fake_kde(val))
             fake = my_log(self.fake_kde(val))
@@ -1406,12 +1418,15 @@ class CylinderIntersectionEnergy(EnergyFunction):
                 cud.pv('i, sm.bg.connections(i)')
             '''
 
+            total_length += sm.bg.stem_length(key)
             energy += sm.bg.stem_length(key) * (real - fake)
-
+            #energy  += (real - fake)
             #cud.pv('key, val, real, fake, real-fake')
 
             if np.isnan(energy):
                 pdb.set_trace()
+
+        energy /= total_length
 
         return -energy[0]
 
@@ -2575,7 +2590,12 @@ class CoaxialityEnergy(EnergyFunction):
         '''
         fits = []
         doesnt_fit = []
-        adjacencies = c.defaultdict(list)
+        adjacencies = dict()
+
+        for e in it.chain(bg.stem_iterator(),
+                          bg.iloop_iterator(),
+                          bg.mloop_iterator()):
+            adjacencies[e] = []
             
         for e1, e2 in it.permutations(it.chain(bg.stem_iterator(), 
                                  bg.iloop_iterator(), 
@@ -2624,7 +2644,7 @@ class CoaxialityEnergy(EnergyFunction):
         '''
         al = self.create_colinearity_adjacency_list(bg)
 
-        return [sum([bg.stem_length(j) for j in i]) + bg.stem_length(k) for (k,i) in al.items()] 
+        return [(k, sum([bg.stem_length(j) for j in i]) + bg.stem_length(k)) for (k,i) in al.items()] 
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         cg = sm.bg
@@ -2637,11 +2657,17 @@ class CoaxialityEnergy(EnergyFunction):
         ks = self.sampled_kdes[cg.seq_length]
 
         lengths = self.create_colinearity_lengths(cg)
+        cud.pv('lengths')
         
         energy = 0.
 
-        for length in lengths:
-            energy += my_log(kr(length)) - my_log(ks(length))
+        summed_stem_length = 0
+
+        for (s,length) in lengths:
+            #energy += my_log(kr(length)) - my_log(ks(length))
+            energy += cg.stem_length(s) * (my_log(kr(length)) - my_log(ks(length)))
+            summed_stem_length += cg.stem_length(s)
 
         #cud.pv('energy')
+        energy /= summed_stem_length
         return -energy

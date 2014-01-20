@@ -4,7 +4,7 @@ class Configuration:
     mids_method="template"
     #mids_method="basenormals"
     base_dir = os.path.expanduser('~/projects/ernwin')
-    data_base_dir = os.path.expanduser('~/data/ernwin/processed')
+    data_base_dir = os.path.expanduser('~/doarse/processed/')
     pdb_base_dir = os.path.expanduser('~/data/ernwin/pdb')
     stats_file = os.path.join(base_dir, 'fess/stats/temp.stats')
     stem_fragment_dir = os.path.join(base_dir, 'fess/stats/stems')

@@ -272,14 +272,14 @@ def main():
         lle = cbe.LoopLoopEnergy()
         rog = cbe.RadiusOfGyrationEnergy()
         rog.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), rog, rog, cie, cae])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie, cae])]
 
     if options.cylinder_loop_radius_of_gyration:
         cie = cbe.CylinderIntersectionEnergy()
         lle = cbe.LoopLoopEnergy()
         rog = cbe.RadiusOfGyrationEnergy()
         rog.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), rog, rog, cie])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie])]
 
     if options.stem_loop_radius_of_gyration:
         sse1 = cbe.StemStemOrientationEnergy([2])
