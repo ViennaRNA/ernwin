@@ -214,7 +214,6 @@ class CombinedEnergy:
         total_energy = 0.
         self.bad_bulges = []
 
-        cud.pv('verbose')
         for energy in self.uncalibrated_energies:
             #cud.pv('energy')
             
@@ -1281,6 +1280,7 @@ def merge(times):
             yield tuple(saved)
             saved[0] = st
             saved[1] = en
+
     yield tuple(saved)
 
 class CylinderIntersectionEnergy(EnergyFunction):
@@ -1290,8 +1290,14 @@ class CylinderIntersectionEnergy(EnergyFunction):
         self.min_ratio = 0.
         self.max_ratio = 30.
 
+        self.real_stats_fn = 'fess/stats/cylinder_intersections_1jj2.csv'
+        self.sampled_stats_fn = 'fess/stats/cylinder_intersections_1jj2_rog.csv'
+
         self.real_data = None
         self.fake_data = None
+
+        self.real_kdes = dict()
+        self.sampled_kdes = dict()
 
     def load_data(self, filename):
         import pandas as pa
@@ -1309,6 +1315,71 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
         return (new_ratios, stats.gaussian_kde(new_ratios))
 
+    def get_distribution_from_file(self, filename, length):
+        '''
+        Return the probability distribution of the sum of the cylinder
+        intersection lengths.
+
+        @param filename: The filename from which to load the distribution.
+        @param length: The length of the RNA molecule
+        @return: A probability distribution describing the combined cylinder
+                 intersection length.
+        '''
+        all_lengths = self.get_cylinder_intersections_from_file(filename, length)
+        lengths = map(sum, all_lengths)
+
+        floc = 0.
+        fscale =  2 * max(lengths)
+
+        f = ss.beta.fit(lengths, floc=floc, fscale=fscale)
+        k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+
+        return k
+
+    def get_cylinder_intersections_from_file(self, filename, length):
+        '''
+        Get the list of cylinder intersection lengths from a file for a
+        molecule of a particular length.
+
+        Included in the distribution will be all molecules where
+
+        0.8 * length < len(molecule) < 1.2 * length
+
+        The cylinder intersection lengths for all of these molecules will
+        be returned as a list of lists where each sublist contains the
+        cylinder intersection lengths for one particular file.
+
+        @param filename: The name of the file containing the cylinder
+                         intersection lengths
+        @param length: The length of the molecule
+        @return: A list of lists containing the cylinder intersection lengths
+        '''
+        cls = c.defaultdict(list)
+
+        with open(filename, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                mol_size = int(parts[0])
+                lengths = map(float, parts[1:])
+                cls[mol_size] += [lengths]
+
+
+        mol_sizes = cls.keys()
+        #cud.pv('len(mol_sizes)')
+
+        mol_sizes = np.array(mol_sizes)
+        mol_sizes = mol_sizes[mol_sizes > length * .8]
+        mol_sizes = mol_sizes[mol_sizes < length * 1.2]
+
+        #cud.pv('mol_sizes')
+        all_lengths = []
+        for l in mol_sizes:
+            all_lengths += cls[l]
+
+        #all_lengths = [cls[l] for l in mol_sizes]
+
+        return all_lengths
+
     def calculate_intersection_coverages(self, bg):
         in_cyl_fractions = c.defaultdict(lambda: 0.001)
         covered = c.defaultdict(list)
@@ -1321,7 +1392,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
         for (s1, s2) in it.permutations(list(bg.stem_iterator()) + list(bg.iloop_iterator()), 2):
             line = bg.coords[s1]
             cyl = bg.coords[s2]
-            extension = 5.
+            extension = 0.
 
             # extend the cylinder on either side
             cyl_vec = ftuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
@@ -1351,14 +1422,6 @@ class CylinderIntersectionEnergy(EnergyFunction):
                 #cud.pv('cyl')
                 #cud.pv('intersects_t')
 
-            '''
-            if s1 == 's4':
-                #cud.pv('line')
-                #cud.pv('intersects')
-                #cud.pv('cyl')
-                #cud.pv('in_cyl_len')
-                #cud.pv('s2, in_cyl_len / line_len')
-            '''
 
             in_cyl_fractions[s1] += in_cyl_len / line_len
 
@@ -1371,7 +1434,8 @@ class CylinderIntersectionEnergy(EnergyFunction):
             ms = list(merge(covered[s]))
             cl = sum(map(lambda x: x[1] - x[0], ms))
 
-            in_cyl_fractions[s] = cl / total_len
+            #in_cyl_fractions[s] = cl / total_len
+            in_cyl_fractions[s] = cl
 
             #cud.pv('cl, total_len')
 
@@ -1380,55 +1444,30 @@ class CylinderIntersectionEnergy(EnergyFunction):
             #cud.pv('map(lambda x: x[1] - x[0], ms)')
             #cud.pv('sum(map(lambda x: x[1] - x[0], ms))')
 
+
         return in_cyl_fractions
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
-        if self.real_data == None:
-            (self.real_data, self.real_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions.csv'))
-            (self.fake_data, self.fake_kde) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/cylinder_intersection_fractions_loop_radius_of_gyration_beta29.csv'))
-            #(self.fake_data, self.fake_kde) = self.load_data('fess/stats/cylinder_intersection_fractions_%s.csv' % (sm.bg.name))
+        cg = sm.bg
 
-            self.fake_min = min(self.fake_kde(self.fake_data))
-
-            '''
-            import matplotlib.pyplot as plt
-            fig = plt.figure()
-
-            xs = np.linspace(self.min_ratio, self.max_ratio, 200)
-
-            ax_hist = fig.add_subplot(1,1,1)
-            ax_hist.plot(xs, my_log(self.real_data(xs)), 'b')
-            ax_hist.plot(xs, my_log(self.fake_data(xs)), 'r')
-
-            plt.show()
-            '''
+        if cg.seq_length not in self.real_kdes.keys():
+            self.real_kdes[cg.seq_length] = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
+            self.sampled_kdes[cg.seq_length] = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
 
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
         energy = np.array([0.])
         total_length = 0
 
-        for (key, val) in cyl_fractions.items():
-            real = my_log(self.real_kde(val) + 0.0001 * self.fake_kde(val))
-            fake = my_log(self.fake_kde(val))
+        total_cylinder_intersections = sum(cyl_fractions.values())
 
-            #cud.pv('key,val, real, fake')
+        kr = self.real_kdes[cg.seq_length]
+        ks = self.sampled_kdes[cg.seq_length]
 
-            '''
-            for i in sm.bg.iloop_iterator():
-                cud.pv('i, sm.bg.connections(i)')
-            '''
-
-            total_length += sm.bg.stem_length(key)
-            energy += sm.bg.stem_length(key) * (real - fake)
-            #energy  += (real - fake)
-            #cud.pv('key, val, real, fake, real-fake')
-
-            if np.isnan(energy):
-                pdb.set_trace()
-
-        energy /= total_length
-
-        return -energy[0]
+        energy = (my_log(kr(total_cylinder_intersections) + 
+                         0.0001 * ks(total_cylinder_intersections)) - 
+                  my_log(ks(total_cylinder_intersections)))
+            
+        return -energy
 
 class CheatingEnergy(EnergyFunction):
     def __init__(self, real_bg):
@@ -2528,9 +2567,17 @@ class CoaxialityEnergy(EnergyFunction):
         self.real_kdes = dict()
         self.sampled_kdes = dict()
 
-    def get_lengths_from_file(self, filename, length):
+    def get_lengths_from_file_per_struct(self, filename, length):
         '''
-        Get the co-linearity lengths from a file.
+        Get the co-linearity lengths from a file for a molecule of a particular length.
+
+        Included in the distribution will be all molecules where
+
+        0.8 * length < len(molecule) < 1.2 * length
+
+        The colinearity lengths for all of these molecules will be returned
+        as a list of lists where each sublist contains the colinearities for one
+        particular file.
 
         @param filename: The filename that contains all of the coaxial lengths.
         @param length: The length of the molecule.
@@ -2543,7 +2590,7 @@ class CoaxialityEnergy(EnergyFunction):
                 parts = line.strip().split()
                 mol_size = int(parts[0])
                 lengths = map(int, parts[1:])
-                cls[mol_size] += lengths
+                cls[mol_size] += [lengths]
 
 
         mol_sizes = cls.keys()
@@ -2555,8 +2602,32 @@ class CoaxialityEnergy(EnergyFunction):
 
         #cud.pv('mol_sizes')
 
-        all_lengths = [cls[l] for l in mol_sizes]
-        all_lengths = [i for s in all_lengths for i in s]
+        all_lengths = []
+        for l in mol_sizes:
+            all_lengths += cls[l]
+
+        return all_lengths
+
+    def get_lengths_from_file(self, filename, length):
+        '''
+        Get the co-linearity lengths from a file for a molecule of a particular length.
+
+        Included in the distribution will be all molecules where
+
+        0.8 * length < len(molecule) < 1.2 * length
+
+        The colinearity lengths for all of these molecules will be returned
+        in one list.
+
+        @param filename: The filename that contains all of the coaxial lengths.
+        @param length: The length of the molecule.
+        @return: The set of colinearity lengths in the file.
+        '''
+        all_lengths = self.get_lengths_from_file_per_struct(filename, length)
+        #all_lengths = [i for s in all_lengths for i in s]
+        all_lengths = map(sum, all_lengths)
+        #cud.pv('all_lengths')
+        cud.pv('max(all_lengths)')
 
         return all_lengths
 
@@ -2574,7 +2645,7 @@ class CoaxialityEnergy(EnergyFunction):
         lengths = self.get_lengths_from_file(filename, length)
 
         floc = 0.
-        fscale = length
+        fscale = 2 * max(lengths)
 
         f = ss.beta.fit(lengths, floc=floc, fscale=fscale)
         k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
@@ -2657,17 +2728,20 @@ class CoaxialityEnergy(EnergyFunction):
         ks = self.sampled_kdes[cg.seq_length]
 
         lengths = self.create_colinearity_lengths(cg)
-        cud.pv('lengths')
         
-        energy = 0.
+        length = sum([l[1] for l in lengths])
+        cud.pv('length')
+        energy = (my_log(kr(length) + 0.0001 * ks(length)) - my_log(ks(length)))
 
+
+        '''
         summed_stem_length = 0
-
         for (s,length) in lengths:
             #energy += my_log(kr(length)) - my_log(ks(length))
             energy += cg.stem_length(s) * (my_log(kr(length)) - my_log(ks(length)))
             summed_stem_length += cg.stem_length(s)
-
         #cud.pv('energy')
         energy /= summed_stem_length
+        '''
+
         return -energy
