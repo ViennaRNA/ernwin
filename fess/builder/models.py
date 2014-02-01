@@ -18,7 +18,7 @@ import fess.builder.config as cbc
 import forgi.threedee.model.stats as cbs
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.vector as cuv
-import forgi.utilities.debug as cud
+import forgi.utilities.debug as fud
 
 from random import choice, uniform
 from math import pi
@@ -204,7 +204,7 @@ def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), st
     filename = '1jj2_1375_1376_1638_1639.pdb'
     '''
     pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
-    cud.pv('pdb_file')
+    fud.pv('pdb_file')
 
     #print len(stem_library.keys())
     if filename in stem_library.keys():
@@ -477,7 +477,7 @@ class SpatialModel:
 
         self.loop_defs = dict()
         for l in self.bg.hloop_iterator():
-            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            sl = self.bg.get_length(l)
             for ls in cbs.get_loop_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.loop_defs[l] = ls
@@ -521,7 +521,7 @@ class SpatialModel:
 
         for d in self.bg.hloop_iterator():
             define = self.bg.defines[d]
-            length = abs(define[1] - define[0])
+            length = self.bg.get_length(d)
 
             # retrieve a random entry from the StemStatsDict collection
             try:
@@ -544,7 +544,7 @@ class SpatialModel:
 
         for d in self.bg.floop_iterator():
             define = self.bg.defines[d]
-            length = abs(define[1] - define[0])
+            length = self.bg.get_length(d)
 
             # retrieve a random entry from the StemStatsDict collection
             try:
@@ -567,7 +567,7 @@ class SpatialModel:
 
         for d in self.bg.tloop_iterator():
             define = self.bg.defines[d]
-            length = abs(define[1] - define[0])
+            length = self.bg.get_length(d)
 
             # retrieve a random entry from the StemStatsDict collection
             try:

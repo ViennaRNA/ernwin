@@ -2598,7 +2598,7 @@ class CoaxialityEnergy(EnergyFunction):
 
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
-        mol_sizes = mol_sizes[mol_sizes < length * 1.2]
+        mol_sizes = mol_sizes[mol_sizes < length * 1.4]
 
         #cud.pv('mol_sizes')
 
@@ -2651,6 +2651,19 @@ class CoaxialityEnergy(EnergyFunction):
         k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
         return k
 
+    def linearable(self, bg):
+        '''
+        Return the elements which can be colinear.
+
+        @param bg: A BulgeGraph
+        @return: A generator which iterates throught the elements that
+                 can be counted for the co-axiality energy.
+        '''
+        for i in it.chain(bg.stem_iterator(),
+                          bg.iloop_iterator()):
+            yield i
+
+
     def create_colinearity_adjacency_list(self, bg, width = 8.):
         '''
         Iterate through the graph and look at each pair of adjacent stems to see
@@ -2663,14 +2676,10 @@ class CoaxialityEnergy(EnergyFunction):
         doesnt_fit = []
         adjacencies = dict()
 
-        for e in it.chain(bg.stem_iterator(),
-                          bg.iloop_iterator(),
-                          bg.mloop_iterator()):
+        for e in self.linearable(bg):
             adjacencies[e] = []
             
-        for e1, e2 in it.permutations(it.chain(bg.stem_iterator(), 
-                                 bg.iloop_iterator(), 
-                                 bg.mloop_iterator()), 2):
+        for e1, e2 in it.permutations(self.linearable(bg), 2):
             
             if e1 in bg.edges[e2]:
                 # neighbors should be taken care of by the proposal distribution
@@ -2730,7 +2739,6 @@ class CoaxialityEnergy(EnergyFunction):
         lengths = self.create_colinearity_lengths(cg)
         
         length = sum([l[1] for l in lengths])
-        cud.pv('length')
         energy = (my_log(kr(length) + 0.0001 * ks(length)) - my_log(ks(length)))
 
 
@@ -2745,3 +2753,70 @@ class CoaxialityEnergy(EnergyFunction):
         '''
 
         return -energy
+
+class PairwiseCoaxialityEnergy(CoaxialityEnergy):
+    def __init__(self):
+        super(PairwiseCoaxialityEnergy, self).__init__()
+
+    def get_colinear_nts(self, cg):
+        '''
+        Calculate how many pairs of nucleotides are colinear and how many
+        are not colinear.
+
+        @param cg: A CoarseGrainRNA() structure
+        @return: A tuple containing the number of colinear and non-colinear nts
+        '''
+        al = self.create_colinearity_adjacency_list(cg)
+        pairwise = 0.
+
+        for (k,v) in al.items():
+            # the key is an element and the value is the list of elements
+            # that are colinear with it
+            l = cg.stem_length(k)
+            for a in v:
+                pairwise += l * cg.stem_length(a)
+
+        return pairwise
+
+    def get_lengths_from_file_per_struct(self, filename, length):
+        '''
+        Get the co-linearity lengths from a file for a molecule of a particular length.
+
+        Included in the distribution will be all molecules where
+
+        0.8 * length < len(molecule) < 1.2 * length
+
+        The colinearity lengths for all of these molecules will be returned
+        as a list of lists where each sublist contains the colinearities for one
+        particular file.
+
+        @param filename: The filename that contains all of the coaxial lengths.
+        @param length: The length of the molecule.
+        @return: The set of colinearity lengths in the file.
+        '''
+        cls = c.defaultdict(list)
+
+        with open(filename, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                mol_size = int(parts[0])
+                l = float(parts[1])
+                cls[mol_size] += [l]
+
+        mol_sizes = cls.keys()
+        #cud.pv('len(mol_sizes)')
+
+        #cud.pv('mol_sizes, length')
+        mol_sizes = np.array(mol_sizes)
+        mol_sizes = mol_sizes[mol_sizes > length * .9]
+        mol_sizes = mol_sizes[mol_sizes < length * 1.6]
+
+        #cud.pv('mol_sizes')
+
+        all_lengths = []
+        for l in mol_sizes:
+            all_lengths += cls[l]
+
+        #cud.pv('all_lengths')
+
+        return all_lengths

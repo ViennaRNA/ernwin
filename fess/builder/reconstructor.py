@@ -6,7 +6,7 @@ import os.path as op
 
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.vector as cuv
-import forgi.utilities.debug as cud
+import forgi.utilities.debug as fud
 import forgi.threedee.utilities.pdb as cup
 
 import fess.builder.ccd as cbc
@@ -264,7 +264,6 @@ def get_atom_coord_array(chain, start_res, end_res):
     for i in range(start_res, end_res+2):
         res = chain[i]
         indeces[res.id[1]] = count
-        #print 'res:', res.resname.strip()
         for aname in a_names[res.resname.strip()]:
             try:
                 coords += [res[aname].get_vector().get_array()]
@@ -305,7 +304,6 @@ def get_atom_name_array(chain, start_res, end_res):
     for i in range(start_res, end_res+2):
         res = chain[i]
         indeces[res.id[1]] = count
-        #print 'res:', res.resname.strip()
         for aname in a_names[res.resname.strip()]:
             coords += ['%d%s' % (i, aname)]
             count += 1
@@ -332,9 +330,7 @@ def set_atom_coord_array(chain, coords, start_res, end_res):
 
     for i in range(start_res, end_res+2):
         res = chain[i]
-        #print 'res:', res.resname.strip()
         for aname in a_names[res.resname.strip()]:
-            #print "coords[count]:", coords[count]
             #chain[i][aname].coord = bpdb.Vector(coords[count])
             try:
                 chain[i][aname].coord = coords[count]
@@ -345,7 +341,6 @@ def set_atom_coord_array(chain, coords, start_res, end_res):
                     chain[i]['O2P'].coord = coords[count]
                 else:
                     raise
-            #print "coords2:", chain[i][aname].coord
             count += 1
     return chain
 
@@ -419,8 +414,6 @@ def get_adjacent_interatom_distances(chain, start_res, end_res):
                 distances += [res[key] - res[value]]
 
     for i in range(start_res, end_res+1):
-        #print "ress[i]['P'].coord:", ress[i]['P'].coord
-        #print "ress[i]["O3\'"].coord:", ress[i-1]["O3\'"].coord
         distances += [ress[i]['P'] - ress[i-1]["O3'"]]
 
     return distances
@@ -445,8 +438,6 @@ def get_adjacent_interatom_names(chain, start_res, end_res):
                 distances += [str(key) + "-" + str(value)]
 
     for i in range(start_res, end_res+1):
-        #print "ress[i]['P'].coord:", ress[i]['P'].coord
-        #print "ress[i]["O3\'"].coord:", ress[i-1]["O3\'"].coord
         distances += ['%dP-O3' % (i)]
 
     return distances
@@ -477,13 +468,7 @@ def add_residue_to_rosetta_chain(chain, residue):
 
     detached_residues = []
     if residue.id[1] in chain:
-        #print "detaching:", chain[residue.id[1]], chain[residue.id[1]].id
         detached_residues += [chain[residue.id[1]]]
-        #print "id:", (' ', residue.id[1], ' ')
-        #print "in:", (' ', residue.id[1], ' ') in chain.child_dict
-        #print "in1:", chain[residue.id[1]].id in chain.child_dict
-        #print "id", chain[residue.id[1]].id
-        #print "chain.child_dict", chain.child_dict
         #chain.detach_child(chain[residue.id[1]].id)
         chain.detach_child((' ', residue.id[1], ' '))
 
@@ -510,6 +495,7 @@ def add_loop_chain(chain, loop_chain, handles, length):
     #loop_chain[handles[2]].id = r1_id
     #add_residue_to_rosetta_chain(chain, loop_chain[handles[2]])
 
+    fud.pv('handles')
     if handles[1] != length:
         r2_id = chain[handles[1]].id
         chain.detach_child(r2_id)
@@ -627,9 +613,6 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         assert(not np.allclose(moving_orig, moving_new))
 
         distances2 = get_adjacent_interatom_distances(chain_loop, handles[2], handles[3])
-        print [ (d,n) for (d,n) in zip(np.array(distances2) - np.array(distances), names) if (d > 0.0001 or math.isnan(d)) ]
-
-        #print np.array(distances2) - np.array(distances)
 
         assert(np.allclose(distances, distances2))
         '''
@@ -693,7 +676,6 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
     @return: A Bio.PDB.Chain structure containing the best sampled loop.
     '''
     if consider_contacts:
-        print "considering contacts"
         model = barn.BarnacleCPDB(loop_seq, 1.9)
     else:
         model = barn.BarnacleCPDB(loop_seq, 0.)
@@ -720,9 +702,6 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         
         loop_chain = copy.deepcopy(chain_unclosed_loop)
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, loop_chain, [(a, b, i1, i2)], no_close=False)
-
-        output_chain(loop_chain, 'chain_loop1.pdb')
-        output_chain(chain_unclosed_loop, 'chain_loop2.pdb')
 
         if handles[0] == 0 or handles[1] == seq_len:
             r_start = 0.
@@ -762,7 +741,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
             min_energy = energy
             min_r = r
             best_loop_chain = copy.deepcopy(orig_loop_chain)
-            output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
+            #output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
         '''
         if min_contacts < (0, .1):
             break
@@ -807,8 +786,8 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
 
     (best_loop_chain, min_r) = build_loop(chain, seq, (a,b,i1,i2), bg.seq_length, samples, consider_contacts, consider_starting_pos)
 
-    output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
-    output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
+    #output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
+    #output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
     cup.trim_chain(best_loop_chain, i1, i2+1)
@@ -903,8 +882,6 @@ def replace_base(res_dir, res_ref):
         atom.transform(np.eye(3,3), -ref_centroid)
         atom.transform(sup, dir_centroid)
 
-    #print "dir_points:", dir_points
-    #print "ref_points:", ref_points
     return new_res
 
 def replace_bases(chain, seq):
@@ -928,7 +905,6 @@ def replace_bases(chain, seq):
 
     tindeces = { 'A': 1, 'C': 2, 'G': 3, 'U': 4}
 
-    print "len(seq):", len(seq)
     ress = chain.get_list()
 
     for i in range(len(ress)):
@@ -976,8 +952,6 @@ def mend_breakpoint(h, chain, source_chain):
     detached_residues += add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+1])
     detached_residues += add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+2])
     #detached_residues += add_residue_to_rosetta_chain(chain, temp_loop_chain[h[2]+3])
-    output_chain(chain, 'out1.pdb')
-    output_chain(temp_loop_chain, 'out2.pdb')
     (r1, stem_chain) = align_and_close_loop(10000, source_chain, chain, rev_handles, move_all_angles=False, move_front_angle=False)
 
     for dr in detached_residues:
@@ -1022,9 +996,7 @@ def mend_breakpoint_new(chain, res1, res2):
 
     h1 = h
 
-    output_chain(nr, 'out1.pdb')
     (r1, loop_chain) = align_and_close_loop(10000, chain, nr, h, move_all_angles=False, move_front_angle=False)
-    output_chain(nr, 'out2.pdb')
     add_loop_chain(chain, nr, h[0], h[0][3] - h[0][2])
 
 def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, ld):
@@ -1077,19 +1049,29 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
     (a0,b0) = a
 
     if len(angle_def.define) == 4:
+        '''
         a0_1 = sm.bg.defines[connections[0]][sm.bg.same_stem_end(sd0)]
         b0_1 = sm.bg.defines[connections[1]][sm.bg.same_stem_end(sd1)]
         b = [a0_1, b0_1]
         b.sort()
         (a0_1, b0_1) = b
+        '''
 
         # sort the defines by the first entry in each define
         # i.e. [3,4,1,2] -> [1,2,3,]
-        s1 = zip(*[iter(sm.bg.defines[ld])]*2)
+        s1 = map(list, zip(*[iter(sm.bg.defines[ld])]*2))
         s1.sort()
 
-        s2 = zip(*[iter(angle_def.define)]*2)
+        for s in s1:
+            s[0] -= 1
+            s[1] += 1
+
+        s2 = map(list, zip(*[iter(angle_def.define)]*2))
         s2.sort()
+
+        for s in s2:
+            s[0] -= 1
+            s[1] += 1
 
         # Associate the defines of the source with those of the loop
         # according to which are lower and which are greater:
@@ -1117,7 +1099,7 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
     else:
         i1_0 = angle_def.define[0]
         i2_0 = angle_def.define[1]
-        handles = [(a0,b0,i1_0,i2_0)]
+        handles = [(a0,b0,i1_0-1,i2_0+1)]
 
     seq_len = handles[0][3] - handles[0][2] # i2_0 - i1_0
     align_starts(chain, source_chain, handles, end=0)
@@ -1129,7 +1111,6 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
     for h in handles:
         add_loop_chain(chain, source_chain, h, h[3] - h[2])
         mend_breakpoint_new(chain, h[0], h[0]+1)
-
 
     #(r, chain) = align_and_close_loop(seq_len, source_chain, chain, 
 
@@ -1146,7 +1127,6 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict(), move
     #find some potential sides
     #both ways should work
     #i.e. if [0][1] is present, [0][1] should also be present
-    #cud.pv('sm.angle_defs')
     for key1 in sm.angle_defs[ld].keys():
         break
 
@@ -1191,6 +1171,9 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     loop_def = sm.loop_defs[ld]
     angle_def = loop_def
 
+    fud.pv('ld')
+    fud.pv('loop_def')
+
     if loop_def.define[1] - loop_def.define[0] == 1:
         return
 
@@ -1210,13 +1193,14 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
 
     (sd0, bd0) = sm.bg.get_sides_plus(connection, ld)
 
+    fud.pv('sm.bg.defines[connection]')
     if sd0 == 0:
         a0,b0 = sm.bg.defines[connection][0], sm.bg.defines[connection][3]
     else:
         a0,b0 = sm.bg.defines[connection][1], sm.bg.defines[connection][2]
 
-    i1_0 = angle_def.define[0]
-    i2_0 = angle_def.define[1]
+    i1_0 = angle_def.define[0] - 1
+    i2_0 = angle_def.define[1] + 1
 
     seq_len = i2_0 - i1_0
     align_starts(chain, source_chain, [(a0,b0,i1_0,i2_0)], end=0)
@@ -1239,7 +1223,6 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
     try:
         fiveprime_def = sm.fiveprime_defs[ld]
     except:
-        print "ld", ld, "sm.bg.defines[ld]", sm.bg.defines[ld]
         reconstruct_loop(chain, sm, ld)
         return
 
@@ -1266,7 +1249,6 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
             target_index = sm.bg.defines[ld][j] + k - fiveprime_def.define[j]
 
             if target_index in chain:
-                #print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]
@@ -1306,7 +1288,6 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
             target_index = sm.bg.defines[ld][j] + k - threeprime_def.define[j]
 
             if target_index in chain:
-                #print >> sys.stderr, "detaching...", target_index
                 chain.detach_child(chain[target_index].id)
 
             e = source_chain[k]

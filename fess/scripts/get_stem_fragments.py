@@ -22,7 +22,7 @@ def output_stem_fragment(define, s, out_file):
             i = residue.id[1]
 
             for j in range(0, len(define), 2):
-                if define[j]-2 <= i and i <= define[j+1]+2:
+                if define[j]-3 <= i and i <= define[j+1]+3:
                     return 1
             return 0
 
