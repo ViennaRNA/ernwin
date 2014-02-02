@@ -1651,6 +1651,8 @@ class LoopLoopEnergy(EnergyFunction):
         energy = 0
         contribs = c.defaultdict(list)
 
+        pairs = []
+
         for (l1, l2) in it.combinations(sm.bg.hloop_iterator(), 2):
             if l1 == l2:
                 continue
@@ -1659,6 +1661,22 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
+
+            pairs += [(l1, l2, ftuv.magnitude(i2 - i1))]
+
+        evaluated = set()
+        to_eval = []
+
+        pairs.sort(key=lambda x: x[2])
+        for p in pairs:
+            if p[0] not in evaluated and p[1] not in evaluated:
+                to_eval += [p]
+                
+                evaluated.add(p[0])
+                evaluated.add(p[1])
+
+        for (l1, l2, dist) in to_eval:
+
             dist = ftuv.magnitude(i1 - i2)
             if dist > 35:
                 continue
@@ -1681,13 +1699,7 @@ class LoopLoopEnergy(EnergyFunction):
         if num == 0:
             return 0
 
-        '''
-        for k in contribs.keys():
-            energy += max(contribs[k])
-            self.interaction_energies[k] += max(contribs[k])
-        '''
         return -energy
-
 
 class InteractionProbEnergy(EnergyFunction):
     def __init__(self):
