@@ -28,7 +28,7 @@ def density_visit_dir(rmsds, dirname, names):
 
                 # keep track of the energy and rmsd of 
                 # the sampled structures
-                rmsds[pdb_name] += [(float(parts[4]), float(parts[5]))]
+                rmsds[pdb_name] += [(float(parts[4]), float(parts[5]), int(parts[3]))]
 
 def visit_dir(rmsds, dirname, names):
     if 'log.txt' not in names:
@@ -45,14 +45,15 @@ def visit_dir(rmsds, dirname, names):
         line = f.readlines()[-1]
 
         if line.find("native_energy") == 0:
-            m = re.search('\[(.*) (.*)\].*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)[ ]\|', line) 
+            m = re.search('\[(.*) (.*)\].*([0-9]+).*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)[ ]\|', line) 
             m1 = re.search('\[(.*) (.*)\].*extreme_rmsds:[ ]+(.*)[ ]+(.*)', line) 
 
             # group(1) = pdb id
             # group(2) = length in nucleotides
-            # group(3) = energy
-            # group(4) = rmsd
-            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(3)), float(m.group(5)), float(m.group(4)), filename, trial_id, float(m1.group(3)), float(m1.group(4)))]
+            # group(3) = iteration
+            # group(4) = energy
+            # group(5) = rmsd
+            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(4)), float(m.group(6)), float(m.group(5)), filename, trial_id, float(m1.group(3)), float(m1.group(4)), int(m.group(3)))]
 
 def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
     keys = rmsds.keys()
@@ -98,13 +99,13 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
     if not compact and not minimal:
         print "average: %.2f median %.2f avg_ratio: %.2f avg_best_rmsd: %.2f avg_worst_rmsd: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)), np.mean(np.array(best_rmsds)), np.mean(np.array(worst_rmsds)))
 
-def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
+def summarize_rmsds_by_density(all_rmsds, plot=False):
     if plot:
         import matplotlib.pyplot as plt
         plt.ioff()
 
     counter = 0
-    num_figs = len(rmsds.keys())
+    num_figs = len(all_rmsds[0].keys())
     rows = 3
     cols = int(m.ceil(num_figs / float(rows)))
     densest_rmsds = c.defaultdict(list)
@@ -123,73 +124,47 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
         plot_nums =  np.array(plot_nums.T).reshape((rows * cols * 2,))
         plot_nums
 
-    for pdb_name in rmsds.keys():
-        energy_rmsds = np.array(rmsds[pdb_name])
-        max_energy = 5.
-        low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < max_energy]
-        xs = None
+    for rmsds in all_rmsds:
+        counter = 0
+        for pdb_name in sorted(rmsds.keys()):
+            energy_rmsds = np.array(rmsds[pdb_name])
+            max_energy = 5.
+            low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < max_energy]
+            xs = None
 
-        if random_rmsds != None and pdb_name in random_rmsds.keys():
-            rr = np.array(random_rmsds[pdb_name])
-            low_random_rmsds = rr[rr[:,0] < 30]
-
-            if len(low_random_rmsds[:,1]) < 5:
-                # this can occur if we've sampled a lot of high energy
-                # structures
-                #
-                # Just ignore it and move onto the next structure
+            try:
+                if xs == None:
+                    xs = np.linspace(0., max(low_energy_rmsds[:,1]), num=200)
+                kde = ss.gaussian_kde(low_energy_rmsds[:,1])
+            except ValueError as ve:
+                # Usually happens when there aren't enough low energies
+                # to create a kde
                 continue
-            xs = np.linspace(0., max(low_random_rmsds[:,1]), num=200)
 
+            kxs = kde(xs)
 
-        try:
-            if xs == None:
-                xs = np.linspace(0., max(low_energy_rmsds[:,1]), num=200)
-            kde = ss.gaussian_kde(low_energy_rmsds[:,1])
-        except ValueError as ve:
-            # Usually happens when there aren't enough low energies
-            # to create a kde
-            continue
+            if plot:
+                row = counter / 3
+                col = counter - 3 * (counter / 3)
 
-        kxs = kde(xs)
+                #print "row:", row, "col:", col
 
-        if random_rmsds != None:
-            random_kde = ss.gaussian_kde(low_random_rmsds[:,1])
-            rand_kxs = random_kde(xs)
+                ax_plot = fig.add_subplot(rows*2, cols, plot_nums[counter])
+                ax_hist = fig.add_subplot(rows*2, cols, plot_nums[counter+1])
 
-        if plot:
+                ax_plot.set_title(pdb_name)
+                ax_plot.set_xlim(min(xs), max(xs))
 
+                ax_hist.set_title(pdb_name)
 
-            row = counter / 3
-            col = counter - 3 * (counter / 3)
+                ax_plot.plot(low_energy_rmsds[:,1], low_energy_rmsds[:,0], 'o', alpha=0.2)
+                ax_hist.set_xlim(min(xs), max(xs))
+                ys = kde(xs)
+                ax_hist.fill(xs, list(kde(xs)[:-1]) + [0.], alpha=0.4)
 
-            #print "row:", row, "col:", col
-
-            ax_plot = fig.add_subplot(rows*2, cols, plot_nums[counter])
-            ax_hist = fig.add_subplot(rows*2, cols, plot_nums[counter+1])
-
-            ax_plot.set_title(pdb_name)
-            ax_plot.set_xlim(min(xs), max(xs))
-
-            ax_hist.set_title(pdb_name)
-
-            ax_plot.plot(low_energy_rmsds[:,1], low_energy_rmsds[:,0], 'bo', alpha=0.2)
-            ax_hist.set_xlim(min(xs), max(xs))
-            ax_hist.plot(xs, kde(xs), 'b')
-
-            if random_rmsds != None:
-                ax_hist.plot(xs, random_kde(xs), 'r')
-                #ax_plot.plot(low_random_rmsds[:,1], low_random_rmsds[:,0], 'ro')
-
-        counter += 2
-
-        if random_rmsds != None:
-            print pdb_name, xs[kxs == max(kxs)], xs[rand_kxs == max(rand_kxs)]
-            densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0], xs[rand_kxs == max(rand_kxs)][0]]
-        else:
-            print pdb_name, xs[kxs == max(kxs)][0]
+            counter += 2
             densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0]]
-
+            print pdb_name, xs[kxs == max(kxs)][0], np.average(xs, weights=kxs)
 
     if plot:
         fig.tight_layout()
@@ -206,6 +181,30 @@ def summarize_rmsds_by_density(rmsds, plot=False, random_rmsds = None):
         print "---------------"
         print "avg:", s / total
 
+def calc_stepwise_divergence(all_rmsds):
+    for rmsds in all_rmsds:
+        for pdb_name in sorted(rmsds.keys()):
+            energy_rmsds = np.array(rmsds[pdb_name])
+
+            kde = ss.gaussian_kde(energy_rmsds[:,1])
+            xs = np.linspace(0., max(energy_rmsds[:,1]), num=200)
+            ys = kde(xs)
+
+            max_iterations = int(max(energy_rmsds[:,2]))
+            cud.pv('max_iterations')
+
+            for i in range(100, max_iterations, 100):
+                curr_energy_rmsds = energy_rmsds[energy_rmsds[:,2] < i]
+                new_kde = ss.gaussian_kde(curr_energy_rmsds[:,2])
+
+                ys_new = new_kde(xs)
+                q = ys
+                p = ys_new
+                div = p / q
+                ldiv = np.log(div)
+                kd = np.dot(ys, ldiv)
+
+                print i, kd
 
 def main():
     usage = './summarize_gibbs_output.py base_dir'
@@ -217,6 +216,7 @@ def main():
     parser.add_option('-p', '--plot', dest='plot', default=False, action='store_true', help='Plot the densities.')
     parser.add_option('-r', '--random', dest='random', default=None, help='Location of the random energies')
     parser.add_option('-m', '--minimal', dest='minimal', default=False, action='store_true', help='Display a minimal output consisting of the pdb name and the rmsd')
+    parser.add_option('-s', '--steps', dest='steps', default=False, action='store_true', help='Display the KL divergence between the true distribution and the sampled one at each step of the simulation')
 
     (options, args) = parser.parse_args()
 
@@ -233,13 +233,20 @@ def main():
     # summarize by the structure with the greatest density
     rmsds = c.defaultdict(list)
     if options.density:
-        random_rmsds = None
-        if options.random != None:
-            random_rmsds = c.defaultdict(list)
-            op.walk(options.random, density_visit_dir, random_rmsds)
+        all_rmsds = []
 
-        op.walk(args[0], density_visit_dir, rmsds)
-        summarize_rmsds_by_density(rmsds, options.plot, random_rmsds=random_rmsds)
+        for arg in args:
+            these_rmsds = c.defaultdict(list)
+            op.walk(arg, density_visit_dir, these_rmsds)
+
+            all_rmsds += [these_rmsds]
+
+        if options.steps:
+            calc_stepwise_divergence(all_rmsds)
+        else:
+            summarize_rmsds_by_density(all_rmsds, options.plot)
+
+
 
 if __name__ == '__main__':
     main()

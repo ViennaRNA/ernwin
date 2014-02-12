@@ -22,6 +22,7 @@ import os.path as op
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.models as cbm
 import fess.builder.config as cbc
 import fess.utilities.debug as cud
@@ -50,12 +51,16 @@ class EnergyFunction(object):
         self.interaction_energies = None
 
         self.bad_bulges = []
+        self.measures = []
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         '''
         The base energy function simply returns a random number.
         '''
         return rand.random()
+
+    def resample_background_kde(self, struct):
+        pass
 
     def interaction_energy_iter(self, bg, background):
         sm = cbm.SpatialModel(bg)
@@ -118,6 +123,79 @@ class EnergyFunction(object):
 
         self.calc_bg_parameters(selected_structs)
 
+    def dump_measures(self, base_directory):
+        '''
+        Dump all of the coarse grain measures collected so far
+        to a file.
+        '''
+        output_file = op.join(base_directory, self.__class__.__name__.lower() + ".measures")
+
+        with open(output_file, 'w') as f:
+            f.write(" ".join(map("{:.2f}".format,self.measures)))
+            f.write("\n")
+
+class CoarseGrainEnergy(EnergyFunction):
+    def __init__(self):
+        super(CoarseGrainEnergy, self).__init__()
+
+        self.real_kdes = dict()
+        self.sampled_kdes = dict()
+
+        self.flocs = []
+        self.fscales = []
+        self.vals = []
+        self.dists = []
+
+        self.measures = []
+
+        pass
+
+    def resample_background_kde(self, struct):
+        values = self.measures
+
+        if len(values) > 100:
+            self.sampled_kdes[struct.seq_length] = self.get_distribution_from_values(values)
+
+    def get_distribution_from_values(self, values):
+        '''
+        Return a probability distribution from the given values.
+
+        @param values: The values to fit a distribution to.
+        @return: A probability distribution fit to the values.
+        '''
+        floc = 0.
+        fscale =  1.5 * max(values)
+
+        f = ss.beta.fit(values, floc=floc, fscale=fscale)
+        k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+
+        self.flocs += [floc]
+        self.fscales += [fscale]
+        self.vals += [values]
+        self.dists += [k]
+
+        return k
+
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        '''
+        A generic function which simply evaluates the energy based on the
+        previously calculated probability distributions.
+        '''
+        cg = sm.bg
+
+        if cg.seq_length not in self.real_kdes.keys():
+            (self.real_kdes[cg.seq_length], x) = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
+            (self.sampled_kdes[cg.seq_length], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
+
+        kr = self.real_kdes[cg.seq_length]
+        ks = self.sampled_kdes[cg.seq_length]
+
+        m = self.get_cg_measure(sm)
+        self.measures += [m]
+
+        energy = (np.log(kr(m) + 0.0001 * ks(m)) - np.log(ks(m)))
+        return -energy
 
 class RandomEnergy(EnergyFunction):
     '''
@@ -126,6 +204,7 @@ class RandomEnergy(EnergyFunction):
     def __init__(self):
         super(RandomEnergy, self).__init__()
 
+    
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         return rand.uniform(-5, 3)
 
@@ -183,6 +262,18 @@ class CombinedEnergy:
                                 energy.__class__.__name__ + ".energy")
         print "saving filename:", filename
         pickle.dump(energy, open(filename, 'w'))
+
+    def resample_background_kde(self, struct):
+        for e in it.chain(self.energies,
+                          self.uncalibrated_energies):
+            e.resample_background_kde(struct)
+
+        pass
+
+    def dump_measures(self, base_directory):
+        for e in it.chain(self.energies,
+                          self.uncalibrated_energies):
+            e.dump_measures(base_directory)
 
     def calibrate(self, sm, iterations=40,
                   bg_energy=None,
@@ -1283,21 +1374,23 @@ def merge(times):
 
     yield tuple(saved)
 
-class CylinderIntersectionEnergy(EnergyFunction):
+class CylinderIntersectionEnergy(CoarseGrainEnergy):
     def __init__(self):
         super(CylinderIntersectionEnergy, self).__init__()
         self.max_dist = 30.
         self.min_ratio = 0.
         self.max_ratio = 30.
 
-        self.real_stats_fn = 'fess/stats/cylinder_intersections_1jj2.csv'
-        self.sampled_stats_fn = 'fess/stats/cylinder_intersections_1jj2_rog.csv'
+        self.real_stats_fn = 'fess/stats/cylinder_intersections_native.csv'
+        #self.sampled_stats_fn = 'fess/stats/cylinder_intersections_1jj2_rog.csv'
+        self.sampled_stats_fn = 'fess/stats/cylinder_intersections_loop_rog.csv'
 
         self.real_data = None
         self.fake_data = None
 
         self.real_kdes = dict()
         self.sampled_kdes = dict()
+
 
     def load_data(self, filename):
         import pandas as pa
@@ -1328,13 +1421,7 @@ class CylinderIntersectionEnergy(EnergyFunction):
         all_lengths = self.get_cylinder_intersections_from_file(filename, length)
         lengths = map(sum, all_lengths)
 
-        floc = 0.
-        fscale =  2 * max(lengths)
-
-        f = ss.beta.fit(lengths, floc=floc, fscale=fscale)
-        k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
-
-        return k
+        return (self.get_distribution_from_values(lengths), lengths)
 
     def get_cylinder_intersections_from_file(self, filename, length):
         '''
@@ -1367,11 +1454,12 @@ class CylinderIntersectionEnergy(EnergyFunction):
         mol_sizes = cls.keys()
         #cud.pv('len(mol_sizes)')
 
+        #cud.pv('length, mol_sizes')
+
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
-        mol_sizes = mol_sizes[mol_sizes < length * 1.2]
+        mol_sizes = mol_sizes[mol_sizes < length * 2.0]
 
-        #cud.pv('mol_sizes')
         all_lengths = []
         for l in mol_sizes:
             all_lengths += cls[l]
@@ -1447,34 +1535,28 @@ class CylinderIntersectionEnergy(EnergyFunction):
 
         return in_cyl_fractions
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
-        cg = sm.bg
+    def get_cg_measure(self, sm):
+        '''
+        Calculate the coarse grain measure that is being described by this
+        energy function.
 
-        if cg.seq_length not in self.real_kdes.keys():
-            self.real_kdes[cg.seq_length] = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
-            self.sampled_kdes[cg.seq_length] = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
-
+        @param sm: The SpatialModel for which to calculate this measure.
+        @return: A single floating point number describing this measure.
+        '''
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
-        energy = np.array([0.])
         total_length = 0
 
         total_cylinder_intersections = sum(cyl_fractions.values())
 
-        kr = self.real_kdes[cg.seq_length]
-        ks = self.sampled_kdes[cg.seq_length]
-
-        energy = (my_log(kr(total_cylinder_intersections) + 
-                         0.0001 * ks(total_cylinder_intersections)) - 
-                  my_log(ks(total_cylinder_intersections)))
-            
-        return -energy
+        return total_cylinder_intersections
 
 class CheatingEnergy(EnergyFunction):
     def __init__(self, real_bg):
+        super(CheatingEnergy, self).__init__()
         self.real_bg = copy.deepcopy(real_bg)
         self.real_residues = cgg.bg_virtual_residues(self.real_bg)
 
-    def eval_energy(self, sm, background=True):
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
@@ -2489,7 +2571,7 @@ class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
 
         return -rog
     
-class RadiusOfGyrationEnergy(EnergyFunction):
+class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def __init__(self, dist_type="kde", adjustment=1.):
         super(RadiusOfGyrationEnergy, self).__init__()
         self.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration_sampled.csv'
@@ -2511,9 +2593,16 @@ class RadiusOfGyrationEnergy(EnergyFunction):
         self.adjustment = adjustment # the adjustment is used to enlarge or shrink
                                      # a particular distribution
 
+    def get_cg_measure(self, sm):
+        (length, rog) = length_and_rog(sm.bg)
+
+        self.measures += [rog]
+        return rog
+
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         cg = sm.bg
-        (length, rog) = length_and_rog(cg)
+        length = cg.seq_length
+        #(length, rog) = length_and_rog(cg)
         percent = 1.0
         #import traceback as tb
         #tb.print_stack()
@@ -2534,7 +2623,6 @@ class RadiusOfGyrationEnergy(EnergyFunction):
 
                 f = ss.beta.fit(self.adjustment * sampled_dists, floc=floc, fscale=fscale)
                 ks = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
-                cud.pv('f')
         
                 f1 = ss.beta.fit(self.adjustment * real_dists, floc=floc, fscale=fscale)
                 kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
@@ -2558,6 +2646,7 @@ class RadiusOfGyrationEnergy(EnergyFunction):
             self.real_kdes[length] = kr
             self.sampled_kdes[length] = ks
 
+        rog = self.get_cg_measure(sm)
         #cud.pv('sm.bg.seq_length, rog')
         #cud.pv('self.real_kdes[length](rog)')
         #cud.pv('self.sampled_kdes[length](rog)')
@@ -2569,15 +2658,46 @@ class RadiusOfGyrationEnergy(EnergyFunction):
 
         return -energy
 
-class CoaxialityEnergy(EnergyFunction):
+class EncompassingCylinderEnergy(CoarseGrainEnergy):
+    def __init__(self):
+        super(EncompassingCylinderEnergy, self).__init__()
+
+        self.real_stats_fn = 'fess/stats/encompassing_cylinder_lengths.csv'
+        self.sampled_stats_fn = 'fess/stats/encompassing_cylinder_lengths_rog.csv'
+
+    def get_distribution_from_file(self, filename, length):
+        '''
+        Return a probability distribution of this measure
+        molecule with a particular length.
+
+        @param filename: The filename that contains all of the lengths.
+        @param length: The length of the molecule.
+        @return: A probability distribution describing the lengths
+        '''
+        #cud.pv('all_lengths')
+        data = np.loadtxt(open(filename, 'rb'), delimiter=' ', skiprows=0)
+
+        return (self.get_distribution_from_values(data[:,1]), data)
+
+    def get_cg_measure(self, sm):
+        '''
+        Calculate the average encompassing cylinder length.
+        '''
+
+        ctos = ftug.get_encompassing_cylinders(sm.bg, radius=7.5)
+        cylinder_lengths = []
+
+        for stems in ctos.values():
+            cylinder_lengths += [sum([sm.bg.element_length(s) for s in stems])]
+
+        return np.mean(cylinder_lengths)
+
+class CoaxialityEnergy(CoarseGrainEnergy):
     def __init__(self):
         super(CoaxialityEnergy, self).__init__()
 
         self.real_stats_fn = 'fess/stats/colinearities_1jj2.csv'
         self.sampled_stats_fn = 'fess/stats/colinearities_1jj2_cylinder_intersection.csv'
-
-        self.real_kdes = dict()
-        self.sampled_kdes = dict()
 
     def get_lengths_from_file_per_struct(self, filename, length):
         '''
@@ -2639,7 +2759,6 @@ class CoaxialityEnergy(EnergyFunction):
         #all_lengths = [i for s in all_lengths for i in s]
         all_lengths = map(sum, all_lengths)
         #cud.pv('all_lengths')
-        cud.pv('max(all_lengths)')
 
         return all_lengths
 
@@ -2656,12 +2775,7 @@ class CoaxialityEnergy(EnergyFunction):
         #cud.pv('all_lengths')
         lengths = self.get_lengths_from_file(filename, length)
 
-        floc = 0.
-        fscale = 2 * max(lengths)
-
-        f = ss.beta.fit(lengths, floc=floc, fscale=fscale)
-        k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
-        return k
+        return (self.get_distribution_from_values(lengths), lengths)
 
     def linearable(self, bg):
         '''
@@ -2693,9 +2807,11 @@ class CoaxialityEnergy(EnergyFunction):
             
         for e1, e2 in it.permutations(self.linearable(bg), 2):
             
+            '''
             if e1 in bg.edges[e2]:
                 # neighbors should be taken care of by the proposal distribution
                 continue
+            '''
             
             c1 = bg.coords[e1]
             c2 = bg.coords[e2]
@@ -2738,37 +2854,26 @@ class CoaxialityEnergy(EnergyFunction):
 
         return [(k, sum([bg.stem_length(j) for j in i]) + bg.stem_length(k)) for (k,i) in al.items()] 
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def get_cg_measure(self, sm):
+        '''
+        Calculate the coarse grain measure that is being described by this
+        energy function.
+
+        @param sm: The SpatialModel for which to calculate this measure.
+        @return: A single floating point number describing this measure.
+        '''
         cg = sm.bg
-
-        if cg.seq_length not in self.real_kdes.keys():
-            self.real_kdes[cg.seq_length] = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
-            self.sampled_kdes[cg.seq_length] = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
-
-        kr = self.real_kdes[cg.seq_length]
-        ks = self.sampled_kdes[cg.seq_length]
-
         lengths = self.create_colinearity_lengths(cg)
-        
         length = sum([l[1] for l in lengths])
-        energy = (my_log(kr(length) + 0.0001 * ks(length)) - my_log(ks(length)))
 
-
-        '''
-        summed_stem_length = 0
-        for (s,length) in lengths:
-            #energy += my_log(kr(length)) - my_log(ks(length))
-            energy += cg.stem_length(s) * (my_log(kr(length)) - my_log(ks(length)))
-            summed_stem_length += cg.stem_length(s)
-        #cud.pv('energy')
-        energy /= summed_stem_length
-        '''
-
-        return -energy
+        return length
 
 class PairwiseCoaxialityEnergy(CoaxialityEnergy):
     def __init__(self):
         super(PairwiseCoaxialityEnergy, self).__init__()
+
+        self.real_stats_fn = 'fess/stats/pairwise_colinearities_1jj2.csv'
+        self.sampled_stats_fn = 'fess/stats/pairwise_colinearities_1jj2_rog.csv'
 
     def get_colinear_nts(self, cg):
         '''
@@ -2832,3 +2937,4 @@ class PairwiseCoaxialityEnergy(CoaxialityEnergy):
         #cud.pv('all_lengths')
 
         return all_lengths
+

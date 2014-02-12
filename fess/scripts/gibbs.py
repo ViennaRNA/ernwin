@@ -75,6 +75,9 @@ def bgs_from_fasta(fasta_file):
 def predict(bg, energies_to_sample, options):
     sm = fbm.SpatialModel(bg)
 
+    if options.cheating:
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CheatingEnergy(sm.bg)])]
+
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
     if options.output_file == None or options.output_file == sys.stdout:
@@ -168,12 +171,18 @@ def main():
     parser.add_option('', '--stem-stem0', dest='stem_stem0', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--stem-stem2', dest='stem_stem2', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('', '--stem-stem02', dest='stem_stem02', default=False, action='store_true', help='Use the stem-stem orientation energy')
-    parser.add_option('', '--radius-of-gyration', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
-    parser.add_option('', '--cylinder-loop-radius-of-gyration', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
-    parser.add_option('', '--coaxiality-cylinder-loop-radius-of-gyration', dest='coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the coaxiality, loop, and radius of gyration energy')
-    parser.add_option('', '--loop-radius-of-gyration', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
-    parser.add_option('', '--stem-loop-radius-of-gyration', dest='stem_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
-    parser.add_option('', '--simple-radius-of-gyration', dest='simple_radius_of_gyration', default=False, action='store_true', help='Use the simple radius of gyration energy')
+    parser.add_option('', '--rog', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--encompassing-cylinder-loop-rog', dest='encompassing_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
+    parser.add_option('', '--encompassing-cylinder-rog', dest='encompassing_cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
+    parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
+    parser.add_option('', '--cylinder-loop-rog', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--coaxiality-cylinder-loop-rog', dest='coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the coaxiality, loop, and radius of gyration energy')
+    parser.add_option('', '--pairwise-coaxiality-cylinder-loop-rog', dest='pairwise_coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the pairwise coaxiality, loop, and radius of gyration energy')
+    parser.add_option('', '--loop-rog', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--random-energy', dest='random_energy', default=False, action='store_true', help='Use a random energy')
+    parser.add_option('', '--cylinder-loop', dest='cylinder_loop', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--stem-loop-rog', dest='stem_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--simple-rog', dest='simple_radius_of_gyration', default=False, action='store_true', help='Use the simple radius of gyration energy')
     parser.add_option('', '--radius-of-gyration1', dest='radius_of_gyration1', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--stem-stem012', dest='stem_stem012', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('-y', '--cylinder-intersection', dest='cyl_intersect', default=False, action='store_true', help='Use the cylinder-intersection energy')
@@ -242,8 +251,6 @@ def main():
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy()])]
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
-    if options.cheating:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CheatingEnergy(sm.bg)])]
     if options.cyl_intersect:
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CylinderIntersectionEnergy()])]
     if options.stem_stem:
@@ -260,10 +267,24 @@ def main():
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
 
+    if options.random_energy:
+        re = cbe.RandomEnergy()
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), re])]
+
     if options.radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+
+    if options.pairwise_coaxiality_cylinder_loop_radius_of_gyration:
+        print >>sys.stderr, "Using the coaxiality energy."
+        cae = cbe.PairwiseCoaxialityEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        lle = cbe.LoopLoopEnergy()
+        rog = cbe.RadiusOfGyrationEnergy()
+        rog.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie, cae])]
+
 
     if options.coaxiality_cylinder_loop_radius_of_gyration:
         print >>sys.stderr, "Using the coaxiality energy."
@@ -281,6 +302,38 @@ def main():
         rog.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie])]
 
+    if options.cylinder_loop:
+        lle = cbe.LoopLoopEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cie, lle])]
+
+    if options.encompassing_cylinder_loop_radius_of_gyration:
+        ece = cbe.EncompassingCylinderEnergy()
+        sse = cbe.RadiusOfGyrationEnergy()
+        lle = cbe.LoopLoopEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cie, ece, lle])]
+
+    if options.encompassing_cylinder_radius_of_gyration:
+        ece = cbe.EncompassingCylinderEnergy()
+        sse = cbe.RadiusOfGyrationEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cie, ece])]
+
+    if options.cylinder_radius_of_gyration:
+        sse = cbe.RadiusOfGyrationEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.CylinderIntersectionEnergy()])]
+
+    if options.loop_radius_of_gyration:
+        sse = cbe.RadiusOfGyrationEnergy()
+        sse.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy()])]
+
     if options.stem_loop_radius_of_gyration:
         sse1 = cbe.StemStemOrientationEnergy([2])
         sse1.max_dist = 40
@@ -292,10 +345,6 @@ def main():
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy(), sse1])]
 
-    if options.loop_radius_of_gyration:
-        sse = cbe.RadiusOfGyrationEnergy()
-        sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy()])]
 
     if options.simple_radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy(dist_type="beta", adjustment=0.6)

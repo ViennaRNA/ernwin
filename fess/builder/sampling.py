@@ -233,7 +233,8 @@ class SamplingStatistics:
         energy = energy_function.eval_energy(sm, background=True)
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
-            cud.pv('self.sampled_energy, energy')
+            pass
+            #cud.pv('self.sampled_energy, energy')
 
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
@@ -297,6 +298,8 @@ class SamplingStatistics:
             n = len(self.energy_rmsd_structs)
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
+        self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+        self.energy_function.resample_background_kde(sorted_energies[0][2])
 
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
@@ -336,6 +339,7 @@ class MCMCSampler:
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
+        self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
         #self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
