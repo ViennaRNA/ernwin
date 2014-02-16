@@ -239,7 +239,8 @@ class SamplingStatistics:
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
             centers_new = cgg.bg_virtual_residues(sm.bg)
-            r = cbr.centered_rmsd(self.centers_orig, centers_new)
+            #r = cbr.centered_rmsd(self.centers_orig, centers_new)
+            r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
 
@@ -332,16 +333,21 @@ class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats):
+    def __init__(self, sm, energy_function, stats, stats_type='discrete'):
         '''
         param @sm: SpatialModel that will be used for sampling.
         '''
+        if stats_type == 'continuous':
+            self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        elif stats_type == 'random':
+            self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
+        else:
+            self.cont_stats = None
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
         self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
-        #self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
 
         print >>sys.stderr, "new MCMCSampler"
         sm.sample_stats()
@@ -426,15 +432,18 @@ class MCMCSampler:
         self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         try:
-            possible_angles = cbs.get_angle_stats()[(dims[0], dims[1], ang_type1)]
-            pa = random.choice(possible_angles)
+            if self.cont_stats:
+                pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
+            else:
+                possible_angles = cbs.get_angle_stats()[(dims[0], dims[1], ang_type1)]
+                pa = random.choice(possible_angles)
         except IndexError:
             (dist, size1, size2, typ1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
-            possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
-            pa = random.choice(possible_angles)
-
-
-        #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
+            if self.cont_stats:
+                pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
+            else:
+                possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
+                pa = random.choice(possible_angles)
 
         #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
@@ -474,8 +483,6 @@ class MCMCSampler:
         possible_stems = cbs.get_stem_stats()[length]
 
         pa = random.choice(possible_stems)
-
-        #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
 
         #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_stem = self.sm.stem_defs[stem]
@@ -525,9 +532,8 @@ class MCMCSampler:
         # What are the potential angle statistics for it
         possible_loops = cbs.get_loop_stats()[length]
 
-        pa = random.choice(possible_loops)
 
-        #pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
+        pa = random.choice(possible_loops)
 
         #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_loop = self.sm.loop_defs[loop]

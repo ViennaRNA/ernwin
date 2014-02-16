@@ -197,6 +197,17 @@ class CoarseGrainEnergy(EnergyFunction):
         energy = (np.log(kr(m) + 0.0001 * ks(m)) - np.log(ks(m)))
         return -energy
 
+class ConstantEnergy(EnergyFunction):
+    '''
+    An energy function that always just returns a constant value (0.).
+    '''
+    def __init__(self):
+        super(ConstantEnergy, self).__init__()
+
+    
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        return 0.
+
 class RandomEnergy(EnergyFunction):
     '''
     An energy function that always just returns a random value.
@@ -1418,10 +1429,15 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         @return: A probability distribution describing the combined cylinder
                  intersection length.
         '''
+        lengths = self.get_measures_from_file(filename, length)
+
+        return (self.get_distribution_from_values(lengths), lengths)
+
+    def get_measures_from_file(self, filename, length):
         all_lengths = self.get_cylinder_intersections_from_file(filename, length)
         lengths = map(sum, all_lengths)
 
-        return (self.get_distribution_from_values(lengths), lengths)
+        return lengths
 
     def get_cylinder_intersections_from_file(self, filename, length):
         '''
@@ -1458,7 +1474,7 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
 
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
-        mol_sizes = mol_sizes[mol_sizes < length * 2.0]
+        mol_sizes = mol_sizes[mol_sizes < length * 1.6]
 
         all_lengths = []
         for l in mol_sizes:

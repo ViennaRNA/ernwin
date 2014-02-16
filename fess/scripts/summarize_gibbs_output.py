@@ -106,7 +106,7 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
 
     counter = 0
     num_figs = len(all_rmsds[0].keys())
-    rows = 3
+    rows = 4
     cols = int(m.ceil(num_figs / float(rows)))
     densest_rmsds = c.defaultdict(list)
 
@@ -114,21 +114,23 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
         fig = plt.figure(figsize=(20,16))
 
         # Adjust the numbering so that the histograms are under the plots
-        plot_nums =[i for i in range(1, rows * cols * 2 + 1)]
+        plot_nums =[i for i in range(1, rows * cols + 1)]
         #print "plot_nums:", plot_nums, len(plot_nums)
         plot_nums = np.array(plot_nums)
         #print rows, cols
-        plot_nums = plot_nums.reshape((rows * 2, cols))
+        plot_nums = plot_nums.reshape((rows, cols))
         #print plot_nums
         #print plot_nums.T
-        plot_nums =  np.array(plot_nums.T).reshape((rows * cols * 2,))
+        plot_nums =  np.array(plot_nums.T).reshape((rows * cols,))
         plot_nums
 
-    for rmsds in all_rmsds:
+    colors = ['#d7191c','#fdae61','#ffffbf','#abdda4', '#2b83ba']
+
+    for (current_color, rmsds) in zip(colors, all_rmsds):
         counter = 0
         for pdb_name in sorted(rmsds.keys()):
             energy_rmsds = np.array(rmsds[pdb_name])
-            max_energy = 5.
+            max_energy = 10000000
             low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < max_energy]
             xs = None
 
@@ -144,25 +146,25 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
             kxs = kde(xs)
 
             if plot:
-                row = counter / 3
-                col = counter - 3 * (counter / 3)
+                row = counter / rows
+                col = counter - rows * (counter / rows)
 
                 #print "row:", row, "col:", col
 
-                ax_plot = fig.add_subplot(rows*2, cols, plot_nums[counter])
-                ax_hist = fig.add_subplot(rows*2, cols, plot_nums[counter+1])
+                #ax_plot = fig.add_subplot(rows, cols, plot_nums[counter])
+                ax_hist = fig.add_subplot(rows, cols, plot_nums[counter])
 
-                ax_plot.set_title(pdb_name)
-                ax_plot.set_xlim(min(xs), max(xs))
+                #ax_plot.set_title(pdb_name)
+                #ax_plot.set_xlim(min(xs), max(xs))
 
                 ax_hist.set_title(pdb_name)
 
-                ax_plot.plot(low_energy_rmsds[:,1], low_energy_rmsds[:,0], 'o', alpha=0.2)
+                #ax_plot.plot(low_energy_rmsds[:,1], low_energy_rmsds[:,0], 'o', alpha=0.2)
                 ax_hist.set_xlim(min(xs), max(xs))
                 ys = kde(xs)
-                ax_hist.fill(xs, list(kde(xs)[:-1]) + [0.], alpha=0.4)
+                ax_hist.plot(xs, list(kde(xs)[:-1]) + [0.], alpha=0.5, color=current_color, linewidth=3.)
 
-            counter += 2
+            counter += 1
             densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0]]
             print pdb_name, xs[kxs == max(kxs)][0], np.average(xs, weights=kxs)
 

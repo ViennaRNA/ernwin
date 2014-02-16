@@ -129,7 +129,7 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
 
-            samplers += [cbs.MCMCSampler(sm, energy, stat)]
+            samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type)]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = cbe.StemVirtualResClashEnergy()
@@ -179,6 +179,7 @@ def main():
     parser.add_option('', '--coaxiality-cylinder-loop-rog', dest='coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the coaxiality, loop, and radius of gyration energy')
     parser.add_option('', '--pairwise-coaxiality-cylinder-loop-rog', dest='pairwise_coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the pairwise coaxiality, loop, and radius of gyration energy')
     parser.add_option('', '--loop-rog', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--constant-energy', dest='constant_energy', default=False, action='store_true', help='Use a constant energy')
     parser.add_option('', '--random-energy', dest='random_energy', default=False, action='store_true', help='Use a random energy')
     parser.add_option('', '--cylinder-loop', dest='cylinder_loop', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--stem-loop-rog', dest='stem_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
@@ -208,6 +209,7 @@ def main():
     parser.add_option('', '--stats-file', dest='stats_file', 
                       default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
     parser.add_option('', '--output-dir-suffix', dest='output_dir_suffix', default=None, help="Specify an addition to the output directory", type='str')
+    parser.add_option('', '--stats-type', dest='stats_type', default=None, help="Use these types of statistics.", type='str')
 
     parser.add_option('', '--single-sampler', dest='single_sampler', 
                       default=False, help='Use only a single sampler', action='store_true')
@@ -266,6 +268,10 @@ def main():
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+
+    if options.constant_energy:
+        ce = cbe.ConstantEnergy()
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), ce])]
 
     if options.random_energy:
         re = cbe.RandomEnergy()
