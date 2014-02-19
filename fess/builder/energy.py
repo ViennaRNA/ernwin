@@ -25,7 +25,7 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.models as cbm
 import fess.builder.config as cbc
-import fess.utilities.debug as cud
+import forgi.utilities.debug as cud
 import forgi.threedee.utilities.rmsd as cbr
 
 import scipy.stats as stats
@@ -1667,6 +1667,8 @@ class LoopLoopEnergy(EnergyFunction):
 
         p_i_given_l = self.probs_by_length(tr)
         self.p_i_given_l1_l2 = self.get_p_i_given_l1_l2(p_i_given_l)
+
+        print self.p_i_given_l1_l2[(2,2)]
 
         # data for interactions
 

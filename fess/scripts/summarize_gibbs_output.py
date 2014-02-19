@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import math
 import sys, re
 import os.path as op
 import collections as c
@@ -25,10 +26,11 @@ def density_visit_dir(rmsds, dirname, names):
                 parts =  line.split()
 
                 pdb_name = parts[1].strip('][')
+                pdb_size = int(parts[2].strip(']:'))
 
                 # keep track of the energy and rmsd of 
                 # the sampled structures
-                rmsds[pdb_name] += [(float(parts[4]), float(parts[5]), int(parts[3]))]
+                rmsds[(pdb_name, pdb_size)] += [(float(parts[4]), float(parts[5]), int(parts[3]))]
 
 def visit_dir(rmsds, dirname, names):
     if 'log.txt' not in names:
@@ -64,6 +66,7 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
     ratios = []
     best_rmsds = []
     worst_rmsds = []
+
 
     for key1,key2 in keys:
         # key1 is the length of the sequence and key2 is the pdb name
@@ -106,12 +109,12 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
 
     counter = 0
     num_figs = len(all_rmsds[0].keys())
-    rows = 4
+    rows = int(math.floor(math.sqrt(num_figs)))
     cols = int(m.ceil(num_figs / float(rows)))
     densest_rmsds = c.defaultdict(list)
 
     if plot:
-        fig = plt.figure(figsize=(20,16))
+        fig = plt.figure(figsize=(rows*5,rows*4))
 
         # Adjust the numbering so that the histograms are under the plots
         plot_nums =[i for i in range(1, rows * cols + 1)]
@@ -122,14 +125,15 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
         #print plot_nums
         #print plot_nums.T
         plot_nums =  np.array(plot_nums.T).reshape((rows * cols,))
-        plot_nums
 
     colors = ['#d7191c','#fdae61','#ffffbf','#abdda4', '#2b83ba']
 
     for (current_color, rmsds) in zip(colors, all_rmsds):
         counter = 0
-        for pdb_name in sorted(rmsds.keys()):
-            energy_rmsds = np.array(rmsds[pdb_name])
+        keys = rmsds.keys()
+        keys.sort(key=lambda x: x[1])
+        for (pdb_name, pdb_size) in keys:
+            energy_rmsds = np.array(rmsds[(pdb_name, pdb_size)])
             max_energy = 10000000
             low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < max_energy]
             xs = None
@@ -166,7 +170,7 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
 
             counter += 1
             densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0]]
-            print pdb_name, xs[kxs == max(kxs)][0], np.average(xs, weights=kxs)
+            print "%s %d %.1f %.1f" % (pdb_name, pdb_size, xs[kxs == max(kxs)][0], np.average(xs, weights=kxs))
 
     if plot:
         fig.tight_layout()
@@ -193,7 +197,6 @@ def calc_stepwise_divergence(all_rmsds):
             ys = kde(xs)
 
             max_iterations = int(max(energy_rmsds[:,2]))
-            cud.pv('max_iterations')
 
             for i in range(100, max_iterations, 100):
                 curr_energy_rmsds = energy_rmsds[energy_rmsds[:,2] < i]
