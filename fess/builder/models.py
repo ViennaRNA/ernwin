@@ -975,7 +975,6 @@ class SpatialModel:
                         else:
                             self.stems[curr_node] = stem
 
-
                         self.stem_to_coords(curr_node)
 
                         if constraint_energy != None and not restart:
@@ -1054,7 +1053,6 @@ class SpatialModel:
 
             if not restart and self.junction_constraint_energy != None:
                 e1 = self.junction_constraint_energy.eval_energy(self)
-
                 if e1 > 0.:
                     #self.bg.to_file('bad2.cg')
                     #print >>sys.stderr, "exiting2", e1

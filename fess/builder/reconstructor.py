@@ -1,21 +1,22 @@
 import multiprocessing as mp
 import warnings
 
+import itertools as it
 import fess.builder.models as models
 import os.path as op
 
-import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.threedee.utilities.pdb as ftup
+import forgi.threedee.utilities.average_atom_positions as ftua
+import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as fud
-import forgi.threedee.utilities.pdb as cup
 
 import fess.builder.ccd as cbc
-import fess.aux.ccd.cytvec as cv
 
 import borgy.builder.rmsd as brmsd
 
 #import borgy.aux.Barnacle as barn
-import fess.aux.CPDB.BarnacleCPDB as barn
+#import fess.aux.CPDB.BarnacleCPDB as barn
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
@@ -172,14 +173,14 @@ def get_flanking_stem_vres_distance(bg, ld):
         (s2b, s2e) = bg.get_sides(connecting_stems[1], ld)
 
         if s1b == 1:
-            (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
+            (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = ftug.virtual_res_3d_pos(bg, connecting_stems[0], bg.stem_length(connecting_stems[0]) - 1)
         else:
-            (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = cgg.virtual_res_3d_pos(bg, connecting_stems[0], 0)
+            (vr1_p, vr1_v, vr1_v_l, vr1_v_r) = ftug.virtual_res_3d_pos(bg, connecting_stems[0], 0)
 
         if s2b == 1:
-            (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
+            (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = ftug.virtual_res_3d_pos(bg, connecting_stems[1], bg.stem_length(connecting_stems[1]) - 1)
         else:
-            (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = cgg.virtual_res_3d_pos(bg, connecting_stems[1], 0)
+            (vr2_p, vr2_v, vr2_v_l, vr2_v_r) = ftug.virtual_res_3d_pos(bg, connecting_stems[1], 0)
 
         dist2 = cuv.vec_distance((vr1_p + 7 * vr1_v), (vr2_p + 7. * vr2_v))
     else:
@@ -600,6 +601,8 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         moving = np.array(moving)
         points = np.array(points)
 
+        import fess.aux.ccd.cytvec as cv
+
         cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
         rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
 
@@ -675,6 +678,8 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
     @return: A Bio.PDB.Chain structure containing the best sampled loop.
     '''
+    import fess.aux.CPDB.BarnacleCPDB as barn
+
     if consider_contacts:
         model = barn.BarnacleCPDB(loop_seq, 1.9)
     else:
@@ -717,11 +722,11 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         orig_loop_chain = copy.deepcopy(loop_chain)
 
         all_chain = copy.deepcopy(stem_chain)
-        cup.trim_chain(loop_chain, i1, i2+1)
+        ftup.trim_chain(loop_chain, i1, i2+1)
         add_loop_chain(all_chain, loop_chain, (a,b,i1,i2), seq_len)
 
         if consider_contacts:
-            contacts2 = cup.num_noncovalent_clashes(all_chain)
+            contacts2 = ftup.num_noncovalent_clashes(all_chain)
         else:
             contacts2 = 0.
 
@@ -779,7 +784,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
     bl = abs(bg.defines[ld][side * 2 + 1] - bg.defines[ld][side * 2 + 0])
     dist = cuv.vec_distance(bg.coords[ld][1], bg.coords[ld][0])
     dist2 = get_flanking_stem_vres_distance(bg, ld)
-    #dist3 = cgg.junction_virtual_atom_distance(bg, ld)
+    #dist3 = ftug.junction_virtual_atom_distance(bg, ld)
     dist3 = 0.
 
     sys.stderr.write("reconstructing %s ([%d], %d, %.2f, %.2f, %.2f):" % (ld, len(bg.edges[ld]), bl, dist, dist2, dist3))
@@ -790,7 +795,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
     #output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
-    cup.trim_chain(best_loop_chain, i1, i2+1)
+    ftup.trim_chain(best_loop_chain, i1, i2+1)
     sys.stderr.write('\n')
 
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.seq_length)
@@ -974,7 +979,7 @@ def get_ideal_stem(template_stem_length):
         ideal_chain = list(bpdb.PDBParser().get_structure('test', 
                 op.join(conf.Configuration.stem_fragment_dir, template_filename)).get_chains())[0]
 
-        chain = cgg.extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
+        chain = ftug.extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
     return chain
 
 def mend_breakpoint_new(chain, res1, res2):
@@ -1295,3 +1300,4 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
 
             chain.add(e)
     pass
+

@@ -11,8 +11,9 @@ import math, os
 import fess.builder.config as cbc
 import forgi.threedee.model.stats as cbs
 
-import forgi.threedee.utilities.graph_pdb as cgg
-import forgi.utilities.debug as cud
+import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.threedee.utilities.vector as ftuv
+import forgi.utilities.debug as fud
 
 import forgi.threedee.utilities.rmsd as cbr
 import fess.builder.models as cbm
@@ -59,11 +60,8 @@ class StatisticsPlotter:
         #X,Y = np.meshgrid(new_m1, new_m2)
         positions = np.vstack([X.ravel(), Y.ravel()])
         values = np.vstack([m1, m2])
-        #print "values:", values
         kernel = cek.gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
-
-        #print "Z:", Z
 
         if color == 'b':
             ax.contourf(X, Y, Z, cmap=plt.cm.Blues,alpha=0.5)
@@ -80,8 +78,6 @@ class StatisticsPlotter:
 
 
         self.energy_rmsds += [(energy, rmsd, color)]
-
-        #print >>stderr, "energy", "rmsd", color
 
         all_energies = []
         all_rmsds = []
@@ -184,7 +180,7 @@ class SamplingStatistics:
     Store statistics about a sample.
     '''
 
-    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3):
+    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dist1=None, dist2=None):
         '''
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
@@ -200,11 +196,14 @@ class SamplingStatistics:
         self.energy_orig = None
         self.step_save = 0
 
+        self.dist1 = dist1
+        self.dist2 = dist2
+
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
 
         try:
-            self.centers_orig = cgg.bg_virtual_residues(sm_orig.bg)
+            self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)
         except KeyError:
             # if there are no coordinates provided in the original
             # bulge graph file, then don't calculate rmsds
@@ -224,7 +223,7 @@ class SamplingStatistics:
             self.energy_orig = 0.
             try:
                 for s in sm.bg.stem_iterator():
-                    cgg.add_virtual_residues(self.sm_orig.bg, s)
+                    ftug.add_virtual_residues(self.sm_orig.bg, s)
                 self.energy_orig = energy_function.eval_energy(self.sm_orig)
             except KeyError:
                 # most likely no native structure was provided
@@ -234,15 +233,21 @@ class SamplingStatistics:
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
             pass
-            #cud.pv('self.sampled_energy, energy')
+            #fud.pv('self.sampled_energy, energy')
 
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
-            centers_new = cgg.bg_virtual_residues(sm.bg)
+            centers_new = ftug.bg_virtual_residues(sm.bg)
             #r = cbr.centered_rmsd(self.centers_orig, centers_new)
             r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
+
+        dist = None
+        if self.dist1 and self.dist2:
+            atoms = ftug.virtual_atoms(sm.bg)
+            dist = ftuv.vec_distance(atoms[self.dist1]["C1'"],
+                                  atoms[self.dist2]["C1'"])
 
         self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
@@ -272,7 +277,12 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f\n" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
+            if dist:
+                output_str += " | dist %.2f" % (dist)
+
+            output_str += "\n"
+
             if self.output_file != sys.stdout:
                 print output_str.strip()
 
@@ -349,7 +359,6 @@ class MCMCSampler:
         self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
 
-        print >>sys.stderr, "new MCMCSampler"
         sm.sample_stats()
         constraint_energy = sm.constraint_energy
         junction_constraint_energy = sm.junction_constraint_energy
@@ -361,12 +370,12 @@ class MCMCSampler:
         sm.traverse_and_build()
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
-        #cud.pv('constraint_energy.eval_energy(sm)')
-        #cud.pv('junction_constraint_energy.eval_energy(sm)')
+        #fud.pv('constraint_energy.eval_energy(sm)')
+        #fud.pv('junction_constraint_energy.eval_energy(sm)')
         sm.traverse_and_build()
-        #cud.pv('constraint_energy.eval_energy(sm)')
-        #cud.pv('junction_constraint_energy.eval_energy(sm)')
-        #cud.pv('energy_function.eval_energy(sm)')
+        #fud.pv('constraint_energy.eval_energy(sm)')
+        #fud.pv('junction_constraint_energy.eval_energy(sm)')
+        #fud.pv('energy_function.eval_energy(sm)')
         self.prev_energy = energy_function.eval_energy(sm)
         #sys.exit(1)
         sm.get_sampled_bulges()
@@ -445,26 +454,24 @@ class MCMCSampler:
                 possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
                 pa = random.choice(possible_angles)
 
-        #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
+        #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
         self.sm.angle_defs[bulge][ang_type1] = pa
         self.sm.traverse_and_build()
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
-        #cud.pv('self.prev_energy, energy')
+        #fud.pv('self.prev_energy, energy')
         self.stats.sampled_energy = energy
         if energy > self.prev_energy:
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
-                #cud.pv('self.sm.angle_defs[bulge][ang_type1]')
-                #cud.pv('prev_angle')
+                #fud.pv('self.sm.angle_defs[bulge][ang_type1]')
+                #fud.pv('prev_angle')
                 self.sm.angle_defs[bulge][ang_type1] = prev_angle
                 self.sm.traverse_and_build(start=bulge)
                 self.stats.sampled_energy = self.prev_energy
-                #print "angle skipping:", bulge,  math.exp(self.prev_energy - energy), self.prev_energy, energy
-                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
-                #print "angle accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
@@ -484,9 +491,9 @@ class MCMCSampler:
 
         pa = random.choice(possible_stems)
 
-        #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
+        #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_stem = self.sm.stem_defs[stem]
-        #cud.pv('loop,length,self.sm.loop_defs[loop]')
+        #fud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.stem_defs[stem] = pa
         self.sm.traverse_and_build()
 
@@ -497,10 +504,8 @@ class MCMCSampler:
                 self.sm.stem_defs[stem] = prev_stem
                 self.sm.traverse_and_build()
                 self.stats.sampled_energy = self.prev_energy
-                #print "stem skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
-                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
-                #print "stem accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
@@ -535,9 +540,9 @@ class MCMCSampler:
 
         pa = random.choice(possible_loops)
 
-        #cud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
+        #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         prev_loop = self.sm.loop_defs[loop]
-        #cud.pv('loop,length,self.sm.loop_defs[loop]')
+        #fud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.loop_defs[loop] = pa
         self.sm.traverse_and_build()
 
@@ -548,11 +553,9 @@ class MCMCSampler:
                 self.sm.loop_defs[loop] = prev_loop
                 self.sm.traverse_and_build(start=loop)
                 self.stats.sampled_energy = self.prev_energy
-                #print "loop skipping:", math.exp(self.prev_energy - energy), self.prev_energy, energy
-                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
             else:
                 
-                #print "loop accepting:", math.exp(self.prev_energy - energy), self.prev_energy, energy
                 self.prev_energy = energy
         else:
             self.prev_energy = energy
@@ -588,7 +591,6 @@ class GibbsBGSampler:
 
         sm.sample_stats()
         sm.get_sampled_bulges()
-        #print >>stderr, "original native_energy:", energy_function.eval_energy(sm, background=True)
 
     def step(self):
         '''
@@ -607,10 +609,8 @@ class GibbsBGSampler:
         # What are the potential angle statistics for it
         (dist, size1, size2, type1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
         possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
-        #print >>sys.stderr, bulge, dims, len(possible_angles)
 
         if len(possible_angles) == 0:
-            print >>sys.stderr, "No available statistics for bulge %s of size %s" % (bulge, str(dims))
             print >>sys.stderr, "s1b", s1b, "s2b", s2b
         # only choose 10 possible angles
         if len(possible_angles) > self.angles_to_sample:
@@ -626,7 +626,7 @@ class GibbsBGSampler:
             self.sm.traverse_and_build(start=bulge)
             energy = self.energy_function.eval_energy(self.sm, background=True)
             energies[pa] = energy
-        #cud.pv('[v for v in energies.values()]')
+        #fud.pv('[v for v in energies.values()]')
 
 
         # energy = -log(p(S)) 
@@ -638,9 +638,8 @@ class GibbsBGSampler:
         if max_energy - min_energy > 40:
             max_energy = min_energy + 40.
 
-        #cud.pv('max_energy')
-        #cud.pv('min_energy')
-        #print >>stderr, "max_energy:", max_energy
+        #fud.pv('max_energy')
+        #fud.pv('min_energy')
         for pa in possible_angles:
             prev_energy = energies[pa]
             if prev_energy > max_energy:
@@ -648,16 +647,14 @@ class GibbsBGSampler:
             
             prev_energy = prev_energy - min_energy
             energies[pa] = np.exp(-prev_energy)
-            #print >>stderr, "energies[pa]:", energies[pa], "energy:", prev_energy
 
         # Convert all of the sampled energies into one probability
         total_energy = sum([energies[key] for key in energies.keys()])
 
-        #print >>stderr, "total_energy:", total_energy
         energy_probs = dict()
         for key in energies.keys():
             energy_probs[key] = energies[key] / total_energy
-        #cud.pv('[v for v in energy_probs.values()]')
+        #fud.pv('[v for v in energy_probs.values()]')
 
         # sanity check
         total_prob = sum([energy_probs[key] for key in energies.keys()])
@@ -668,12 +665,12 @@ class GibbsBGSampler:
         prob_remaining = 1.
         for key in energy_probs.keys():
             if random.random() < energy_probs[key] / prob_remaining:
-                #cud.pv('energy_probs[key]')
-                #cud.pv('energies[key]')
+                #fud.pv('energy_probs[key]')
+                #fud.pv('energies[key]')
                 self.sm.angle_defs[bulge][ang_type1] = key
                 #self.sm.traverse_and_build(start=bulge)
-                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
-                #cud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
                 break
 
             prob_remaining -= energy_probs[key]

@@ -118,7 +118,7 @@ def predict(bg, energies_to_sample, options):
     silent = False
 
     for color,energy in zip(colors, energies_to_sample):
-        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best)
+        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best, dist1 = options.dist1, dist2 = options.dist2)
         stat.step_save = options.step_save
 
         if options.mcmc_sampler:
@@ -213,6 +213,8 @@ def main():
 
     parser.add_option('', '--single-sampler', dest='single_sampler', 
                       default=False, help='Use only a single sampler', action='store_true')
+    parser.add_option('', '--dist1', dest='dist1', default=None, help="Calculate the distance between this residue and the residue at position dist2 at every iteration", type='int')
+    parser.add_option('', '--dist2', dest='dist2', default=None, help="Calculate the distance between this residue and the residue at position dist1 at every iteration", type='int')
     (options, args) = parser.parse_args()
 
     cud.pv('options.stem_loop_radius_of_gyration')

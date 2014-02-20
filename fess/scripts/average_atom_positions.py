@@ -5,6 +5,7 @@ import itertools as it
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
+import forgi.utilities.debug as fud
 import numpy as np
 import sys
 from optparse import OptionParser
@@ -27,8 +28,9 @@ def main():
 
     poss = c.defaultdict(list)
 
-    for arg in args:
+    for i,arg in enumerate(args):
         cg = ftmc.from_pdb(arg)
+        fud.pv('i')
 
         for d in cg.defines.keys():
             origin, basis = ftug.element_coord_system(cg, d)
@@ -49,7 +51,7 @@ def main():
 
     for key in poss.keys():
         pos = np.mean(poss[key], axis=0)
-        print "avg_stem_poss['%s'] = [%s] #%d" % (key, ",".join(map(str, pos)), len(poss[key]))
+        print 'avg_stem_poss["%s"] = [%s] #%d' % (key, ",".join(map(str, pos)), len(poss[key]))
 
 if __name__ == '__main__':
     main()
