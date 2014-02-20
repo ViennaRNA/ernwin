@@ -580,17 +580,20 @@ class SpatialModel:
 
         self.threeprime_defs = threeprime_defs
 
-    def add_loop(self, name, prev_stem_node, params=None):
+    def add_loop(self, name, prev_stem_node, params=None, loop_defs=None):
         '''
         Connect a loop to the previous stem.
         '''
+        if loop_defs == None:
+            loop_defs = self.loop_defs
+
         prev_stem = self.stems[prev_stem_node]
         (s1b, s1e) = self.bg.get_sides(prev_stem_node, name)
 
         if params == None:
-            r = self.loop_defs[name].phys_length
-            u = self.loop_defs[name].u
-            v = self.loop_defs[name].v
+            r = loop_defs[name].phys_length
+            u = loop_defs[name].u
+            v = loop_defs[name].v
 
             params = (r, u, v)
 
@@ -725,7 +728,13 @@ class SpatialModel:
                     self.add_loop(d, list(self.bg.edges[d])[0])
                      #add loop
                     pass
-                elif d not in fiveprime and d not in threeprime:
+                elif d in fiveprime:
+                    self.add_loop(d, list(self.bg.edges[d])[0],
+                                  loop_defs = self.fiveprime_defs)
+                elif d in threeprime:
+                    self.add_loop(d, list(self.bg.edges[d])[0],
+                                  loop_defs = self.threeprime_defs)
+                else:
                     connections = list(self.bg.edges[d])
 
                     # Should be a bulge connecting two stems
@@ -897,7 +906,6 @@ class SpatialModel:
         while True:
             while len(self.to_visit) > 0:
                 #self.to_visit.sort(key=lambda x: ('a' if x[1][0] == 's' else x[1][0], -self.bg.stem_length(x[1])))
-                
                 (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
                 tbc = True
                 while curr_node in self.visited or curr_node in self.to_skip:

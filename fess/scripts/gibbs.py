@@ -62,7 +62,7 @@ def bgs_from_fasta(fasta_file):
             if counter % 3 == 2:
                 seq = bg.seq
                 name = bg.name
-                bg.from_dotbracket(line.strip())
+                bg.from_dotbracket(line.strip(), dissolve_length_one_stems=True)
                 bg.seq = seq
                 bg.name = name
                 bgs += [bg]
