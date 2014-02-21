@@ -597,10 +597,12 @@ class SpatialModel:
 
             params = (r, u, v)
 
+        #fud.pv('s1b, s1e')
         start_mid = prev_stem.mids[s1b]
         (r, u, v) = params
 
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
+        #fud.pv('r,u,v')
         end_mid = start_mid + direction
         self.bulges[name] = BulgeModel((start_mid, end_mid))
 

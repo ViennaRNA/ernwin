@@ -51,7 +51,7 @@ def main():
 
     for key in poss.keys():
         pos = np.mean(poss[key], axis=0)
-        print 'avg_stem_poss["%s"] = [%s] #%d' % (key, ",".join(map(str, pos)), len(poss[key]))
+        print 'avg_atom_poss["%s"] = [%s] #%d' % (key, ",".join(map(str, pos)), len(poss[key]))
 
 if __name__ == '__main__':
     main()

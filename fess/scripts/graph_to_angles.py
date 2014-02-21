@@ -46,8 +46,10 @@ def get_loop_stat(bg, d):
     phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
 
     stem1 = list(bg.edges[d])[0]
-    stem1_vec = bg.coords[stem1][1] - bg.coords[stem1][0]
-    twist1_vec = bg.twists[stem1][1] - bg.twists[stem1][0]
+    (s1b, s1e) = bg.get_sides(stem1, d)
+
+    stem1_vec = bg.coords[stem1][s1b] - bg.coords[stem1][s1e]
+    twist1_vec = bg.twists[stem1][s1b] - bg.twists[stem1][s1e]
     bulge_vec = bg.coords[d][1] - bg.coords[d][0]
 
     (r,u,v) = cgg.get_stem_separation_parameters(stem1_vec, twist1_vec, bulge_vec)
