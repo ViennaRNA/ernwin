@@ -102,7 +102,7 @@ def predict(bg, energies_to_sample, options):
             cgg.add_virtual_residues(sm.bg, s)
 
         for energy in energies_to_sample:
-            cud.pv('energy.eval_energy(sm)')
+            cud.pv('energy.eval_energy(sm, verbose=True)')
         sys.exit(1)
 
     if options.plot:
@@ -204,7 +204,6 @@ def main():
     parser.add_option('', '--ipe', dest='ipe', default=False, action='store_true', help="Use the interaction probability energy.")
     parser.add_option('', '--sipe', dest='sipe', default=False, action='store_true', help="Use the interaction probability energy.")
     parser.add_option('', '--no-background', dest='background', default=True, action='store_false', help="Don't use the background probability distribution.")
-    parser.add_option('', '--fasta', dest='fasta', default='', help="Specify a fastdb file containing an identifier, a sequence and a dotbracket string indicating the secondary structure.", type='str')
     parser.add_option('', '--stem-stem0-data', dest='stem_stem0_data', help='The location of the sampled stem-stem0 data', type='str', default='~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv')
     parser.add_option('', '--stats-file', dest='stats_file', 
                       default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
@@ -220,8 +219,10 @@ def main():
     cud.pv('options.stem_loop_radius_of_gyration')
 
 
-    if len(args) < 1 and options.secondary_structure is False and options.fasta == '':
+    if len(args) < 1:
         print "Usage: ./gibbs.py temp.comp"
+        print "Or ./gibb.py temp.fa. If the extension of the argument file ends in .fa, then treat it as a fasta file."
+
         sys.exit(1)
 
     cud.pv('args')
@@ -399,26 +400,13 @@ def main():
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
     '''
 
-    if options.fasta != '':
-        bgs = bgs_from_fasta(options.fasta)
+    bgs = []
 
-    elif options.secondary_structure:
-        if options.sequence_file == '' and options.sequence_str != '':
-            print >>sys.stderr, "Sequence needs to be provided with --sequence"
-        print >>sys.stderr, "Secondary structure provided in lieu of a bulge-graph"
-        bg = ftmc.CoarseGrainRNA()
-
-        if options.sequence_file != '':
-            with open(options.sequence, 'r') as f:
-                seq = "".join(f.readlines())
-                bg.seq = seq.upper()
+    for arg in args:
+        if arg[-3:] == '.fa':
+            bgs += bgs_from_fasta(arg)
         else:
-            bg.seq = options.sequence_str
-
-        bg.from_dotbracket_file(args[0])
-        bgs = [bg]
-    else:
-        bgs = [ftmc.CoarseGrainRNA(args[0])]
+            bgs += [ftmc.CoarseGrainRNA(arg)]
 
     #bg.calc_bp_distances()
     for bg in bgs:

@@ -25,7 +25,7 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.models as cbm
 import fess.builder.config as cbc
-import forgi.utilities.debug as cud
+import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
 
 import scipy.stats as stats
@@ -163,7 +163,7 @@ class CoarseGrainEnergy(EnergyFunction):
         @param values: The values to fit a distribution to.
         @return: A probability distribution fit to the values.
         '''
-        floc = 0.
+        floc = -0.1
         fscale =  1.5 * max(values)
 
         f = ss.beta.fit(values, floc=floc, fscale=fscale)
@@ -175,7 +175,6 @@ class CoarseGrainEnergy(EnergyFunction):
         self.dists += [k]
 
         return k
-
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         '''
@@ -317,7 +316,7 @@ class CombinedEnergy:
         self.bad_bulges = []
 
         for energy in self.uncalibrated_energies:
-            #cud.pv('energy')
+            #fud.pv('energy')
             
             contrib = energy.eval_energy(sm, background,
                                                nodes, new_nodes)
@@ -815,7 +814,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         indeces = kdt2.all_get_indices()
         for (ia,ib) in indeces:
             '''
-            cud.pv('(virtual_atoms[ia][1], virtual_atoms[ib][1])')
+            fud.pv('(virtual_atoms[ia][1], virtual_atoms[ib][1])')
             print >> sys.stderr, "----------------"
             '''
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
@@ -936,14 +935,14 @@ class StemVirtualResClashEnergy(EnergyFunction):
                         new_points += [(p+ mult * v_l, d, i, 1)]
                         new_points += [(p+ mult * v_r, d, i, 0)]
 
-            #cud.pv('len(new_nodes)')
+            #fud.pv('len(new_nodes)')
             for i,p in enumerate(points):
                 for ni, newp in enumerate(new_points):
                     if p[1] == newp[1]:
                         continue
                     if ftuv.magnitude(p[0] - newp[0]) < 10.:
                         clash_pairs += [(p[1:], newp[1:])]
-                        #cud.pv('clash_pairs')
+                        #fud.pv('clash_pairs')
 
         potential_clashes = 0
         for (s1, i1, a1), (s2,i2,a2) in clash_pairs:
@@ -965,7 +964,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
-        #cud.pv('potential_clashes')
+        #fud.pv('potential_clashes')
         return energy
 
 class StemClashEnergy(EnergyFunction):
@@ -1237,9 +1236,9 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
             if (dist > cutoff_distance):
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
-                #cud.pv('bulge, dist, cutoff_distance, self.bad_bulges')
-                cud.pv('bulge, dist, cutoff_distance')
-                #cud.pv('nodes')
+                #fud.pv('bulge, dist, cutoff_distance, self.bad_bulges')
+                fud.pv('bulge, dist, cutoff_distance')
+                #fud.pv('nodes')
                 #print "bulge:", bulge, "bl:", bl, "cutoff_distance:",
                 # cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
@@ -1294,7 +1293,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         #ax.hist(orig_angles, alpha=0.3)
         #return cek.gaussian_kde(sa)
         #return cek.gaussian_kde(sampled_angles, bw_method=0.1)
-        #cud.pv('sampled_angles')
+        #fud.pv('sampled_angles')
         self.angles += orig_angles
         orig_kde = stats.gaussian_kde(orig_angles)
 
@@ -1311,7 +1310,7 @@ class StemStemOrientationEnergy(EnergyFunction):
         if self.real_data is None:
             col = 0
             self.real_data = self.load_stem_stem_data(self.real_data_location)
-            cud.pv('self.fake_data_location')
+            fud.pv('self.fake_data_location')
             self.fake_data = self.load_stem_stem_data(self.fake_data_location)
             #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
 
@@ -1335,7 +1334,7 @@ class StemStemOrientationEnergy(EnergyFunction):
                 #fake = my_log( self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
 
                 energy += (real - fake)
-                #cud.pv('angs, fake, real, real-fake')
+                #fud.pv('angs, fake, real, real-fake')
 
                 self.interaction_energies[tuple(sorted([s1,s2]))] += (real - fake)
 
@@ -1468,9 +1467,9 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
 
 
         mol_sizes = cls.keys()
-        #cud.pv('len(mol_sizes)')
+        #fud.pv('len(mol_sizes)')
 
-        #cud.pv('length, mol_sizes')
+        #fud.pv('length, mol_sizes')
 
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
@@ -1508,7 +1507,7 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             intersects = ftuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
-                cud.pv('exiting 107231')
+                fud.pv('exiting 107231')
                 sys.exit(1)
 
             if len(intersects) == 0:
@@ -1521,10 +1520,10 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                                                 ftuv.standard_basis).T
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
                 covered[s1] += [(intersects_t[0][0], intersects_t[1][0])]
-                #cud.pv('s1, s2')
-                #cud.pv('line')
-                #cud.pv('cyl')
-                #cud.pv('intersects_t')
+                #fud.pv('s1, s2')
+                #fud.pv('line')
+                #fud.pv('cyl')
+                #fud.pv('intersects_t')
 
 
             in_cyl_fractions[s1] += in_cyl_len / line_len
@@ -1541,12 +1540,12 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             #in_cyl_fractions[s] = cl / total_len
             in_cyl_fractions[s] = cl
 
-            #cud.pv('cl, total_len')
+            #fud.pv('cl, total_len')
 
-            #cud.pv('covered[s]')
-            #cud.pv('ms')
-            #cud.pv('map(lambda x: x[1] - x[0], ms)')
-            #cud.pv('sum(map(lambda x: x[1] - x[0], ms))')
+            #fud.pv('covered[s]')
+            #fud.pv('ms')
+            #fud.pv('map(lambda x: x[1] - x[0], ms)')
+            #fud.pv('sum(map(lambda x: x[1] - x[0], ms))')
 
 
         return in_cyl_fractions
@@ -1689,7 +1688,7 @@ class LoopLoopEnergy(EnergyFunction):
         kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
         #kr = ft.partial(ss.beta.pdf, {"a":f1[0], "b": f1[1], "loc":f1[2], "scale":f1[3]})
 
-        #cud.pv('f1')
+        #fud.pv('f1')
 
         self.pr_d_given_i = kr
         self.ps_d_given_i = ks
@@ -1702,7 +1701,7 @@ class LoopLoopEnergy(EnergyFunction):
         fn1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
         kr = lambda x: ss.beta.pdf(x, fn1[0], fn1[1], fn1[2], fn1[3])
         #kr = ft.partial(ss.beta.pdf, {"a":fn1[0], "b": fn1[1], "loc":fn1[2], "scale":fn1[3]})
-        #cud.pv('f1')
+        #fud.pv('f1')
 
         fn= ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
         ks = lambda x: ss.beta.pdf(x, fn[0], fn[1], fn[2], fn[3])
@@ -1713,17 +1712,17 @@ class LoopLoopEnergy(EnergyFunction):
 
         self.data_loaded = True
 
-        #cud.pv('f1, fn1')
-        #cud.pv('self.pr_d_given_i(15), self.pr_d_given_ic(15)')
+        #fud.pv('f1, fn1')
+        #fud.pv('self.pr_d_given_i(15), self.pr_d_given_ic(15)')
 
     def calc_energy(self, dist, l1, l2):
         pr_d_given_l1_l2 = self.p_i_given_l1_l2[(l1, l2)] * self.pr_d_given_i(dist)
         pr_d_given_l1_l2 += (1 - self.p_i_given_l1_l2[(l1,l2)]) * self.pr_d_given_ic(dist)
         pr = pr_d_given_l1_l2
 
-        #cud.pv('self.pr_d_given_i(dist)')
-        #cud.pv('self.pr_d_given_ic(dist)')
-        #cud.pv('pr')
+        #fud.pv('self.pr_d_given_i(dist)')
+        #fud.pv('self.pr_d_given_ic(dist)')
+        #fud.pv('pr')
 
         ps_d_given_l1_l2 = self.p_i_given_l1_l2[(l1, l2)] * self.ps_d_given_i(dist)
         ps_d_given_l1_l2 += (1 - self.p_i_given_l1_l2[(l1,l2)]) * self.ps_d_given_ic(dist)
@@ -1733,9 +1732,9 @@ class LoopLoopEnergy(EnergyFunction):
         #ps = 1. #self.ps_d_given_ic(dist)
         #print "yo"
 
-        #cud.pv('self.ps_d_given_i(dist)')
-        #cud.pv('self.ps_d_given_ic(dist)')
-        #cud.pv('ps')
+        #fud.pv('self.ps_d_given_i(dist)')
+        #fud.pv('self.ps_d_given_ic(dist)')
+        #fud.pv('ps')
 
         delta = 0.0001 * ps
 
@@ -1781,16 +1780,16 @@ class LoopLoopEnergy(EnergyFunction):
             if dist > 35:
                 continue
 
-            #cud.pv('dist')
+            #fud.pv('dist')
             num += 1
 
             len1 = sm.bg.get_length(l1)
             len2 = sm.bg.get_length(l2)
 
-            #cud.pv('len1, len2, dist')
+            #fud.pv('len1, len2, dist')
 
             contrib = self.calc_energy(dist, len1, len2)
-            #cud.pv('contrib')
+            #fud.pv('contrib')
 
             key = tuple(sorted([l1, l2]))
             contribs[key] += [contrib]
@@ -1874,7 +1873,7 @@ class InteractionProbEnergy(EnergyFunction):
                 if dist > 40. or dist < 0.0001:
                     continue
 
-                #cud.pv('dist, self.p_i["real"](dist)')
+                #fud.pv('dist, self.p_i["real"](dist)')
                 total_p *= 1. - self.p_i['real'](dist)
 
         return total_p
@@ -1905,7 +1904,7 @@ class InteractionProbEnergy(EnergyFunction):
             p = self.calc_node_p(bg, node)
 
             energy += self.ex_ps['real'](p) - self.ex_ps['sampled'](p)
-            #cud.pv('p, energy')
+            #fud.pv('p, energy')
 
         return -energy
 
@@ -2086,14 +2085,14 @@ class NLoopLoopEnergy(EnergyFunction):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
-            cud.pv('i')
+            fud.pv('i')
             ax = fig.add_subplot(4, 4, i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
 
-            cud.pv('e_reals[i]')
-            cud.pv('e_sampleds[i]')
+            fud.pv('e_reals[i]')
+            fud.pv('e_sampleds[i]')
             xs = np.linspace(0, max(e_reals[i]), 100)
             ger = self.ger[i]
             ges = self.ges[i]
@@ -2141,7 +2140,7 @@ class NLoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             d = ftuv.magnitude(i2 - i1)
-            #cud.pv('l1, l2, d')
+            #fud.pv('l1, l2, d')
             if d > 50:
                 continue
 
@@ -2161,7 +2160,7 @@ class NLoopLoopEnergy(EnergyFunction):
         for l1 in sm.bg.hoop_iterator():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
-            #cud.pv('l1, sm.bg.get_length(l1), total_p')
+            #fud.pv('l1, sm.bg.get_length(l1), total_p')
 
         return total_ps
 
@@ -2221,14 +2220,14 @@ class NLoopJunctionEnergy(EnergyFunction):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
-            cud.pv('i')
+            fud.pv('i')
             ax = fig.add_subplot(4,4,i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
 
-            cud.pv('e_reals[i]')
-            cud.pv('e_sampleds[i]')
+            fud.pv('e_reals[i]')
+            fud.pv('e_sampleds[i]')
             xs = np.linspace(0, max(e_reals[i]), 100)
             ger = self.ger[i]
             ges = self.ges[i]
@@ -2279,7 +2278,7 @@ class NLoopJunctionEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             d = ftuv.magnitude(i2 - i1)
-            #cud.pv('l1, l2, d')
+            #fud.pv('l1, l2, d')
             if d > 50:
                 continue
 
@@ -2299,9 +2298,9 @@ class NLoopJunctionEnergy(EnergyFunction):
         for l1 in sm.bg.multiloops():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
-            #cud.pv('l1, sm.bg.get_length(l1), total_p')
+            #fud.pv('l1, sm.bg.get_length(l1), total_p')
 
-        #cud.pv('total_ps')
+        #fud.pv('total_ps')
         return total_ps
 
     def eval_energy(self, sm, background=True):
@@ -2312,7 +2311,7 @@ class NLoopJunctionEnergy(EnergyFunction):
             if len(self.e_reals[s]) < 2 or len(self.e_sampleds[s]) < 2:
                 continue
 
-            cud.pv('p')
+            fud.pv('p')
             energy += self.ger[s](p) - self.ges[s](p)
 
         return -energy
@@ -2359,14 +2358,14 @@ class NLoopStemEnergy(EnergyFunction):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
-            cud.pv('i')
+            fud.pv('i')
             ax = fig.add_subplot(4,4,i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
 
-            cud.pv('e_reals[i]')
-            cud.pv('e_sampleds[i]')
+            fud.pv('e_reals[i]')
+            fud.pv('e_sampleds[i]')
             xs = np.linspace(0, max(e_reals[i]), 100)
             ger = self.ger[i]
             ges = self.ges[i]
@@ -2390,7 +2389,7 @@ class NLoopStemEnergy(EnergyFunction):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        cud.pv('loop_loop_y.angle.values')
+        fud.pv('loop_loop_y.angle.values')
 
         return (loop_loop.dist.values,
                 cek.gaussian_kde(loop_loop_y.dist),
@@ -2421,7 +2420,7 @@ class NLoopStemEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
             d = ftuv.magnitude(i2 - i1)
-            #cud.pv('l1, l2, d')
+            #fud.pv('l1, l2, d')
             if d > 50:
                 continue
 
@@ -2446,7 +2445,7 @@ class NLoopStemEnergy(EnergyFunction):
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
 
-        #cud.pv('total_ps')
+        #fud.pv('total_ps')
         return total_ps
 
     def eval_energy(self, sm, background=True):
@@ -2552,7 +2551,7 @@ class AdjacentStemEnergy(EnergyFunction):
 
                 energy += real - fake
 
-        cud.pv('energy')
+        fud.pv('energy')
         return energy
 
 def get_coords(cg):
@@ -2624,7 +2623,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         percent = 1.0
         #import traceback as tb
         #tb.print_stack()
-        #cud.pv('rog')
+        #fud.pv('rog')
 
         if length not in self.real_rogs.keys():
             self.real_rogs[length] = self.real_data[np.logical_and(
@@ -2644,7 +2643,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         
                 f1 = ss.beta.fit(self.adjustment * real_dists, floc=floc, fscale=fscale)
                 kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
-                cud.pv('f1')
+                fud.pv('f1')
             elif self.dist_type == "kde":
                 kr = ss.gaussian_kde(self.adjustment * self.real_rogs[length][:,1])
                 ks = ss.gaussian_kde(self.adjustment * self.sampled_rogs[length][:,1])
@@ -2665,9 +2664,9 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             self.sampled_kdes[length] = ks
 
         rog = self.get_cg_measure(sm)
-        #cud.pv('sm.bg.seq_length, rog')
-        #cud.pv('self.real_kdes[length](rog)')
-        #cud.pv('self.sampled_kdes[length](rog)')
+        #fud.pv('sm.bg.seq_length, rog')
+        #fud.pv('self.real_kdes[length](rog)')
+        #fud.pv('self.sampled_kdes[length](rog)')
         delta = 0.000000000000001 * self.sampled_kdes[length](rog)
         if self.background:
             energy = my_log(self.real_kdes[length](rog) + delta) - my_log(self.sampled_kdes[length](rog) + delta)
@@ -2692,7 +2691,7 @@ class EncompassingCylinderEnergy(CoarseGrainEnergy):
         @param length: The length of the molecule.
         @return: A probability distribution describing the lengths
         '''
-        #cud.pv('all_lengths')
+        #fud.pv('all_lengths')
         data = np.loadtxt(open(filename, 'rb'), delimiter=' ', skiprows=0)
 
         return (self.get_distribution_from_values(data[:,1]), data)
@@ -2744,13 +2743,13 @@ class CoaxialityEnergy(CoarseGrainEnergy):
 
 
         mol_sizes = cls.keys()
-        #cud.pv('len(mol_sizes)')
+        #fud.pv('len(mol_sizes)')
 
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
         mol_sizes = mol_sizes[mol_sizes < length * 1.4]
 
-        #cud.pv('mol_sizes')
+        #fud.pv('mol_sizes')
 
         all_lengths = []
         for l in mol_sizes:
@@ -2776,7 +2775,7 @@ class CoaxialityEnergy(CoarseGrainEnergy):
         all_lengths = self.get_lengths_from_file_per_struct(filename, length)
         #all_lengths = [i for s in all_lengths for i in s]
         all_lengths = map(sum, all_lengths)
-        #cud.pv('all_lengths')
+        #fud.pv('all_lengths')
 
         return all_lengths
 
@@ -2790,7 +2789,7 @@ class CoaxialityEnergy(CoarseGrainEnergy):
         @return: A probability distribution describing the lengths co-axial
                  lengths in the provided file.
         '''
-        #cud.pv('all_lengths')
+        #fud.pv('all_lengths')
         lengths = self.get_lengths_from_file(filename, length)
 
         return (self.get_distribution_from_values(lengths), lengths)
@@ -2939,20 +2938,20 @@ class PairwiseCoaxialityEnergy(CoaxialityEnergy):
                 cls[mol_size] += [l]
 
         mol_sizes = cls.keys()
-        #cud.pv('len(mol_sizes)')
+        #fud.pv('len(mol_sizes)')
 
-        #cud.pv('mol_sizes, length')
+        #fud.pv('mol_sizes, length')
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .9]
         mol_sizes = mol_sizes[mol_sizes < length * 1.6]
 
-        #cud.pv('mol_sizes')
+        #fud.pv('mol_sizes')
 
         all_lengths = []
         for l in mol_sizes:
             all_lengths += cls[l]
 
-        #cud.pv('all_lengths')
+        #fud.pv('all_lengths')
 
         return all_lengths
 
