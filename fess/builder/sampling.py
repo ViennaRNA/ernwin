@@ -180,7 +180,7 @@ class SamplingStatistics:
     Store statistics about a sample.
     '''
 
-    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dist1=None, dist2=None):
+    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dist1=None, dist2=None, no_rmsd=False):
         '''
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
@@ -201,6 +201,7 @@ class SamplingStatistics:
 
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
+        self.no_rmsd = False
 
         try:
             self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)
@@ -239,15 +240,31 @@ class SamplingStatistics:
             # no original coordinates provided so we can't calculate rmsds
             centers_new = ftug.bg_virtual_residues(sm.bg)
             #r = cbr.centered_rmsd(self.centers_orig, centers_new)
-            r = cbr.drmsd(self.centers_orig, centers_new)
+            r = 0.
+            if not self.no_rmsd:
+                r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
 
         dist = None
         if self.dist1 and self.dist2:
+            if self.dist1 < 0:
+                print >> sys.stderr, "The first distance nucleotide number should be greater than or equal to 0."
+                sys.exit(1)
+            elif self.dist1 > sm.bg.seq_length:
+                print >> sys.stderr, "The first distance nucleotide number should be less than the length of the molecule."
+                sys.exit(1)
+            if self.dist2 < 0:
+                print >> sys.stderr, "The second distance nucleotide number should be greater than or equal to 0."
+                sys.exit(1)
+            elif self.dist2 > sm.bg.seq_length:
+                print >> sys.stderr, "The second distance nucleotide number should be less than the length of the molecule."
+                sys.exit(1)
+
+
             atoms = ftug.virtual_atoms(sm.bg)
             dist = ftuv.vec_distance(atoms[self.dist1]["C1'"],
-                                  atoms[self.dist2]["C1'"])
+                                     atoms[self.dist2]["C1'"])
 
         self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
@@ -343,7 +360,7 @@ class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, stats_type='discrete'):
+    def __init__(self, sm, energy_function, stats, stats_type='discrete', no_rmsd=False):
         '''
         param @sm: SpatialModel that will be used for sampling.
         '''

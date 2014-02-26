@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import StringIO
 import pdb
 import pickle
 import os
@@ -8,6 +9,7 @@ import copy
 import itertools as it
 import math
 import warnings
+import pkgutil as pu
 #import pandas as pa
 #import pylab
 
@@ -40,6 +42,20 @@ def my_log(x):
 class MissingTargetException(Exception):
     def __init__(self, message):
         Exception.__init__(self, message)
+
+def load_local_data(filename):
+    '''
+    Load a data file that is located within this
+    package. 
+
+    An example is something like 'stats/longrange.stats'.
+
+    @param: A filename relative to the base directory of the package.
+    @return: A generator iterating over the lines in the file.
+    '''
+    data = pu.get_data('fess', filename)
+
+    return StringIO.StringIO(data)
 
 
 class EnergyFunction(object):
@@ -316,7 +332,6 @@ class CombinedEnergy:
         self.bad_bulges = []
 
         for energy in self.uncalibrated_energies:
-            #fud.pv('energy')
             
             contrib = energy.eval_energy(sm, background,
                                                nodes, new_nodes)
@@ -363,13 +378,13 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         lengths.
         '''
         if long_range_stats_fn is None:
-            long_range_stats_fn = op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.contact')
+            long_range_stats_fn = 'stats/temp.longrange.contact'
 
-        f = open(long_range_stats_fn, 'r')
+        f = pu.get_data('fess', long_range_stats_fn)
         lengths = []
 
         #length = list(np.linspace(0, 200, 200))
-        for line in f:
+        for line in f.split('\n'):
             parts = line.strip().split(' ')
             lengths += [float(parts[2])]
 
@@ -675,7 +690,7 @@ class LongRangeInteractionCount(EnergyFunction):
         '''
         import scipy.stats as ss
 
-        f = open(filename, 'r')
+        f = load_local_data(filename)
         long_range = []
         all_range = []
         for line in f:
@@ -770,7 +785,7 @@ class CoarseStemClashEnergy(EnergyFunction):
                                                        bg.coords[s2][0],
                                                        bg.coords[s2][1])
 
-            closest_distance = ftuv.magnitude(closest_points[1] - closest_points[0])
+            closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
             #print "s1, s2", s1, s2, closest_distance
 
             if closest_distance < min_distance:
@@ -814,7 +829,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         indeces = kdt2.all_get_indices()
         for (ia,ib) in indeces:
             '''
-            fud.pv('(virtual_atoms[ia][1], virtual_atoms[ib][1])')
             print >> sys.stderr, "----------------"
             '''
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
@@ -857,7 +871,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         for a1 in atoms1.values():
             for a2 in atoms2.values():
-                if np.dot(a1-a2, a1-a2) < 1.8 ** 2:
+                if ftuv.vec_distance(a1,a2) < 1.8: 
                 #if ftuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
@@ -866,7 +880,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=False, nodes = None, new_nodes = None):
         '''
-        Cound how many clashes of virtual residues there are.
+        Count how many clashes of virtual residues there are.
 
         @param sm: The SpatialModel containing the list of stems.
         @param background: Use a background distribution to normalize this one.
@@ -886,8 +900,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         if nodes == None:
             nodes = sm.bg.defines.keys()
-
-
 
         for d in nodes:
             if d[0] == 's':
@@ -935,14 +947,12 @@ class StemVirtualResClashEnergy(EnergyFunction):
                         new_points += [(p+ mult * v_l, d, i, 1)]
                         new_points += [(p+ mult * v_r, d, i, 0)]
 
-            #fud.pv('len(new_nodes)')
             for i,p in enumerate(points):
                 for ni, newp in enumerate(new_points):
                     if p[1] == newp[1]:
                         continue
-                    if ftuv.magnitude(p[0] - newp[0]) < 10.:
+                    if ftuv.vec_distance(p[0],newp[0]) < 10.:
                         clash_pairs += [(p[1:], newp[1:])]
-                        #fud.pv('clash_pairs')
 
         potential_clashes = 0
         for (s1, i1, a1), (s2,i2,a2) in clash_pairs:
@@ -964,7 +974,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
-        #fud.pv('potential_clashes')
         return energy
 
 class StemClashEnergy(EnergyFunction):
@@ -1006,7 +1015,7 @@ class DistanceEnergy(EnergyFunction):
             t = constraint[1]
             d = float(constraint[2])
 
-            d1 = ftuv.magnitude(sm.bg.get_point(f) - sm.bg.get_point(t))
+            d1 = ftuv.vec_distance(sm.bg.get_point(f), sm.bg.get_point(t))
 
             energy += abs(d1 - d)
 
@@ -1015,12 +1024,12 @@ class DistanceEnergy(EnergyFunction):
 class GaussianHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         super(GaussianHelixOrientationEnergy, self).__init__()
-        self.real_kde = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_nt.stats'))
-        self.fake_kde = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_nt_sampled.stats'))
+        self.real_kde = self.load_stem_orientation_data(op.expanduser('stats/stem_nt.stats'))
+        self.fake_kde = self.load_stem_orientation_data(op.expanduser('stats/stem_nt_sampled.stats'))
 
     def load_stem_orientation_data(self, filename):
         import pandas as pa
-        stats = pa.read_csv(filename,header=None, sep=' ')
+        stats = pa.read_csv(load_local_data(filename),header=None, sep=' ')
         t = stats
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
 
@@ -1051,18 +1060,18 @@ class ImgHelixOrientationEnergy(EnergyFunction):
     def __init__(self):
         super(ImgHelixOrientationEnergy).__init__()
         self.res = 2.
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_bulge_nt.stats'))
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data(op.expanduser('~/projects/ernwin/fess/stats/stem_bulge_nt_sampled.stats'))
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data(op.expanduser('stats/stem_bulge_nt.stats'))
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data(op.expanduser('stats/stem_bulge_nt_sampled.stats'))
         '''
-        self.real_img, self.real_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_truncated.stats')
-        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('fess/stats/stem_bulge_nt_sampled_truncated.stats')
+        self.real_img, self.real_min_dims = self.load_stem_orientation_data('stats/stem_bulge_nt_truncated.stats')
+        self.fake_img, self.fake_min_dims = self.load_stem_orientation_data('stats/stem_bulge_nt_sampled_truncated.stats')
         '''
 
     def load_stem_orientation_data(self, filename):
         import pandas as pa
         import scipy.ndimage as sn
 
-        stats = pa.read_csv(filename,header=None, sep=' ')
+        stats = pa.read_csv(load_local_data(filename),header=None, sep=' ')
         t = stats
         points = stats[[t.columns[2], t.columns[3], t.columns[4]]].as_matrix()
 
@@ -1236,9 +1245,6 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
             if (dist > cutoff_distance):
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
-                #fud.pv('bulge, dist, cutoff_distance, self.bad_bulges')
-                fud.pv('bulge, dist, cutoff_distance')
-                #fud.pv('nodes')
                 #print "bulge:", bulge, "bl:", bl, "cutoff_distance:",
                 # cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
@@ -1258,8 +1264,8 @@ class StemStemOrientationEnergy(EnergyFunction):
         self.real_data = None
         self.fake_data = None
         
-        self.fake_data_location = op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations_sampled.csv')
-        self.real_data_location = op.expanduser('~/projects/ernwin/fess/stats/stem_stem_orientations.csv')
+        self.fake_data_location = op.expanduser('stats/stem_stem_orientations_sampled.csv')
+        self.real_data_location = op.expanduser('stats/stem_stem_orientations.csv')
 
         self.angles = []
         self.beta = False
@@ -1274,7 +1280,7 @@ class StemStemOrientationEnergy(EnergyFunction):
 
     def load_stem_stem_data(self, filename):
         import pandas as pa
-        t = pa.read_csv(filename, header=None, sep=' ')
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
         sampled_angles = []
         orig_angles = []
         for col in self.cols:
@@ -1293,7 +1299,6 @@ class StemStemOrientationEnergy(EnergyFunction):
         #ax.hist(orig_angles, alpha=0.3)
         #return cek.gaussian_kde(sa)
         #return cek.gaussian_kde(sampled_angles, bw_method=0.1)
-        #fud.pv('sampled_angles')
         self.angles += orig_angles
         orig_kde = stats.gaussian_kde(orig_angles)
 
@@ -1310,9 +1315,8 @@ class StemStemOrientationEnergy(EnergyFunction):
         if self.real_data is None:
             col = 0
             self.real_data = self.load_stem_stem_data(self.real_data_location)
-            fud.pv('self.fake_data_location')
             self.fake_data = self.load_stem_stem_data(self.fake_data_location)
-            #self.fake_data = self.load_stem_stem_data('fess/stats/stem_stem_orientations_sampled.csv')
+            #self.fake_data = self.load_stem_stem_data('stem_stem_orientations_sampled.csv')
 
         for (s1,s2) in it.permutations(sm.bg.stem_iterator(), r=2):
             if sm.bg.are_adjacent_stems(s1, s2, multiloops_count = False):
@@ -1334,7 +1338,6 @@ class StemStemOrientationEnergy(EnergyFunction):
                 #fake = my_log( self.fake_data(cgg.stem_stem_orientation(sm.bg, s1, s2))[self.col])
 
                 energy += (real - fake)
-                #fud.pv('angs, fake, real, real-fake')
 
                 self.interaction_energies[tuple(sorted([s1,s2]))] += (real - fake)
 
@@ -1391,9 +1394,9 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         self.min_ratio = 0.
         self.max_ratio = 30.
 
-        self.real_stats_fn = 'fess/stats/cylinder_intersections_native.csv'
-        #self.sampled_stats_fn = 'fess/stats/cylinder_intersections_1jj2_rog.csv'
-        self.sampled_stats_fn = 'fess/stats/cylinder_intersections_loop_rog.csv'
+        self.real_stats_fn = 'stats/cylinder_intersections_native.csv'
+        #self.sampled_stats_fn = 'stats/cylinder_intersections_1jj2_rog.csv'
+        self.sampled_stats_fn = 'stats/cylinder_intersections_loop_rog.csv'
 
         self.real_data = None
         self.fake_data = None
@@ -1405,7 +1408,7 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
     def load_data(self, filename):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
 
         ratios = t[t.columns[1]]
         ratios = list(ratios[~np.isnan(ratios)])
@@ -1458,18 +1461,15 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         '''
         cls = c.defaultdict(list)
 
-        with open(filename, 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                mol_size = int(parts[0])
-                lengths = map(float, parts[1:])
-                cls[mol_size] += [lengths]
+        f = load_local_data(filename)
+        for line in f:
+            parts = line.strip().split()
+            mol_size = int(parts[0])
+            lengths = map(float, parts[1:])
+            cls[mol_size] += [lengths]
 
 
         mol_sizes = cls.keys()
-        #fud.pv('len(mol_sizes)')
-
-        #fud.pv('length, mol_sizes')
 
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
@@ -1503,11 +1503,10 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                    cyl[1] + extension * cyl_vec]
             cyls[s2] = cyl
 
-            line_len = ftuv.magnitude(line[1] - line[0])
+            line_len = ftuv.vec_distance(line[1], line[0])
             intersects = ftuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
-                fud.pv('exiting 107231')
                 sys.exit(1)
 
             if len(intersects) == 0:
@@ -1520,16 +1519,11 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                                                 ftuv.standard_basis).T
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
                 covered[s1] += [(intersects_t[0][0], intersects_t[1][0])]
-                #fud.pv('s1, s2')
-                #fud.pv('line')
-                #fud.pv('cyl')
-                #fud.pv('intersects_t')
-
 
             in_cyl_fractions[s1] += in_cyl_len / line_len
 
         for s in list(bg.stem_iterator()) + list(bg.iloop_iterator()):
-            total_len = ftuv.magnitude(cyls[s][1] - cyls[s][0])
+            total_len = ftuv.vec_distance(cyls[s][1], cyls[s][0])
 
             if len(covered[s]) == 0:
                 continue
@@ -1539,14 +1533,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
 
             #in_cyl_fractions[s] = cl / total_len
             in_cyl_fractions[s] = cl
-
-            #fud.pv('cl, total_len')
-
-            #fud.pv('covered[s]')
-            #fud.pv('ms')
-            #fud.pv('map(lambda x: x[1] - x[0], ms)')
-            #fud.pv('sum(map(lambda x: x[1] - x[0], ms))')
-
 
         return in_cyl_fractions
 
@@ -1584,102 +1570,79 @@ class LoopLoopEnergy(EnergyFunction):
 
         self.data_loaded = False
 
-        self.real_data_location = "~/projects/ernwin/fess/stats/temp.longrange.stats"
-        self.fake_data_location = "~/projects/ernwin/fess/stats/temp.longrange.random_radius_of_gyration_beta_16.stats"
+        self.real_data_location = "stats/temp.longrange.stats"
+        self.fake_data_location = "stats/temp.longrange.random_radius_of_gyration_beta_16.stats"
 
     def probs_by_length(self, tl):
         tly = tl[tl['longrange'] == 'Y']
         tln = tl[tl['longrange'] == 'N']
         
-        nodes = dict()
-        node_lengths = dict()
-        
-        for r in tl[['key1', 'len1', 'longrange']].as_matrix():
-            if r[2] == 'Y':
-                nodes[r[0]] = 'Y'
-                node_lengths[r[0]] = r[1]
-                continue
-            
-            if r[0] not in nodes:
-                nodes[r[0]] = 'N'
-                node_lengths[r[0]] = r[1]
-                
-        lengths_y = [node_lengths[i] for i in nodes.keys() if nodes[i] == 'Y']
-        lengths_n = [node_lengths[i] for i in nodes.keys() if nodes[i] == 'N']
-        
-        # add pseudocounts
-        lengths_y += list(set(lengths_n))
-        
-        p_l = dict()
-        p_l_given_i = c.defaultdict(lambda: 1)
-        p_i_given_l = dict()
-        counts_y = c.Counter(lengths_y)
-        counts_a = c.Counter(lengths_y + lengths_n)
-        p_i = len(lengths_y) / float(len(lengths_y + lengths_n))
-        
-        for l in counts_a.keys():
-            p_l_given_i[l] = (counts_y[l]) / float(sum(counts_y.values()))
-            p_l[l] = counts_a[l] / float(sum(counts_a.values()))
-            p_i_given_l[l] = p_l_given_i[l] * p_i / p_l[l]
+        ky = ss.gaussian_kde(tly['len1'])
+        kn = ss.gaussian_kde(tln['len1'])
 
-        # fill in the missing loop lengths
-        last_seen = i
+        return lambda x: (ky(x) / (ky(x) + kn(x)))
 
-        for i in range(2, 30):
-            if i in p_i_given_l.keys():
-                last_seen = i
-            else:
-                p_i_given_l[i] = p_i_given_l[last_seen]
-        
-        return p_i_given_l
-
-    def get_p_i_given_l1_l2(self, p_i_given_l):
+    def get_p_i_given_l1_l2(self, p_i_given_l_1, p_i_given_l_2):
         p_i_given_l1_l2 = dict()
         
-        for l1,l2 in it.product(p_i_given_l.keys(), repeat=2):
-            #print l1, l2
-            p_i_given_l1_l2[(l1,l2)] = p_i_given_l[l1] * p_i_given_l[l2]
+        for l1 in range(1, 15):
+            for l2 in range(1, 15):
+                #print l1, l2
+                p_i_given_l1_l2[(l1,l2)] = p_i_given_l_1(l1) * p_i_given_l_2(l2)
+
         #print p_i_given_l1_l2
         return p_i_given_l1_l2
+    
+    def filter_interactions(self, tl):
+        '''
+        Filter all the interactions and return only the rows which contain
+        the desired ones.
+
+        @param tl: A DataFrame containing a list of all the interactions.
+        @return: A subset of tl containing only the interactions relevant
+                 to this energy.
+        '''
+        return (tl[np.logical_and(tl['type1'] == 'h', tl['type2'] == 'h')],
+                tl[np.logical_and(tl['type1'] == 'h', tl['type2'] == 'h')])
 
     def load_data(self, filename_real, filename_sampled):
         import pandas as pa
 
-        tr = pa.read_csv(filename_real, header=None, sep=' ')
+        tr = pa.read_csv(load_local_data(filename_real), header=None, sep=' ')
         tr.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2',
                      'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
-        ts = pa.read_csv(filename_sampled, header=None, sep=' ')
+        ts = pa.read_csv(load_local_data(filename_sampled), header=None, sep=' ')
         ts.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2',
                      'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         tr = tr[tr.dist < 40.]
         ts = ts[ts.dist < 40.]
 
-        trl = tr[np.logical_and(tr['type1'] == 'h', tr['type2'] == 'h')]
+        (trl1, trl2) = self.filter_interactions(tr)
+        trl = trl1
         trly = trl[trl['longrange'] == 'Y']
         trln = trl[trl['longrange'] == 'N']
 
-        tsl = ts[np.logical_and(ts['type1'] == 'h', ts['type2'] == 'h')]
+        (tsl1, tsl2) = self.filter_interactions(ts)
+        tsl = tsl1
         tsly = tsl[tsl['longrange'] == 'Y']
         tsln = tsl[tsl['longrange'] == 'N']
 
-        p_i_given_l = self.probs_by_length(tr)
-        self.p_i_given_l1_l2 = self.get_p_i_given_l1_l2(p_i_given_l)
-
-        print self.p_i_given_l1_l2[(2,2)]
+        self.p_i_given_l_1 = self.probs_by_length(trl1)
+        self.p_i_given_l_2 = self.probs_by_length(trl2)
+        self.p_i_given_l1_l2 = self.get_p_i_given_l1_l2(self.p_i_given_l_1, self.p_i_given_l_2)
 
         # data for interactions
-
         real_dists = trly["dist"]
         sampled_dists = tsly["dist"]
 
         #floc = 0.9 * min(list(real_dists) + list(sampled_dists))
-        floc = 0.
+        floc = -.1
         fscale = max(list(real_dists) + list(sampled_dists))
+        fscale = 39.0
 
         #import functools as ft
-
         f = ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
         ks = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
         #ks = ft.partial(ss.beta.pdf, {"a":f[0], "b": f[1], "loc":f[2], "scale":f[3]})
@@ -1687,8 +1650,6 @@ class LoopLoopEnergy(EnergyFunction):
         f1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
         kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
         #kr = ft.partial(ss.beta.pdf, {"a":f1[0], "b": f1[1], "loc":f1[2], "scale":f1[3]})
-
-        #fud.pv('f1')
 
         self.pr_d_given_i = kr
         self.ps_d_given_i = ks
@@ -1698,10 +1659,13 @@ class LoopLoopEnergy(EnergyFunction):
         real_dists = trln["dist"]
         sampled_dists = tsln["dist"]
 
+        floc = -.1
+        fscale = max(list(real_dists) + list(sampled_dists))
+        fscale = 39.0
+
         fn1 = ss.beta.fit(real_dists, floc=floc, fscale=fscale)
         kr = lambda x: ss.beta.pdf(x, fn1[0], fn1[1], fn1[2], fn1[3])
         #kr = ft.partial(ss.beta.pdf, {"a":fn1[0], "b": fn1[1], "loc":fn1[2], "scale":fn1[3]})
-        #fud.pv('f1')
 
         fn= ss.beta.fit(sampled_dists, floc=floc, fscale=fscale)
         ks = lambda x: ss.beta.pdf(x, fn[0], fn[1], fn[2], fn[3])
@@ -1712,29 +1676,18 @@ class LoopLoopEnergy(EnergyFunction):
 
         self.data_loaded = True
 
-        #fud.pv('f1, fn1')
-        #fud.pv('self.pr_d_given_i(15), self.pr_d_given_ic(15)')
-
     def calc_energy(self, dist, l1, l2):
-        pr_d_given_l1_l2 = self.p_i_given_l1_l2[(l1, l2)] * self.pr_d_given_i(dist)
-        pr_d_given_l1_l2 += (1 - self.p_i_given_l1_l2[(l1,l2)]) * self.pr_d_given_ic(dist)
+        pr_d_given_l1_l2 = self.p_i_given_l_1(l1) * self.p_i_given_l_2(l2) * self.pr_d_given_i(dist)
+        pr_d_given_l1_l2 += (1 - self.p_i_given_l_1(l1) * self.p_i_given_l_2(l2)) * self.pr_d_given_ic(dist)
         pr = pr_d_given_l1_l2
 
-        #fud.pv('self.pr_d_given_i(dist)')
-        #fud.pv('self.pr_d_given_ic(dist)')
-        #fud.pv('pr')
-
-        ps_d_given_l1_l2 = self.p_i_given_l1_l2[(l1, l2)] * self.ps_d_given_i(dist)
-        ps_d_given_l1_l2 += (1 - self.p_i_given_l1_l2[(l1,l2)]) * self.ps_d_given_ic(dist)
+        ps_d_given_l1_l2 = self.p_i_given_l_1(l1) * self.p_i_given_l_2(l2) * self.ps_d_given_i(dist)
+        ps_d_given_l1_l2 += (1 - self.p_i_given_l_1(l1) * self.p_i_given_l_2(l2)) * self.ps_d_given_ic(dist)
         ps = ps_d_given_l1_l2
 
         #pr = self.pr_d_given_ic(dist)
         #ps = 1. #self.ps_d_given_ic(dist)
         #print "yo"
-
-        #fud.pv('self.ps_d_given_i(dist)')
-        #fud.pv('self.ps_d_given_ic(dist)')
-        #fud.pv('ps')
 
         delta = 0.0001 * ps
 
@@ -1761,7 +1714,7 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
 
-            pairs += [(l1, l2, ftuv.magnitude(i2 - i1))]
+            pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
 
         evaluated = set()
         to_eval = []
@@ -1776,20 +1729,17 @@ class LoopLoopEnergy(EnergyFunction):
 
         for (l1, l2, dist) in to_eval:
 
-            dist = ftuv.magnitude(i1 - i2)
+            dist = ftuv.vec_distance(i1, i2)
             if dist > 35:
                 continue
 
-            #fud.pv('dist')
             num += 1
 
             len1 = sm.bg.get_length(l1)
             len2 = sm.bg.get_length(l2)
 
-            #fud.pv('len1, len2, dist')
 
             contrib = self.calc_energy(dist, len1, len2)
-            #fud.pv('contrib')
 
             key = tuple(sorted([l1, l2]))
             contribs[key] += [contrib]
@@ -1800,6 +1750,76 @@ class LoopLoopEnergy(EnergyFunction):
 
         return -energy
 
+class LoopILoopEnergy(LoopLoopEnergy):
+    def __init__(self):
+        super(LoopILoopEnergy, self).__init__()
+
+    def filter_interactions(self, tl):
+        '''
+        Filter all the interactions and return only the rows which contain
+        the desired ones.
+
+        @param tl: A DataFrame containing a list of all the interactions.
+        @return: A subset of tl containing only the interactions relevant
+                 to this energy.
+        '''
+        return (tl[np.logical_and(tl['type1'] == 'h', tl['type2'] == 'i')],
+                tl[np.logical_and(tl['type1'] == 'i', tl['type2'] == 'h')])
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        self.interaction_energies = c.defaultdict(int)
+        if self.data_loaded == False:
+            self.load_data(op.expanduser(self.real_data_location),
+                           op.expanduser(self.fake_data_location))
+
+        num = 0
+        energy = 0
+        contribs = c.defaultdict(list)
+
+        pairs = []
+
+        for l1 in sm.bg.hloop_iterator():
+            for l2 in sm.bg.iloop_iterator():
+                if l1 == l2:
+                    continue
+
+                (i1, i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
+                                                    sm.bg.coords[l1][1],
+                                                    sm.bg.coords[l2][0],
+                                                    sm.bg.coords[l2][1])
+
+                pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
+
+        evaluated = set()
+        to_eval = []
+
+        pairs.sort(key=lambda x: x[2])
+        for p in pairs:
+            if p[0] not in evaluated and p[1] not in evaluated:
+                to_eval += [p]
+                
+                evaluated.add(p[0])
+                evaluated.add(p[1])
+
+        for (l1, l2, dist) in to_eval:
+            if dist > 35:
+                continue
+
+            num += 1
+
+            len1 = sm.bg.get_length(l1)
+            len2 = sm.bg.get_length(l2)
+
+            contrib = self.calc_energy(dist, len1, len2)
+
+            key = tuple(sorted([l1, l2]))
+            contribs[key] += [contrib]
+            energy += contrib
+
+        if num == 0:
+            return 0
+
+        return -energy
 class InteractionProbEnergy(EnergyFunction):
     def __init__(self):
         super(InteractionProbEnergy, self).__init__()
@@ -1817,8 +1837,8 @@ class InteractionProbEnergy(EnergyFunction):
         self.b = dict()
         self.b_a = dict()
 
-        self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'), dtype='real')
-        self.load_data(op.expanduser('fess/stats/temp.longrange.stats.sampled'),
+        self.load_data(op.expanduser('stats/temp.longrange.stats'), dtype='real')
+        self.load_data(op.expanduser('stats/temp.longrange.stats.sampled'),
                        dtype='sampled')
 
         self.calc_expected_energies('real')
@@ -1827,7 +1847,7 @@ class InteractionProbEnergy(EnergyFunction):
     def load_data(self, filename, dtype='real'):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
         t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
@@ -1869,11 +1889,10 @@ class InteractionProbEnergy(EnergyFunction):
                     # some degenerate loops don't have coords
                     continue
 
-                dist = ftuv.magnitude(i2 - i1)
+                dist = ftuv.vec_distance(i2, i1)
                 if dist > 40. or dist < 0.0001:
                     continue
 
-                #fud.pv('dist, self.p_i["real"](dist)')
                 total_p *= 1. - self.p_i['real'](dist)
 
         return total_p
@@ -1904,7 +1923,6 @@ class InteractionProbEnergy(EnergyFunction):
             p = self.calc_node_p(bg, node)
 
             energy += self.ex_ps['real'](p) - self.ex_ps['sampled'](p)
-            #fud.pv('p, energy')
 
         return -energy
 
@@ -1913,8 +1931,9 @@ class LoopJunctionEnergy(LoopLoopEnergy):
     def load_data(self, filename):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 
+                     'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "l")]
@@ -1943,8 +1962,8 @@ class LoopJunctionEnergy(LoopLoopEnergy):
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
-            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('stats/temp.longrange.stats'))
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('stats/temp.longrange.stats.sampled'))
 
         p_i = 1.
 
@@ -1956,7 +1975,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
-                x = ftuv.magnitude(i1 - i2)
+                x = ftuv.vec_distance(i1, i2)
 
                 if x > 50.:
                     x = 50.
@@ -1982,8 +2001,9 @@ class LoopBulgeEnergy(LoopLoopEnergy):
     def load_data(self, filename):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
-        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
+        t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 
+                     'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
         loop_loop = t[np.logical_and(t.type1 == "l", t.type2 == "i")]
@@ -2008,8 +2028,8 @@ class LoopBulgeEnergy(LoopLoopEnergy):
 
     def eval_energy(self, sm, background=True):
         if self.real_data == None:
-            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
-            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
+            (self.real_data, self.real_d_given_i, self.real_d, self.real_iprobs) = self.load_data(op.expanduser('stats/temp.longrange.stats'))
+            (self.fake_data, self.fake_d_given_i, self.fake_d, self.fake_iprobs) = self.load_data(op.expanduser('stats/temp.longrange.stats.sampled'))
 
         p_i = 1.
 
@@ -2021,7 +2041,7 @@ class LoopBulgeEnergy(LoopLoopEnergy):
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
-                x = ftuv.magnitude(i1 - i2)
+                x = ftuv.vec_distance(i1, i2)
 
                 if x > 50.:
                     x = 50.
@@ -2052,8 +2072,8 @@ class NLoopLoopEnergy(EnergyFunction):
         self.fake_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
-            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s_given_i, self.real_s) = self.load_data(op.expanduser('stats/temp.longrange.stats'))
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s_given_i, self.fake_s) = self.load_data(op.expanduser('stats/temp.longrange.stats.sampled'))
 
         # Store the total probabilities for each loop length
         # The loop length is the index and the total probabilites seen
@@ -2085,14 +2105,11 @@ class NLoopLoopEnergy(EnergyFunction):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
-            fud.pv('i')
             ax = fig.add_subplot(4, 4, i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
 
-            fud.pv('e_reals[i]')
-            fud.pv('e_sampleds[i]')
             xs = np.linspace(0, max(e_reals[i]), 100)
             ger = self.ger[i]
             ges = self.ges[i]
@@ -2107,7 +2124,7 @@ class NLoopLoopEnergy(EnergyFunction):
     def load_data(self, filename):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
         t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
@@ -2139,8 +2156,7 @@ class NLoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = ftuv.magnitude(i2 - i1)
-            #fud.pv('l1, l2, d')
+            d = ftuv.vec_distance(i2, i1)
             if d > 50:
                 continue
 
@@ -2160,7 +2176,6 @@ class NLoopLoopEnergy(EnergyFunction):
         for l1 in sm.bg.hoop_iterator():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
-            #fud.pv('l1, sm.bg.get_length(l1), total_p')
 
         return total_ps
 
@@ -2186,8 +2201,8 @@ class NLoopJunctionEnergy(EnergyFunction):
         self.fake_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
-            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s1_given_i, self.fake_s2_given_i, self.real_s1, self.fake_s2) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats.sampled'))
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2) = self.load_data(op.expanduser('stats/temp.longrange.stats'))
+            (self.fake_dist, self.fake_d_given_i, self.fake_d, self.fake_size, self.fake_s1_given_i, self.fake_s2_given_i, self.real_s1, self.fake_s2) = self.load_data(op.expanduser('stats/temp.longrange.stats.sampled'))
 
         # Store the total probabilities for each loop length
         # The loop length is the index and the total probabilites seen
@@ -2220,14 +2235,11 @@ class NLoopJunctionEnergy(EnergyFunction):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
-            fud.pv('i')
             ax = fig.add_subplot(4,4,i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
 
-            fud.pv('e_reals[i]')
-            fud.pv('e_sampleds[i]')
             xs = np.linspace(0, max(e_reals[i]), 100)
             ger = self.ger[i]
             ges = self.ges[i]
@@ -2243,7 +2255,7 @@ class NLoopJunctionEnergy(EnergyFunction):
     def load_data(self, filename):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
         t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
@@ -2277,8 +2289,7 @@ class NLoopJunctionEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = ftuv.magnitude(i2 - i1)
-            #fud.pv('l1, l2, d')
+            d = ftuv.vec_distance(i2, i1)
             if d > 50:
                 continue
 
@@ -2298,9 +2309,7 @@ class NLoopJunctionEnergy(EnergyFunction):
         for l1 in sm.bg.multiloops():
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
-            #fud.pv('l1, sm.bg.get_length(l1), total_p')
 
-        #fud.pv('total_ps')
         return total_ps
 
     def eval_energy(self, sm, background=True):
@@ -2311,7 +2320,6 @@ class NLoopJunctionEnergy(EnergyFunction):
             if len(self.e_reals[s]) < 2 or len(self.e_sampleds[s]) < 2:
                 continue
 
-            fud.pv('p')
             energy += self.ger[s](p) - self.ges[s](p)
 
         return -energy
@@ -2325,7 +2333,7 @@ class NLoopStemEnergy(EnergyFunction):
         self.fake_struct = cbm.SpatialModel(ttmc.CoarseGrainRNA(os.path.join(cbc.Configuration.test_input_dir, "background/1jj2/", "best0.coord")))
 
         if self.real_dist == None:
-            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2, self.real_a_given_i, self.real_a) = self.load_data(op.expanduser('~/projects/ernwin/fess/stats/temp.longrange.stats'))
+            (self.real_dist, self.real_d_given_i, self.real_d, self.real_size, self.real_s1_given_i, self.real_s2_given_i, self.real_s1, self.real_s2, self.real_a_given_i, self.real_a) = self.load_data(op.expanduser('stats/temp.longrange.stats'))
 
         # Store the total probabilities for each loop length
         # The loop length is the index and the total probabilites seen
@@ -2358,14 +2366,11 @@ class NLoopStemEnergy(EnergyFunction):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         for i in range(16):
-            fud.pv('i')
             ax = fig.add_subplot(4,4,i)
 
             if len(e_reals[i]) < 2 or len(e_sampleds[i]) < 2:
                 continue
 
-            fud.pv('e_reals[i]')
-            fud.pv('e_sampleds[i]')
             xs = np.linspace(0, max(e_reals[i]), 100)
             ger = self.ger[i]
             ges = self.ges[i]
@@ -2381,7 +2386,7 @@ class NLoopStemEnergy(EnergyFunction):
     def load_data(self, filename):
         import pandas as pa
 
-        t = pa.read_csv(filename, header=None, sep=' ')
+        t = pa.read_csv(load_local_data(filename), header=None, sep=' ')
         t.columns = ['key1', 'type1', 'len1', 'key2', 'type2', 'len2', 'dist', 'seq1', 'seq2', 'longrange', 'angle']
 
         #loop_loop = t[np.logical_and(t[t.columns[1]] == "l", t[t.columns[4]] == "l")]
@@ -2389,7 +2394,6 @@ class NLoopStemEnergy(EnergyFunction):
         loop_loop_y = loop_loop[loop_loop.longrange == 'Y']
         loop_loop_n = loop_loop[loop_loop.longrange == 'N']
 
-        fud.pv('loop_loop_y.angle.values')
 
         return (loop_loop.dist.values,
                 cek.gaussian_kde(loop_loop_y.dist),
@@ -2419,8 +2423,7 @@ class NLoopStemEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = ftuv.magnitude(i2 - i1)
-            #fud.pv('l1, l2, d')
+            d = ftuv.vec_distance(i2, i1)
             if d > 50:
                 continue
 
@@ -2445,7 +2448,6 @@ class NLoopStemEnergy(EnergyFunction):
             total_p = self.interaction_prob(sm, l1)
             total_ps += [(sm.bg.get_length(l1),total_p)]
 
-        #fud.pv('total_ps')
         return total_ps
 
     def eval_energy(self, sm, background=True):
@@ -2470,7 +2472,7 @@ def read_angles_file(filename):
     '''
     column_names = ['type', 'pdb', 's1', 's2', 'u', 'v', 't', 'r', 'u1', 'v1',
                     'atype', 'something1', 'something2', 'sth3', 'sth4']
-    stats = pa.read_csv(filename, header=None, sep=' ',
+    stats = pa.read_csv(load_local_data(filename), header=None, sep=' ',
                         names=column_names, engine='python')
     return stats
 
@@ -2551,7 +2553,6 @@ class AdjacentStemEnergy(EnergyFunction):
 
                 energy += real - fake
 
-        fud.pv('energy')
         return energy
 
 def get_coords(cg):
@@ -2591,14 +2592,14 @@ class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def __init__(self, dist_type="kde", adjustment=1.):
         super(RadiusOfGyrationEnergy, self).__init__()
-        self.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration_sampled.csv'
+        self.sampled_stats_fn = 'stats/subgraph_radius_of_gyration_sampled.csv'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
 
-        self.real_stats_fn = 'fess/stats/subgraph_radius_of_gyration.csv'
+        self.real_stats_fn = 'stats/subgraph_radius_of_gyration.csv'
         self.real_stats_fn = op.expanduser(self.real_stats_fn)
 
-        self.real_data = np.genfromtxt(op.expanduser(self.real_stats_fn), delimiter=' ')
-        self.sampled_data = np.genfromtxt(op.expanduser(self.sampled_stats_fn), delimiter=' ')
+        self.real_data = np.genfromtxt(load_local_data(self.real_stats_fn), delimiter=' ')
+        self.sampled_data = np.genfromtxt(load_local_data(self.sampled_stats_fn), delimiter=' ')
 
         self.real_rogs = dict()
         self.sampled_rogs = dict()
@@ -2623,7 +2624,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         percent = 1.0
         #import traceback as tb
         #tb.print_stack()
-        #fud.pv('rog')
 
         if length not in self.real_rogs.keys():
             self.real_rogs[length] = self.real_data[np.logical_and(
@@ -2643,7 +2643,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         
                 f1 = ss.beta.fit(self.adjustment * real_dists, floc=floc, fscale=fscale)
                 kr = lambda x: ss.beta.pdf(x, f1[0], f1[1], f1[2], f1[3])
-                fud.pv('f1')
             elif self.dist_type == "kde":
                 kr = ss.gaussian_kde(self.adjustment * self.real_rogs[length][:,1])
                 ks = ss.gaussian_kde(self.adjustment * self.sampled_rogs[length][:,1])
@@ -2664,9 +2663,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             self.sampled_kdes[length] = ks
 
         rog = self.get_cg_measure(sm)
-        #fud.pv('sm.bg.seq_length, rog')
-        #fud.pv('self.real_kdes[length](rog)')
-        #fud.pv('self.sampled_kdes[length](rog)')
         delta = 0.000000000000001 * self.sampled_kdes[length](rog)
         if self.background:
             energy = my_log(self.real_kdes[length](rog) + delta) - my_log(self.sampled_kdes[length](rog) + delta)
@@ -2679,8 +2675,8 @@ class EncompassingCylinderEnergy(CoarseGrainEnergy):
     def __init__(self):
         super(EncompassingCylinderEnergy, self).__init__()
 
-        self.real_stats_fn = 'fess/stats/encompassing_cylinder_lengths.csv'
-        self.sampled_stats_fn = 'fess/stats/encompassing_cylinder_lengths_rog.csv'
+        self.real_stats_fn = 'stats/encompassing_cylinder_lengths.csv'
+        self.sampled_stats_fn = 'stats/encompassing_cylinder_lengths_rog.csv'
 
     def get_distribution_from_file(self, filename, length):
         '''
@@ -2691,8 +2687,7 @@ class EncompassingCylinderEnergy(CoarseGrainEnergy):
         @param length: The length of the molecule.
         @return: A probability distribution describing the lengths
         '''
-        #fud.pv('all_lengths')
-        data = np.loadtxt(open(filename, 'rb'), delimiter=' ', skiprows=0)
+        data = np.loadtxt(load_local_data(filename), delimiter=' ', skiprows=0)
 
         return (self.get_distribution_from_values(data[:,1]), data)
 
@@ -2713,8 +2708,8 @@ class CoaxialityEnergy(CoarseGrainEnergy):
     def __init__(self):
         super(CoaxialityEnergy, self).__init__()
 
-        self.real_stats_fn = 'fess/stats/colinearities_1jj2.csv'
-        self.sampled_stats_fn = 'fess/stats/colinearities_1jj2_cylinder_intersection.csv'
+        self.real_stats_fn = 'stats/colinearities_1jj2.csv'
+        self.sampled_stats_fn = 'stats/colinearities_1jj2_cylinder_intersection.csv'
 
     def get_lengths_from_file_per_struct(self, filename, length):
         '''
@@ -2734,22 +2729,19 @@ class CoaxialityEnergy(CoarseGrainEnergy):
         '''
         cls = c.defaultdict(list)
 
-        with open(filename, 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                mol_size = int(parts[0])
-                lengths = map(int, parts[1:])
-                cls[mol_size] += [lengths]
-
+        f = load_local_data(filename)
+        for line in f:
+            parts = line.strip().split()
+            mol_size = int(parts[0])
+            lengths = map(int, parts[1:])
+            cls[mol_size] += [lengths]
 
         mol_sizes = cls.keys()
-        #fud.pv('len(mol_sizes)')
 
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .8]
         mol_sizes = mol_sizes[mol_sizes < length * 1.4]
 
-        #fud.pv('mol_sizes')
 
         all_lengths = []
         for l in mol_sizes:
@@ -2775,7 +2767,6 @@ class CoaxialityEnergy(CoarseGrainEnergy):
         all_lengths = self.get_lengths_from_file_per_struct(filename, length)
         #all_lengths = [i for s in all_lengths for i in s]
         all_lengths = map(sum, all_lengths)
-        #fud.pv('all_lengths')
 
         return all_lengths
 
@@ -2789,7 +2780,6 @@ class CoaxialityEnergy(CoarseGrainEnergy):
         @return: A probability distribution describing the lengths co-axial
                  lengths in the provided file.
         '''
-        #fud.pv('all_lengths')
         lengths = self.get_lengths_from_file(filename, length)
 
         return (self.get_distribution_from_values(lengths), lengths)
@@ -2889,8 +2879,8 @@ class PairwiseCoaxialityEnergy(CoaxialityEnergy):
     def __init__(self):
         super(PairwiseCoaxialityEnergy, self).__init__()
 
-        self.real_stats_fn = 'fess/stats/pairwise_colinearities_1jj2.csv'
-        self.sampled_stats_fn = 'fess/stats/pairwise_colinearities_1jj2_rog.csv'
+        self.real_stats_fn = 'stats/pairwise_colinearities_1jj2.csv'
+        self.sampled_stats_fn = 'stats/pairwise_colinearities_1jj2_rog.csv'
 
     def get_colinear_nts(self, cg):
         '''
@@ -2930,28 +2920,21 @@ class PairwiseCoaxialityEnergy(CoaxialityEnergy):
         '''
         cls = c.defaultdict(list)
 
-        with open(filename, 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                mol_size = int(parts[0])
-                l = float(parts[1])
-                cls[mol_size] += [l]
+        f = load_local_file(filename)
+        for line in f:
+            parts = line.strip().split()
+            mol_size = int(parts[0])
+            l = float(parts[1])
+            cls[mol_size] += [l]
 
         mol_sizes = cls.keys()
-        #fud.pv('len(mol_sizes)')
-
-        #fud.pv('mol_sizes, length')
         mol_sizes = np.array(mol_sizes)
         mol_sizes = mol_sizes[mol_sizes > length * .9]
         mol_sizes = mol_sizes[mol_sizes < length * 1.6]
 
-        #fud.pv('mol_sizes')
-
         all_lengths = []
         for l in mol_sizes:
             all_lengths += cls[l]
-
-        #fud.pv('all_lengths')
 
         return all_lengths
 

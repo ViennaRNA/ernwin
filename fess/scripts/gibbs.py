@@ -129,7 +129,7 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = cbe.CombinedEnergy([cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])
 
-            samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type)]
+            samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd)]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = cbe.StemVirtualResClashEnergy()
@@ -188,7 +188,6 @@ def main():
     parser.add_option('', '--stem-stem012', dest='stem_stem012', default=False, action='store_true', help='Use the stem-stem orientation energy')
     parser.add_option('-y', '--cylinder-intersection', dest='cyl_intersect', default=False, action='store_true', help='Use the cylinder-intersection energy')
     parser.add_option('-g', '--cheating', dest='cheating', default=False, action='store_true', help='Use the rmsd from the real structure as the energy.')
-    parser.add_option('', '--secondary-structure', dest='secondary_structure', default=False, action='store_true', help='Take a secondary structure as input instead of a bulge graph')
     parser.add_option('', '--sequence-file', dest='sequence_file', default='', help='The file containing sequence for the structure. To be used with the --secondary-structure flag', type='str')
     parser.add_option('', '--sequence-str', dest='sequence_str', default='', help='The sequence of the structure. To be used with the --secondary-structure flag', type='str')
     parser.add_option('', '--eval-energy', dest='eval_energy', default=False, action='store_true', help='Evaluate the energy of the parameter')
@@ -212,6 +211,8 @@ def main():
 
     parser.add_option('', '--single-sampler', dest='single_sampler', 
                       default=False, help='Use only a single sampler', action='store_true')
+    parser.add_option('', '--no-rmsd', dest='no_rmsd', 
+                      default=False, help='Refrain from trying to calculate the rmsd.', action='store_true')
     parser.add_option('', '--dist1', dest='dist1', default=None, help="Calculate the distance between this residue and the residue at position dist2 at every iteration", type='int')
     parser.add_option('', '--dist2', dest='dist2', default=None, help="Calculate the distance between this residue and the residue at position dist1 at every iteration", type='int')
     (options, args) = parser.parse_args()
@@ -226,7 +227,6 @@ def main():
         sys.exit(1)
 
     cud.pv('args')
-    cud.pv('options.secondary_structure')
 
     if options.stats_file != '':
         stats = ftms.get_angle_stats(options.stats_file)

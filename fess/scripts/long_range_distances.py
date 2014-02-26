@@ -7,13 +7,15 @@ from optparse import OptionParser
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.vector as cuv
-import forgi.utilities.debug as cud
+import forgi.utilities.debug as fud
 
 from collections import defaultdict
 
 def output_long_range_distances(bg):
     for key1 in bg.longrange.keys():
         for key2 in bg.longrange[key1]:
+            if bg.has_connection(key1, key2):
+                continue
 
             #point1 = bg.get_point(key1)
             #point2 = bg.get_point(key2)
