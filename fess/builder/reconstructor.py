@@ -19,6 +19,8 @@ import borgy.builder.rmsd as brmsd
 #import fess.aux.CPDB.BarnacleCPDB as barn
 
 import Bio.PDB as bpdb
+import Bio.PDB.Atom as bpdba
+import Bio.PDB.Residue as bpdbr
 import Bio.PDB.Chain as bpdbc
 import Bio.PDB.Model as bpdbm
 import Bio.PDB.Structure as bpdbs
@@ -1301,3 +1303,25 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
             chain.add(e)
     pass
 
+def reconstruct_from_average(sm):
+    '''
+    Reconstruct a molecule using the average positions of each atom in
+    the elements comprising this structure.
+
+    @param sm: A SpatialModel.
+    '''
+    atoms = ftug.virtual_atoms(sm.bg, atom_names = ftup.nonsidechain_atoms)
+    c = bpdbc.Chain(' ')
+
+    anum = 1
+    for rnum in atoms.keys():
+        rname = "  " + sm.bg.seq[rnum-1]
+        r = bpdbr.Residue((' ', rnum, ' '), rname, '    ')
+
+        for aname in atoms[rnum]:
+            atom = bpdba.Atom(aname, atoms[rnum][aname], 0., 1., ' ', aname, 1)
+            r.add(atom)
+
+        c.add(r)
+
+    return c

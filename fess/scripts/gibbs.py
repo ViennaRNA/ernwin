@@ -176,6 +176,8 @@ def main():
     parser.add_option('', '--encompassing-cylinder-rog', dest='encompassing_cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--cylinder-loop-rog', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--iloop-cylinder-loop-rog', dest='iloop_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the interior loop radius of gyration energy.')
+    parser.add_option('', '--iloop-loop-rog', dest='iloop_loop_radius_of_gyration', default=False, action='store_true', help='Use the interior loop radius of gyration energy.')
     parser.add_option('', '--coaxiality-cylinder-loop-rog', dest='coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the coaxiality, loop, and radius of gyration energy')
     parser.add_option('', '--pairwise-coaxiality-cylinder-loop-rog', dest='pairwise_coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the pairwise coaxiality, loop, and radius of gyration energy')
     parser.add_option('', '--loop-rog', dest='loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
@@ -239,51 +241,46 @@ def main():
     if options.n_loop_energy:
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.NLoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.NLoopLoopEnergy(), cbe.NLoopStemEnergy()])]
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.NLoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.NLoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
     if options.loop_energy:
         print "Using loop_energy"
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.LoopJunctionEnergy(), cbe.LoopBulgeEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy()])]
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.LoopLoopEnergy()])]
     if options.ipe:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.InteractionProbEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.InteractionProbEnergy()])]
     if options.sipe:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.InteractionProbEnergy(), cbe.StemStemOrientationEnergy([2])])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.InteractionProbEnergy(), cbe.StemStemOrientationEnergy([2])])]
     if options.loop_stem_energy:
         print "Using loop_energy"
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.LoopJunctionEnergy(), cbe.LoopBulgeEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy()])]
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.LoopLoopEnergy(), cbe.StemStemOrientationEnergy([2])])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.StemStemOrientationEnergy([2])])]
     if options.cyl_intersect:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.CylinderIntersectionEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CylinderIntersectionEnergy()])]
     if options.stem_stem:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([0])])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.StemStemOrientationEnergy([0])])]
     if options.stem_stem0:
         sse = cbe.StemStemOrientationEnergy([0])
         sse.fake_data_location = op.expanduser(options.stem_stem0_data)
         sse.max_dist = 1000.
         sse.max_lateral_dist = 1000.
         print >>sys.stderr, 'sse'
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse])]
     if options.radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse])]
 
     if options.constant_energy:
         ce = cbe.ConstantEnergy()
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), ce])]
+        energies_to_sample += [cbe.CombinedEnergy([], [ce])]
 
     if options.random_energy:
         re = cbe.RandomEnergy()
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), re])]
-
-    if options.radius_of_gyration:
-        sse = cbe.RadiusOfGyrationEnergy()
-        sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+        energies_to_sample += [cbe.CombinedEnergy([], [re])]
 
     if options.pairwise_coaxiality_cylinder_loop_radius_of_gyration:
         print >>sys.stderr, "Using the coaxiality energy."
@@ -292,7 +289,7 @@ def main():
         lle = cbe.LoopLoopEnergy()
         rog = cbe.RadiusOfGyrationEnergy()
         rog.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie, cae])]
+        energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, cie, cae])]
 
 
     if options.coaxiality_cylinder_loop_radius_of_gyration:
@@ -302,20 +299,35 @@ def main():
         lle = cbe.LoopLoopEnergy()
         rog = cbe.RadiusOfGyrationEnergy()
         rog.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie, cae])]
+        energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, cie, cae])]
+
+    if options.iloop_loop_radius_of_gyration:
+        lle = cbe.LoopLoopEnergy()
+        ile = cbe.LoopILoopEnergy()
+        rog = cbe.RadiusOfGyrationEnergy()
+        rog.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, ile])]
+
+    if options.iloop_cylinder_loop_radius_of_gyration:
+        cie = cbe.CylinderIntersectionEnergy()
+        lle = cbe.LoopLoopEnergy()
+        ile = cbe.LoopILoopEnergy()
+        rog = cbe.RadiusOfGyrationEnergy()
+        rog.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, cie, ile])]
 
     if options.cylinder_loop_radius_of_gyration:
         cie = cbe.CylinderIntersectionEnergy()
         lle = cbe.LoopLoopEnergy()
         rog = cbe.RadiusOfGyrationEnergy()
         rog.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), lle, rog, cie])]
+        energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, cie])]
 
     if options.cylinder_loop:
         lle = cbe.LoopLoopEnergy()
         cie = cbe.CylinderIntersectionEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cie, lle])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cie, lle])]
 
     if options.encompassing_cylinder_loop_radius_of_gyration:
         ece = cbe.EncompassingCylinderEnergy()
@@ -323,25 +335,25 @@ def main():
         lle = cbe.LoopLoopEnergy()
         cie = cbe.CylinderIntersectionEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cie, ece, lle])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse, cie, ece, lle])]
 
     if options.encompassing_cylinder_radius_of_gyration:
         ece = cbe.EncompassingCylinderEnergy()
         sse = cbe.RadiusOfGyrationEnergy()
         cie = cbe.CylinderIntersectionEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cie, ece])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse, cie, ece])]
 
     if options.cylinder_radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy()
         cie = cbe.CylinderIntersectionEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.CylinderIntersectionEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse, cbe.CylinderIntersectionEnergy()])]
 
     if options.loop_radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse, cbe.LoopLoopEnergy()])]
 
     if options.stem_loop_radius_of_gyration:
         sse1 = cbe.StemStemOrientationEnergy([2])
@@ -352,13 +364,13 @@ def main():
         sse1.fake_data = sse1.load_stem_stem_data('fess/stats/stem_stem_orientations_random_loop_radius_gyration_beta_29.csv')
         sse = cbe.RadiusOfGyrationEnergy()
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, cbe.LoopLoopEnergy(), sse1])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse, cbe.LoopLoopEnergy(), sse1])]
 
 
     if options.simple_radius_of_gyration:
         sse = cbe.RadiusOfGyrationEnergy(dist_type="beta", adjustment=0.6)
         sse.background = options.background
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse])]
         
     if options.radius_of_gyration1:
         sse = cbe.RadiusOfGyrationEnergy()
@@ -366,7 +378,7 @@ def main():
         sse1 = cbe.RadiusOfGyrationEnergy()
         sse1.background = True
         sse1.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration_target.csv'
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse, sse1])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse, sse1])]
 
     if options.stem_stem2:
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([2]), cbe.CylinderIntersectionEnergy()])]
@@ -378,17 +390,17 @@ def main():
         sse2 = cbe.StemStemOrientationEnergy([2])
 
         print "Using stem_stem2 energy"
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), sse2])]
+        energies_to_sample += [cbe.CombinedEnergy([], [sse2])]
 
     if options.stem_stem02:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([0]),cbe.StemStemOrientationEnergy([2])])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.StemStemOrientationEnergy([0]),cbe.StemStemOrientationEnergy([2])])]
     if options.stem_stem012:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.StemStemOrientationEnergy([0,1,2])])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.StemStemOrientationEnergy([0,1,2])])]
     if options.helix_orientation:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy(), cbe.ImgHelixOrientationEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.ImgHelixOrientationEnergy()])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.StemVirtualResClashEnergy(), cbe.ImgHelixOrientationEnergy()])]
     if options.constrained_energy:
-        energies_to_sample += [cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.CoarseStemClashEnergy(), cbe.StemVirtualResClashEnergy(), cbe.RoughJunctionClosureEnergy()])]
+        energies_to_sample += [cbe.CombinedEnergy([], [cbe.RandomEnergy()])]
         #energies_to_sample += [cbe.CombinedEnergy([], [cbe.RandomEnergy(), cbe.StemVirtualResClashEnergy()])]
     if options.distance_energy:
         energies_to_sample += [cbe.DistanceEnergy(bg.get_long_range_constraints())]

@@ -210,7 +210,7 @@ class SamplingStatistics:
             # bulge graph file, then don't calculate rmsds
             self.centers_orig = None
 
-    def update_statistics(self, energy_function, sm):
+    def update_statistics(self, energy_function, sm, prev_energy):
         '''
         Add a newly sampled structure to the set of statistics.
 
@@ -230,7 +230,7 @@ class SamplingStatistics:
                 # most likely no native structure was provided
                 pass
 
-        energy = energy_function.eval_energy(sm, background=True)
+        energy = prev_energy #energy_function.eval_energy(sm, background=True)
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
             pass
@@ -385,8 +385,11 @@ class MCMCSampler:
         sm.constraint_energy = constraint_energy
         sm.junction_constraint_energy = junction_constraint_energy
         sm.traverse_and_build()
+        energy_function.energies += sm.constraint_energy.energies
+        energy_function.energies += [sm.junction_constraint_energy]
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
+
         #fud.pv('constraint_energy.eval_energy(sm)')
         #fud.pv('junction_constraint_energy.eval_energy(sm)')
         sm.traverse_and_build()
@@ -540,7 +543,7 @@ class MCMCSampler:
         else:
             self.change_loop()
 
-        self.stats.update_statistics(self.energy_function, self.sm)
+        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy)
 
     def change_loop(self):
         # pick a random bulge to vary
