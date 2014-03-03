@@ -2,6 +2,7 @@
 
 import collections as c
 import itertools as it
+import fess.builder.reconstructor as fbr
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
@@ -37,6 +38,7 @@ def main():
 
             for i, r in it.izip(it.count(),
                                 cg.define_residue_num_iterator(d)):
+                fbr.replace_bases(cg.chain, "".join(['A']*10000))
                 atoms = cg.chain[r]
                 for a in atoms:
                     avec = a.get_vector().get_array()

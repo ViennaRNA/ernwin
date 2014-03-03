@@ -31,6 +31,7 @@ from scipy.stats import norm, poisson
 
 import os, math, sys
 import borgy.builder.config as conf
+import fess.builder.config as fbc
 import copy, time
 import random as rand
 
@@ -50,7 +51,7 @@ def rotate_stem(stem, (u, v, t)):
     '''
     Rotate a particular stem.
     '''
-    stem2 = copy.deepcopy(stem)
+    stem2 = stem.copy()
     rot_mat4 = models.get_stem_rotation_matrix(stem, (u,v,t))
     stem2.rotate(rot_mat4, offset=stem.mids[0])
 
@@ -702,12 +703,12 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
         model.sample()
         chain_loop = list(model.structure.get_chains())[0]
-        chain_unclosed_loop = copy.deepcopy(chain_loop)
+        chain_unclosed_loop = chain_loop.copy()
 
         if handles[0] != 0 and handles[1] != seq_len:
             align_starts(stem_chain, chain_unclosed_loop, [(a,b,i1,i2)], end=2)
         
-        loop_chain = copy.deepcopy(chain_unclosed_loop)
+        loop_chain = chain_unclosed_loop.copy()
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, loop_chain, [(a, b, i1, i2)], no_close=False)
 
         if handles[0] == 0 or handles[1] == seq_len:
@@ -721,9 +722,9 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
                                      chain_unclosed_loop[handles[3]]['P'])
             
 
-        orig_loop_chain = copy.deepcopy(loop_chain)
+        orig_loop_chain = loop_chain.copy()
 
-        all_chain = copy.deepcopy(stem_chain)
+        all_chain = stem_chain.copy()
         ftup.trim_chain(loop_chain, i1, i2+1)
         add_loop_chain(all_chain, loop_chain, (a,b,i1,i2), seq_len)
 
@@ -747,7 +748,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
         if energy < min_energy:
             min_energy = energy
             min_r = r
-            best_loop_chain = copy.deepcopy(orig_loop_chain)
+            best_loop_chain = orig_loop_chain.copy()
             #output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
         '''
         if min_contacts < (0, .1):
@@ -883,7 +884,7 @@ def replace_base(res_dir, res_ref):
 
     #sup = brmsd.optimal_superposition(dir_points - dir_centroid, ref_points - ref_centroid)
     sup = brmsd.optimal_superposition(ref_points - ref_centroid, dir_points - dir_centroid)
-    new_res = copy.deepcopy(res_ref)
+    new_res = res_ref.copy()
 
     for atom in new_res:
         atom.transform(np.eye(3,3), -ref_centroid)
@@ -906,7 +907,12 @@ def replace_bases(chain, seq):
     param @chain: A Bio.PDB.Chain with some reconstructed residues
     param @seq: The sequence of the structure represented by chain
     '''
-    s1 = bpdb.PDBParser().get_structure('t', conf.Configuration.template_residue_fn)
+
+    if fbc.Configuration.template_residues is None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fbc.Configuration.template_residues = bpdb.PDBParser().get_structure('t', conf.Configuration.template_residue_fn)
+    s1 = fbc.Configuration.template_residues
     tchain = list(s1.get_chains())[0]
 
 
@@ -948,7 +954,7 @@ def mend_breakpoint(h, chain, source_chain):
     # the new section (last residue of the stem and two residues of
     # the loop, newly aligned) are then loop-closed to align to the
     # original orientation of the fitted loop region
-    temp_loop_chain = copy.deepcopy(source_chain)
+    temp_loop_chain = source_chain.copy()
     align_starts(chain, temp_loop_chain, [h], end=2)
     rev_handles = [(h[2]-1, h[2]+1, h[0]-1, h[0]+1)]
     temp_loop_chain[h[2] + 1].id = (' ', h[0]+1, ' ')
@@ -1147,7 +1153,9 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict(), move
     if filename in fragment_library.keys():
         source_chain = fragment_library[filename].copy()
     else:
-        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
         fragment_library[filename] = source_chain
 
     #align_source_to_target_fragment(chain, source_chain, sm, angle_def, ld)
@@ -1192,7 +1200,9 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     if filename in fragment_library.keys():
         source_chain = fragment_library[filename].copy()
     else:
-        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
         fragment_library[filename] = source_chain
 
     align_source_to_target_fragment(chain, source_chain, sm, loop_def, ld)
@@ -1245,7 +1255,9 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
     if filename in fragment_library.keys():
         source_chain = fragment_library[filename].copy()
     else:
-        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
         fragment_library[filename] = source_chain
 
     align_source_to_target_fragment(chain, source_chain, sm, fiveprime_def, ld)
@@ -1284,7 +1296,9 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
     if filename in fragment_library.keys():
         source_chain = fragment_library[filename].copy()
     else:
-        source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            source_chain = list(bpdb.PDBParser().get_structure('temp', filename).get_chains())[0]
         fragment_library[filename] = source_chain
 
     align_source_to_target_fragment(chain, source_chain, sm, threeprime_def, ld)
@@ -1310,18 +1324,19 @@ def reconstruct_from_average(sm):
 
     @param sm: A SpatialModel.
     '''
-    atoms = ftug.virtual_atoms(sm.bg, atom_names = ftup.nonsidechain_atoms)
+    atoms = ftug.virtual_atoms(sm.bg, given_atom_names = None)
     c = bpdbc.Chain(' ')
 
     anum = 1
-    for rnum in atoms.keys():
-        rname = "  " + sm.bg.seq[rnum-1]
-        r = bpdbr.Residue((' ', rnum, ' '), rname, '    ')
+    for d in sm.bg.defines:
+        for rnum in sm.bg.define_residue_num_iterator(d):
+            rname = "  " + sm.bg.seq[rnum-1]
+            r = bpdbr.Residue((' ', rnum, ' '), rname, '    ')
 
-        for aname in atoms[rnum]:
-            atom = bpdba.Atom(aname, atoms[rnum][aname], 0., 1., ' ', aname, 1)
-            r.add(atom)
+            for aname in atoms[rnum]:
+                atom = bpdba.Atom(aname, atoms[rnum][aname], 0., 1., ' ', aname, 1)
+                r.add(atom)
 
-        c.add(r)
+            c.add(r)
 
     return c

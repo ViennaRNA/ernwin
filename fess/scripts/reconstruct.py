@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import warnings
 import sys, pdb
 import numpy as np
 import itertools as it
@@ -33,7 +34,7 @@ def main():
         print >>sys.stderr, "Reconstruct a spatial model to full-atom accuracy."
         sys.exit(1)
 
-    print >>sys.stderr, "reconstructing model:", args[0]
+    #print >>sys.stderr, "reconstructing model:", args[0]
     sm = models.SpatialModel(ftmc.CoarseGrainRNA(args[0]))
     sm.sample_native_stems()
     sm.create_native_stem_models()
@@ -43,9 +44,11 @@ def main():
 
     if options.loops:
         if options.average_atoms:
-            chain = rtor.reconstruct_from_average(sm)
-            rtor.output_chain(chain, 'temp.pdb')
-            return
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                chain = rtor.reconstruct_from_average(sm)
+                rtor.output_chain(chain, 'temp.pdb')
+                return
 
         elif options.fragments:
             sm.sampled_from_bg()

@@ -16,4 +16,5 @@ class Configuration:
     test_output_dir = os.path.join(base_dir, "test_output")
     sampling_output_dir = 'best'
     barnacle_dir = '/scr/plastilin/pkerp/apps/Barnacle'
+    template_residues = None
     stem_library = dict()
