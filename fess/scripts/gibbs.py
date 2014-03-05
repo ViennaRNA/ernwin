@@ -176,6 +176,7 @@ def main():
     parser.add_option('', '--encompassing-cylinder-rog', dest='encompassing_cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--cylinder-loop-rog', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--mloop-iloop-cylinder-loop-rog', dest='mloop_iloop_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the multiloop radius of gyration energy.')
     parser.add_option('', '--iloop-cylinder-loop-rog', dest='iloop_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the interior loop radius of gyration energy.')
     parser.add_option('', '--iloop-loop-rog', dest='iloop_loop_radius_of_gyration', default=False, action='store_true', help='Use the interior loop radius of gyration energy.')
     parser.add_option('', '--coaxiality-cylinder-loop-rog', dest='coaxiality_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the coaxiality, loop, and radius of gyration energy')
@@ -307,6 +308,15 @@ def main():
         rog = cbe.RadiusOfGyrationEnergy()
         rog.background = options.background
         energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, ile])]
+
+    if options.mloop_iloop_cylinder_loop_radius_of_gyration:
+        mle = cbe.LoopMLoopEnergy()
+        cie = cbe.CylinderIntersectionEnergy()
+        lle = cbe.LoopLoopEnergy()
+        ile = cbe.LoopILoopEnergy()
+        rog = cbe.RadiusOfGyrationEnergy()
+        rog.background = options.background
+        energies_to_sample += [cbe.CombinedEnergy([], [lle, rog, cie, ile, mle])]
 
     if options.iloop_cylinder_loop_radius_of_gyration:
         cie = cbe.CylinderIntersectionEnergy()

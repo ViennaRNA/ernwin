@@ -1772,6 +1772,79 @@ class LoopLoopEnergy(EnergyFunction):
 
         return -energy
 
+class LoopMLoopEnergy(LoopLoopEnergy):
+    def __init__(self):
+        super(LoopMLoopEnergy, self).__init__()
+
+    def filter_interactions(self, tl):
+        '''
+        Filter all the interactions and return only the rows which contain
+        the desired ones.
+
+        @param tl: A DataFrame containing a list of all the interactions.
+        @return: A subset of tl containing only the interactions relevant
+                 to this energy.
+        '''
+        print >>sys.stderr, "Filtering multiloop interactions"
+
+        return (tl[np.logical_and(tl['type1'] == 'h', tl['type2'] == 'm')],
+                tl[np.logical_and(tl['type1'] == 'm', tl['type2'] == 'h')])
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        self.interaction_energies = c.defaultdict(int)
+        if self.data_loaded == False:
+            self.load_data(op.expanduser(self.real_data_location),
+                           op.expanduser(self.fake_data_location))
+
+        num = 0
+        energy = 0
+        contribs = c.defaultdict(list)
+
+        pairs = []
+
+        for l1 in sm.bg.mloop_iterator():
+            for l2 in sm.bg.iloop_iterator():
+                if l1 == l2:
+                    continue
+
+                (i1, i2) = ftuv.line_segment_distance(sm.bg.coords[l1][0],
+                                                    sm.bg.coords[l1][1],
+                                                    sm.bg.coords[l2][0],
+                                                    sm.bg.coords[l2][1])
+
+                pairs += [(l1, l2, ftuc.vec_distance(i2, i1))]
+
+        evaluated = set()
+        to_eval = []
+
+        pairs.sort(key=lambda x: x[2])
+        for p in pairs:
+            if p[0] not in evaluated and p[1] not in evaluated:
+                to_eval += [p]
+                
+                evaluated.add(p[0])
+                evaluated.add(p[1])
+
+        for (l1, l2, dist) in to_eval:
+            if dist > 35:
+                continue
+
+            num += 1
+
+            len1 = sm.bg.get_length(l1)
+            len2 = sm.bg.get_length(l2)
+
+            contrib = self.calc_energy(dist, len1, len2)
+
+            key = tuple(sorted([l1, l2]))
+            contribs[key] += [contrib]
+            energy += contrib
+
+        if num == 0:
+            return 0
+
+        return -energy
+
 class LoopILoopEnergy(LoopLoopEnergy):
     def __init__(self):
         super(LoopILoopEnergy, self).__init__()
@@ -1842,6 +1915,7 @@ class LoopILoopEnergy(LoopLoopEnergy):
             return 0
 
         return -energy
+
 class InteractionProbEnergy(EnergyFunction):
     def __init__(self):
         super(InteractionProbEnergy, self).__init__()

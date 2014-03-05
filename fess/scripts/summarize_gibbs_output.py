@@ -7,8 +7,9 @@ import collections as c
 import numpy as np
 import scipy.stats as ss
 import math as m
+import numpy
 
-import borgy.utilities.debug as cud
+import borgy.utilities.debug as fud
 
 from optparse import OptionParser
 
@@ -30,7 +31,7 @@ def density_visit_dir(rmsds, dirname, names):
 
                 # keep track of the energy and rmsd of 
                 # the sampled structures
-                rmsds[(pdb_name, pdb_size)] += [(float(parts[4]), float(parts[5]), int(parts[3]))]
+                rmsds[(pdb_name, pdb_size, dirname)] += [(float(parts[4]), float(parts[5]), int(parts[3]))]
 
 def visit_dir(rmsds, dirname, names):
     if 'log.txt' not in names:
@@ -55,7 +56,7 @@ def visit_dir(rmsds, dirname, names):
             # group(3) = iteration
             # group(4) = energy
             # group(5) = rmsd
-            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(4)), float(m.group(6)), float(m.group(5)), filename, trial_id, float(m1.group(3)), float(m1.group(4)), int(m.group(3)))]
+            rmsds[(int(m.group(2)), m.group(1))] += [(float(m.group(4)), float(m.group(6)), float(m.group(5)), filename, trial_id, float(m1.group(3)), float(m1.group(4)), int(m.group(3)), dirname)]
 
 def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
     keys = rmsds.keys()
@@ -87,10 +88,12 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
 
             best_rmsd = rmsds[key][nth][5]
             worst_rmsd = rmsds[key][nth][6]
+            dirname = rmsds[key][nth][8]
 
             ratio = (rmsd - best_rmsd) / (worst_rmsd - best_rmsd)
 
-            print "[",pdb_name + "/" + trial_num,"|", pdb_len,"]", "[", str(rmsd), "::", str(energy) , "(" , str(native_energy), ")" , "]", "<", "%.2f" % (ratio), ">", str(best_rmsd), str(worst_rmsd)
+            #print "[",pdb_name + "/" + trial_num,"|", pdb_len,"]", "[", str(rmsd), "::", str(energy) , "(" , str(native_energy), ")" , "]", "<", "%.2f" % (ratio), ">", str(best_rmsd), str(worst_rmsd)
+            print "best\t%s\t%d\t%.2f\t%s" % (pdb_name,  pdb_len, rmsd, "\t".join(dirname.split("/")))
 
             min_rmsds += [rmsds[key][nth][1]]
             ratios += [ratio]
@@ -100,7 +103,8 @@ def summarize_rmsds(rmsds, compact=False, base_dir='', nth=0, minimal=False):
     min_rmsds.sort()
 
     if not compact and not minimal:
-        print "average: %.2f median %.2f avg_ratio: %.2f avg_best_rmsd: %.2f avg_worst_rmsd: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)), np.mean(np.array(best_rmsds)), np.mean(np.array(worst_rmsds)))
+        #print "average: %.2f median %.2f avg_ratio: %.2f avg_best_rmsd: %.2f avg_worst_rmsd: %.2f" % (np.mean(np.array(min_rmsds)), min_rmsds[len(min_rmsds) / 2], np.mean(np.array(ratios)), np.mean(np.array(best_rmsds)), np.mean(np.array(worst_rmsds)))
+        pass
 
 def summarize_rmsds_by_density(all_rmsds, plot=False):
     if plot:
@@ -132,8 +136,8 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
         counter = 0
         keys = rmsds.keys()
         keys.sort(key=lambda x: x[1])
-        for (pdb_name, pdb_size) in keys:
-            energy_rmsds = np.array(rmsds[(pdb_name, pdb_size)])
+        for (pdb_name, pdb_size, dirname) in keys:
+            energy_rmsds = np.array(rmsds[(pdb_name, pdb_size, dirname)])
             max_energy = 10000000
             low_energy_rmsds = energy_rmsds[energy_rmsds[:,0] < max_energy]
             xs = None
@@ -142,10 +146,12 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
                 if xs == None:
                     xs = np.linspace(0., max(low_energy_rmsds[:,1]), num=200)
                 kde = ss.gaussian_kde(low_energy_rmsds[:,1])
-            except ValueError as ve:
+            except ValueError as ve: 
                 # Usually happens when there aren't enough low energies
                 # to create a kde
                 continue
+            except numpy.linalg.linalg.LinAlgError as lae:
+                fud.pv('dirname, pdb_name')
 
             kxs = kde(xs)
 
@@ -170,7 +176,8 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
 
             counter += 1
             densest_rmsds[pdb_name] = [xs[kxs == max(kxs)][0]]
-            print "%s %d %.1f %.1f" % (pdb_name, pdb_size, xs[kxs == max(kxs)][0], np.average(xs, weights=kxs))
+            print "likely\t%s\t%d\t%.1f\t%s" % (pdb_name, pdb_size, xs[kxs == max(kxs)][0], "\t".join(dirname.split('/')))
+            print "mean\t%s\t%d\t%.1f\t%s" % (pdb_name, pdb_size, np.average(xs, weights=kxs), "\t".join(dirname.split('/')))
 
     if plot:
         fig.tight_layout()
@@ -184,8 +191,9 @@ def summarize_rmsds_by_density(all_rmsds, plot=False):
             sum_rmsds[i] += val
         total += 1
     for s in sum_rmsds:
-        print "---------------"
-        print "avg:", s / total
+        #print "---------------"
+        #print "avg:", s / total
+        pass
 
 def calc_stepwise_divergence(all_rmsds):
     for rmsds in all_rmsds:
