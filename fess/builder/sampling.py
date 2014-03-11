@@ -180,7 +180,7 @@ class SamplingStatistics:
     Store statistics about a sample.
     '''
 
-    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dist1=None, dist2=None, no_rmsd=False):
+    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dist1=None, dist2=None, no_rmsd=False, save_iterative_cg_measures=False):
         '''
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
@@ -195,6 +195,7 @@ class SamplingStatistics:
         self.sm_orig = sm_orig
         self.energy_orig = None
         self.step_save = 0
+        self.save_iterative_cg_measures=save_iterative_cg_measures
 
         self.dist1 = dist1
         self.dist2 = dist2
@@ -210,7 +211,7 @@ class SamplingStatistics:
             # bulge graph file, then don't calculate rmsds
             self.centers_orig = None
 
-    def update_statistics(self, energy_function, sm, prev_energy):
+    def update_statistics(self, energy_function, sm, prev_energy, tracking_energies = []):
         '''
         Add a newly sampled structure to the set of statistics.
 
@@ -242,7 +243,7 @@ class SamplingStatistics:
             #r = cbr.centered_rmsd(self.centers_orig, centers_new)
             r = 0.
             if not self.no_rmsd:
-                r = cbr.drmsd(self.centers_orig, centers_new)
+                r = cbr.rmsd(self.centers_orig, centers_new)
         else:
             r = 0.
 
@@ -295,6 +296,10 @@ class SamplingStatistics:
                 '''
 
             output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
+            output_str += " |"
+            for e in tracking_energies[:1]:
+                output_str += " %.2f" % (e.prev_cg)
+
             if dist:
                 output_str += " | dist %.2f" % (dist)
 
@@ -326,7 +331,10 @@ class SamplingStatistics:
             n = len(self.energy_rmsd_structs)
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
-        self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+        if self.save_iterative_cg_measures:
+            self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, self.counter)
+        else:
+            self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
         self.energy_function.resample_background_kde(sorted_energies[0][2])
 
         for i in range(n):
@@ -360,7 +368,7 @@ class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, stats_type='discrete', no_rmsd=False):
+    def __init__(self, sm, energy_function, stats, stats_type='discrete', no_rmsd=False, energies_to_track=[]):
         '''
         param @sm: SpatialModel that will be used for sampling.
         '''
@@ -370,11 +378,14 @@ class MCMCSampler:
             self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
         else:
             self.cont_stats = None
+        
+        self.step_counter = 0
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
         self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
+        self.energies_to_track = energies_to_track
 
         sm.sample_stats()
         constraint_energy = sm.constraint_energy
@@ -475,6 +486,7 @@ class MCMCSampler:
                 pa = random.choice(possible_angles)
 
         #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
+        self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
         self.sm.angle_defs[bulge][ang_type1] = pa
         self.sm.traverse_and_build()
@@ -484,6 +496,8 @@ class MCMCSampler:
         self.stats.sampled_energy = energy
         if energy > self.prev_energy:
             r = random.random()
+            #fud.pv('self.prev_energy, energy')
+            #print >>sys.stderr, "checking r:", r
             if r > math.exp(self.prev_energy - energy):
                 #fud.pv('self.sm.angle_defs[bulge][ang_type1]')
                 #fud.pv('prev_angle')
@@ -491,10 +505,15 @@ class MCMCSampler:
                 self.sm.traverse_and_build(start=bulge)
                 self.stats.sampled_energy = self.prev_energy
                 #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                #print >>sys.stderr, "rejecting r:", r
+                #fud.pv('self.prev_energy, energy, self.energy_function.uncalibrated_energies[-1].measures[-1:]')
+                self.energy_function.reject_last_measure()
             else:
                 self.prev_energy = energy
+                self.energy_function.accept_last_measure()
         else:
             self.prev_energy = energy
+            self.energy_function.accept_last_measure()
 
 
     def change_stem(self):
@@ -512,6 +531,7 @@ class MCMCSampler:
         pa = random.choice(possible_stems)
 
         #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
+        self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
         prev_stem = self.sm.stem_defs[stem]
         #fud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.stem_defs[stem] = pa
@@ -525,10 +545,13 @@ class MCMCSampler:
                 self.sm.traverse_and_build()
                 self.stats.sampled_energy = self.prev_energy
                 #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                self.energy_function.reject_last_measure()
             else:
                 self.prev_energy = energy
+                self.energy_function.accept_last_measure()
         else:
             self.prev_energy = energy
+            self.energy_function.accept_last_measure()
 
     def step(self):
         #self.sm.sample_stems()
@@ -536,14 +559,26 @@ class MCMCSampler:
         #self.sm.sample_angles()
         self.sm.traverse_and_build()
 
+        self.change_angle()
+        '''
         if random.random() < 0.5:
             self.change_angle()
         elif random.random() < 0.5:
             self.change_stem()
         else:
             self.change_loop()
+        '''
 
-        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy)
+        #fud.pv('self.energy_function.uncalibrated_energies[-1].accepted_measures[-1]')
+        self.step_counter += 1
+        for e in self.energies_to_track:
+            e.eval_energy(self.sm)
+            e.accepted_measures += [e.measures[-1]]
+
+            if self.step_counter % 20 == 0:
+                e.dump_measures(cbc.Configuration.sampling_output_dir)
+
+        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track)
 
     def change_loop(self):
         # pick a random bulge to vary
@@ -561,6 +596,7 @@ class MCMCSampler:
         pa = random.choice(possible_loops)
 
         #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
+        self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
         prev_loop = self.sm.loop_defs[loop]
         #fud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.loop_defs[loop] = pa
@@ -574,11 +610,13 @@ class MCMCSampler:
                 self.sm.traverse_and_build(start=loop)
                 self.stats.sampled_energy = self.prev_energy
                 #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
+                self.energy_function.reject_last_measure()
             else:
-                
                 self.prev_energy = energy
+                self.energy_function.accept_last_measure()
         else:
             self.prev_energy = energy
+            self.energy_function.accept_last_measure()
 
     '''
     def step(self):

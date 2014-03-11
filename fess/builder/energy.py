@@ -21,8 +21,8 @@ import collections as c
 import os.path as op
 
 #import scipy.stats as ss
-import forgi.threedee.utilities.cytvec as ftuc
 import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.utilities.vector as ftuc
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -69,6 +69,15 @@ class EnergyFunction(object):
 
         self.bad_bulges = []
         self.measures = []
+        self.accepted_measures = []
+
+    def accept_last_measure(self):
+        if len(self.measures) > 0:
+            self.accepted_measures += [self.measures[-1]]
+
+    def reject_last_measure(self):
+        if len(self.accepted_measures) > 0:
+            self.accepted_measures += [self.accepted_measures[-1]]
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         '''
@@ -140,16 +149,28 @@ class EnergyFunction(object):
 
         self.calc_bg_parameters(selected_structs)
 
-    def dump_measures(self, base_directory):
+    def get_energy_name(self):
+        '''
+        Return the name of the energy.
+        '''
+
+        return self.__class__.__name__.lower() + ".measures"
+
+    def dump_measures(self, base_directory, iteration=None):
         '''
         Dump all of the coarse grain measures collected so far
         to a file.
         '''
-        output_file = op.join(base_directory, self.__class__.__name__.lower() + ".measures")
+        output_file = op.join(base_directory, self.get_energy_name())
 
         with open(output_file, 'w') as f:
-            f.write(" ".join(map("{:.2f}".format,self.measures)))
+            f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
             f.write("\n")
+
+        if iteration is not None:
+            with open(output_file + ".%d" % (iteration), 'w') as f:
+                f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
+                f.write("\n")
 
 class CoarseGrainEnergy(EnergyFunction):
     def __init__(self):
@@ -163,15 +184,28 @@ class CoarseGrainEnergy(EnergyFunction):
         self.vals = []
         self.dists = []
 
+        self.dist_type = "kde"
+
         self.measures = []
+        self.prev_energy = 0.
 
         pass
 
     def resample_background_kde(self, struct):
-        values = self.measures
+        values = self.accepted_measures
+
+        print >>sys.stderr, "resampling the background kde", self.__class__.__name__
 
         if len(values) > 100:
-            self.sampled_kdes[struct.seq_length] = self.get_distribution_from_values(values)
+            new_kde = self.get_distribution_from_values(values)
+
+            if new_kde is not None:
+                self.sampled_kdes[struct.seq_length] = new_kde
+            else:
+                print >>sys.stderr, "skipping this time..."
+                fud.pv('values')
+
+            self.vals[1] = values
 
     def get_distribution_from_values(self, values):
         '''
@@ -183,8 +217,14 @@ class CoarseGrainEnergy(EnergyFunction):
         floc = -0.1
         fscale =  1.5 * max(values)
 
-        f = ss.beta.fit(values, floc=floc, fscale=fscale)
-        k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+        if self.dist_type == "kde":
+            try:
+                k = ss.gaussian_kde(values)
+            except np.linalg.linalg.LinAlgError:
+                return None
+        else:
+            f = ss.beta.fit(values, floc=floc, fscale=fscale)
+            k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
 
         self.flocs += [floc]
         self.fscales += [fscale]
@@ -203,15 +243,20 @@ class CoarseGrainEnergy(EnergyFunction):
         if cg.seq_length not in self.real_kdes.keys():
             (self.real_kdes[cg.seq_length], x) = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
             (self.sampled_kdes[cg.seq_length], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
+            self.accepted_measures = self.measures[:]
 
         kr = self.real_kdes[cg.seq_length]
         ks = self.sampled_kdes[cg.seq_length]
 
         m = self.get_cg_measure(sm)
-        self.measures += [m]
+        self.measures.append(m)
 
-        energy = (np.log(kr(m) + 0.0001 * ks(m)) - np.log(ks(m)))
-        return -energy
+        energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
+        self.prev_energy = energy
+        self.prev_cg = m
+        #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
+        return -30 * energy
+
 
 class ConstantEnergy(EnergyFunction):
     '''
@@ -297,10 +342,18 @@ class CombinedEnergy:
 
         pass
 
-    def dump_measures(self, base_directory):
+    def accept_last_measure(self):
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            e.accept_last_measure()
+
+    def reject_last_measure(self):
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            e.reject_last_measure()
+
+    def dump_measures(self, base_directory, iteration=None):
         for e in it.chain(self.energies,
                           self.uncalibrated_energies):
-            e.dump_measures(base_directory)
+            e.dump_measures(base_directory, iteration)
 
     def calibrate(self, sm, iterations=40,
                   bg_energy=None,
@@ -1482,7 +1535,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             lengths = map(float, parts[1:])
             cls[mol_size] += [lengths]
 
-
         mol_sizes = cls.keys()
 
         mol_sizes = np.array(mol_sizes)
@@ -1583,6 +1635,8 @@ class CheatingEnergy(EnergyFunction):
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
+
+
 
 class LoopLoopEnergy(EnergyFunction):
     def __init__(self):
@@ -1751,7 +1805,6 @@ class LoopLoopEnergy(EnergyFunction):
 
         for (l1, l2, dist) in to_eval:
 
-            dist = ftuc.vec_distance(i1, i2)
             if dist > 35:
                 continue
 
@@ -2694,25 +2747,33 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         self.real_stats_fn = 'stats/subgraph_radius_of_gyration.csv'
         self.real_stats_fn = op.expanduser(self.real_stats_fn)
 
-        self.real_data = np.genfromtxt(load_local_data(self.real_stats_fn), delimiter=' ')
-        self.sampled_data = np.genfromtxt(load_local_data(self.sampled_stats_fn), delimiter=' ')
-
         self.real_rogs = dict()
         self.sampled_rogs = dict()
         self.real_kdes = dict()
         self.sampled_kdes = dict()
 
         self.background=True
-        self.dist_type = dist_type
+        self.dist_type = 'kde'
         self.adjustment = adjustment # the adjustment is used to enlarge or shrink
                                      # a particular distribution
 
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
 
+        #fud.pv('rog')
         self.measures += [rog]
         return rog
 
+    def get_distribution_from_file(self, filename, length):
+        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+
+        rdata = data[np.logical_and( data[:,0] > (0.8) * length,
+                                     data[:,0] < length * ( 1.6 ))]
+
+        rogs = rdata[:,1]
+        return (self.get_distribution_from_values(rogs), list(rogs))
+
+    '''
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         cg = sm.bg
         length = cg.seq_length
@@ -2766,6 +2827,53 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             energy = my_log(self.real_kdes[length](rog))
 
         return -energy
+    '''
+
+class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
+    def __init__(self):
+        super(ShortestLoopDistanceEnergy, self).__init__()
+        self.max_dist = 450
+    
+        self.real_stats_fn = 'stats/shortest_loop_distances_native.csv'
+        self.sampled_stats_fn = 'stats/shortest_loop_distances_sampled.csv'
+
+        #print >>sys.stderr, "hi"
+
+    def get_shortest_distances(self, cg):
+        pairs = []
+        total_dist = 0.
+
+        for (l1, l2) in it.combinations(cg.hloop_iterator(), 2):
+            (i1, i2) = ftuv.line_segment_distance(cg.coords[l1][0],
+                                                   cg.coords[l1][1],
+                                                   cg.coords[l2][0],
+                                                   cg.coords[l2][1])
+
+            pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
+
+        evaluated = set()
+        to_eval = []
+
+        pairs.sort(key=lambda x: x[2])
+        for p in pairs:
+            if p[0] not in evaluated and p[1] not in evaluated:
+                to_eval += [p]
+
+                evaluated.add(p[0])
+                evaluated.add(p[1])
+
+        for (l1, l2, dist) in to_eval:
+            #fud.pv('dist')
+            if dist > self.max_dist:
+                continue
+
+            total_dist += dist
+
+        #fud.pv('total_dist')
+        return total_dist
+
+    def get_cg_measure(self, sm):
+        return self.get_shortest_distances(sm.bg)
 
 class EncompassingCylinderEnergy(CoarseGrainEnergy):
     def __init__(self):
@@ -2785,7 +2893,7 @@ class EncompassingCylinderEnergy(CoarseGrainEnergy):
         '''
         data = np.loadtxt(load_local_data(filename), delimiter=' ', skiprows=0)
 
-        return (self.get_distribution_from_values(data[:,1]), data)
+        return (self.get_distribution_from_values(data[:,1]), list(data))
 
     def get_cg_measure(self, sm):
         '''
@@ -2878,7 +2986,7 @@ class CoaxialityEnergy(CoarseGrainEnergy):
         '''
         lengths = self.get_lengths_from_file(filename, length)
 
-        return (self.get_distribution_from_values(lengths), lengths)
+        return (self.get_distribution_from_values(lengths), list(lengths))
 
     def linearable(self, bg):
         '''

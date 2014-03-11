@@ -48,8 +48,10 @@ def visit_dir(rmsds, dirname, names):
         line = f.readlines()[-1]
 
         if line.find("native_energy") == 0:
-            m = re.search('\[(.*) (.*)\].*([0-9]+).*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)[ ]\|', line) 
-            m1 = re.search('\[(.*) (.*)\].*extreme_rmsds:[ ]+(.*)[ ]+(.*)', line) 
+            m = re.search('\[(.*) (.*)\].*([0-9]+).*min:[ ]+(.*)[ ]+\((.*)\)+[ ](.*)[ ]\| ex', line) 
+            m1 = re.search('\[(.*) (.*)\].*extreme_rmsds:[ ]+(.*)[ ]+(.*)[ ]\|.*', line) 
+            #fud.pv('m.groups()')
+            #fud.pv('m1.groups()')
 
             # group(1) = pdb id
             # group(2) = length in nucleotides
