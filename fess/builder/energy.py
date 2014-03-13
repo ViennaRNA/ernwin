@@ -1471,6 +1471,8 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         self.real_kdes = dict()
         self.sampled_kdes = dict()
 
+    def get_name(self):
+        return "Cylinder Overlap"
 
     def load_data(self, filename):
         import pandas as pa
@@ -2757,6 +2759,9 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         self.adjustment = adjustment # the adjustment is used to enlarge or shrink
                                      # a particular distribution
 
+    def get_name(self):
+        return "Radius Of Gyration"
+
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
 
@@ -2838,6 +2843,9 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         self.sampled_stats_fn = 'stats/shortest_loop_distances_sampled.csv'
 
         #print >>sys.stderr, "hi"
+
+    def get_name(self):
+        return "Loop Distance"
 
     def get_shortest_distances(self, cg):
         pairs = []
