@@ -173,7 +173,7 @@ class EnergyFunction(object):
                 f.write("\n")
 
 class CoarseGrainEnergy(EnergyFunction):
-    def __init__(self):
+    def __init__(self, energy_prefactor=10):
         super(CoarseGrainEnergy, self).__init__()
 
         self.real_kdes = dict()
@@ -188,6 +188,8 @@ class CoarseGrainEnergy(EnergyFunction):
 
         self.measures = []
         self.prev_energy = 0.
+
+        self.energy_prefactor = energy_prefactor
 
         pass
 
@@ -255,7 +257,7 @@ class CoarseGrainEnergy(EnergyFunction):
         self.prev_energy = energy
         self.prev_cg = m
         #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
-        return -30 * energy
+        return -1 * self.energy_prefactor * energy
 
 
 class ConstantEnergy(EnergyFunction):
@@ -2741,8 +2743,8 @@ class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
         return -rog
     
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
-    def __init__(self, dist_type="kde", adjustment=1.):
-        super(RadiusOfGyrationEnergy, self).__init__()
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30):
+        super(RadiusOfGyrationEnergy, self).__init__(energy_prefactor=energy_prefactor)
         self.sampled_stats_fn = 'stats/subgraph_radius_of_gyration_sampled.csv'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
 

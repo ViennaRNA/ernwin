@@ -243,7 +243,7 @@ class SamplingStatistics:
             #r = cbr.centered_rmsd(self.centers_orig, centers_new)
             r = 0.
             if not self.no_rmsd:
-                r = cbr.rmsd(self.centers_orig, centers_new)
+                r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
 

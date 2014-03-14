@@ -158,6 +158,7 @@ def main():
     #seterr(all='raise')
     parser = OptionParser()
 
+    parser.add_option('', '--energy-prefactor', dest='energy_prefactor', default=30, help='A multiplier for the energy', type='int')
     parser.add_option('-e', '--energy', dest='energy', default='energies/lrde.energy', help="The energy function to use when evaluating structures")
     parser.add_option('-i', '--iterations', dest='iterations', default=10, help='Number of structures to generate', type='int')
     parser.add_option('-b', '--best_filename', dest='best_filename', default='best.coord', help="The filename to dump the best (least rmsd structure) into", type='str')
@@ -274,7 +275,7 @@ def main():
         print >>sys.stderr, 'sse'
         energies_to_sample += [fbe.CombinedEnergy([], [sse])]
     if options.radius_of_gyration:
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         sse.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [sse])]
 
@@ -291,7 +292,7 @@ def main():
         cae = fbe.PairwiseCoaxialityEnergy()
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.LoopLoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie, cae])]
 
@@ -300,7 +301,7 @@ def main():
         cae = fbe.CoaxialityEnergy()
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.LoopLoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie, cae])]
 
@@ -309,14 +310,14 @@ def main():
         cae = fbe.CoaxialityEnergy()
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.LoopLoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie, cae])]
 
     if options.iloop_loop_radius_of_gyration:
         lle = fbe.LoopLoopEnergy()
         ile = fbe.LoopILoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, ile])]
 
@@ -325,7 +326,7 @@ def main():
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.LoopLoopEnergy()
         ile = fbe.LoopILoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie, ile, mle])]
 
@@ -333,21 +334,21 @@ def main():
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.LoopLoopEnergy()
         ile = fbe.LoopILoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie, ile])]
 
     if options.cylinder_shortestloop_radius_of_gyration:
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.ShortestLoopDistanceEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie])]
 
     if options.cylinder_loop_radius_of_gyration:
         cie = fbe.CylinderIntersectionEnergy()
         lle = fbe.LoopLoopEnergy()
-        rog = fbe.RadiusOfGyrationEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie])]
 
@@ -359,7 +360,7 @@ def main():
 
     if options.encompassing_cylinder_loop_radius_of_gyration:
         ece = fbe.EncompassingCylinderEnergy()
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         lle = fbe.LoopLoopEnergy()
         cie = fbe.CylinderIntersectionEnergy()
         sse.background = options.background
@@ -367,19 +368,19 @@ def main():
 
     if options.encompassing_cylinder_radius_of_gyration:
         ece = fbe.EncompassingCylinderEnergy()
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         cie = fbe.CylinderIntersectionEnergy()
         sse.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [sse, cie, ece])]
 
     if options.cylinder_radius_of_gyration:
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         cie = fbe.CylinderIntersectionEnergy()
         sse.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [sse, fbe.CylinderIntersectionEnergy()])]
 
     if options.loop_radius_of_gyration:
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         sse.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [sse, fbe.LoopLoopEnergy()])]
 
@@ -390,7 +391,7 @@ def main():
 
         sse1.real_data = sse1.load_stem_stem_data('fess/stats/stem_stem_orientations.csv')
         sse1.fake_data = sse1.load_stem_stem_data('fess/stats/stem_stem_orientations_random_loop_radius_gyration_beta_29.csv')
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         sse.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [sse, fbe.LoopLoopEnergy(), sse1])]
 
@@ -401,9 +402,9 @@ def main():
         energies_to_sample += [fbe.CombinedEnergy([], [sse])]
         
     if options.radius_of_gyration1:
-        sse = fbe.RadiusOfGyrationEnergy()
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         sse.background = False
-        sse1 = fbe.RadiusOfGyrationEnergy()
+        sse1 = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         sse1.background = True
         sse1.sampled_stats_fn = 'fess/stats/subgraph_radius_of_gyration_target.csv'
         energies_to_sample += [fbe.CombinedEnergy([], [sse, sse1])]
