@@ -48,30 +48,28 @@ def cluster_hierarchical(coords, matrix=None):
 
     return cl
 
-def cluster_kmeans(coords, names, topn=0):
-    new_coords = []
-    centroid_ref = sum(coords[0]) / float(len(coords[0]))
-    coords_ref = coords[0] - centroid_ref
-    for c in coords:
-        centroid = sum(c) / float(len(c))
-        nc = c - centroid
-
-        sup = ftur.optimal_superposition(nc, coords_ref)
-        rot_coords = np.dot(nc, sup)
-        #dists = [ftuv.vec_distance(a,b) for (a,b) in zip(coords_ref, rot_coords)]
-        #new_coords += [dists]
-        new_coords += [rot_coords]
-
-    fud.pv('new_coords')
+def distances(s):
+    '''
+    Compute the distance array for a shape s.
+    '''
+    ds = [ftuv.vec_distance(p1, p2) for p1,p2 in it.combinations(s, r=2)]
     
-    labels, error, nfound = pc.kcluster(new_coords, 8)
-    #(centroids, labels) = scv.kmeans(nc, 8)
-    #print labels
+    return np.array(ds)
+
+def cluster_kmeans_core(coords, num_clusters=8):
+    new_coords = []
+    for c in coords:
+        dists = distances(c)
+        new_coords += [dists]
+
+    return pc.kcluster(new_coords, num_clusters)
+
+def cluster_kmeans(coords, names, topn=0, num_clusters=8):
+    labels, error, nfound = cluster_kmeans_core(coords, num_clusters)
     c = col.Counter(labels)
 
     sorted_labels = sorted(c.keys(), key=lambda x: -c[x])
     #print c
-    print >>sys.stderr, sorted_labels
 
     for l, n in zip(labels, names):
         if l == sorted_labels[topn]:
@@ -101,6 +99,7 @@ def main():
     parser.add_option('', '--matrix', dest='matrix', default=None, help='Print out the distance matrix', type='str')
     parser.add_option('', '--args', dest='args', default=None, help='Arguments filename', type='str')
     parser.add_option('-n', '--num-structs', dest='num_structs', default=None, help='The number of structures to use', type=int)
+    parser.add_option('', '--num-clusters', dest='num_clusters', default=8, help='The number of clusters to use for k-means', type=int)
 
     (options, args) = parser.parse_args()
 
@@ -113,18 +112,17 @@ def main():
     if options.num_structs is not None:
         args = args[:options.num_structs]
 
-    fud.pv('len(args)')
-
     coords = cg_fns_to_coords(args)
 
-    if args is not None:
+    if options.args is not None:
         with open(options.args, 'w') as f:
             f.write(" ".join(args))
     
     if options.hierarchical:
         cluster_hierarchical(coords, options.matrix)
     else:
-        cluster_kmeans(coords, args, options.topn)
+        cluster_kmeans(coords, args, options.topn, 
+                       num_clusters=options.num_clusters)
 
 if __name__ == '__main__':
     main()
