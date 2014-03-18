@@ -235,6 +235,16 @@ class CoarseGrainEnergy(EnergyFunction):
 
         return k
 
+    def measure_category(self, cg):
+        '''
+        Decide which target function we should use for this structure.
+
+        @param cg: The CoarseGrain graph
+        @return: Some sort of identifier to determine which energy distribution
+                 to use.
+        '''
+        return cg.seq_length
+
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         '''
         A generic function which simply evaluates the energy based on the
@@ -243,12 +253,14 @@ class CoarseGrainEnergy(EnergyFunction):
         cg = sm.bg
 
         if cg.seq_length not in self.real_kdes.keys():
-            (self.real_kdes[cg.seq_length], x) = self.get_distribution_from_file(self.real_stats_fn, cg.seq_length)
-            (self.sampled_kdes[cg.seq_length], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, cg.seq_length)
+            (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+                                                                                             self.measure_category(cg))
+            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
+
             self.accepted_measures = self.measures[:]
 
-        kr = self.real_kdes[cg.seq_length]
-        ks = self.sampled_kdes[cg.seq_length]
+        kr = self.real_kdes[self.measure_category(cg)]
+        ks = self.sampled_kdes[self.measure_category(cg)]
 
         m = self.get_cg_measure(sm)
         self.measures.append(m)
@@ -2837,6 +2849,66 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     '''
 
 class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
+    def __init__(self):
+        super(ShortestLoopDistanceEnergy, self).__init__()
+        self.max_dist = 450
+    
+        self.real_stats_fn = 'stats/loop_loop2_distances_native.csv'
+        self.sampled_stats_fn = 'stats/loop_loop2_distances_sampled.csv'
+
+        #print >>sys.stderr, "hi"
+
+    def get_name(self):
+        return "Loop Distance"
+
+    def get_distribution_from_file(self, filename, length):
+        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+
+        rdata = data[data[:,0] == length]
+
+        rogs = rdata[:,1]
+        return (self.get_distribution_from_values(rogs), list(rogs))
+
+    def measure_category(self,cg):
+        return len(list(cg.hloop_iterator()))
+
+    def get_shortest_distances(self, cg):
+        pairs = []
+        total_dist = 0.
+
+        for (l1, l2) in it.combinations(cg.hloop_iterator(), 2):
+            (i1, i2) = ftuv.line_segment_distance(cg.coords[l1][0],
+                                                   cg.coords[l1][1],
+                                                   cg.coords[l2][0],
+                                                   cg.coords[l2][1])
+
+            pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
+
+        evaluated = set()
+        to_eval = []
+
+        pairs.sort(key=lambda x: x[2])
+        for p in pairs:
+            if p[0] not in evaluated and p[1] not in evaluated:
+                to_eval += [p]
+
+                evaluated.add(p[0])
+                evaluated.add(p[1])
+
+        for (l1, l2, dist) in to_eval:
+            #fud.pv('dist')
+            if dist > self.max_dist:
+                continue
+
+            total_dist += dist
+
+        #fud.pv('total_dist')
+        return total_dist
+
+    def get_cg_measure(self, sm):
+        return self.get_shortest_distances(sm.bg)
+
+class ShortestLoopDistanceEnergyOld(RadiusOfGyrationEnergy):
     def __init__(self):
         super(ShortestLoopDistanceEnergy, self).__init__()
         self.max_dist = 450
