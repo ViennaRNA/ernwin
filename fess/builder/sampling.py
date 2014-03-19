@@ -3,8 +3,9 @@
 import collections as c
 import sys, random, copy
 import numpy as np
-import borgy.exp.kde as cek
 import math, os
+
+import scipy.stats as ss
 
 #import matplotlib.pyplot as plt
 
@@ -60,7 +61,7 @@ class StatisticsPlotter:
         #X,Y = np.meshgrid(new_m1, new_m2)
         positions = np.vstack([X.ravel(), Y.ravel()])
         values = np.vstack([m1, m2])
-        kernel = cek.gaussian_kde(values)
+        kernel = ss.gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
 
         if color == 'b':
