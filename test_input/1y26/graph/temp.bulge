@@ -1,0 +1,16 @@
+name 1y26
+length 71
+define s0 0 1 9 63 71
+define s1 0 13 19 27 33
+define s2 0 42 47 55 60
+define b0 1 9 13
+define b1 1 19 27
+define b2 1 33 42
+define b3 1 47 55
+define b4 1 0 1
+define b5 1 60 63
+
+
+connect s0 b0 b4 b5
+connect s1 b0 b1 b2
+connect s2 b2 b3 b5
