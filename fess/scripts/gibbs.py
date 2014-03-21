@@ -128,8 +128,12 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy()])
+            if options.track_energies:
+                energies_to_track = [fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy(), fbe.ShortestLoopDistanceEnergy()]
+            else:
+                energies_to_track = []
 
-            samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=[fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy(), fbe.ShortestLoopDistanceEnergy()])]
+            samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = fbe.StemVirtualResClashEnergy()
@@ -158,6 +162,7 @@ def main():
     #seterr(all='raise')
     parser = OptionParser()
 
+    parser.add_option('', '--track-energies', dest='track_energies', default=False, help='Track additional energy for diagnostics', action='store_true')
     parser.add_option('', '--energy-prefactor', dest='energy_prefactor', default=30, help='A multiplier for the energy', type='int')
     parser.add_option('-e', '--energy', dest='energy', default='energies/lrde.energy', help="The energy function to use when evaluating structures")
     parser.add_option('-i', '--iterations', dest='iterations', default=10, help='Number of structures to generate', type='int')

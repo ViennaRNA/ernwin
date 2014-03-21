@@ -198,7 +198,6 @@ class SamplingStatistics:
         self.energy_orig = None
         self.step_save = 0
         self.save_iterative_cg_measures=save_iterative_cg_measures
-        self.creation_time = time.time()
 
         self.dist1 = dist1
         self.dist2 = dist2
@@ -206,6 +205,7 @@ class SamplingStatistics:
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
         self.no_rmsd = False
+        self.creation_time = time.time()
 
         try:
             self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)
@@ -339,7 +339,8 @@ class SamplingStatistics:
             self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, self.counter)
         else:
             self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
-        self.energy_function.resample_background_kde(sorted_energies[0][2])
+
+        #self.energy_function.resample_background_kde(sorted_energies[0][2])
 
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
@@ -573,8 +574,18 @@ class MCMCSampler:
             self.change_loop()
         '''
 
+        if self.step_counter % 20 == 0:
+            self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+
+        if self.step_counter % 3 == 0:
+            self.energy_function.resample_background_kde(self.sm.bg)
+
         #fud.pv('self.energy_function.uncalibrated_energies[-1].accepted_measures[-1]')
         self.step_counter += 1
+
+        if self.step_counter % 3 == 0:
+            self.energy_function.resample_background_kde(self.sm.bg)
+
         for e in self.energies_to_track:
             e.eval_energy(self.sm)
             e.accepted_measures += [e.measures[-1]]

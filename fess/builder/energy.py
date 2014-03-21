@@ -196,7 +196,7 @@ class CoarseGrainEnergy(EnergyFunction):
     def resample_background_kde(self, struct):
         values = self.accepted_measures
 
-        print >>sys.stderr, "resampling the background kde", self.__class__.__name__
+        #print >>sys.stderr, "resampling the background kde", self.__class__.__name__
 
         if len(values) > 100:
             new_kde = self.get_distribution_from_values(values)
@@ -2909,7 +2909,7 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         #import traceback
 
         #traceback.print_stack()
-        print >>sys.stderr, "ShortestLoopDistance"
+        #print >>sys.stderr, "ShortestLoopDistance"
         return self.get_shortest_distances(sm.bg)
 
 class ShortestLoopDistanceEnergyOld(RadiusOfGyrationEnergy):
