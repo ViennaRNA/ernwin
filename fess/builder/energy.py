@@ -2906,6 +2906,10 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         return total_dist
 
     def get_cg_measure(self, sm):
+        #import traceback
+
+        #traceback.print_stack()
+        print >>sys.stderr, "ShortestLoopDistance"
         return self.get_shortest_distances(sm.bg)
 
 class ShortestLoopDistanceEnergyOld(RadiusOfGyrationEnergy):

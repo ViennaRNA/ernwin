@@ -4,6 +4,7 @@ import collections as c
 import sys, random, copy
 import numpy as np
 import math, os
+import time
 
 import scipy.stats as ss
 
@@ -197,6 +198,7 @@ class SamplingStatistics:
         self.energy_orig = None
         self.step_save = 0
         self.save_iterative_cg_measures=save_iterative_cg_measures
+        self.creation_time = time.time()
 
         self.dist1 = dist1
         self.dist2 = dist2
@@ -304,6 +306,7 @@ class SamplingStatistics:
             if dist:
                 output_str += " | dist %.2f" % (dist)
 
+            output_str += " [time: %.1f]" % (time.time() - self.creation_time)
             output_str += "\n"
 
             if self.output_file != sys.stdout:
