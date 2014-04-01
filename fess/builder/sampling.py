@@ -335,10 +335,12 @@ class SamplingStatistics:
             n = len(self.energy_rmsd_structs)
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
+        '''
         if self.save_iterative_cg_measures:
             self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, self.counter)
         else:
             self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+        '''
 
         #self.energy_function.resample_background_kde(sorted_energies[0][2])
 
@@ -586,12 +588,14 @@ class MCMCSampler:
         if self.step_counter % 3 == 0:
             self.energy_function.resample_background_kde(self.sm.bg)
 
+        '''
         for e in self.energies_to_track:
             e.eval_energy(self.sm)
             e.accepted_measures += [e.measures[-1]]
 
             if self.step_counter % 20 == 0:
                 e.dump_measures(cbc.Configuration.sampling_output_dir)
+        '''
 
         self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track)
 

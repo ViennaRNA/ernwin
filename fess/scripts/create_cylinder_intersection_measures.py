@@ -34,7 +34,7 @@ def main():
 
             total_length = sum([len(list(cg.define_residue_num_iterator(d))) for d in sg])                                   
             cylinder_intersections = cie.calculate_intersection_coverages(csg)
-                                                                                                                             
+
             print total_length, " ".join(map("{:.2f}".format, cylinder_intersections.values()))
 
 if __name__ == '__main__':

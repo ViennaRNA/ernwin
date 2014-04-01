@@ -5,7 +5,7 @@ from bisect import bisect
 import copy
 import os.path as op
 
-import forgi.utilities.debug as cud
+import forgi.utilities.debug as fud
 import fess.builder.sampling as cbs
 import forgi.threedee.model.stats as ftms
 import fess.builder.config as cbc
@@ -47,7 +47,7 @@ def bgs_from_fasta(fasta_file):
     with open(fasta_file, 'r') as f:
         # assume there is only one sequence and dotplot in the fastdp file
         lines = f.readlines()
-        cud.pv('lines')
+        fud.pv('lines')
         for line in lines:
             if line.strip() == '':
                 continue
@@ -69,7 +69,7 @@ def bgs_from_fasta(fasta_file):
 
             counter += 1
 
-            cud.pv('bg.seq')
+            fud.pv('bg.seq')
     return  bgs
 
 def predict(bg, energies_to_sample, options):
@@ -102,7 +102,7 @@ def predict(bg, energies_to_sample, options):
             cgg.add_virtual_residues(sm.bg, s)
 
         for energy in energies_to_sample:
-            cud.pv('energy.eval_energy(sm, verbose=True)')
+            fud.pv('energy.eval_energy(sm, verbose=True)')
         sys.exit(1)
 
     if options.plot:
@@ -133,6 +133,7 @@ def predict(bg, energies_to_sample, options):
             else:
                 energies_to_track = []
 
+            fud.pv('energies_to_track')
             samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
@@ -140,7 +141,7 @@ def predict(bg, energies_to_sample, options):
             samplers += [GibbsBGSampler(sm, energy, stat)]
         silent = True
 
-    cud.pv('samplers')
+    fud.pv('samplers')
     for i in range(options.iterations):
         if options.single_sampler:
             samplers[0].step()
@@ -162,6 +163,7 @@ def main():
     #seterr(all='raise')
     parser = OptionParser()
 
+    parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--track-energies', dest='track_energies', default=False, help='Track additional energy for diagnostics', action='store_true')
     parser.add_option('', '--energy-prefactor', dest='energy_prefactor', default=30, help='A multiplier for the energy', type='int')
     parser.add_option('-e', '--energy', dest='energy', default='energies/lrde.energy', help="The energy function to use when evaluating structures")
@@ -207,7 +209,6 @@ def main():
 
     parser.add_option('', '--save-n-best', dest='save_n_best', default=3, help='Save the best n structures.', type=int)
     parser.add_option('', '--step-save', dest='step_save', default=0, help="Save the structure at every n'th step.", type='int')
-    parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
     parser.add_option('', '--loop-stem-energy', dest='loop_stem_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
     parser.add_option('', '--n-loop-energy', dest='n_loop_energy', default=False, action='store_true', help="Add an energy function for the loop-loop interactions")
     parser.add_option('', '--ipe', dest='ipe', default=False, action='store_true', help="Use the interaction probability energy.")
@@ -229,7 +230,7 @@ def main():
 
     (options, args) = parser.parse_args()
 
-    cud.pv('options.stem_loop_radius_of_gyration')
+    fud.pv('options.stem_loop_radius_of_gyration')
 
 
     if len(args) < 1:
@@ -238,7 +239,7 @@ def main():
 
         sys.exit(1)
 
-    cud.pv('args')
+    fud.pv('args')
 
     if options.stats_file != '':
         stats = ftms.get_angle_stats(options.stats_file)
@@ -252,18 +253,11 @@ def main():
         #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.NLoopLoopEnergy(), fbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.NLoopLoopEnergy(), fbe.NLoopStemEnergy()])]
         energies_to_sample += [fbe.CombinedEnergy([], [fbe.NLoopLoopEnergy(), fbe.StemStemOrientationEnergy([2])])]
-    if options.loop_energy:
-        print "Using loop_energy"
-        #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.LoopLoopEnergy(), fbe.LoopJunctionEnergy(), fbe.LoopBulgeEnergy(), fbe.StemStemOrientationEnergy([2])])]
-        #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.LoopLoopEnergy(), fbe.StemStemOrientationEnergy([2])])]
-        #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.LoopLoopEnergy()])]
-        energies_to_sample += [fbe.CombinedEnergy([], [fbe.LoopLoopEnergy()])]
     if options.ipe:
         energies_to_sample += [fbe.CombinedEnergy([], [fbe.InteractionProbEnergy()])]
     if options.sipe:
         energies_to_sample += [fbe.CombinedEnergy([], [fbe.InteractionProbEnergy(), fbe.StemStemOrientationEnergy([2])])]
     if options.loop_stem_energy:
-        print "Using loop_energy"
         #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.LoopLoopEnergy(), fbe.LoopJunctionEnergy(), fbe.LoopBulgeEnergy(), fbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.LoopLoopEnergy(), fbe.StemStemOrientationEnergy([2])])]
         #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.LoopLoopEnergy()])]
@@ -342,6 +336,11 @@ def main():
         rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle, rog, cie, ile])]
+
+    if options.loop_energy:
+        lle = fbe.ShortestLoopDistanceEnergy()
+        rog.background = options.background
+        energies_to_sample += [fbe.CombinedEnergy([], [lle])]
 
     if options.cylinder_shortestloop_radius_of_gyration:
         cie = fbe.CylinderIntersectionEnergy()

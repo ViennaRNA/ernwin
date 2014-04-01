@@ -22,7 +22,6 @@ import os.path as op
 
 #import scipy.stats as ss
 import forgi.threedee.utilities.vector as ftuv
-import forgi.threedee.utilities.vector as ftuc
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -202,7 +201,7 @@ class CoarseGrainEnergy(EnergyFunction):
             new_kde = self.get_distribution_from_values(values)
 
             if new_kde is not None:
-                self.sampled_kdes[struct.seq_length] = new_kde
+                self.sampled_kdes[self.measure_category(struct)] = new_kde
             else:
                 print >>sys.stderr, "skipping this time..."
                 fud.pv('values')
@@ -252,7 +251,7 @@ class CoarseGrainEnergy(EnergyFunction):
         '''
         cg = sm.bg
 
-        if cg.seq_length not in self.real_kdes.keys():
+        if self.measure_category(cg) not in self.real_kdes.keys():
             (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg))
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
@@ -327,7 +326,7 @@ class DistanceIterator:
                 point1 = bg.get_point(d1)
                 point2 = bg.get_point(d2)
 
-                dist = ftuc.vec_distance(point1, point2)
+                dist = ftuv.vec_distance(point1, point2)
 
                 #if dist > 6.0 and dist < 25.0:
                 if dist > self.min_distance and dist < self.max_distance:
@@ -495,7 +494,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
 
                         p0 = bg.get_point(interaction[0])
                         p1 = bg.get_point(interaction[1])
-                        distance = ftuc.vec_distance(p0, p1)
+                        distance = ftuv.vec_distance(p0, p1)
                         interaction_distances[interaction] += [distance]
 
         for interaction in interaction_distances.keys():
@@ -533,7 +532,7 @@ class SkewNormalInteractionEnergy(EnergyFunction):
         '''
 
         fg = self.fg
-        distance = ftuc.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
+        distance = ftuv.vec_distance(bg.get_point(interaction[0]), bg.get_point(interaction[1]))
 
         bgf = self.bgs[interaction]
         bgp = 1.
@@ -694,7 +693,7 @@ class JunctionClosureEnergy(EnergyFunction):
         for bg in structs:
             for bulge in closed_bulges:
                 bl = abs(bg.defines[bulge][1] - bg.defines[bulge][0])
-                distance = ftuc.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+                distance = ftuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
                 distances[bulge] += [distance]
 
         for bulge in closed_bulges:
@@ -729,7 +728,7 @@ class JunctionClosureEnergy(EnergyFunction):
             fgd = self.fgs[bl]
             bgd = self.bgs[bl]
 
-            dist = ftuc.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
+            dist = ftuv.vec_distance(bg.coords[bulge][1], bg.coords[bulge][0])
             #print "bl:", bl, "dist:", dist
 
             if background:
@@ -859,7 +858,7 @@ class CoarseStemClashEnergy(EnergyFunction):
                                                        bg.coords[s2][0],
                                                        bg.coords[s2][1])
 
-            closest_distance = ftuc.vec_distance(closest_points[1], closest_points[0])
+            closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
             #print "s1, s2", s1, s2, closest_distance
 
             if closest_distance < min_distance:
@@ -945,7 +944,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         for a1 in atoms1.values():
             for a2 in atoms2.values():
-                if ftuc.vec_distance(a1,a2) < 1.8: 
+                if ftuv.vec_distance(a1,a2) < 1.8: 
                 #if ftuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
@@ -1032,7 +1031,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 for ni, newp in enumerate(new_points):
                     if p[1] == newp[1]:
                         continue
-                    if ftuc.vec_distance(p[0],newp[0]) < 10.:
+                    if ftuv.vec_distance(p[0],newp[0]) < 10.:
                         clash_pairs += [(p[1:], newp[1:])]
 
         potential_clashes = 0
@@ -1096,7 +1095,7 @@ class DistanceEnergy(EnergyFunction):
             t = constraint[1]
             d = float(constraint[2])
 
-            d1 = ftuc.vec_distance(sm.bg.get_point(f), sm.bg.get_point(t))
+            d1 = ftuv.vec_distance(sm.bg.get_point(f), sm.bg.get_point(t))
 
             energy += abs(d1 - d)
 
@@ -1579,11 +1578,14 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             cyl = bg.coords[s2]
             extension = 0.
 
+            # the distance between the closest points on the line and cylinder
             (i1, i2) = ftuv.line_segment_distance(bg.coords[s1][0],
                                                 bg.coords[s1][1],
                                                 bg.coords[s2][0],
                                                 bg.coords[s2][1])
-            dist = ftuc.vec_distance(i1, i2)
+
+            # make sure they're not connected or too far
+            dist = ftuv.vec_distance(i1, i2)
             if dist > 30. or dist < 0.01:
                 continue
 
@@ -1593,9 +1595,10 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                    cyl[1] + extension * cyl_vec]
             cyls[s2] = cyl
 
-            line_len = ftuc.vec_distance(line[1], line[0])
+            line_len = ftuv.vec_distance(line[1], line[0])
             intersects = ftuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
+
             if len(intersects) > 0 and np.isnan(intersects[0][0]):
                 sys.exit(1)
 
@@ -1603,17 +1606,28 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                 in_cyl_len = 0.
             else:
                 #in_cyl_len = ftuv.magnitude(intersects[1] - intersects[0])
+                c1 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[0])
+                c2 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[1])
+
+                #fud.pv('s1,s2, cyl, line')
+
+                poss = [ftuv.vec_distance(cyl[0], c1), ftuv.vec_distance(cyl[0], c2)]
+                poss.sort()
+
+                covered[s2] += [poss]
+                '''
                 cyl_basis = ftuv.create_orthonormal_basis(cyl_vec)
                 intersects_t = ftuv.change_basis((intersects - cyl[0]).T,
                                                 cyl_basis,
                                                 ftuv.standard_basis).T
                 in_cyl_len = abs(intersects_t[1][0] - intersects_t[0][0])
-                covered[s1] += [(intersects_t[0][0], intersects_t[1][0])]
+                '''
+                #covered[s1] += [(intersects_t[0][0], intersects_t[1][0])]
 
-            in_cyl_fractions[s1] += in_cyl_len / line_len
+            #in_cyl_fractions[s1] += in_cyl_len / line_len
 
         for s in list(bg.stem_iterator()) + list(bg.iloop_iterator()):
-            total_len = ftuc.vec_distance(cyls[s][1], cyls[s][0])
+            total_len = ftuv.vec_distance(cyls[s][1], cyls[s][0])
 
             if len(covered[s]) == 0:
                 continue
@@ -1623,6 +1637,7 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
 
             #in_cyl_fractions[s] = cl / total_len
             in_cyl_fractions[s] = cl
+            #fud.pv('s, total_len, cl,  cl / total_len')
 
         return in_cyl_fractions
 
@@ -1806,7 +1821,7 @@ class LoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
 
-            pairs += [(l1, l2, ftuc.vec_distance(i2, i1))]
+            pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
 
         evaluated = set()
         to_eval = []
@@ -1881,7 +1896,7 @@ class LoopMLoopEnergy(LoopLoopEnergy):
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
 
-                pairs += [(l1, l2, ftuc.vec_distance(i2, i1))]
+                pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
 
         evaluated = set()
         to_eval = []
@@ -1952,7 +1967,7 @@ class LoopILoopEnergy(LoopLoopEnergy):
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
 
-                pairs += [(l1, l2, ftuc.vec_distance(i2, i1))]
+                pairs += [(l1, l2, ftuv.vec_distance(i2, i1))]
 
         evaluated = set()
         to_eval = []
@@ -2054,7 +2069,7 @@ class InteractionProbEnergy(EnergyFunction):
                     # some degenerate loops don't have coords
                     continue
 
-                dist = ftuc.vec_distance(i2, i1)
+                dist = ftuv.vec_distance(i2, i1)
                 if dist > 40. or dist < 0.0001:
                     continue
 
@@ -2140,7 +2155,7 @@ class LoopJunctionEnergy(LoopLoopEnergy):
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
-                x = ftuc.vec_distance(i1, i2)
+                x = ftuv.vec_distance(i1, i2)
 
                 if x > 50.:
                     x = 50.
@@ -2206,7 +2221,7 @@ class LoopBulgeEnergy(LoopLoopEnergy):
                                                     sm.bg.coords[l1][1],
                                                     sm.bg.coords[l2][0],
                                                     sm.bg.coords[l2][1])
-                x = ftuc.vec_distance(i1, i2)
+                x = ftuv.vec_distance(i1, i2)
 
                 if x > 50.:
                     x = 50.
@@ -2321,7 +2336,7 @@ class NLoopLoopEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = ftuc.vec_distance(i2, i1)
+            d = ftuv.vec_distance(i2, i1)
             if d > 50:
                 continue
 
@@ -2454,7 +2469,7 @@ class NLoopJunctionEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = ftuc.vec_distance(i2, i1)
+            d = ftuv.vec_distance(i2, i1)
             if d > 50:
                 continue
 
@@ -2588,7 +2603,7 @@ class NLoopStemEnergy(EnergyFunction):
                                                 sm.bg.coords[l1][1],
                                                 sm.bg.coords[l2][0],
                                                 sm.bg.coords[l2][1])
-            d = ftuc.vec_distance(i2, i1)
+            d = ftuv.vec_distance(i2, i1)
             if d > 50:
                 continue
 
@@ -2851,7 +2866,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
     def __init__(self):
         super(ShortestLoopDistanceEnergy, self).__init__()
-        self.max_dist = 450
+        self.max_dist = 60
     
         self.real_stats_fn = 'stats/loop_loop2_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop2_distances_sampled.csv'
@@ -2872,7 +2887,7 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
     def measure_category(self,cg):
         return len(list(cg.hloop_iterator()))
 
-    def get_shortest_distances(self, cg):
+    def get_shortest_distance_list(self, cg):
         pairs = []
         total_dist = 0.
 
@@ -2895,15 +2910,21 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
                 evaluated.add(p[0])
                 evaluated.add(p[1])
 
+        all_dists = []
         for (l1, l2, dist) in to_eval:
+            
             #fud.pv('dist')
             if dist > self.max_dist:
                 continue
 
-            total_dist += dist
+            all_dists += [dist]
 
+        return all_dists
+
+    def get_shortest_distances(self, cg):
+        all_dists = self.get_shortest_distance_list(cg)
         #fud.pv('total_dist')
-        return total_dist
+        return sum(all_dists)
 
     def get_cg_measure(self, sm):
         #import traceback
@@ -3114,10 +3135,10 @@ class CoaxialityEnergy(CoarseGrainEnergy):
             c2 = bg.coords[e2]
             
             # find out which coordinates are closest to each other
-            min_dist = min([(ftuc.vec_distance(c1[0], c2[0]), 1),
-                         (ftuc.vec_distance(c1[0], c2[1]), 2),
-                         (ftuc.vec_distance(c1[1], c2[0]), 3),
-                         (ftuc.vec_distance(c1[1], c2[1]), 4)])
+            min_dist = min([(ftuv.vec_distance(c1[0], c2[0]), 1),
+                         (ftuv.vec_distance(c1[0], c2[1]), 2),
+                         (ftuv.vec_distance(c1[1], c2[0]), 3),
+                         (ftuv.vec_distance(c1[1], c2[1]), 4)])
             
             if min_dist[0] > 100.:
                 continue
