@@ -300,8 +300,11 @@ class SamplingStatistics:
 
             output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
             output_str += " |"
+
+            '''
             for e in tracking_energies[:1]:
                 output_str += " %.2f" % (e.prev_cg)
+            '''
 
             if dist:
                 output_str += " | dist %.2f" % (dist)
@@ -566,15 +569,12 @@ class MCMCSampler:
         #self.sm.sample_angles()
         self.sm.traverse_and_build()
 
-        self.change_angle()
-        '''
         if random.random() < 0.5:
             self.change_angle()
         elif random.random() < 0.5:
             self.change_stem()
         else:
             self.change_loop()
-        '''
 
         if self.step_counter % 20 == 0:
             self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
@@ -588,14 +588,12 @@ class MCMCSampler:
         if self.step_counter % 3 == 0:
             self.energy_function.resample_background_kde(self.sm.bg)
 
-        '''
         for e in self.energies_to_track:
             e.eval_energy(self.sm)
             e.accepted_measures += [e.measures[-1]]
 
             if self.step_counter % 20 == 0:
                 e.dump_measures(cbc.Configuration.sampling_output_dir)
-        '''
 
         self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track)
 
@@ -610,10 +608,10 @@ class MCMCSampler:
         self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         possible_loops = cbs.get_loop_stats()[length]
+        self.sm.traverse_and_build()
 
 
         pa = random.choice(possible_loops)
-
         #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
         self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
         prev_loop = self.sm.loop_defs[loop]

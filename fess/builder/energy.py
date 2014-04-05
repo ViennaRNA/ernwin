@@ -2863,6 +2863,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         return -energy
     '''
 
+
 class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
     def __init__(self):
         super(ShortestLoopDistanceEnergy, self).__init__()
@@ -2870,8 +2871,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
     
         self.real_stats_fn = 'stats/loop_loop2_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop2_distances_sampled.csv'
-
-        #print >>sys.stderr, "hi"
 
     def get_name(self):
         return "Loop Distance"
@@ -2981,6 +2980,52 @@ class ShortestLoopDistanceEnergyOld(RadiusOfGyrationEnergy):
 
     def get_cg_measure(self, sm):
         return self.get_shortest_distances(sm.bg)
+
+class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
+    def __init__(self, loop_name):
+        super(ShortestLoopDistancePerLoop, self).__init__()
+        self.loop_name = loop_name
+
+        self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
+        self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
+
+    def measure_category(self, cg):
+        return 1
+
+    def get_distribution_from_file(self, filename, length):
+        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+
+        rogs = data
+        return (self.get_distribution_from_values(rogs), list(rogs))
+
+    def get_cg_measure(self, sm):
+        #import traceback
+        min_dist = 10000.
+
+        cg = sm.bg
+        for h in cg.hloop_iterator():
+            if h == self.loop_name:
+                continue
+
+            #fud.pv('self.loop_name')
+            (i1,i2) = ftuv.line_segment_distance(cg.coords[self.loop_name][0],
+                                              cg.coords[self.loop_name][1],
+                                              cg.coords[h][0],
+                                              cg.coords[h][1])
+
+            dist = ftuv.vec_distance(i1, i2)
+            if dist < min_dist:
+                min_dist = dist
+
+        #fud.pv('min_dist')
+        return min_dist
+
+    def get_energy_name(self):
+        '''
+        Return the name of the energy.
+        '''
+
+        return self.__class__.__name__.lower() + "_" + self.loop_name + ".measures"
 
 class EncompassingCylinderEnergy(CoarseGrainEnergy):
     def __init__(self):

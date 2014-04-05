@@ -130,6 +130,8 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy()])
             if options.track_energies:
                 energies_to_track = [fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy(), fbe.ShortestLoopDistanceEnergy()]
+                for h in bg.hloop_iterator():
+                    energies_to_track += [fbe.ShortestLoopDistancePerLoop(h)]
             else:
                 energies_to_track = []
 
@@ -183,6 +185,7 @@ def main():
     parser.add_option('', '--encompassing-cylinder-loop-rog', dest='encompassing_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--encompassing-cylinder-rog', dest='encompassing_cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
+    parser.add_option('', '--cylinder-perloop-rog', dest='cylinder_perloop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-shortestloop-rog', dest='cylinder_shortestloop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-loop-rog', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--mloop-iloop-cylinder-loop-rog', dest='mloop_iloop_cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the multiloop radius of gyration energy.')
@@ -240,6 +243,19 @@ def main():
         sys.exit(1)
 
     fud.pv('args')
+
+    bgs = []
+
+    for arg in args:
+        if arg[-3:] == '.fa':
+            bgs += bgs_from_fasta(arg)
+        else:
+            bgs += [ftmc.CoarseGrainRNA(arg)]
+
+    if len(bgs) > 1:
+        print >> sys.stderr, "WARNING: More than one structure entered... only the first will be bearbeitet"
+
+    #bg.calc_bp_distances()
 
     if options.stats_file != '':
         stats = ftms.get_angle_stats(options.stats_file)
@@ -341,6 +357,19 @@ def main():
         lle = fbe.ShortestLoopDistanceEnergy()
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle])]
+
+    if options.cylinder_perloop_radius_of_gyration:
+        cie = fbe.CylinderIntersectionEnergy()
+        #lle = fbe.ShortestLoopDistanceEnergy()
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
+        nonconstraint = [rog, cie]
+
+        bg = bgs[0]
+        for hloop in bg.hloop_iterator():
+            nonconstraint += [fbe.ShortestLoopDistancePerLoop(hloop)]
+
+        rog.background = options.background
+        energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
 
     if options.cylinder_shortestloop_radius_of_gyration:
         cie = fbe.CylinderIntersectionEnergy()
@@ -444,16 +473,6 @@ def main():
         bg.calc_bp_distances()
         energy_function = pickle.load(open(os.path.join(conf.Configuration.base_dir, 'bobbins/energy/%s/1000/SkewNormalInteractionEnergy/LongRangeInteractionCount/JunctionClosureEnergy/CombinedEnergy.energy' % (bg.name)), 'r'))
     '''
-
-    bgs = []
-
-    for arg in args:
-        if arg[-3:] == '.fa':
-            bgs += bgs_from_fasta(arg)
-        else:
-            bgs += [ftmc.CoarseGrainRNA(arg)]
-
-    #bg.calc_bp_distances()
     for bg in bgs:
         predict(bg, energies_to_sample, options)
 
