@@ -270,6 +270,8 @@ class SamplingStatistics:
             dist = ftuv.vec_distance(atoms[self.dist1]["C1'"],
                                      atoms[self.dist2]["C1'"])
 
+
+        #self.energy_rmsd_structs += [(energy, r, sm.bg)]
         self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
 
@@ -576,8 +578,9 @@ class MCMCSampler:
         else:
             self.change_loop()
 
-        if self.step_counter % 20 == 0:
-            self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+        if self.dump_measures:
+            if self.step_counter % 20 == 0:
+                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
 
         if self.step_counter % 3 == 0:
             self.energy_function.resample_background_kde(self.sm.bg)

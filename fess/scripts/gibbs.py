@@ -136,7 +136,9 @@ def predict(bg, energies_to_sample, options):
                 energies_to_track = []
 
             fud.pv('energies_to_track')
-            samplers += [cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)]
+            sampler = cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)
+            sampler.dump_measures = options.dump_energies
+            samplers += [sampler]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = fbe.StemVirtualResClashEnergy()
@@ -166,6 +168,7 @@ def main():
     parser = OptionParser()
 
     parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help='Use the radius of gyration energy')
+    parser.add_option('', '--dump-energies', dest='dump_energies', default=False, action='store_true', help='Dump the energies to file')
     parser.add_option('', '--track-energies', dest='track_energies', default=False, help='Track additional energy for diagnostics', action='store_true')
     parser.add_option('', '--energy-prefactor', dest='energy_prefactor', default=30, help='A multiplier for the energy', type='int')
     parser.add_option('-e', '--energy', dest='energy', default='energies/lrde.energy', help="The energy function to use when evaluating structures")
