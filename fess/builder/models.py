@@ -872,6 +872,10 @@ class SpatialModel:
         must fullfill the constraint at every step of the process.
         '''
         constraint_energy = self.constraint_energy
+        '''
+        import traceback
+        print "".join(traceback.format_stack()[-3:])
+        '''
 
         #print >>sys.stderr, "traverse_and_build"
         self.visited = set()
@@ -889,6 +893,7 @@ class SpatialModel:
         paths = c.defaultdict(list)
 
         self.visit_order = []
+        self.prev_stem_list = []
 
         counter = 0
         '''
@@ -972,8 +977,12 @@ class SpatialModel:
                         #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
                         #print "ps1b:", ps1b, "ps1e", ps1e
                         self.visit_order += [prev_node]
+
+                        self.prev_stem_list += [prev_stem.name]
+                        #fud.pv('start, self.prev_stem_list')
                         stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
                         self.newly_added_stems += [curr_node]
+                        #fud.pv('self.newly_added_stems')
 
                         # the following is done to maintain the invariant that mids[s1b] is
                         # always in the direction of the bulge from which s1b was obtained

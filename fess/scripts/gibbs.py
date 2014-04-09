@@ -118,7 +118,8 @@ def predict(bg, energies_to_sample, options):
     silent = False
 
     for color,energy in zip(colors, energies_to_sample):
-        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best, dist1 = options.dist1, dist2 = options.dist2, save_iterative_cg_measures=options.save_iterative_cg_measures)
+        fud.pv('options.no_rmsd')
+        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best, dist1 = options.dist1, dist2 = options.dist2, save_iterative_cg_measures=options.save_iterative_cg_measures, no_rmsd = options.no_rmsd)
         stat.step_save = options.step_save
 
         if options.mcmc_sampler:
@@ -237,6 +238,7 @@ def main():
     (options, args) = parser.parse_args()
 
     fud.pv('options.stem_loop_radius_of_gyration')
+    fud.pv('options.no_rmsd')
 
 
     if len(args) < 1:

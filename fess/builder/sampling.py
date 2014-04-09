@@ -204,7 +204,7 @@ class SamplingStatistics:
 
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
-        self.no_rmsd = False
+        self.no_rmsd = no_rmsd
         self.creation_time = time.time()
 
         try:
@@ -242,10 +242,10 @@ class SamplingStatistics:
 
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
-            centers_new = ftug.bg_virtual_residues(sm.bg)
-            #r = cbr.centered_rmsd(self.centers_orig, centers_new)
             r = 0.
             if not self.no_rmsd:
+                centers_new = ftug.bg_virtual_residues(sm.bg)
+                #r = cbr.centered_rmsd(self.centers_orig, centers_new)
                 r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
@@ -412,6 +412,7 @@ class MCMCSampler:
         energy_function.energies += [sm.junction_constraint_energy]
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
+        self.no_rmsd = no_rmsd
 
         #fud.pv('constraint_energy.eval_energy(sm)')
         #fud.pv('junction_constraint_energy.eval_energy(sm)')
@@ -481,7 +482,7 @@ class MCMCSampler:
         (bulge, ang_type1) = random.choice(self.sm.sampled_bulge_sides)
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
-        self.sm.traverse_and_build()
+        #self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         try:
             if self.cont_stats:
@@ -501,7 +502,7 @@ class MCMCSampler:
         self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
         prev_angle = self.sm.angle_defs[bulge][ang_type1]
         self.sm.angle_defs[bulge][ang_type1] = pa
-        self.sm.traverse_and_build()
+        self.sm.traverse_and_build(start=bulge)
         
         energy = self.energy_function.eval_energy(self.sm, background=True)
         #fud.pv('self.prev_energy, energy')
@@ -536,7 +537,7 @@ class MCMCSampler:
         # What are the potential angle statistics for it
         #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
         
-        self.sm.traverse_and_build()
+        #self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         possible_stems = cbs.get_stem_stats()[length]
 
@@ -547,7 +548,7 @@ class MCMCSampler:
         prev_stem = self.sm.stem_defs[stem]
         #fud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.stem_defs[stem] = pa
-        self.sm.traverse_and_build()
+        self.sm.traverse_and_build(start=stem)
 
         energy = self.energy_function.eval_energy(self.sm, background=True)
         self.stats.sampled_energy = energy
@@ -569,7 +570,7 @@ class MCMCSampler:
         #self.sm.sample_stems()
         #self.sm.sample_loops()
         #self.sm.sample_angles()
-        self.sm.traverse_and_build()
+        #self.sm.traverse_and_build()
 
         if random.random() < 0.5:
             self.change_angle()
@@ -608,10 +609,10 @@ class MCMCSampler:
         # What are the potential angle statistics for it
         #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
         
-        self.sm.traverse_and_build()
+        #self.sm.traverse_and_build()
         # What are the potential angle statistics for it
         possible_loops = cbs.get_loop_stats()[length]
-        self.sm.traverse_and_build()
+        #self.sm.traverse_and_build()
 
 
         pa = random.choice(possible_loops)
@@ -620,7 +621,7 @@ class MCMCSampler:
         prev_loop = self.sm.loop_defs[loop]
         #fud.pv('loop,length,self.sm.loop_defs[loop]')
         self.sm.loop_defs[loop] = pa
-        self.sm.traverse_and_build()
+        self.sm.traverse_and_build(start=loop)
 
         energy = self.energy_function.eval_energy(self.sm, background=True)
         self.stats.sampled_energy = energy
