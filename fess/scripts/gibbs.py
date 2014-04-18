@@ -51,30 +51,6 @@ def bgs_from_fasta(fasta_file):
         bg = ftmc.CoarseGrainRNA()
         bg.from_fasta(lines, dissolve_length_one_stems=True)
         bgs += [bg]
-    '''
-        fud.pv('lines')
-        for line in lines:
-            if line.strip() == '':
-                continue
-
-            if line[0] == '>':
-                bg.name = line[1:].strip()
-                counter = 0
-            if counter % 3 == 1:
-                bg.seq = line.strip()
-                bg.seq_length = len(bg.seq)
-            if counter % 3 == 2:
-                seq = bg.seq
-                name = bg.name
-                bg.from_dotbracket(line.strip(), dissolve_length_one_stems=True)
-                bg.seq = seq
-                bg.name = name
-                bgs += [bg]
-
-            counter += 1
-
-            fud.pv('bg.seq')
-    '''
     return  bgs
 
 def predict(bg, energies_to_sample, options):

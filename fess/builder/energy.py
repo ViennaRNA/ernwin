@@ -269,7 +269,6 @@ class CoarseGrainEnergy(EnergyFunction):
         #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
         return -1 * self.energy_prefactor * energy
 
-
 class ConstantEnergy(EnergyFunction):
     '''
     An energy function that always just returns a constant value (0.).
@@ -1089,6 +1088,7 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
 
         cg = sm.bg
         for h in cg.hloop_iterator():
+            # don't want the distance to itself
             if h == self.loop_name:
                 continue
 
