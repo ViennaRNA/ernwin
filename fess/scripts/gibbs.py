@@ -44,16 +44,20 @@ def bgs_from_fasta(fasta_file):
         print >>sys.stderr, "The specified fasta file does not exist: %s" \
                 % (fasta_file)
 
+
     with open(fasta_file, 'r') as f:
         # assume there is only one sequence and dotplot in the fastdp file
-        lines = f.readlines()
+        lines = f.read()
+        bg = ftmc.CoarseGrainRNA()
+        bg.from_fasta(lines, dissolve_length_one_stems=True)
+        bgs += [bg]
+    '''
         fud.pv('lines')
         for line in lines:
             if line.strip() == '':
                 continue
 
             if line[0] == '>':
-                bg = ftmc.CoarseGrainRNA()
                 bg.name = line[1:].strip()
                 counter = 0
             if counter % 3 == 1:
@@ -70,6 +74,7 @@ def bgs_from_fasta(fasta_file):
             counter += 1
 
             fud.pv('bg.seq')
+    '''
     return  bgs
 
 def predict(bg, energies_to_sample, options):

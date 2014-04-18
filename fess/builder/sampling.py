@@ -267,6 +267,13 @@ class SamplingStatistics:
 
 
             atoms = ftug.virtual_atoms(sm.bg)
+
+            d1 = sm.bg.get_node_from_residue_num(self.dist1)
+            d2 = sm.bg.get_node_from_residue_num(self.dist2)
+
+            #fud.pv('d1,d2')
+            #fud.pv('atoms[self.dist1]')
+
             dist = ftuv.vec_distance(atoms[self.dist1]["C1'"],
                                      atoms[self.dist2]["C1'"])
 

@@ -268,6 +268,7 @@ class CoarseGrainEnergy(EnergyFunction):
         self.prev_energy = energy
         self.prev_cg = m
         #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
+        fud.pv('self.__class__.__name__, energy, m')
         return -1 * self.energy_prefactor * energy
 
 
@@ -3026,6 +3027,19 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
         '''
 
         return self.__class__.__name__.lower() + "_" + self.loop_name + ".measures"
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        '''
+        We want to return an energy of 0. if there's less than two hairpin
+        loops.
+        '''
+        if len(list(sm.bg.hloop_iterator())) < 2:
+            return 0.
+        else:
+            return Super(ShortestLoopDistancePerLoop, self).eval_energy(sm,
+                                                                        background,
+                                                                        nodes,
+                                                                        new_nodes)
 
 class EncompassingCylinderEnergy(CoarseGrainEnergy):
     def __init__(self):
