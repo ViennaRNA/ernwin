@@ -265,9 +265,14 @@ def get_atom_coord_array(chain, start_res, end_res):
     indeces = dict()
     count = 0
 
-    for i in range(start_res, end_res+2):
-        res = chain[i]
-        indeces[res.id[1]] = count
+    rids = [r.id for r in chain]
+    start_index = rids.index(start_res)
+    end_index = rids.index(end_res)
+
+    for i in range(start_index, end_index+1):
+        res = chain[rids[i]]
+        indeces[res.id] = count
+
         for aname in a_names[res.resname.strip()]:
             try:
                 coords += [res[aname].get_vector().get_array()]
@@ -284,7 +289,7 @@ def get_atom_coord_array(chain, start_res, end_res):
             continue
 
 
-    return (coords, indeces)
+    return (coords, indeces, rids)
 
 def get_atom_name_array(chain, start_res, end_res):
     '''
@@ -316,7 +321,7 @@ def get_atom_name_array(chain, start_res, end_res):
 
     return (coords, indeces)
 
-def set_atom_coord_array(chain, coords, start_res, end_res):
+def set_atom_coord_array(chain, coords, rids):
     '''
     Set the coordinates of the atoms in the chain to the ones in coords. 
 
@@ -332,20 +337,21 @@ def set_atom_coord_array(chain, coords, start_res, end_res):
     '''
     count = 0
 
-    for i in range(start_res, end_res+2):
-        res = chain[i]
+    for r in rids:
+        res = chain[r]
         for aname in a_names[res.resname.strip()]:
             #chain[i][aname].coord = bpdb.Vector(coords[count])
             try:
-                chain[i][aname].coord = coords[count]
+                chain[r][aname].coord = coords[count]
             except KeyError:
                 if aname == 'OP1':
-                    chain[i]['O1P'].coord = coords[count]
+                    chain[r]['O1P'].coord = coords[count]
                 elif aname == 'OP2':
-                    chain[i]['O2P'].coord = coords[count]
+                    chain[r]['O2P'].coord = coords[count]
                 else:
                     raise
             count += 1
+
     return chain
 
 def align_starts(chain_stems, chain_loop, handles, end=0):
@@ -499,7 +505,6 @@ def add_loop_chain(chain, loop_chain, handles, length):
     #loop_chain[handles[2]].id = r1_id
     #add_residue_to_rosetta_chain(chain, loop_chain[handles[2]])
 
-    fud.pv('handles')
     if handles[1] != length:
         r2_id = chain[handles[1]].id
         chain.detach_child(r2_id)
@@ -565,14 +570,14 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
     e = np.eye(3,3)
 
     for handle in handles:
-        (moving, indeces) = get_atom_coord_array(chain_loop, handle[2], handle[3])
+        (moving, indeces, rids) = get_atom_coord_array(chain_loop, handle[2], handle[3])
         fixed = np.array(get_measurement_vectors(chain_stems, handle[0], handle[1]))
 
         start_res = handle[2]
         end_res = handle[3]
 
         #start_index = indeces[handle[2]+1]
-        end_index = indeces[handle[3]+1]
+        end_index = len(moving)
 
         if no_close:
             rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
@@ -583,12 +588,12 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
 
         #points += indeces[handle[2]+1] #O3' -> P bond
         if move_all_angles:
-            angle_to_move = range(handle[2]+1, handle[3]+1)
+            angle_to_move = range(1, len(rids)) #range(handle[2]+1, handle[3]+1)
         else:
-            angle_to_move = [handle[2]+1, handle[3]]
+            angle_to_move = [1, len(rids)-1] #[handle[2]+1, handle[3]]
 
         for i in angle_to_move:
-            si = indeces[i]
+            si = indeces[rids[i]]
 
             # 
             if move_front_angle:
@@ -610,7 +615,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
 
 
-        chain_loop = set_atom_coord_array(chain_loop, moving, handle[2], handle[3])
+        chain_loop = set_atom_coord_array(chain_loop, moving, rids)
         '''
         assert(not np.allclose(moving_orig, moving))
 
@@ -1186,9 +1191,6 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     loop_def = sm.loop_defs[ld]
     angle_def = loop_def
 
-    fud.pv('ld')
-    fud.pv('loop_def')
-
     if loop_def.define[1] - loop_def.define[0] == 1:
         return
 
@@ -1210,7 +1212,6 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
 
     (sd0, bd0) = sm.bg.get_sides_plus(connection, ld)
 
-    fud.pv('sm.bg.defines[connection]')
     if sd0 == 0:
         a0,b0 = sm.bg.defines[connection][0], sm.bg.defines[connection][3]
     else:
