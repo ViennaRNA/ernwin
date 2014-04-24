@@ -1341,3 +1341,56 @@ def reconstruct_from_average(sm):
             c.add(r)
 
     return c
+
+def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from):
+    '''
+    Take an element (elem2) from one chain (chain2, cg2) and
+    place it on the new chain while aligning on the adjoining elements.
+
+    The neighboring elemtns need to be present in chain_to in order
+    for the next element to be aligned to their starting and ending
+    positions.
+
+    The dimensions and type of elem_to and elem_from need to be identical.
+
+    @param cg_to: The coarse-grain representation of the target chain
+    @param cg_from: The coarse-grain representation of the source chain
+    @param elem_to: The element to replace
+    @param elem_from: The source element
+    @param chain_to: The chain to graft onto
+    @param chain_from: The chain to excise from
+    '''
+    # get the range of the nucleotides
+    ranges_to = cg_to.define_range_iterator(elem_to, adjacent=True, 
+                                            seq_ids=True)
+    ranges_from = cg_from.define_range_iterator(elem_from, adjacent=True, 
+                                                seq_ids=True)
+
+    chains_to_align = []
+    handles = []
+    # the chains containing the aligned and loop-closed nucleotides
+    new_chains = []
+
+    # iterate over each strand
+    for r1,r2 in zip(ranges_to, ranges_from):
+        chains_to_align += [ftup.extract_subchain(chain_from, r2[0], r2[1])]
+        handles += [r1 + r2]
+
+        align_starts(chain_to, chains_to_align[-1], [handles[-1]], end=2)
+        (r, loop_chain) = align_and_close_loop(cg_to.seq_length, chain_to, 
+                                                   chains_to_align[-1], 
+                                                   [handles[-1]])
+        fud.pv('r')
+        new_chains += [loop_chain]
+
+        counter = 1
+        for res1, res2 in zip(cg_to.iterate_over_seqid_range(*r1),
+                              cg_from.iterate_over_seqid_range(*r2)):
+            if counter > 1:
+                #fud.pv('[r.id for r in loop_chain.get_list()]')
+                loop_chain[res2].id = res1
+                add_residue_to_rosetta_chain(chain_to, loop_chain[res2])
+
+            counter += 1
+
+    return new_chains
