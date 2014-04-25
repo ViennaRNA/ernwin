@@ -5,6 +5,7 @@ import Bio.PDB.Chain as bpdbc
 import itertools as it
 import random
 import os
+import os.path as op
 import warnings
 import numpy as np
 import numpy.linalg as nl
@@ -17,8 +18,10 @@ import collections as c
 import fess.builder.config as cbc
 import forgi.threedee.model.stats as cbs
 import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as fud
+import forgi.threedee.model.coarse_grain as ftmc
 
 from random import choice, uniform
 from math import pi
@@ -125,7 +128,7 @@ def rotate_chain(chain, rot_mat, offset):
         atom.coord -= offset
         atom.transform(rot_mat, offset)
 
-def define_to_stem_model(chain, define):
+def define_to_stem_model(cg, chain, define):
     '''
     Extract a StemModel from a Bio.PDB.Chain structure.
 
@@ -140,11 +143,11 @@ def define_to_stem_model(chain, define):
     '''
     stem = StemModel(name=define)
 
-    mids = cgg.get_mids(chain, define)
+    mids = cgg.get_mids(cg, chain, define)
     #mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
 
     stem.mids = tuple([m.get_array() for m in mids])
-    stem.twists = cgg.get_twists(chain, define)
+    stem.twists = cgg.get_twists(cg, chain, define)
 
     return stem
 
@@ -169,8 +172,8 @@ def get_stem_rotation_matrix(stem, (u, v, t), use_average_method=False):
 
     return rot_mat4
 
-def align_chain_to_stem(chain, define, stem2, use_average_method=False):
-    stem1 = define_to_stem_model(chain, define)
+def align_chain_to_stem(cg, chain, define, stem2, use_average_method=False):
+    stem1 = define_to_stem_model(cg, chain, define)
     tw1 = cgg.virtual_res_3d_pos_core(stem1.mids, stem1.twists, 2, 4)[1]
     tw2 = cgg.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
 
@@ -194,47 +197,39 @@ def align_chain_to_stem(chain, define, stem2, use_average_method=False):
     rotate_chain(chain, np.linalg.inv(rot_mat), (stem1.mids[0] + stem1.mids[1]) / 2.)
     translate_chain(chain, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
 
-def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), stem=None, use_average_method=True):
+def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chain, stem_library=dict(), stem=None, use_average_method=True):
     '''
     Reconstruct a particular stem.
     '''
-    filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-    '''
-    stem_def.define = [1375, 1376, 1638, 1639]
-    filename = '1jj2_1375_1376_1638_1639.pdb'
-    '''
-    pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
-    fud.pv('pdb_file')
+    pdb_filename = op.expanduser(op.join('~/doarse/', stem_def.pdb_name, "temp.pdb"))
+    cg_filename = op.expanduser(op.join('~/doarse/', stem_def.pdb_name, "temp.cg"))
 
-    #print len(stem_library.keys())
-    if filename in stem_library.keys():
-    #if False:
-        chain = stem_library[filename].copy()
-    else:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
-        stem_library[filename] = chain.copy()
+    cg = ftmc.CoarseGrainRNA(cg_filename)
+    sd = cg.get_node_from_residue_num(stem_def.define[0])
+    chain = ftup.get_biggest_chain(pdb_filename)
+    chain = ftup.extract_subchain_from_res_list(chain, 
+                                       list(cg.define_residue_num_iterator(sd)))
 
-    align_chain_to_stem(chain, stem_def.define, stem, use_average_method)
+    align_chain_to_stem(cg, chain, sd, stem, use_average_method)
 
     for i in range(stem_def.bp_length):
         #print "i:", i
-        if orig_def[0] + i in new_chain:
+        if cg_orig.seq_ids[orig_def[0] + i - 1] in new_chain:
             new_chain.detach_child(new_chain[orig_def[0] + i].id)
 
-        e = chain[stem_def.define[0] + i]
-        e.id = (e.id[0], orig_def[0] + i, e.id[2])
-        #print "adding:", e.id
+        e = chain[cg.seq_ids[stem_def.define[0] + i-1]]
+        e.id = cg_orig.seq_ids[orig_def[0] + i - 1]
+        print "adding:", e.id
         new_chain.add(e)
 
-        if orig_def[2] + i in new_chain:
+        if cg_orig.seq_ids[orig_def[2] + i - 1] in new_chain:
             new_chain.detach_child(new_chain[orig_def[2] + i].id)
 
-        e = chain[stem_def.define[2] + i]
-        e.id = (e.id[0], orig_def[2] + i, e.id[2])
-        #print "adding:", e.id
+        e = chain[cg.seq_ids[stem_def.define[2] + i - 1]]
+        e.id = cg_orig.seq_ids[orig_def[2] + i-1] #(e.id[0], orig_def[2] + i, e.id[2])
+        print "adding:", e.id
         new_chain.add(e)
+
     return new_chain
 
 def extract_stem_from_chain(chain, stem_def):
@@ -260,7 +255,7 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     stem_def = sm.stem_defs[stem_name]
     orig_def = sm.bg.defines[stem_name]
 
-    return reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library, stem)
+    return reconstruct_stem_core(sm.bg, stem_def, orig_def, new_chain, stem_library, stem)
 
 def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name=''):
     '''
@@ -484,14 +479,14 @@ class SpatialModel:
 
         self.fiveprime_defs = dict()
         for l in self.bg.floop_iterator():
-            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            sl = self.bg.get_length(l)
             for ls in cbs.get_fiveprime_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.fiveprime_defs[l] = ls
 
         self.threeprime_defs = dict()
         for l in self.bg.tloop_iterator():
-            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
+            sl = self.bg.get_length(l)
             for ls in cbs.get_threeprime_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.threeprime_defs[l] = ls
@@ -597,12 +592,10 @@ class SpatialModel:
 
             params = (r, u, v)
 
-        #fud.pv('s1b, s1e')
         start_mid = prev_stem.mids[s1b]
         (r, u, v) = params
 
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
-        #fud.pv('r,u,v')
         end_mid = start_mid + direction
         self.bulges[name] = BulgeModel((start_mid, end_mid))
 
@@ -979,10 +972,8 @@ class SpatialModel:
                         self.visit_order += [prev_node]
 
                         self.prev_stem_list += [prev_stem.name]
-                        #fud.pv('start, self.prev_stem_list')
                         stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
                         self.newly_added_stems += [curr_node]
-                        #fud.pv('self.newly_added_stems')
 
                         # the following is done to maintain the invariant that mids[s1b] is
                         # always in the direction of the bulge from which s1b was obtained

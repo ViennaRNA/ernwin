@@ -5,6 +5,7 @@ import itertools as it
 import fess.builder.models as models
 import os.path as op
 
+import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.average_atom_positions as ftua
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -66,6 +67,7 @@ def reconstruct_stems(sm, stem_library=dict()):
     #sm.traverse_and_build()
     new_chain = bpdbc.Chain(' ')
 
+    fud.pv('sm.stem_defs')
     for stem_name in sm.stem_defs.keys():
         models.reconstruct_stem(sm, stem_name, new_chain, stem_library)
 
@@ -354,7 +356,7 @@ def set_atom_coord_array(chain, coords, rids):
 
     return chain
 
-def align_starts(chain_stems, chain_loop, handles, end=0):
+def align_starts(chain_stems, chain_loop, handles, end=0, reverse=False):
     '''
     Align the sugar rings of one part of the stem structure to one part
     of the loop structure.
@@ -372,12 +374,22 @@ def align_starts(chain_stems, chain_loop, handles, end=0):
             v1 += get_alignment_vectors(chain_stems, handle[0], handle[1])
             v2 += get_alignment_vectors(chain_loop, handle[2], handle[3])
         elif end == 2:
-            v1 = (chain_stems[handle[0]]["C4'"].get_vector().get_array(),
-                  chain_stems[handle[0]]["C3'"].get_vector().get_array(),
-                  chain_stems[handle[0]]["O3'"].get_vector().get_array())
-            v2 = (chain_loop[handle[2]]["C4'"].get_vector().get_array(),
-                  chain_loop[handle[2]]["C3'"].get_vector().get_array(),
-                  chain_loop[handle[2]]["O3'"].get_vector().get_array())
+            if reverse:
+                # used for aligning the 5' region, the back of which needs
+                # to be aligned to the beginning of the stem
+                v1 = (chain_stems[handle[1]]["C4'"].get_vector().get_array(),
+                      chain_stems[handle[1]]["C3'"].get_vector().get_array(),
+                      chain_stems[handle[1]]["O3'"].get_vector().get_array())
+                v2 = (chain_loop[handle[3]]["C4'"].get_vector().get_array(),
+                      chain_loop[handle[3]]["C3'"].get_vector().get_array(),
+                      chain_loop[handle[3]]["O3'"].get_vector().get_array())
+            else:
+                v1 = (chain_stems[handle[0]]["C4'"].get_vector().get_array(),
+                      chain_stems[handle[0]]["C3'"].get_vector().get_array(),
+                      chain_stems[handle[0]]["O3'"].get_vector().get_array())
+                v2 = (chain_loop[handle[2]]["C4'"].get_vector().get_array(),
+                      chain_loop[handle[2]]["C3'"].get_vector().get_array(),
+                      chain_loop[handle[2]]["O3'"].get_vector().get_array())
         else:
             v1 += get_measurement_vectors(chain_stems, handle[0], handle[1])
             v2 += get_measurement_vectors(chain_loop, handle[2], handle[3])
@@ -897,7 +909,7 @@ def replace_base(res_dir, res_ref):
 
     return new_res
 
-def replace_bases(chain, seq):
+def replace_bases(chain, cg):
     '''
     Go through the chain and replace the bases with the ones specified in the
     sequence.
@@ -926,13 +938,11 @@ def replace_bases(chain, seq):
     ress = chain.get_list()
 
     for i in range(len(ress)):
-        num = ress[i].id[1]
+        #num = ress[i].id[1]
         name = ress[i].resname.strip()
 
-        if num-1 == len(seq):
-            continue
-
-        ref_res = tchain[tindeces[seq[num-1]]]
+        seq_num = cg.seq_ids.index(ress[i].id)
+        ref_res = tchain[tindeces[cg.seq[seq_num]]]
         new_res = replace_base(ress[i], ref_res)
 
         sca = side_chain_atoms[ress[i].resname.strip()]
@@ -1342,7 +1352,7 @@ def reconstruct_from_average(sm):
 
     return c
 
-def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from):
+def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from, close_loop=True, reverse=False):
     '''
     Take an element (elem2) from one chain (chain2, cg2) and
     place it on the new chain while aligning on the adjoining elements.
@@ -1376,10 +1386,14 @@ def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from
         chains_to_align += [ftup.extract_subchain(chain_from, r2[0], r2[1])]
         handles += [r1 + r2]
 
-        align_starts(chain_to, chains_to_align[-1], [handles[-1]], end=2)
-        (r, loop_chain) = align_and_close_loop(cg_to.seq_length, chain_to, 
-                                                   chains_to_align[-1], 
-                                                   [handles[-1]])
+        align_starts(chain_to, chains_to_align[-1], [handles[-1]], end=2, reverse=reverse)
+
+        r = 0.
+        loop_chain = chains_to_align[-1]
+        if close_loop:
+            (r, loop_chain) = align_and_close_loop(cg_to.seq_length, chain_to, 
+                                                       chains_to_align[-1], 
+                                                       [handles[-1]])
         fud.pv('r')
         new_chains += [loop_chain]
 
@@ -1394,3 +1408,58 @@ def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from
             counter += 1
 
     return new_chains
+
+def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_angles=False):
+    '''
+    Reconstruct a loop with the fragment its statistics were derived from.
+
+    @param chain: The chain containing the reconstructed stems.
+    @param sm: The SpatialModel containing the information about the sampled
+        stems and angles
+    @param ld: The name of the loop to reconstruct.
+    '''
+
+    #find some potential sides
+    #both ways should work
+    #i.e. if [0][1] is present, [0][1] should also be present
+    close_loop = True
+    reverse = False
+
+    if ld in sm.angle_defs:
+        for key1 in sm.angle_defs[ld].keys():
+            break
+
+        angle_def = sm.angle_defs[ld][key1]
+    elif ld in sm.loop_defs:
+        angle_def = sm.loop_defs[ld]
+    elif ld in sm.fiveprime_defs:
+        angle_def = sm.fiveprime_defs[ld]
+        close_loop = False
+        reverse=True
+    elif ld in sm.threeprime_defs:
+        angle_def = sm.threeprime_defs[ld]
+        close_loop = False
+
+    fud.pv('ld, sm.fiveprime_defs, sm.threeprime_defs')
+
+    cg_filename = op.expanduser(op.join("~/doarse/", angle_def.pdb_name, "temp.cg"))
+    pdb_filename = op.expanduser(op.join("~/doarse/", angle_def.pdb_name, "temp.pdb"))
+
+    cg_to = sm.bg
+    cg_from = ftmc.CoarseGrainRNA(cg_filename) 
+
+    chain_to = chain
+    fud.pv('pdb_filename')
+    chain_from = ftup.get_biggest_chain(pdb_filename)
+
+    elem_to = ld
+    elem_from = cg_from.get_node_from_residue_num(angle_def.define[0])
+
+    fud.pv('elem_to, elem_from')
+    #fud.pv('chain_to.get_list()')
+    fud.pv('ld')
+        
+    fud.pv('sorted(chain.child_dict.keys())')
+    new_chains = reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from, close_loop, reverse)
+
+    return chain

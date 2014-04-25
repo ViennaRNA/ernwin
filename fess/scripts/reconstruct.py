@@ -41,6 +41,7 @@ def main():
 
     if not options.average_atoms:
         chain = rtor.reconstruct_stems(sm)
+        fud.pv('sorted(chain.child_dict.keys())')
 
     if options.loops:
         if options.average_atoms:
@@ -60,8 +61,11 @@ def main():
             sys.exit(1)
             '''
 
-            for b in it.chain(sm.bg.iloop_iterator(), sm.bg.mloop_iterator()):
-
+            '''
+            for b in it.chain(sm.bg.iloop_iterator(), sm.bg.mloop_iterator(),
+                             sm.bg.hloop_iterator()):
+            '''
+            for b in it.chain(sm.bg.floop_iterator()):
                 if b not in sm.bg.sampled.keys():
                     print >>sys.stderr, "interpolating... %s" % (b)
                     (as1, as2) = sm.bg.get_bulge_angle_stats(b)
@@ -84,16 +88,19 @@ def main():
                             best_bv = pot_bulge_vec
 
                     sm.angle_defs[b][ang_type] = best_bv_ang_s
-                    rtor.reconstruct_bulge_with_fragment(chain, sm, b, move_all_angles=True)
+                    rtor.reconstruct_with_fragment(chain, sm, b, move_all_angles=True)
                     continue
 
-                rtor.reconstruct_bulge_with_fragment(chain, sm, b)
+                rtor.reconstruct_with_fragment(chain, sm, b)
+
+            '''
             for l in sm.bg.hloop_iterator():
                 rtor.reconstruct_loop_with_fragment(chain, sm, l)
             for f in sm.bg.floop_iterator():
                 rtor.reconstruct_fiveprime_with_fragment(chain, sm, f)
             for t in sm.bg.tloop_iterator():
                 rtor.reconstruct_threeprime_with_fragment(chain, sm, t)
+            '''
         else:
             try:
                 rtor.output_chain(chain, 'stems.pdb')
@@ -107,7 +114,8 @@ def main():
 
         #rtor.reconstruct_loops(chain, sm)
 
-    rtor.replace_bases(chain, sm.bg.seq)
+    rtor.replace_bases(chain, sm.bg)
+    fud.pv('sorted([r.id[1] for r in chain.get_list()])')
     rtor.output_chain(chain, options.output_file)
 
 if __name__ == '__main__':
