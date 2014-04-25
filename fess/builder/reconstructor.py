@@ -67,7 +67,6 @@ def reconstruct_stems(sm, stem_library=dict()):
     #sm.traverse_and_build()
     new_chain = bpdbc.Chain(' ')
 
-    fud.pv('sm.stem_defs')
     for stem_name in sm.stem_defs.keys():
         models.reconstruct_stem(sm, stem_name, new_chain, stem_library)
 
@@ -1394,14 +1393,20 @@ def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from
             (r, loop_chain) = align_and_close_loop(cg_to.seq_length, chain_to, 
                                                        chains_to_align[-1], 
                                                        [handles[-1]])
-        fud.pv('r')
+        fud.pv('elem_to, r')
         new_chains += [loop_chain]
 
         counter = 1
         for res1, res2 in zip(cg_to.iterate_over_seqid_range(*r1),
                               cg_from.iterate_over_seqid_range(*r2)):
-            if counter > 1:
-                #fud.pv('[r.id for r in loop_chain.get_list()]')
+
+            if elem_to[0] != 'f':
+                # omit the frist nucleotide, since that should be part of
+                # the preceding stem, except in the case of 5' unpaired regions
+                if counter > 1:
+                    loop_chain[res2].id = res1
+                    add_residue_to_rosetta_chain(chain_to, loop_chain[res2])
+            else:
                 loop_chain[res2].id = res1
                 add_residue_to_rosetta_chain(chain_to, loop_chain[res2])
 
@@ -1440,8 +1445,6 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
         angle_def = sm.threeprime_defs[ld]
         close_loop = False
 
-    fud.pv('ld, sm.fiveprime_defs, sm.threeprime_defs')
-
     cg_filename = op.expanduser(op.join("~/doarse/", angle_def.pdb_name, "temp.cg"))
     pdb_filename = op.expanduser(op.join("~/doarse/", angle_def.pdb_name, "temp.pdb"))
 
@@ -1449,17 +1452,11 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
     cg_from = ftmc.CoarseGrainRNA(cg_filename) 
 
     chain_to = chain
-    fud.pv('pdb_filename')
     chain_from = ftup.get_biggest_chain(pdb_filename)
 
     elem_to = ld
     elem_from = cg_from.get_node_from_residue_num(angle_def.define[0])
 
-    fud.pv('elem_to, elem_from')
-    #fud.pv('chain_to.get_list()')
-    fud.pv('ld')
-        
-    fud.pv('sorted(chain.child_dict.keys())')
     new_chains = reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from, close_loop, reverse)
 
     return chain

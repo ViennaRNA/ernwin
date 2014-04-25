@@ -219,7 +219,6 @@ def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chain, stem_library=d
 
         e = chain[cg.seq_ids[stem_def.define[0] + i-1]]
         e.id = cg_orig.seq_ids[orig_def[0] + i - 1]
-        print "adding:", e.id
         new_chain.add(e)
 
         if cg_orig.seq_ids[orig_def[2] + i - 1] in new_chain:
@@ -227,7 +226,6 @@ def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chain, stem_library=d
 
         e = chain[cg.seq_ids[stem_def.define[2] + i - 1]]
         e.id = cg_orig.seq_ids[orig_def[2] + i-1] #(e.id[0], orig_def[2] + i, e.id[2])
-        print "adding:", e.id
         new_chain.add(e)
 
     return new_chain
@@ -466,8 +464,6 @@ class SpatialModel:
 
             for ang_s in cbs.get_angle_stats()[(size[0], size[1], sb[1])]:
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
-                    print >>sys.stderr, "some stuff", b
-
                     self.angle_defs[b][sb[1]] = ang_s
 
         self.loop_defs = dict()
@@ -879,6 +875,7 @@ class SpatialModel:
         self.sampled_bulge_sides = []
         self.closed_bulges = []
         self.newly_added_stems = []
+        self.sampled_ang_types = c.defaultdict(list)
 
         new_visited = []
         # the start node should be a loop region
@@ -959,6 +956,8 @@ class SpatialModel:
                     self.sampled_bulges += [prev_node]
                     if len(self.bg.edges[prev_node]) == 2:
                         self.sampled_bulge_sides += [(prev_node, ang_type)]
+
+                    self.sampled_ang_types[prev_node] += [ang_type]
 
                     # the previous stem should always be in the direction(0, 1) 
                     if started:
@@ -1074,6 +1073,7 @@ class SpatialModel:
                 self.resample(to_change)
                 self.sampled_bulges = []
                 self.sampled_bulge_sides = []
+                self.sampled_ang_types = []
                 self.closed_bulges = []
                 self.newly_added_stems = []
                 self.visited = set()
