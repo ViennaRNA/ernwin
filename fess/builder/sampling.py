@@ -405,18 +405,21 @@ class MCMCSampler:
         self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
         self.energies_to_track = energies_to_track
+        self.dump_measures = False
 
         sm.sample_stats()
         constraint_energy = sm.constraint_energy
-        junction_constraint_energy = sm.junction_constraint_energy
-        sm.constraint_energy = None
-        sm.junction_constraint_energy = None
-        sm.traverse_and_build()
-        sm.constraint_energy = constraint_energy
-        sm.junction_constraint_energy = junction_constraint_energy
-        sm.traverse_and_build()
-        energy_function.energies += sm.constraint_energy.energies
-        energy_function.energies += [sm.junction_constraint_energy]
+        if sm.constraint_energy is not None:
+            junction_constraint_energy = sm.junction_constraint_energy
+            sm.constraint_energy = None
+            sm.junction_constraint_energy = None
+            sm.traverse_and_build()
+            sm.constraint_energy = constraint_energy
+            sm.junction_constraint_energy = junction_constraint_energy
+            sm.traverse_and_build()
+            energy_function.energies += sm.constraint_energy.energies
+            energy_function.energies += [sm.junction_constraint_energy]
+
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
         self.no_rmsd = no_rmsd
@@ -470,6 +473,51 @@ class MCMCSampler:
                 bulges += [d]
 
         return random.choice(bulges)
+
+    def change_elem(self):
+        '''
+        Change a random element and accept the change with a probability
+        proportional to the energy function.
+        '''
+        # pick a random element and get a new statistic for it
+        d = random.choice(self.sm.bg.defines.keys())
+        fud.pv('d')
+        new_stat = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, d))
+
+        # get the energy before we replace the statistic
+        # it's dubious whether this is really necessary since we already
+        # store the previous energy in the accept/reject step
+        self.prev_energy = self.energy_function.eval_energy(self.sm, 
+                                                            background=True)
+         
+        prev_stat = self.sm.elem_defs[d]
+
+        # replace the statistic, rebuild the struture 
+        # and calculate a new energy
+        self.sm.elem_defs[d] = new_stat
+        self.sm.traverse_and_build(start=d)
+        energy = self.energy_function.eval_energy(self.sm, background=True)
+        self.stats.sampled_energy = energy
+
+        if energy < self.prev_energy:
+            # lower energy means automatic acceptance accordint to the
+            # metropolis hastings criterion
+            self.prev_energy = energy
+            self.energy_function.accept_last_measure()
+        else:
+            # calculate a probability
+            r = random.random()
+            if r > math.exp(self.prev_energy - energy):
+                # reject the sampled statistic and replace it the old one
+                self.sm.elem_defs[d] = prev_stat
+                self.sm.traverse_and_build(start=d)
+                self.stats.sampled_energy = self.prev_energy
+                self.energy_function.reject_last_measure()
+            else:
+                # accept the new statistic
+                self.prev_energy = energy
+                self.energy_function.accept_last_measure
+
 
     def change_angle(self):
         # pick a random bulge to vary
@@ -579,12 +627,15 @@ class MCMCSampler:
         #self.sm.sample_angles()
         #self.sm.traverse_and_build()
 
+        self.change_elem()
+        '''
         if random.random() < 0.5:
             self.change_angle()
         elif random.random() < 0.5:
             self.change_stem()
         else:
             self.change_loop()
+        '''
 
         if self.dump_measures:
             if self.step_counter % 20 == 0:
