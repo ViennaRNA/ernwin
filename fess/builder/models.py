@@ -1073,7 +1073,7 @@ class SpatialModel:
                 self.resample(to_change)
                 self.sampled_bulges = []
                 self.sampled_bulge_sides = []
-                self.sampled_ang_types = []
+                self.sampled_ang_types = c.defaultdict(list)
                 self.closed_bulges = []
                 self.newly_added_stems = []
                 self.visited = set()

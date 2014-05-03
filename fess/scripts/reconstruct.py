@@ -26,6 +26,7 @@ def main():
     parser.add_option('', '--output-file', dest='output_file', default='out.pdb', type='str')
     parser.add_option('-s', '--samples', dest='samples', default=10, type='int', help='The number of samples to get from Barnacle')
     parser.add_option('-a', '--average_atoms', dest='average_atoms', default=False, action='store_true', help='Reconstruct using the positions of the average atoms')
+    parser.add_option('', '--fr', dest='fruchterman_reingold', default=False, action='store_true', help='Use the Fruchterman Reingold graph layout instead of CCD to close loops')
 
     (options, args) = parser.parse_args()
 
@@ -91,13 +92,16 @@ def main():
                             best_bv = pot_bulge_vec
 
                     sm.angle_defs[b][ang_type] = best_bv_ang_s
-                    rtor.reconstruct_with_fragment(chain, sm, b, move_all_angles=True)
+                    rtor.reconstruct_with_fragment(chain, sm, b, move_all_angles=True, 
+                                                   close_loop=not options.fruchterman_reingold)
                     continue
 
-                rtor.reconstruct_with_fragment(chain, sm, b)
+                rtor.reconstruct_with_fragment(chain, sm, b, 
+                                               close_loop=not options.fruchterman_reingold)
         else:
             try:
-                rtor.output_chain(chain, 'stems.pdb')
+                rtor.replace_bases(chain, sm.bg)
+                rtor.output_chain(chain, options.output_file)
                 #rtor.reconstruct_loop(chain, sm, 'b1', 0, samples=options.samples, consider_contacts=False)
                 rtor.reconstruct_loops(chain, sm, samples=options.samples, consider_contacts=False)
             except Exception as e:
@@ -108,7 +112,15 @@ def main():
 
         #rtor.reconstruct_loops(chain, sm)
 
+
+    chain = rtor.reorder_residues(chain, sm.bg)
     rtor.replace_bases(chain, sm.bg)
+
+    rtor.output_chain(chain, 'out_pre.pdb')
+    if options.fruchterman_reingold:
+        import fruchterman_reingold.smooth_fragments as frs
+        frs.smooth_fragments(chain, sm.bg, iterations=20)
+
     rtor.output_chain(chain, options.output_file)
 
 if __name__ == '__main__':

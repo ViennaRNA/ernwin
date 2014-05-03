@@ -765,7 +765,6 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
             min_energy = energy
             min_r = r
             best_loop_chain = orig_loop_chain.copy()
-            #output_chain(chain_unclosed_loop, os.path.join(conf.Configuration.test_output_dir, 's3.pdb'))
         '''
         if min_contacts < (0, .1):
             break
@@ -810,8 +809,6 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
 
     (best_loop_chain, min_r) = build_loop(chain, seq, (a,b,i1,i2), bg.seq_length, samples, consider_contacts, consider_starting_pos)
 
-    #output_chain(chain, os.path.join(conf.Configuration.test_output_dir, 's1.pdb'))
-    #output_chain(best_loop_chain, os.path.join(conf.Configuration.test_output_dir, 's2.pdb'))
     print_alignment_pymol_file((a,b,i1,i2))
 
     ftup.trim_chain(best_loop_chain, i1, i2+1)
@@ -1414,7 +1411,7 @@ def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from
 
     return new_chains
 
-def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_angles=False):
+def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_angles=False, close_loop=True):
     '''
     Reconstruct a loop with the fragment its statistics were derived from.
 
@@ -1427,7 +1424,6 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
     #find some potential sides
     #both ways should work
     #i.e. if [0][1] is present, [0][1] should also be present
-    close_loop = True
     reverse = False
 
     if ld in sm.angle_defs:
@@ -1457,6 +1453,19 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
     elem_to = ld
     elem_from = cg_from.get_node_from_residue_num(angle_def.define[0])
 
-    new_chains = reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from, close_loop, reverse)
+    new_chains = reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from, 
+                                     close_loop, reverse)
 
+    return chain
+
+def reorder_residues(chain, cg):
+    '''
+    Reorder the nucleotides in the chain's list so that they match the order
+    in the cg representation.
+
+    @param chain: A Bio.PDB.Chain file
+    @param cg: A coarse grain representation
+    @return: The same chain, except with reordered nucleotides.
+    '''
+    chain.child_list.sort(key=lambda x: cg.seq_ids.index(x.id))
     return chain
