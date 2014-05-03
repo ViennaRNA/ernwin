@@ -16,12 +16,12 @@ import random as rand
 import collections as c
 
 import fess.builder.config as cbc
-import forgi.threedee.model.stats as cbs
+import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as fud
-import forgi.threedee.model.coarse_grain as ftmc
 
 from math import pi
 
@@ -249,7 +249,7 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     if stem is None:
         stem = sm.stems[stem_name]
 
-    stem_def = sm.stem_defs[stem_name]
+    stem_def = sm.elem_defs[stem_name]
     orig_def = sm.bg.defines[stem_name]
 
     return reconstruct_stem_core(sm.bg, stem_def, orig_def, new_chain, stem_library, stem)
@@ -288,7 +288,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None):
+    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None):
         '''
         Initialize the structure.
 
@@ -305,6 +305,13 @@ class SpatialModel:
         self.constraint_energy = None
         self.junction_constraint_energy = None
 
+        self.elem_defs = None
+
+        if conf_stats is None:
+            self.conf_stats = ftms.ConformationStats() 
+        else:
+            self.conf_stats = conf_stats
+
         self.bg = bg
         self.add_to_skip()
         
@@ -315,20 +322,40 @@ class SpatialModel:
                 # The structure is probably new and doesnt have coordinates yet
                 continue
 
+    '''
     def sample_stats(self):
         self.sample_angles()
         self.sample_stems()
         self.sample_loops()
         self.sample_fiveprime()
         self.sample_threeprime()
+    '''
+
+    def sample_stats(self):
+        self.elem_defs = dict()
+
+        for d in self.bg.defines:
+            if d[0] == 'm':
+                if self.bg.get_angle_type(d) is None:
+                    # this section isn't sampled because a multiloop
+                    # is broken here
+                    continue
+            fud.pv('d')
+            self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
 
     def resample(self, d):
+        self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+
+        '''
         if d[0] == 's':
-            self.sample_stem(d)
+            self.stem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+            #self.sample_stem(d)
         else:
             if len(self.bg.edges[d]) == 2:
                 self.sample_angle(d)
+        '''
 
+    """
     def sample_angle(self, d):
         size = self.bg.get_bulge_dimensions(d)
 
@@ -353,22 +380,24 @@ class SpatialModel:
         ang_type3 = -ang_type1
 
         try:
-            angle_defs[d][ang_type1] = random.choice(cbs.get_angle_stats()[(size[0], size[1], ang_type1)])
-            angle_defs[d][ang_type3] = random.choice(cbs.get_angle_stats()[(size[0], size[1], ang_type3)])
+            angle_defs[d][ang_type1] = random.choice(ftms.get_angle_stats()[(size[0], size[1], ang_type1)])
+            angle_defs[d][ang_type3] = random.choice(ftms.get_angle_stats()[(size[0], size[1], ang_type3)])
         except IndexError:
             #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
 
-            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type1] = random.choice(cbs.get_angle_stats()[(size1, size2, ang_type1)])
+            (dist, size1, size2, _) = ftms.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+            angle_defs[d][ang_type1] = random.choice(ftms.get_angle_stats()[(size1, size2, ang_type1)])
             #print >>sys.stderr, "Using size instead:", size1, size2
-            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type3] = random.choice(cbs.get_angle_stats()[(size1, size2, ang_type3)])
+            (dist, size1, size2, _) = ftms.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
+            angle_defs[d][ang_type3] = random.choice(ftms.get_angle_stats()[(size1, size2, ang_type3)])
             #print >>sys.stderr, "Using size instead:", size1, size2
             '''
-            print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
-            print cbs.get_angle_stat_dims(size[0], size[1], ang_type3)
+            print ftms.get_angle_stat_dims(size[0], size[1], ang_type1)
+            print ftms.get_angle_stat_dims(size[0], size[1], ang_type3)
             '''
+    """
 
+    """
     def sample_angles(self):
         '''
         Sample statistics for each bulge region. In this case they'll be random.
@@ -377,10 +406,6 @@ class SpatialModel:
             statistic for the angles of that bulge.
         '''
         self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
-        '''
-        angle_defs['start'][0][1] = cbs.AngleStat()
-        angle_defs['start'][1][0] = cbs.AngleStat()
-        '''
 
         for d in self.bg.defines.keys():
             if d[0] != 's': 
@@ -388,33 +413,48 @@ class SpatialModel:
                     self.sample_angle(d)
                 '''
                 else:
-                    angle_defs[d][0][0] = cbs.AngleStat()
+                    angle_defs[d][0][0] = ftms.AngleStat()
                     pass
                 '''
 
         #self.angle_defs = angle_defs
+    """
 
+    '''
     def sample_stem(self, d):
         stem_defs = self.stem_defs
         define = self.bg.defines[d]
         length = self.bg.stem_length(d)
 
         # retrieve a random entry from the StemStatsDict collection
-        ss = random.choice(cbs.get_stem_stats()[length])
+        ss = random.choice(ftms.get_stem_stats()[length])
         stem_defs[d] = ss
+    '''
 
+    """
+    def sample_stats(self):
+        '''
+        Sample statistics for all of the elements.
+        '''
+        self.elem_defs = dict()
+
+        for d in self.defines.keys():
+            stat = random.choice(self.conf_stats.sample_stats(d))
+            self.elem_defs[d] = stat
+    """
+
+    """
     def sample_stems(self):
         '''
         Sample statistics for each stem region.
 
         @return: A dictionary containing statistics about the stems in the structure.
         '''
-        self.stem_defs = dict()
+        for d in self.bg.stem_iterator():
+            self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+    """
 
-        for d in self.bg.defines.keys():
-            if d[0] == 's':
-                self.sample_stem(d)
-
+    """
     def sample_native_stems(self):
         '''
         Sample the native stems for each stem region.
@@ -424,7 +464,7 @@ class SpatialModel:
         '''
         stem_defs = dict()
 
-        for stats in cbs.get_stem_stats().values():
+        for stats in ftms.get_stem_stats().values():
             for stat in stats:
                 for d in self.bg.sampled.keys():
                     if d[0] == 's':
@@ -434,18 +474,22 @@ class SpatialModel:
                                 stem_defs[d] = stat
 
         self.stem_defs = stem_defs
+    """
 
     def sampled_from_bg(self):
         '''
         Get the information about the sampled elements from the underlying BulgeGraph.
         '''
         # get the stem defs
-        self.get_sampled_bulges()
+        # self.get_sampled_bulges()
 
-        self.stem_defs = dict()
+        raise Exception("This needs to be re-written, possible using FilteredConformationStats")
+
+        '''
+        self.elem_defs = dict()
         for s in self.bg.stem_iterator():
             sl = self.bg.stem_length(s)
-            for ss in cbs.get_stem_stats()[sl]:
+            for ss in ftms.get_stem_stats()[sl]:
                 if ss.pdb_name == self.bg.sampled[s][0] and ss.define == self.bg.sampled[s][1:]:
                     self.stem_defs[s] = ss
 
@@ -458,33 +502,34 @@ class SpatialModel:
             size = self.bg.get_bulge_dimensions(b)
             sb = self.bg.sampled[b]
 
-            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], sb[1])[0]
+            (dist, size1, size2, _) = ftms.get_angle_stat_dims(size[0], size[1], sb[1])[0]
             size = (size1, size2)
 
-            for ang_s in cbs.get_angle_stats()[(size[0], size[1], sb[1])]:
+            for ang_s in ftms.get_angle_stats()[(size[0], size[1], sb[1])]:
                 if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
                     self.angle_defs[b][sb[1]] = ang_s
 
         self.loop_defs = dict()
         for l in self.bg.hloop_iterator():
             sl = self.bg.get_length(l)
-            for ls in cbs.get_loop_stats()[sl]:
+            for ls in ftms.get_loop_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.loop_defs[l] = ls
 
         self.fiveprime_defs = dict()
         for l in self.bg.floop_iterator():
             sl = self.bg.get_length(l)
-            for ls in cbs.get_fiveprime_stats()[sl]:
+            for ls in ftms.get_fiveprime_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.fiveprime_defs[l] = ls
 
         self.threeprime_defs = dict()
         for l in self.bg.tloop_iterator():
             sl = self.bg.get_length(l)
-            for ls in cbs.get_threeprime_stats()[sl]:
+            for ls in ftms.get_threeprime_stats()[sl]:
                 if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
                     self.threeprime_defs[l] = ls
+        '''
 
     def create_native_stem_models(self):
         '''
@@ -501,6 +546,7 @@ class SpatialModel:
 
         self.stems = stems
 
+    """
     def sample_loops(self):
         '''
         Sample statistics for each loop region.
@@ -515,7 +561,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = random.choice(cbs.get_loop_stats()[length])
+                ls = random.choice(ftms.get_loop_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
                 sys.exit(1)
@@ -523,7 +569,9 @@ class SpatialModel:
             loop_defs[d] = ls
 
         self.loop_defs = loop_defs
+    """
 
+    """
     def sample_fiveprime(self):
         '''
         Sample statistics for the 5' unpaired region.
@@ -538,7 +586,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = random.choice(cbs.get_fiveprime_stats()[length])
+                ls = random.choice(ftms.get_fiveprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
                 continue
@@ -546,7 +594,9 @@ class SpatialModel:
             fiveprime_defs[d] = ls
 
         self.fiveprime_defs = fiveprime_defs
+    """
 
+    """
     def sample_threeprime(self):
         '''
         Sample statistics for the 3' unpaired region.
@@ -561,7 +611,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = random.choice(cbs.get_threeprime_stats()[length])
+                ls = random.choice(ftms.get_threeprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
                 continue
@@ -569,13 +619,14 @@ class SpatialModel:
             threeprime_defs[d] = ls
 
         self.threeprime_defs = threeprime_defs
+    """
 
     def add_loop(self, name, prev_stem_node, params=None, loop_defs=None):
         '''
         Connect a loop to the previous stem.
         '''
         if loop_defs == None:
-            loop_defs = self.loop_defs
+            loop_defs = self.elem_defs
 
         prev_stem = self.stems[prev_stem_node]
         (s1b, s1e) = self.bg.get_sides(prev_stem_node, name)
@@ -610,6 +661,15 @@ class SpatialModel:
                 for edge in self.bg.edges[define]:
                     return (edge, define, StemModel(edge))
 
+
+    def save_sampled_elems(self):
+        '''
+        Save the information about all of the sampled elements.
+        '''
+        for d,ed in self.elem_defs.items():
+            self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + [ed.define]
+
+    """
     def save_sampled_stems(self):
         '''
         Save the information about the sampled stems to the bulge graph file.
@@ -633,6 +693,7 @@ class SpatialModel:
     def save_sampled_threeprimes(self):
         for sd in self.threeprime_defs.items():
             self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
+    """
 
     def get_transform(self, edge):
         '''
@@ -672,7 +733,7 @@ class SpatialModel:
         Return a random set of parameters with which to create a stem.
         '''
 
-        return self.stem_defs[name]
+        return self.elem_defs[name]
 
     def get_random_bulge_stats(self, name, ang_type):
         '''
@@ -680,9 +741,10 @@ class SpatialModel:
         '''
         #if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
         if name[0] == 'h':
-            return cbs.AngleStat()
+            return ftms.AngleStat()
 
-        return self.angle_defs[name][ang_type]
+        #return self.angle_defs[name][ang_type]
+        return self.elem_defs[name]
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
@@ -815,11 +877,7 @@ class SpatialModel:
     def finish_building(self):
         self.fill_in_bulges_and_loops()
         self.elements_to_coords()
-        self.save_sampled_stems()
-        self.save_sampled_angles()
-        self.save_sampled_loops()
-        self.save_sampled_fiveprimes()
-        self.save_sampled_threeprimes()
+        self.save_sampled_elems()
 
     def add_to_skip(self):
         '''
@@ -942,7 +1000,7 @@ class SpatialModel:
                     if prev_node == 'start':
                         (ps1b, ps1e) = (1, 0)
                         ang_type = 1
-                        prev_params = cbs.AngleStat()
+                        prev_params = ftms.AngleStat()
                     else:
                         (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
                         ang_type = self.bg.connection_type(prev_node, 
