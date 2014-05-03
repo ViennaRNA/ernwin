@@ -23,7 +23,6 @@ import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as fud
 import forgi.threedee.model.coarse_grain as ftmc
 
-from random import choice, uniform
 from math import pi
 
 class StemModel:
@@ -354,16 +353,16 @@ class SpatialModel:
         ang_type3 = -ang_type1
 
         try:
-            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[(size[0], size[1], ang_type1)])
-            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[(size[0], size[1], ang_type3)])
+            angle_defs[d][ang_type1] = random.choice(cbs.get_angle_stats()[(size[0], size[1], ang_type1)])
+            angle_defs[d][ang_type3] = random.choice(cbs.get_angle_stats()[(size[0], size[1], ang_type3)])
         except IndexError:
             #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
 
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[(size1, size2, ang_type1)])
+            angle_defs[d][ang_type1] = random.choice(cbs.get_angle_stats()[(size1, size2, ang_type1)])
             #print >>sys.stderr, "Using size instead:", size1, size2
             (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[(size1, size2, ang_type3)])
+            angle_defs[d][ang_type3] = random.choice(cbs.get_angle_stats()[(size1, size2, ang_type3)])
             #print >>sys.stderr, "Using size instead:", size1, size2
             '''
             print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
@@ -401,7 +400,7 @@ class SpatialModel:
         length = self.bg.stem_length(d)
 
         # retrieve a random entry from the StemStatsDict collection
-        ss = choice(cbs.get_stem_stats()[length])
+        ss = random.choice(cbs.get_stem_stats()[length])
         stem_defs[d] = ss
 
     def sample_stems(self):
@@ -516,7 +515,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = choice(cbs.get_loop_stats()[length])
+                ls = random.choice(cbs.get_loop_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
                 sys.exit(1)
@@ -539,7 +538,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = choice(cbs.get_fiveprime_stats()[length])
+                ls = random.choice(cbs.get_fiveprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
                 continue
@@ -562,7 +561,7 @@ class SpatialModel:
 
             # retrieve a random entry from the StemStatsDict collection
             try:
-                ls = choice(cbs.get_threeprime_stats()[length])
+                ls = random.choice(cbs.get_threeprime_stats()[length])
             except IndexError:
                 print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
                 continue
