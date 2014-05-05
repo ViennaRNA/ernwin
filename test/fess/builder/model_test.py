@@ -17,6 +17,7 @@ class TestModel(unittest.TestCase):
         return
 
     def test_traverse_and_build(self):
+
         pass
 
     def test_sample_elems(self):

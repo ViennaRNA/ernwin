@@ -480,8 +480,7 @@ class MCMCSampler:
         proportional to the energy function.
         '''
         # pick a random element and get a new statistic for it
-        d = random.choice(self.sm.bg.defines.keys())
-        fud.pv('d')
+        d = random.choice(list(self.sm.bg.get_mst()))
         new_stat = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, d))
 
         # get the energy before we replace the statistic
