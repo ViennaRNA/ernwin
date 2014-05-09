@@ -331,10 +331,15 @@ class SpatialModel:
                     # this section isn't sampled because a multiloop
                     # is broken here
                     continue
-            self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+            try:
+                self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+            except:
+                print >>sys.stderr, "Error sampling stats for element %s." % (d)
+                raise
+
 
     def resample(self, d):
-        fud.pv('d')
+        #fud.pv('d')
         self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
         '''
         if d[0] == 's':
@@ -784,6 +789,21 @@ class SpatialModel:
                                         break
 
                                 to_change = p
+
+                                # remove all coordinates that haven't been built yet so that
+                                # we can get a more clear picture of the nascent structure
+                                to_remove = []
+                                for d in self.bg.coords:
+                                    if d not in self.visited:
+                                        to_remove += [d]
+
+                                for r in to_remove:
+                                    del self.bg.coords[r]
+
+                                self.bg.to_file('temp.cg')
+
+                                sys.exit(1)
+
                                 restart = True
                                 break
                             else:

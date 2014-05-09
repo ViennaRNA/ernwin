@@ -6,13 +6,14 @@ import optparse
 import os
 import os.path as op
 import pickle, pdb
+import subprocess as spr
 import sys
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
-import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as ftur
+import forgi.utilities.debug as fud
 
 import fess.builder.energy as fbe
 import fess.builder.config as cbc
@@ -51,12 +52,13 @@ def predict(bg, energies_to_sample, options):
     else:
         options.output_file = open(options.output_file, 'w')
 
-
     cbc.Configuration.sampling_output_dir = op.join(options.output_dir, bg.name)
 
-    if options.jared_dir is not None:
-        # run the jar3d_annotate script to get a list of potential statistics for each interior loop
-        pass
+    if options.output_dir_suffix != None:
+        cbc.Configuration.sampling_output_dir = op.join(cbc.Configuration.sampling_output_dir, options.output_dir_suffix)
+
+    if not os.path.exists(cbc.Configuration.sampling_output_dir):
+        os.makedirs(cbc.Configuration.sampling_output_dir)
 
     fud.pv('options.stats_file')
     if options.stats_file is not None:
@@ -64,6 +66,27 @@ def predict(bg, energies_to_sample, options):
         print >>sys.stderr, "1"
         ftms.set_conformation_stats(ftms.ConformationStats(options.stats_file))
 
+    if options.jared_dir is not None:
+        # run the jar3d_annotate script to get a list of potential statistics for each interior loop
+        jared_script = op.join(options.jared_dir, 'scripts/annotate_structure.py')
+        jared_data = op.join(options.jared_dir, 'JAR3D')
+
+        filtered_stats_fn = op.join(cbc.Configuration.sampling_output_dir,
+                                    'filtered.stats')
+
+        cmd = ['python', jared_script, options.bg_filename, '-o', jared_data,
+               '-m', '-e', '-d', jared_data]
+
+        fud.pv('cmd')
+        p = spr.Popen(cmd, stdout=spr.PIPE)
+        out, err = p.communicate()
+
+        with open(filtered_stats_fn, 'w') as filtered_out:
+            filtered_out.write(out)
+
+        filtered_stats = ftms.FilteredConformationStats(stats_file=options.stats_file,
+                                                        filter_filename=filtered_stats_fn)
+        ftms.set_conformation_stats(filtered_stats)
 
     if options.filtered_stats_file is not None:
         print >>sys.stderr, "2"
@@ -73,11 +96,6 @@ def predict(bg, energies_to_sample, options):
 
     sm = fbm.SpatialModel(bg)
 
-    if options.output_dir_suffix != None:
-        cbc.Configuration.sampling_output_dir = op.join(cbc.Configuration.sampling_output_dir, options.output_dir_suffix)
-
-    if not os.path.exists(cbc.Configuration.sampling_output_dir):
-        os.makedirs(cbc.Configuration.sampling_output_dir)
 
     if options.log_to_file:
         options.output_file = open(op.join(cbc.Configuration.sampling_output_dir, 'log.txt'), 'w')
@@ -199,7 +217,7 @@ def main():
     parser.add_option('', '--dist1', dest='dist1', default=None, help="Calculate the distance between this residue and the residue at position dist2 at every iteration", type='int')
     parser.add_option('', '--dist2', dest='dist2', default=None, help="Calculate the distance between this residue and the residue at position dist1 at every iteration", type='int')
     parser.add_option('', '--save-iterative-cg-measures', dest='save_iterative_cg_measures', default=False, help='Save the coarse-grain measures every time the energy function is recalculated', action='store_true')
-    parser.add_option('', '--jared-dir', dest='jared_dir', default=None, help='Use JAR3D to predict geometries for the interior loops', action='store_true')
+    parser.add_option('', '--jared-dir', dest='jared_dir', default=None, help='Use JAR3D to predict geometries for the interior loops', type='str')
 
     (options, args) = parser.parse_args()
 
@@ -297,6 +315,7 @@ def main():
         energies_to_sample += [fbe.DistanceEnergy(bg.get_long_range_constraints())]
 
     for bg in bgs:
+        options.bg_filename = args[0]
         predict(bg, energies_to_sample, options)
 
 if __name__ == '__main__':
