@@ -308,7 +308,7 @@ class SpatialModel:
         self.elem_defs = None
 
         if conf_stats is None:
-            self.conf_stats = ftms.ConformationStats() 
+            self.conf_stats = ftms.get_conformation_stats()
         else:
             self.conf_stats = conf_stats
 
@@ -331,12 +331,11 @@ class SpatialModel:
                     # this section isn't sampled because a multiloop
                     # is broken here
                     continue
-            fud.pv('d')
             self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
 
     def resample(self, d):
+        fud.pv('d')
         self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
-
         '''
         if d[0] == 's':
             self.stem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
@@ -408,18 +407,12 @@ class SpatialModel:
         return (edge, define, StemModel(edge))
 
 
-        for define in self.bg.defines.keys():
-            if define[0] == 'h' or define[0] == 'f' or define[0] == 't':
-                for edge in self.bg.edges[define]:
-                    return (edge, define, StemModel(edge))
-
-
     def save_sampled_elems(self):
         '''
         Save the information about all of the sampled elements.
         '''
         for d,ed in self.elem_defs.items():
-            self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + [ed.define]
+            self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
 
     def get_transform(self, edge):
         '''
@@ -507,11 +500,9 @@ class SpatialModel:
                      #add loop
                     pass
                 elif d in fiveprime:
-                    self.add_loop(d, list(self.bg.edges[d])[0],
-                                  loop_defs = self.fiveprime_defs)
+                    self.add_loop(d, list(self.bg.edges[d])[0])
                 elif d in threeprime:
-                    self.add_loop(d, list(self.bg.edges[d])[0],
-                                  loop_defs = self.threeprime_defs)
+                    self.add_loop(d, list(self.bg.edges[d])[0])
                 else:
                     connections = list(self.bg.edges[d])
 

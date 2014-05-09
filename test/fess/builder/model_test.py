@@ -8,17 +8,31 @@ import fess.builder.models as fbm
 
 class TestModel(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1y26.cg')        
-        self.conf_stats = ftms.ConformationStats('test/fess/data/real.stats')
-        self.sm = fbm.SpatialModel(self.cg, conf_stats = self.conf_stats)
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.real_stats_fn = 'test/fess/data/real.stats'
+        self.filtered_stats_fn = 'test/fess/data/filtered_stats_1gid.csv'
 
+        self.conf_stats = ftms.ConformationStats(self.real_stats_fn)
+        self.filtered_stats = ftms.FilteredConformationStats(self.real_stats_fn, 
+                                                             self.filtered_stats_fn)
+        
+        self.sm = fbm.SpatialModel(self.cg, conf_stats = self.conf_stats)
         self.sm.sample_stats()
 
         return
 
-    def test_traverse_and_build(self):
+    def test_filtered_traverse_and_build(self):
+        fcs = self.filtered_stats
+        ftms.set_conformation_stats(fcs)
+        sm = fbm.SpatialModel(self.cg, conf_stats=fcs)
+        sm.sample_stats()
 
-        pass
+        sm.traverse_and_build()
+        fud.pv('self.sm.bg.to_cg_string()')
+        sm.bg.to_file('temp.cg')
+
+    def test_traverse_and_build(self):
+        self.sm.traverse_and_build()
 
     def test_sample_elems(self):
         sm = fbm.SpatialModel(self.cg, conf_stats = self.conf_stats)

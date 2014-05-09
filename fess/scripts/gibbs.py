@@ -54,7 +54,6 @@ def bgs_from_fasta(fasta_file):
     return  bgs
 
 def predict(bg, energies_to_sample, options):
-    sm = fbm.SpatialModel(bg)
 
     if options.cheating:
         energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.CheatingEnergy(sm.bg)])]
@@ -68,6 +67,25 @@ def predict(bg, energies_to_sample, options):
 
 
     cbc.Configuration.sampling_output_dir = op.join(options.output_dir, bg.name)
+
+    if options.jared_dir is not None:
+        # run the jar3d_annotate script to get a list of potential statistics for each interior loop
+        pass
+
+    fud.pv('options.stats_file')
+    if options.stats_file is not None:
+        cbc.Configuration.stats_file = options.stats_file
+        print >>sys.stderr, "1"
+        ftms.set_conformation_stats(ftms.ConformationStats(options.stats_file))
+
+
+    if options.filtered_stats_file is not None:
+        print >>sys.stderr, "2"
+        filtered_stats = ftms.FilteredConformationStats(stats_file=options.stats_file,
+                                                        filter_filename=options.filtered_stats_file)
+        ftms.set_conformation_stats(filtered_stats)
+
+    sm = fbm.SpatialModel(bg)
 
     if options.output_dir_suffix != None:
         cbc.Configuration.sampling_output_dir = op.join(cbc.Configuration.sampling_output_dir, options.output_dir_suffix)
@@ -182,6 +200,9 @@ def main():
     parser.add_option('', '--no-background', dest='background', default=True, action='store_false', help="Don't use the background probability distribution.")
     parser.add_option('', '--stats-file', dest='stats_file', 
                       default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
+    parser.add_option('', '--filtered-stats-file', dest='filtered_stats_file', 
+                      default=None, 
+                      help='Filter the statistics used for sampling using some other file.', type='str') 
     parser.add_option('', '--output-dir-suffix', dest='output_dir_suffix', default=None, help="Specify an addition to the output directory", type='str')
     parser.add_option('', '--stats-type', dest='stats_type', default=None, help="Use these types of statistics.", type='str')
 
@@ -192,6 +213,7 @@ def main():
     parser.add_option('', '--dist1', dest='dist1', default=None, help="Calculate the distance between this residue and the residue at position dist2 at every iteration", type='int')
     parser.add_option('', '--dist2', dest='dist2', default=None, help="Calculate the distance between this residue and the residue at position dist1 at every iteration", type='int')
     parser.add_option('', '--save-iterative-cg-measures', dest='save_iterative_cg_measures', default=False, help='Save the coarse-grain measures every time the energy function is recalculated', action='store_true')
+    parser.add_option('', '--jared-dir', dest='jared_dir', default=None, help='Use JAR3D to predict geometries for the interior loops', action='store_true')
 
     (options, args) = parser.parse_args()
 
@@ -208,6 +230,7 @@ def main():
 
     bgs = []
 
+
     for arg in args:
         if arg[-3:] == '.fa':
             bgs += bgs_from_fasta(arg)
@@ -218,13 +241,6 @@ def main():
         print >> sys.stderr, "WARNING: More than one structure entered... only the first will be bearbeitet"
 
     #bg.calc_bp_distances()
-
-    if options.stats_file != '':
-        stats = ftms.get_angle_stats(options.stats_file)
-        stats = ftms.get_loop_stats(options.stats_file)
-        stats = ftms.get_stem_stats(options.stats_file)
-        cbc.Configuration.stats_file = options.stats_file
-        print >>sys.stderr, "options.stats_file:", cbc.Configuration.stats_file
 
     energies_to_sample = []
     if options.cyl_intersect:
