@@ -1,37 +1,23 @@
 #!/usr/bin/python
 
-from optparse import OptionParser
-from bisect import bisect
 import copy
+import random
+import optparse
+import os
 import os.path as op
-
-import forgi.utilities.debug as fud
-import fess.builder.sampling as cbs
-import forgi.threedee.model.stats as ftms
-import fess.builder.config as cbc
-
-import forgi.threedee.utilities.graph_pdb as cgg
-
-from random import sample, random, seed, randint
-from numpy import allclose, seterr
+import pickle, pdb
+import sys
 
 import forgi.threedee.model.coarse_grain as ftmc
-import fess.builder.models as fbm
+import forgi.threedee.model.stats as ftms
+import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as ftur
 
-from fess.builder.sampling import StatisticsPlotter, GibbsBGSampler, SamplingStatistics
-from forgi.threedee.utilities.vector import get_vector_centroid, center_on_centroid
-
-import fess.builder.config as conf
 import fess.builder.energy as fbe
-import os
-
-import sys
-import pickle, pdb
-
-from math import exp
-
-from sys import stderr
+import fess.builder.config as cbc
+import fess.builder.models as fbm
+import fess.builder.sampling as fbs
 
 def draw_helper():
     draw()
@@ -105,7 +91,7 @@ def predict(bg, energies_to_sample, options):
         sys.exit(1)
 
     if options.plot:
-        plotter = StatisticsPlotter()
+        plotter = fbs.StatisticsPlotter()
     else:
         plotter = None
 
@@ -118,7 +104,7 @@ def predict(bg, energies_to_sample, options):
 
     for color,energy in zip(colors, energies_to_sample):
         fud.pv('options.no_rmsd')
-        stat = SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best, dist1 = options.dist1, dist2 = options.dist2, save_iterative_cg_measures=options.save_iterative_cg_measures, no_rmsd = options.no_rmsd)
+        stat = fbs.SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best, dist1 = options.dist1, dist2 = options.dist2, save_iterative_cg_measures=options.save_iterative_cg_measures, no_rmsd = options.no_rmsd)
         stat.step_save = options.step_save
 
         if options.mcmc_sampler:
@@ -136,13 +122,13 @@ def predict(bg, energies_to_sample, options):
                 energies_to_track = []
 
             fud.pv('energies_to_track')
-            sampler = cbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)
+            sampler = fbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)
             sampler.dump_measures = options.dump_energies
             samplers += [sampler]
         else:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
             sm.constraint_energy = fbe.StemVirtualResClashEnergy()
-            samplers += [GibbsBGSampler(sm, energy, stat)]
+            samplers += [fbs.GibbsBGSampler(sm, energy, stat)]
         silent = True
 
     fud.pv('samplers')
@@ -165,7 +151,7 @@ def main():
     #seed(2)
     #seterr(all='ignore')
     #seterr(all='raise')
-    parser = OptionParser()
+    parser = optparse.OptionParser()
 
     parser.add_option('', '--loop-energy', dest='loop_energy', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--dump-energies', dest='dump_energies', default=False, action='store_true', help='Dump the energies to file')
@@ -314,9 +300,9 @@ def main():
         predict(bg, energies_to_sample, options)
 
 if __name__ == '__main__':
-    seed_num = randint(0, sys.maxint)
+    seed_num = random.randint(0, sys.maxint)
     try:
-        seed(seed_num)
+        random.seed(seed_num)
         main()
     except:
         #pdb.post_mortem()
