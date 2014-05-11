@@ -47,3 +47,9 @@ class TestModel(unittest.TestCase):
         sm.sample_stats()
 
         sm.traverse_and_build()
+
+        cg = ftmc.CoarseGrainRNA('test/fess/data/1ymo_pk.cg')
+        sm = fbm.SpatialModel(cg, conf_stats=self.conf_stats)
+        sm.sample_stats()
+        fud.pv('sm.elem_defs')
+        sm.traverse_and_build()

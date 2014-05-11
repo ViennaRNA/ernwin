@@ -483,6 +483,11 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
+        fud.pv('stem_name')
+        fud.pv('stem_params')
+        fud.pv('prev_stem')
+        fud.pv('bulge_params')
+        fud.pv('(s1b,s1e)')
 
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
 
@@ -497,6 +502,7 @@ class SpatialModel:
         loops = list(self.bg.hloop_iterator())
         fiveprime = list(self.bg.floop_iterator())
         threeprime = list(self.bg.tloop_iterator())
+        self.closed_bulges = []
 
         for d in self.bg.defines.keys():
             if d[0] != 's':
@@ -543,6 +549,10 @@ class SpatialModel:
         '''
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
         '''
+        # this should be changed in the future so that only stems whose 
+        # positions have changed have their virtual residue coordinates
+        # re-calculated
+        self.newly_added_stems = [d for d in self.bg.defines if d[0] == 's']
 
         #for stem in self.stems.keys():
         for stem in self.newly_added_stems:
@@ -639,6 +649,9 @@ class SpatialModel:
         If a constraint energy is provided, then the nascent structure
         must fullfill the constraint at every step of the process.
         '''
+        self.new_traverse_and_build(start='start')
+        return
+
         constraint_energy = self.constraint_energy
         '''
         import traceback
@@ -888,3 +901,40 @@ class SpatialModel:
 
         self.finish_building()
 
+
+    def new_traverse_and_build(self, start='start'):
+        '''
+        A working version of the new traverse and build function.
+        '''
+        build_order = self.bg.traverse_graph()
+
+        # add the first stem in relation to a non-existent stem
+        self.stems['s0'] = self.add_stem('s0', self.elem_defs['s0'], StemModel(), 
+                                      ftms.AngleStat(), (0,1))
+
+        for (s1, l, s2) in build_order:
+            prev_stem = self.stems[s1]
+            angle_params = self.elem_defs[l]
+            stem_params = self.elem_defs[s2]
+            ang_type = self.bg.connection_type(l, [s1,s2])
+            connection_ends = self.bg.connection_ends(ang_type)
+
+            # get the direction of the first stem (which is used as a 
+            # coordinate system)
+            if connection_ends[0] == 0:
+                (s1b, s1e) = (1, 0)
+            elif connection_ends[0] == 1:
+                (s1b, s1e) = (0, 1)
+
+            stem = self.add_stem(s2, stem_params, prev_stem,
+                                 angle_params, (s1b, s1e))
+
+            # check which way the newly connected stem was added
+            # if its 1-end was added, the its coordinates need to
+            # be reversed to reflect the fact it was added backwards
+            if connection_ends[1] == 1:
+                self.stems[s2] = stem.reverse()
+            else:
+                self.stems[s2] = stem
+
+        self.finish_building()
