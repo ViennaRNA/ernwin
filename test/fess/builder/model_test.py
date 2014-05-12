@@ -53,3 +53,4 @@ class TestModel(unittest.TestCase):
         sm.sample_stats()
         fud.pv('sm.elem_defs')
         sm.traverse_and_build()
+        sm.bg.to_file('temp1.cg')

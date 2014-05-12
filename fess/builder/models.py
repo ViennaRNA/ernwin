@@ -776,7 +776,6 @@ class SpatialModel:
                         else:
                             self.stems[curr_node] = stem
 
-
                         if constraint_energy != None and not restart:
                             self.stem_to_coords(curr_node)
                             e1 = constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = new_visited)

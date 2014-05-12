@@ -4,9 +4,9 @@ import os.path as op
 import sys
 
 import forgi.threedee.model.coarse_grain as ttmc
-import borgy.utilities.vector as cuv
-import borgy.graph.graph_pdb as cgg
-import borgy.utilities.debug as cud
+import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.utilities.debug as fud
 
 from optparse import OptionParser
 
@@ -43,7 +43,7 @@ def print_stem_stats(bg):
 
 def get_loop_stat(bg, d):
     base_pair_length = bg.get_length(d) #abs(bg.defines[d][0] - bg.defines[d][1])
-    phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
+    phys_length = ftuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
 
     stem1 = list(bg.edges[d])[0]
     (s1b, s1e) = bg.get_sides(stem1, d)
@@ -52,7 +52,7 @@ def get_loop_stat(bg, d):
     twist1_vec = bg.twists[stem1][s1b] - bg.twists[stem1][s1e]
     bulge_vec = bg.coords[d][1] - bg.coords[d][0]
 
-    (r,u,v) = cgg.get_stem_separation_parameters(stem1_vec, twist1_vec, bulge_vec)
+    (r,u,v) = ftug.get_stem_separation_parameters(stem1_vec, twist1_vec, bulge_vec)
     return (base_pair_length, r, u, v)
 
 def print_loop_stats(bg):
