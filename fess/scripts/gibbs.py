@@ -31,12 +31,11 @@ def bgs_from_fasta(fasta_file):
         print >>sys.stderr, "The specified fasta file does not exist: %s" \
                 % (fasta_file)
 
-
     with open(fasta_file, 'r') as f:
         # assume there is only one sequence and dotplot in the fastdp file
         lines = f.read()
         bg = ftmc.CoarseGrainRNA()
-        bg.from_fasta(lines, dissolve_length_one_stems=True)
+        bg.from_fasta(lines, dissolve_length_one_stems=False)
         bgs += [bg]
     return  bgs
 
@@ -133,9 +132,16 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy()])
             if options.track_energies:
-                energies_to_track = [fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy(), fbe.ShortestLoopDistanceEnergy()]
-                for h in bg.hloop_iterator():
-                    energies_to_track += [fbe.ShortestLoopDistancePerLoop(h)]
+                energies_to_track = [fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy()]
+
+                fud.pv('len(list(bg.hloop_iterator()))')
+                if len(list(bg.hloop_iterator())) > 1:
+                    energies_to_track += [fbe.ShortestLoopDistanceEnergy()]
+                    for h in bg.hloop_iterator():
+                        energies_to_track += [fbe.ShortestLoopDistancePerLoop(h)]
+
+                energies_to_track += [fbe.AMinorEnergy(loop_type='h')]
+                #energies_to_track += [fbe.AMinorEnergy(loop_type='i')]
             else:
                 energies_to_track = []
 
@@ -183,6 +189,10 @@ def main():
     parser.add_option('-m', '--mcmc', dest='mcmc_sampler', default=False, action='store_true', help='Sample using the mcmc sampler.')
     parser.add_option('', '--rog', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
+    parser.add_option('', '--aminor-perloop-rog', dest='aminor_perloop_radius_of_gyration', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
+    parser.add_option('', '--aminor-perloop', dest='aminor_perloop', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
+    parser.add_option('', '--aminor-rog', dest='aminor_radius_of_gyration', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
+    parser.add_option('', '--aminor', dest='aminor', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--cylinder-perloop-rog', dest='cylinder_perloop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-shortestloop-rog', dest='cylinder_shortestloop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-loop-rog', dest='cylinder_loop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
@@ -267,6 +277,30 @@ def main():
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle])]
 
+    if options.aminor_perloop:
+        nonconstraint = []
+
+        bg = bgs[0]
+        for hloop in bg.hloop_iterator():
+            nonconstraint += [fbe.ShortestLoopDistancePerLoop(hloop)]
+
+        nonconstraint += [fbe.AMinorEnergy(loop_type = 'h')]
+        nonconstraint += [fbe.AMinorEnergy(loop_type = 'i')]
+
+        energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
+
+    if options.aminor_perloop_radius_of_gyration:
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
+        nonconstraint = [rog]
+
+        bg = bgs[0]
+        for hloop in bg.hloop_iterator():
+            nonconstraint += [fbe.ShortestLoopDistancePerLoop(hloop)]
+        nonconstraint += [fbe.AMinorEnergy(loop_type = 'h')]
+        nonconstraint += [fbe.AMinorEnergy(loop_type = 'i')]
+
+        rog.background = options.background
+        energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
     if options.cylinder_perloop_radius_of_gyration:
         cie = fbe.CylinderIntersectionEnergy()
         #lle = fbe.ShortestLoopDistanceEnergy()
@@ -299,6 +333,21 @@ def main():
         cie = fbe.CylinderIntersectionEnergy()
         sse.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [cie, lle])]
+
+    if options.aminor:
+        ame1 = fbe.AMinorEnergy(loop_type='h')
+        ame2 = fbe.AMinorEnergy(loop_type='i')
+        print >>sys.stderr, "here!!!!"
+        energies_to_sample += [fbe.CombinedEnergy([], [ame1, ame2])]
+        #energies_to_sample += [fbe.CombinedEnergy([], [sse, ame1])]
+
+    if options.aminor_radius_of_gyration:
+        sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
+        ame1 = fbe.AMinorEnergy(loop_type='h')
+        ame2 = fbe.AMinorEnergy(loop_type='i')
+        sse.background = options.background
+        energies_to_sample += [fbe.CombinedEnergy([], [sse, ame1, ame2])]
+        #energies_to_sample += [fbe.CombinedEnergy([], [sse, ame1])]
 
     if options.cylinder_radius_of_gyration:
         sse = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)

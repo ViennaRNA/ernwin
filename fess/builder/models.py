@@ -339,7 +339,6 @@ class SpatialModel:
 
 
     def resample(self, d):
-        #fud.pv('d')
         self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
         '''
         if d[0] == 's':
@@ -483,11 +482,13 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
+        '''
         fud.pv('stem_name')
         fud.pv('stem_params')
         fud.pv('prev_stem')
         fud.pv('bulge_params')
         fud.pv('(s1b,s1e)')
+        '''
 
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+
 
 import StringIO
 import pdb
@@ -10,6 +10,7 @@ import itertools as it
 import math
 import warnings
 import pkgutil as pu
+import traceback
 #import pandas as pa
 #import pylab
 
@@ -25,6 +26,7 @@ import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
+import fess.builder.aminor as fba
 import fess.builder.models as cbm
 import fess.builder.config as cbc
 import forgi.utilities.debug as fud
@@ -34,6 +36,9 @@ import scipy.stats as stats
 import scipy.stats as ss
 import sys
 
+
+distribution_upper_bound = 1.3
+distribution_lower_bound = 0.8
 
 def my_log(x):
     return np.log(x + 1e-200)
@@ -248,6 +253,11 @@ class CoarseGrainEnergy(EnergyFunction):
         A generic function which simply evaluates the energy based on the
         previously calculated probability distributions.
         '''
+        '''
+        print "-------------------------------"
+        for line in traceback.format_stack():
+                    print line.strip()
+        '''
         cg = sm.bg
 
         if self.measure_category(cg) not in self.real_kdes.keys():
@@ -263,11 +273,16 @@ class CoarseGrainEnergy(EnergyFunction):
         m = self.get_cg_measure(sm)
         self.measures.append(m)
 
-        energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
-        self.prev_energy = energy
-        self.prev_cg = m
-        #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
-        return -1 * self.energy_prefactor * energy
+        if background:
+            energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
+            self.prev_energy = energy
+            self.prev_cg = m
+            #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
+            return -1 * self.energy_prefactor * energy
+        else:
+            energy = np.log(kr(m))
+            return -energy
+
 
 class ConstantEnergy(EnergyFunction):
     '''
@@ -397,7 +412,6 @@ class CombinedEnergy:
         self.bad_bulges = []
 
         for energy in self.uncalibrated_energies:
-            
             contrib = energy.eval_energy(sm, background,
                                                nodes, new_nodes)
             total_energy += contrib
@@ -809,12 +823,14 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         mol_sizes = cls.keys()
 
         mol_sizes = np.array(mol_sizes)
-        mol_sizes = mol_sizes[mol_sizes > length * .8]
-        mol_sizes = mol_sizes[mol_sizes < length * 1.6]
+        mol_sizes = mol_sizes[mol_sizes > length * distribution_lower_bound]
+        mol_sizes = mol_sizes[mol_sizes < length * distribution_upper_bound]
 
         all_lengths = []
         for l in mol_sizes:
             all_lengths += cls[l]
+
+        fud.pv('len(all_lengths)')
 
         #all_lengths = [cls[l] for l in mol_sizes]
 
@@ -989,8 +1005,10 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
-        rdata = data[np.logical_and( data[:,0] > (0.8) * length,
-                                     data[:,0] < length * ( 1.6 ))]
+        rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
+                                     data[:,0] < length * ( distribution_upper_bound ))]
+
+        fud.pv('len(rdata)')
 
         rogs = rdata[:,1]
         return (self.get_distribution_from_values(rogs), list(rogs))
@@ -1124,3 +1142,131 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
                                                                         background,
                                                                         nodes,
                                                                         new_nodes)
+
+class AMinorEnergy(CoarseGrainEnergy):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_type='h'):
+        import pandas as pd
+        super(AMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
+
+        self.real_stats_fn = 'stats/aminors_1s72.csv'
+        self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
+
+        dall = pd.read_csv(load_local_data('stats/tall.csv'), delimiter=' ', 
+                           names=['l1','l2','l3','dist','angle', "angle2",'seq']) 
+        dall = dall[dall["dist"] < 30]
+
+        # load the loop-anything annotations filter to consider only those
+        # that contain an A and only those that are within 30 angstroms
+        # of each other
+        ael = pd.read_csv(load_local_data('stats/all_elements.csv'), delimiter=' ', 
+                          names=['l1','l2','dist','angle',"angle2",'seq'])
+        dbg = ael[["A" in x for x in ael["seq"]]]
+        dbg_close = dbg[dbg["dist"] < 30.]
+
+        self.dall = dict()
+        self.dbg_close = dict()
+        self.types = {'h':0, 'i':1, 'm':2, 's': 3, 'f': 4, 't': 5}
+        self.loop_type = self.types[loop_type]
+
+        self.prob_funcs = dict()
+        p_d_a_a2_given_i = dict()
+        p_d_a_a2 = dict()
+        p_i = dict()
+
+        #fud.pv('dall')
+        #fud.pv('dbg_close')
+
+        for lt in ['i', 'h', 'm']:
+            dl = self.dall[lt] = dall[[lt in x for x in dall['l1']]]
+            db = self.dbg_close[lt] = dbg_close[[lt in x for x in dbg_close['l1']]]
+            p_i[lt] = len(dl['dist']) / float(len(db['dist']))
+
+            p_d_a_a2_given_i[lt] = ss.gaussian_kde(np.array(zip(dl["dist"], dl["angle"], dl["angle2"])).T)
+            p_d_a_a2[lt] = ss.gaussian_kde(np.array(zip(db["dist"], db["angle"], db["angle2"])).T)
+            #self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point) * p_i[lt]) / (p_d_a_a2[lt](point))
+            self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point)) / (p_d_a_a2[lt](point) + p_d_a_a2_given_i[lt](point))
+
+    def get_distribution_from_file(self, filename, length):
+        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+
+        rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
+                                     data[:,0] < length * ( distribution_upper_bound ))]
+
+        fud.pv('len(rdata)')
+
+        srdata = rdata[rdata[:,1] == self.loop_type]
+        rogs = srdata[:,2]
+
+        return (self.get_distribution_from_values(rogs), list(rogs))
+
+    def eval_prob(self, cg, d):
+        lt = d[0]
+        prob = 0.
+        stem_counts = 0
+        probs = []
+
+        for s in cg.stem_iterator():
+            if s in cg.edges[d]:
+                continue
+
+            if ftug.element_distance(cg, d, s) > 30:
+                continue
+
+            point = fba.get_relative_orientation(cg, d, s)
+            stem_counts += 1
+            p = self.prob_funcs[lt](point)
+            prob += p
+            probs += [p]
+
+            #fud.pv('point, s, p')
+
+        
+        if len(probs) == 0:
+            return [0.]
+
+        return max(probs)
+        #return (prob, stem_counts)
+        #return prob / stem_counts
+
+    def get_name(self):
+        return "A-Minor Energy"
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        '''
+        A generic function which simply evaluates the energy based on the
+        previously calculated probability distributions.
+        '''
+        cg = sm.bg
+
+        if self.measure_category(cg) not in self.real_kdes.keys():
+            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, 
+                                                                                             self.measure_category(cg))
+            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
+
+            self.accepted_measures = self.measures[:]
+
+
+        kr = self.real_kdes[self.measure_category(cg)]
+        ks = self.sampled_kdes[self.measure_category(cg)]
+        energy = 0
+
+        for d in sm.bg.defines.keys():
+
+            # the loop type is encoded as an integer so that the stats file can be 
+            # loaded using numpy
+            if self.types[d[0]] != self.loop_type or 'A' not in "".join(sm.bg.get_define_seq_str(d)):
+                continue
+
+            m = self.eval_prob(sm.bg, d)[0]
+            self.measures.append(m)
+
+            if background:
+                prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
+                self.prev_energy = energy
+                self.prev_cg = m
+                #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
+                energy +=  -1 * self.energy_prefactor * prev_energy
+            else:
+                energy +=  -np.log(kr(m))
+        
+        return energy

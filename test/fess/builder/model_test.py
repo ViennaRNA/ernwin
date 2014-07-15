@@ -1,3 +1,5 @@
+import os.path as op
+
 import unittest
 
 import forgi.threedee.model.coarse_grain as ftmc
@@ -49,6 +51,17 @@ class TestModel(unittest.TestCase):
         sm.traverse_and_build()
 
         cg = ftmc.CoarseGrainRNA('test/fess/data/1ymo_pk.cg')
+        sm = fbm.SpatialModel(cg, conf_stats=self.conf_stats)
+        sm.sample_stats()
+        fud.pv('sm.elem_defs')
+        sm.traverse_and_build()
+        sm.bg.to_file('temp1.cg')
+
+        #pseudoknot
+        cg = ftmc.CoarseGrainRNA(op.expanduser('~/doarse/4LVV_A/temp.cg'))
+        cg = ftmc.from_pdb(op.expanduser('~/doarse/4LVV_A/temp.pdb'),
+                           remove_pseudoknots=False)
+        fud.pv('cg.to_cg_string()')
         sm = fbm.SpatialModel(cg, conf_stats=self.conf_stats)
         sm.sample_stats()
         fud.pv('sm.elem_defs')

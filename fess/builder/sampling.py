@@ -235,6 +235,9 @@ class SamplingStatistics:
                 pass
 
         energy = prev_energy #energy_function.eval_energy(sm, background=True)
+        #energy = energy_function.eval_energy(sm, background=True)
+        #energy_nobg = energy_function.eval_energy(sm, background=False)
+        energy_nobg = 0.
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
             pass
@@ -279,7 +282,7 @@ class SamplingStatistics:
 
 
         #self.energy_rmsd_structs += [(energy, r, sm.bg)]
-        self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
+        self.energy_rmsd_structs += [(energy_nobg, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
@@ -307,7 +310,7 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
 
             '''
@@ -446,8 +449,10 @@ class MCMCSampler:
         # get the energy before we replace the statistic
         # it's dubious whether this is really necessary since we already
         # store the previous energy in the accept/reject step
+        '''
         self.prev_energy = self.energy_function.eval_energy(self.sm, 
                                                             background=True)
+        '''
          
         prev_stat = self.sm.elem_defs[d]
 
