@@ -37,8 +37,10 @@ import scipy.stats as ss
 import sys
 
 
-distribution_upper_bound = 1.3
-distribution_lower_bound = 0.8
+distribution_upper_bound = 1.0
+distribution_lower_bound = 1.0
+
+incr = 0.01
 
 def my_log(x):
     return np.log(x + 1e-200)
@@ -668,6 +670,15 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
+        '''
+        import traceback
+
+        for line in traceback.format_stack():
+            print line.strip()
+        
+        fud.pv('energy')
+        '''
+
         return energy
 
 class DistanceEnergy(EnergyFunction):
@@ -1005,8 +1016,17 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
-        rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
-                                     data[:,0] < length * ( distribution_upper_bound ))]
+        rdata = []
+
+        distribution_upper_bound = 1.0
+        distribution_lower_bound = 1.0
+
+        while (len(rdata) < 500):
+            distribution_lower_bound -= incr
+            distribution_upper_bound += incr
+
+            rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
+                                         data[:,0] < length * ( distribution_upper_bound ))]
 
         fud.pv('len(rdata)')
 
@@ -1167,6 +1187,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.dbg_close = dict()
         self.types = {'h':0, 'i':1, 'm':2, 's': 3, 'f': 4, 't': 5}
         self.loop_type = self.types[loop_type]
+        #fud.pv('loop_type, self.loop_type')
 
         self.prob_funcs = dict()
         p_d_a_a2_given_i = dict()
@@ -1189,9 +1210,17 @@ class AMinorEnergy(CoarseGrainEnergy):
     def get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
-        rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
-                                     data[:,0] < length * ( distribution_upper_bound ))]
+        rdata = list()
 
+        distribution_lower_bound = 1.
+        distribution_upper_bound = 1.
+
+        while (len(rdata) < 500):
+            distribution_lower_bound -= incr
+            distribution_upper_bound += incr
+
+            rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
+                                         data[:,0] < length * ( distribution_upper_bound ))]
         fud.pv('len(rdata)')
 
         srdata = rdata[rdata[:,1] == self.loop_type]
@@ -1204,6 +1233,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         prob = 0.
         stem_counts = 0
         probs = []
+        #fud.pv('self.loop_type')
 
         for s in cg.stem_iterator():
             if s in cg.edges[d]:
@@ -1229,7 +1259,12 @@ class AMinorEnergy(CoarseGrainEnergy):
         #return prob / stem_counts
 
     def get_name(self):
-        return "A-Minor Energy"
+        if self.loop_type == self.types['i']:
+            return "A-Minor Energy (interior loops)"
+        elif self.loop_type == self.types['h']:
+            return "A-Minor Energy (hairpin loops)"
+        else:
+            return "A-Minor Energy"
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         '''

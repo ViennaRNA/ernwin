@@ -191,6 +191,7 @@ def main():
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--aminor-perloop-rog', dest='aminor_perloop_radius_of_gyration', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--aminor-perloop', dest='aminor_perloop', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
+    parser.add_option('', '--aminor-shortestloop', dest='aminor_shortestloop', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--aminor-rog', dest='aminor_radius_of_gyration', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--aminor', dest='aminor', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--cylinder-perloop-rog', dest='cylinder_perloop_radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
@@ -277,6 +278,21 @@ def main():
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle])]
 
+    if options.aminor_shortestloop:
+        nonconstraint = []
+
+        bg = bgs[0]
+        nonconstraint += [fbe.ShortestLoopDistanceEnergy()]
+        '''
+        for hloop in bg.hloop_iterator():
+            nonconstraint += [fbe.ShortestLoopDistancePerLoop(hloop)]
+        '''
+
+        nonconstraint += [fbe.AMinorEnergy(loop_type = 'h')]
+        nonconstraint += [fbe.AMinorEnergy(loop_type = 'i')]
+
+        energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
+
     if options.aminor_perloop:
         nonconstraint = []
 
@@ -298,6 +314,7 @@ def main():
             nonconstraint += [fbe.ShortestLoopDistancePerLoop(hloop)]
         nonconstraint += [fbe.AMinorEnergy(loop_type = 'h')]
         nonconstraint += [fbe.AMinorEnergy(loop_type = 'i')]
+        nonconstraint += [fbe.StemVirtualResClashEnergy()]
 
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]

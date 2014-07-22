@@ -237,6 +237,7 @@ class SamplingStatistics:
         energy = prev_energy #energy_function.eval_energy(sm, background=True)
         #energy = energy_function.eval_energy(sm, background=True)
         #energy_nobg = energy_function.eval_energy(sm, background=False)
+
         energy_nobg = 0.
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
@@ -296,6 +297,7 @@ class SamplingStatistics:
 
         lowest_energy = sorted_energies[0][0]
         lowest_rmsd = sorted_energies[0][1]
+        #fud.pv('lowest_energy, lowest_rmsd')
 
         '''
         if energy == lowest_energy:
@@ -508,8 +510,10 @@ class MCMCSampler:
         #fud.pv('self.energy_function.uncalibrated_energies[-1].accepted_measures[-1]')
         self.step_counter += 1
 
+        '''
         if self.step_counter % 3 == 0:
             self.energy_function.resample_background_kde(self.sm.bg)
+        '''
 
         for e in self.energies_to_track:
             e.eval_energy(self.sm)
