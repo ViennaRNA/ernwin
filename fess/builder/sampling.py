@@ -236,9 +236,9 @@ class SamplingStatistics:
 
         energy = prev_energy #energy_function.eval_energy(sm, background=True)
         #energy = energy_function.eval_energy(sm, background=True)
-        #energy_nobg = energy_function.eval_energy(sm, background=False)
+        energy_nobg = energy_function.eval_energy(sm, background=False)
 
-        energy_nobg = 0.
+        #energy_nobg = 0.
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
             pass
@@ -411,6 +411,7 @@ class MCMCSampler:
         self.prev_energy = 100000000000.
         self.energies_to_track = energies_to_track
         self.dump_measures = False
+        self.resampled_energy = True
 
         sm.sample_stats()
         constraint_energy = sm.constraint_energy
@@ -451,11 +452,13 @@ class MCMCSampler:
         # get the energy before we replace the statistic
         # it's dubious whether this is really necessary since we already
         # store the previous energy in the accept/reject step
-        '''
-        self.prev_energy = self.energy_function.eval_energy(self.sm, 
-                                                            background=True)
-        '''
-         
+
+        # we have to replace the energy because we've probably re-calibrated
+        # the energy function
+        if self.resampled_energy:
+            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
+            self.resampled_energy = False
+
         prev_stat = self.sm.elem_defs[d]
 
         # replace the statistic, rebuild the struture 
@@ -463,6 +466,7 @@ class MCMCSampler:
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
         energy = self.energy_function.eval_energy(self.sm, background=True)
+        #fud.pv('self.prev_energy, energy')
         self.stats.sampled_energy = energy
 
         if energy < self.prev_energy:
@@ -476,9 +480,10 @@ class MCMCSampler:
             if r > math.exp(self.prev_energy - energy):
                 # reject the sampled statistic and replace it the old one
                 self.sm.elem_defs[d] = prev_stat
-                self.sm.traverse_and_build(start=d)
+                self.sm.traverse_and_build(start='start')
                 self.stats.sampled_energy = self.prev_energy
                 self.energy_function.reject_last_measure()
+                #print >>sys.stderr, "rejecting...", self.prev_energy
             else:
                 # accept the new statistic
                 self.prev_energy = energy
@@ -505,6 +510,7 @@ class MCMCSampler:
                 self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
 
         if self.step_counter % 3 == 0:
+            self.resampled_energy = True
             self.energy_function.resample_background_kde(self.sm.bg)
 
         #fud.pv('self.energy_function.uncalibrated_energies[-1].accepted_measures[-1]')

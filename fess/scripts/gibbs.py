@@ -42,6 +42,7 @@ def bgs_from_fasta(fasta_file):
 def predict(bg, energies_to_sample, options):
 
     if options.cheating:
+        sm = fbm.SpatialModel(bg)
         energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.CheatingEnergy(sm.bg)])]
 
     if not os.path.exists(options.output_dir):
@@ -104,7 +105,7 @@ def predict(bg, energies_to_sample, options):
             cgg.add_virtual_residues(sm.bg, s)
 
         for energy in energies_to_sample:
-            fud.pv('energy.eval_energy(sm, verbose=True)')
+            fud.pv('energy.eval_energy(sm, verbose=True, background=False)')
         sys.exit(1)
 
     if options.plot:
@@ -190,6 +191,7 @@ def main():
     parser.add_option('', '--rog', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
     parser.add_option('', '--aminor-perloop-rog', dest='aminor_perloop_radius_of_gyration', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
+    parser.add_option('', '--specific-aminor', dest='specific_aminor', default=None, help='Use the specific aminor energy', type='str')
     parser.add_option('', '--aminor-perloop', dest='aminor_perloop', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--aminor-shortestloop', dest='aminor_shortestloop', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
     parser.add_option('', '--aminor-rog', dest='aminor_radius_of_gyration', default=False, action='store_true', help='Use the aminor and radius of gyration energies')
@@ -290,6 +292,29 @@ def main():
 
         nonconstraint += [fbe.AMinorEnergy(loop_type = 'h')]
         nonconstraint += [fbe.AMinorEnergy(loop_type = 'i')]
+
+        energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
+
+    if options.specific_aminor:
+        nonconstraint = [fbe.RadiusOfGyrationEnergy()]
+        bg = bgs[0]
+
+        # if we specify all, then we try and maximize the A-Minor interaction potential
+        # for all internal and hairpin loops
+        if len(options.specific_aminor.split(',')) == 1 and options.specific_aminor == 'all':
+            for d in bg.defines:
+                if d[0] == 'i' or d[0] == 'h':
+                    if 'AA' in "".join(bg.get_define_seq_str(d)):
+                        nonconstraint += [fbe.SpecificAMinorEnergy(loop_name=d, energy_prefactor=1)]
+                        fud.pv('d')
+        else:
+            for sa in options.specific_aminor.split(','):
+                nonconstraint += [fbe.SpecificAMinorEnergy(loop_name=sa, energy_prefactor=1)]
+
+        for hloop in bg.hloop_iterator():
+            if len(list(bg.define_residue_num_iterator(hloop))) > 4:
+                fud.pv('hloop')
+                nonconstraint += [fbe.ShortestLoopDistancePerLoop(hloop)]
 
         energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
 

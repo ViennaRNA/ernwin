@@ -1028,8 +1028,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
 
-        fud.pv('len(rdata)')
-
         rogs = rdata[:,1]
         return (self.get_distribution_from_values(rogs), list(rogs))
 
@@ -1163,6 +1161,7 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
                                                                         nodes,
                                                                         new_nodes)
 
+        
 class AMinorEnergy(CoarseGrainEnergy):
     def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_type='h'):
         import pandas as pd
@@ -1221,8 +1220,6 @@ class AMinorEnergy(CoarseGrainEnergy):
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
-        fud.pv('len(rdata)')
-
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
 
@@ -1252,7 +1249,7 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         
         if len(probs) == 0:
-            return [0.]
+            return np.array([0.])
 
         return max(probs)
         #return (prob, stem_counts)
@@ -1274,8 +1271,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         cg = sm.bg
 
         if self.measure_category(cg) not in self.real_kdes.keys():
-            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, 
-                                                                                             self.measure_category(cg))
+            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg))
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
 
             self.accepted_measures = self.measures[:]
@@ -1303,5 +1299,63 @@ class AMinorEnergy(CoarseGrainEnergy):
                 energy +=  -1 * self.energy_prefactor * prev_energy
             else:
                 energy +=  -np.log(kr(m))
+        
+        return energy
+
+class SpecificAMinorEnergy(AMinorEnergy):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_name='h0'):
+        import pandas as pd
+        super(SpecificAMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
+
+        self.real_stats_fn = 'real'
+        self.sampled_stats_fn = 'sampled'
+        self.loop_name = loop_name
+        pass
+
+    def get_distribution_from_file(self, filename, category):
+        if filename == 'real':
+            rogs = list(np.linspace(0,1, 100)) + [1.1] * 400
+        else:
+            rogs = np.linspace(0,1, 100)
+
+        return (self.get_distribution_from_values(rogs), list(rogs))
+
+    def get_cg_measure(self, cg):
+        d = self.loop_name
+
+        return self.eval_prob(cg, d)
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        '''
+        A generic function which simply evaluates the energy based on the
+        previously calculated probability distributions.
+        '''
+        cg = sm.bg
+
+        if self.measure_category(cg) not in self.real_kdes.keys():
+            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg))
+            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
+
+            self.accepted_measures = self.measures[:]
+
+
+        kr = self.real_kdes[self.measure_category(cg)]
+        ks = self.sampled_kdes[self.measure_category(cg)]
+        energy = 0
+
+        d = self.loop_name
+
+        m = self.eval_prob(sm.bg, d)[0]
+        #fud.pv('m')
+        self.measures.append(m)
+
+        if background:
+            prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
+            self.prev_energy = energy
+            self.prev_cg = m
+            #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
+            energy +=  -1 * self.energy_prefactor * prev_energy
+        else:
+            energy +=  -np.log(kr(m))
         
         return energy
