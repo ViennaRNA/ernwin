@@ -1255,6 +1255,18 @@ class AMinorEnergy(CoarseGrainEnergy):
         #return (prob, stem_counts)
         #return prob / stem_counts
 
+    def get_cg_measure(self, sm):
+        for d in sm.bg.defines.keys():
+
+            # the loop type is encoded as an integer so that the stats file can be 
+            # loaded using numpy
+            if self.types[d[0]] != self.loop_type or 'A' not in "".join(sm.bg.get_define_seq_str(d)):
+                continue
+
+            m = self.eval_prob(sm.bg, d)[0]
+
+            return m
+
     def get_name(self):
         if self.loop_type == self.types['i']:
             return "A-Minor Energy (interior loops)"

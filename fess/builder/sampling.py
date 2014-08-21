@@ -249,8 +249,8 @@ class SamplingStatistics:
             r = 0.
             if not self.no_rmsd:
                 centers_new = ftug.bg_virtual_residues(sm.bg)
-                #r = cbr.centered_rmsd(self.centers_orig, centers_new)
-                r = cbr.drmsd(self.centers_orig, centers_new)
+                r = cbr.centered_rmsd(self.centers_orig, centers_new)
+                #r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
 
@@ -337,14 +337,14 @@ class SamplingStatistics:
 
         if self.counter % 10 == 0:
             if not self.silent:
-                self.save_top(self.save_n_best)
+                self.save_top(self.save_n_best, counter=self.counter)
 
         if self.step_save > 0:
             if self.counter % self.step_save == 0:
                 sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
             
 
-    def save_top(self, n = 100000):
+    def save_top(self, n = 100000, counter=100):
         '''
         Save the top n structures.
         '''
@@ -363,6 +363,8 @@ class SamplingStatistics:
 
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
+
+        sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (counter)))
 
     def update_plots(self, energy, rmsd):
         '''
