@@ -709,10 +709,10 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         bg = sm.bg
         #if nodes == None:
-        nodes = bg.defines.keys()
+        #nodes = bg.defines.keys()
 
         self.bad_bulges = []
-        all_bulges = set([d for d in nodes if d[0] == 'm'])
+        all_bulges = set([d for d in nodes if (d[0] == 'm' and d in nodes)])
         energy = 0.
         #closed_bulges = all_bulges.difference(sm.sampled_bulges)
 

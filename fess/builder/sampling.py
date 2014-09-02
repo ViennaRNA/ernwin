@@ -421,10 +421,14 @@ class MCMCSampler:
             junction_constraint_energy = sm.junction_constraint_energy
             sm.constraint_energy = None
             sm.junction_constraint_energy = None
+            print >>sys.stderr, "constraint energy about to build 1..."
             sm.traverse_and_build()
+            print >>sys.stderr, "constraint energy finished building 1"
             sm.constraint_energy = constraint_energy
             sm.junction_constraint_energy = junction_constraint_energy
+            print >>sys.stderr, "constraint energy about to build 2..."
             sm.traverse_and_build()
+            print >>sys.stderr, "constraint energy finished building 2"
             energy_function.energies += sm.constraint_energy.energies
             energy_function.energies += [sm.junction_constraint_energy]
 

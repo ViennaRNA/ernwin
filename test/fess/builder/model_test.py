@@ -2,6 +2,8 @@ import os.path as op
 
 import unittest
 
+import fess.builder.energy as fbe
+
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.utilities.debug as fud
@@ -30,7 +32,6 @@ class TestModel(unittest.TestCase):
         sm.sample_stats()
 
         sm.traverse_and_build()
-        fud.pv('self.sm.bg.to_cg_string()')
         sm.bg.to_file('temp.cg')
 
     def test_sample_elems(self):
@@ -51,7 +52,6 @@ class TestModel(unittest.TestCase):
         cg = ftmc.CoarseGrainRNA('test/fess/data/1ymo_pk.cg')
         sm = fbm.SpatialModel(cg, conf_stats=self.conf_stats)
         sm.sample_stats()
-        #fud.pv('sm.elem_defs')
         sm.traverse_and_build()
         sm.bg.to_file('temp1.cg')
 
@@ -59,9 +59,37 @@ class TestModel(unittest.TestCase):
         cg = ftmc.CoarseGrainRNA(op.expanduser('~/doarse/4LVV_A/temp.cg'))
         cg = ftmc.from_pdb(op.expanduser('~/doarse/4LVV_A/temp.pdb'),
                            remove_pseudoknots=False)
-        #fud.pv('cg.to_cg_string()')
         sm = fbm.SpatialModel(cg, conf_stats=self.conf_stats)
         sm.sample_stats()
-        #fud.pv('sm.elem_defs')
         sm.traverse_and_build()
         #sm.bg.to_file('temp1.cg')
+
+    def test_new_traverse_and_build(self):
+        import time, sys
+
+        time1 = time.time()
+        for i in range(10):
+            cg = ftmc.CoarseGrainRNA('test/fess/data/4P8Z.cg')
+            sm = fbm.SpatialModel(cg)
+            sm.sample_stats()
+
+            sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(), 
+                                                    fbe.CoarseStemClashEnergy(), 
+                                                    fbe.StemVirtualResClashEnergy()])
+            sm.traverse_and_build()
+        time2 = time.time()
+        print >>sys.stderr, "traverse_and_build, elapsed_time:", time2 - time1
+
+        time1 = time.time()
+        for i in range(10):
+            cg = ftmc.CoarseGrainRNA('test/fess/data/4P8Z.cg')
+            sm = fbm.SpatialModel(cg)
+            sm.sample_stats()
+
+            sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(), 
+                                                    fbe.CoarseStemClashEnergy(), 
+                                                    fbe.StemVirtualResClashEnergy()])
+            sm.new_traverse_and_build()
+        time2 = time.time()
+
+        print >>sys.stderr, "new_traverse_and_build, elapsed time:", time2 - time1
