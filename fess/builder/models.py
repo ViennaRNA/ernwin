@@ -650,8 +650,8 @@ class SpatialModel:
         If a constraint energy is provided, then the nascent structure
         must fullfill the constraint at every step of the process.
         '''
-        #self.new_traverse_and_build(start='start')
-        #return
+        self.new_traverse_and_build(start='start')
+        return
 
         constraint_energy = self.constraint_energy
         '''
@@ -913,7 +913,6 @@ class SpatialModel:
 
         counter = 0
         i = 0
-        fud.pv('build_order')
         while i < len(build_order):
             (s1, l, s2) = build_order[i]
             prev_stem = self.stems[s1]
@@ -941,7 +940,6 @@ class SpatialModel:
                 self.stems[s2] = stem
 
             nodes = set(list(it.chain(*[bo for bo in build_order[:i]])))
-            #fud.pv('nodes')
 
             if self.constraint_energy != None:
                 self.stem_to_coords(s1)
@@ -950,7 +948,6 @@ class SpatialModel:
                                                         nodes=nodes,
                                                         new_nodes=nodes)
 
-                #fud.pv('e1')
                 if e1 > 0.:
                     # pick a random node in the past
                     i = random.randint(-1, i)
@@ -960,13 +957,14 @@ class SpatialModel:
                     self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
 
                 
-                #fud.pv('i')
 
             i += 1
             counter += 1
 
         self.finish_building()
+        '''
         if self.constraint_energy != None:
             fud.pv('self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)')
 
         fud.pv('counter')
+        '''

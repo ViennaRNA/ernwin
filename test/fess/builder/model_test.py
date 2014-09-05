@@ -67,6 +67,9 @@ class TestModel(unittest.TestCase):
     def test_new_traverse_and_build(self):
         import time, sys
 
+        # the following tests take a long time to execute so they
+        # are commented out
+        '''
         time1 = time.time()
         for i in range(10):
             cg = ftmc.CoarseGrainRNA('test/fess/data/4P8Z.cg')
@@ -93,3 +96,4 @@ class TestModel(unittest.TestCase):
         time2 = time.time()
 
         print >>sys.stderr, "new_traverse_and_build, elapsed time:", time2 - time1
+        '''
