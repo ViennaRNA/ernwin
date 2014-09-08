@@ -278,8 +278,8 @@ class SamplingStatistics:
             #fud.pv('d1,d2')
             #fud.pv('atoms[self.dist1]')
 
-            dist = ftuv.vec_distance(atoms[self.dist1]["C1'"],
-                                     atoms[self.dist2]["C1'"])
+            dist = ftuv.vec_distance(atoms[self.dist1]["P"],
+                                     atoms[self.dist2]["P"])
 
 
         #self.energy_rmsd_structs += [(energy, r, sm.bg)]
@@ -364,7 +364,7 @@ class SamplingStatistics:
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
 
-        sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (counter)))
+        sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'intermediate_best%d.coord' % (counter)))
 
     def update_plots(self, energy, rmsd):
         '''

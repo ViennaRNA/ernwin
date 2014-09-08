@@ -18,5 +18,5 @@ setup(name='ernwin',
                              'stats/all_elements.csv',
                              'stats/aminors_1s72.csv',
                              'stats/aminors_1jj2_sampled.csv']},
-      scripts=['fess/scripts/gibbs.py']
+      scripts=['fess/scripts/ernwin_go.py']
      )
