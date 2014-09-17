@@ -11,6 +11,7 @@ import scipy.stats as ss
 #import matplotlib.pyplot as plt
 
 import fess.builder.config as cbc
+import fess.builder.energy as fbe
 import forgi.threedee.model.stats as cbs
 
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -315,6 +316,12 @@ class SamplingStatistics:
             output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
 
+            # assume that the energy function is a combined energy
+            for e in self.energy_function.energies:
+                if type(e) is fbe.DistanceExponentialEnergy:
+                    output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
+                                                                  e.to_elem,
+                                                                  e.get_distance(sm))
             '''
             for e in tracking_energies[:1]:
                 output_str += " %.2f" % (e.prev_cg)

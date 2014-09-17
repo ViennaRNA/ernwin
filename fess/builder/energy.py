@@ -762,7 +762,7 @@ class DistanceExponentialEnergy(EnergyFunction):
         self.expon = ss.expon(loc=distance, scale=scale)
         self.bad_bulges = []
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def get_distance(self, sm):
         bg = sm.bg
         from_elem = self.from_elem
         to_elem = self.to_elem
@@ -773,11 +773,15 @@ class DistanceExponentialEnergy(EnergyFunction):
                                                    bg.coords[to_elem][1])
 
         closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
+        return closest_distance
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        closest_distance = self.get_distance(sm)
+
         if closest_distance < self.distance:
             return 0
 
         energy = -np.log(self.expon.pdf(closest_distance)) * 10.
-        fud.pv('closest_distance, energy')
 
         return energy
 

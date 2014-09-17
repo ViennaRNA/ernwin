@@ -429,7 +429,6 @@ def main():
                 e1 = r1
                 e2 = r2
 
-
             if e1 not in bg.defines.keys() or e2 not in bg.defines.keys():
                 print >>sys.stderr, "ERROR: Invalid values for clamping"
                 sys.exit(1)
