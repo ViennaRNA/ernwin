@@ -748,6 +748,39 @@ def merge(times):
 
     yield tuple(saved)
 
+class DistanceExponentialEnergy(EnergyFunction):
+    def __init__(self, from_elem, to_elem, distance, scale):
+        '''
+        Create an exponential distribution for the distance between two elements.
+        '''
+        super(DistanceExponentialEnergy, self).__init__()
+        self.from_elem = from_elem
+        self.to_elem = to_elem
+
+        self.distance = distance
+        self.scale = scale
+        self.expon = ss.norm(loc=distance, scale=scale)
+        self.bad_bulges = []
+
+    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+        bg = sm.bg
+        from_elem = self.from_elem
+        to_elem = self.to_elem
+
+        closest_points = ftuv.line_segment_distance(bg.coords[from_elem][0],
+                                                   bg.coords[from_elem][1],
+                                                   bg.coords[to_elem][0],
+                                                   bg.coords[to_elem][1])
+
+        closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
+        if closest_distance < self.distance:
+            return 0
+
+        energy = -np.log(self.expon.pdf(closest_distance)) * 5.
+        fud.pv('closest_distance, energy')
+
+        return energy
+
 class CylinderIntersectionEnergy(CoarseGrainEnergy):
     def __init__(self):
         super(CylinderIntersectionEnergy, self).__init__()

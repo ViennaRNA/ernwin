@@ -188,6 +188,7 @@ def main():
     parser.add_option('-b', '--best_filename', dest='best_filename', default='best.coord', help="The filename to dump the best (least rmsd structure) into", type='str')
     parser.add_option('-p', '--plot', dest='plot', default=False, action='store_true', help="Plot the energies as they are encountered")
     parser.add_option('-d', '--distance', dest='distance_energy', default=False, action='store_true', help='Use the DistanceEnergy energy')
+    parser.add_option('-c', '--clamp', dest='clamp', default=None, help='Clamp two elements together (i.e. add an energy with a target distance of 10 angstroms). The energy should be formatted as p1,p2:p3,p4:p5,p6 where p1 and p2 are clamped, p3 and p4 are clamped and p5 and p6 are clamped.', type='str')
     parser.add_option('-m', '--mcmc', dest='mcmc_sampler', default=True, action='store_true', help='Sample using the mcmc sampler.')
     parser.add_option('', '--rog', dest='radius_of_gyration', default=False, action='store_true', help='Use the radius of gyration energy')
     parser.add_option('', '--cylinder-rog', dest='cylinder_radius_of_gyration', default=False, action='store_true', help='Use the cylinder_intersection and radius of gyration energy')
@@ -393,6 +394,7 @@ def main():
     if options.distance_energy:
         energies_to_sample += [fbe.DistanceEnergy(bg.get_long_range_constraints())]
 
+
     if len(energies_to_sample) == 0 or options.aminor_perloop_radius_of_gyration:
         rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
         nonconstraint = [rog]
@@ -407,8 +409,27 @@ def main():
         rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], nonconstraint)]
 
+    if options.clamp is not None:
+        pairs = options.clamp.split(':')
+        bg = bgs[0]
+
+
+        for p in pairs:
+            r1,r2 = p.split(',')
+
+            e1 = bg.get_node_from_residue_num(int(r1))
+            e2 = bg.get_node_from_residue_num(int(r2))
+
+            if e1 == e2:
+                print >>sys.stderr, "Can't clamp identical elements"
+
+            print >>sys.stderr, "clamping {0}, {1}".format(e1,e2)
+            # the first energy to sample should be a CombinedEnergy
+            energies_to_sample[0].energies += [fbe.DistanceExponentialEnergy(e1,e2,15.,4.)]
+
     for bg in bgs:
         options.bg_filename = args[0]
+        fud.pv('energies_to_sample')
         predict(bg, energies_to_sample, options)
 
 if __name__ == '__main__':

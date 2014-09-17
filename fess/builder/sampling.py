@@ -368,7 +368,6 @@ class SamplingStatistics:
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
 
-        fud.pv('sorted_energies, counter')
         sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'intermediate_best%d.coord' % (counter)))
 
     def update_plots(self, energy, rmsd):
