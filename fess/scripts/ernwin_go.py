@@ -417,8 +417,22 @@ def main():
         for p in pairs:
             r1,r2 = p.split(',')
 
-            e1 = bg.get_node_from_residue_num(int(r1))
-            e2 = bg.get_node_from_residue_num(int(r2))
+            try:
+                # initially we assume the clamp target are residue numbers
+                r1 = int(r1)
+                r2 = int(r2)
+
+                e1 = bg.get_node_from_residue_num(int(r1))
+                e2 = bg.get_node_from_residue_num(int(r2))
+            except ValueError as ve:
+                # ... or they are element names
+                e1 = r1
+                e2 = r2
+
+
+            if e1 not in bg.defines.keys() or e2 not in bg.defines.keys():
+                print >>sys.stderr, "ERROR: Invalid values for clamping"
+                sys.exit(1)
 
             if e1 == e2:
                 print >>sys.stderr, "Can't clamp identical elements"
