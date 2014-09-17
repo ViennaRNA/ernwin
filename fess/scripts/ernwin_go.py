@@ -425,7 +425,7 @@ def main():
 
             print >>sys.stderr, "clamping {0}, {1}".format(e1,e2)
             # the first energy to sample should be a CombinedEnergy
-            energies_to_sample[0].energies += [fbe.DistanceExponentialEnergy(e1,e2,15.,4.)]
+            energies_to_sample[0].energies += [fbe.DistanceExponentialEnergy(e1,e2,15.,1.)]
 
     for bg in bgs:
         options.bg_filename = args[0]
