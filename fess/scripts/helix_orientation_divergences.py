@@ -1,12 +1,15 @@
 #!/usr/bin/python
 
+import matplotlib
+matplotlib.use("Agg")
+
 import collections as c
 import scipy.cluster.hierarchy as sch
 import itertools as it
 import random
 import numpy as np
 import math as m
-import borgy.builder.stats as cbs
+import forgi.threedee.model.stats as ftms
 
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
@@ -19,8 +22,8 @@ from mpl_toolkits.mplot3d import axes3d, Axes3D
 from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d
 
-import borgy.utilities.debug as cud
-import borgy.utilities.vector as cuv
+import forgi.utilities.debug as fud
+import forgi.threedee.utilities.vector as ftuv
 
 def get_certain_angle_stats(stats, angle_type):
     '''
@@ -116,18 +119,16 @@ def main():
         sys.exit(1)
 
     column_names = ['type', 'pdb', 's1', 's2', 'u', 'v', 't', 'r', 'u1', 'v1', 'atype', 'something1', 'something2', 'sth3', 'sth4']
-    real_stats = pa.read_csv('fess/stats/temp.real.stats', header=None, sep=' ', names=column_names, engine='python')
-    sampled_stats = pa.read_csv('fess/stats/temp.sampled.stats', header=None, sep=' ', names=column_names, engine='python')
 
-    real_stats = real_stats[real_stats["type"] == "angle"]
-    real_stat_dims = map(tuple, real_stats[['s1', 's2', 'atype']].as_matrix())
+
+    real_stats = ftms.ConformationStats('fess/stats/real.stats').angle_stats
+    sampled_stats = ftms.ConformationStats('fess/stats/temp.stats').angle_stats
 
     # count how many statistics we have for each statistic type
     stat_counts = c.defaultdict(int)
-    for sc in real_stat_dims:
-        stat_counts[sc] += 1
+    for sc in real_stats.keys():
+        stat_counts[sc] += len(real_stats[sc])
 
-    cud.pv('stat_counts')
     histograms = dict()
     for b in stat_counts.keys():
         if b[2] != 2.:
@@ -146,13 +147,14 @@ def main():
         if count < 3:
             continue
 
-        cud.pv('b, selected_sizes')
+        fud.pv('b, selected_sizes')
 
         combined_real = []
 
         # get the statistics that correspond to the selected sampled sizes
         for ss in selected_sizes:
-            ss_r = get_certain_angle_stats(real_stats, ss)
+            #ss_r = get_certain_angle_stats(real_stats, ss)
+            ss_r = real_stats[ss]
 
             combined_real += list(ss_r[['u','v']].as_matrix())
 
@@ -169,13 +171,13 @@ def main():
         for p1 in histograms[k1]:
             point_distances = []
             for p2 in histograms[k2]:
-                point_distances += [cuv.magnitude(p1 - p2)]
+                point_distances += [ftuv.magnitude(p1 - p2)]
             per_point_distances += [min(point_distances)]
 
         for p2 in histograms[k2]:
             point_distances = []
             for p1 in histograms[k1]:
-                point_distances += [cuv.magnitude(p1-p2)]
+                point_distances += [ftuv.magnitude(p1-p2)]
             per_point_distances += [min(point_distances)]
 
         dists += [max(per_point_distances)]
@@ -188,14 +190,13 @@ def main():
         dists += [kl]
         '''
 
-    cud.pv('dists')
+    fud.pv('dists')
     Z = sch.complete(dists)
-    cud.pv('Z')
+    fud.pv('Z')
     sch.dendrogram(Z, labels = histograms.keys(), leaf_rotation=90)
     plt.subplots_adjust(bottom=0.25)
     
     plt.show()
-    sys.exit(1)
 
     k1 = (6,7,2)
     k2 = (5,6,2)
@@ -203,8 +204,8 @@ def main():
     rs = get_certain_angle_stats(real_stats, k1)
     ss = get_certain_angle_stats(real_stats, k2)
 
-    cud.pv('named_dists[(k1,k2)]')
-    cud.pv('pp_dists[(k1,k2)]')
+    fud.pv('named_dists[(k1,k2)]')
+    fud.pv('pp_dists[(k1,k2)]')
 
     real_us = rs[['u', 'v']].as_matrix()
     sampled_us = ss[['u','v']].as_matrix()
@@ -224,8 +225,8 @@ def main():
     pseudo_r = (hr[0] + 1) / total_r
     pseudo_s = (hs[0] + 1) / total_r
     kl = pseudo_r * (pseudo_r / pseudo_s)
-    cud.pv('kl')
-    cud.pv('sum(map(sum, kl))')
+    fud.pv('kl')
+    fud.pv('sum(map(sum, kl))')
 
     X_r = np.sin(U_r) * np.cos(V_r)
     Y_r = np.sin(U_r) * np.sin(V_r)
@@ -236,7 +237,7 @@ def main():
     Y_s = r * np.sin(U_s) * np.sin(V_s)
     Z_s = r * np.cos(U_s)
 
-    cud.pv('real_us')
+    fud.pv('real_us')
 
     real_us_orig = np.copy(real_us)
     sampled_us_orig = np.copy(sampled_us)

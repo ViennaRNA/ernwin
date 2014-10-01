@@ -5,6 +5,7 @@ import Bio.PDB.Chain as bpdbc
 import itertools as it
 import random
 import os
+import os.path as op
 import warnings
 import numpy as np
 import numpy.linalg as nl
@@ -15,12 +16,13 @@ import random as rand
 import collections as c
 
 import fess.builder.config as cbc
-import forgi.threedee.model.stats as cbs
+import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as fud
 
-from random import choice, uniform
 from math import pi
 
 class StemModel:
@@ -125,7 +127,7 @@ def rotate_chain(chain, rot_mat, offset):
         atom.coord -= offset
         atom.transform(rot_mat, offset)
 
-def define_to_stem_model(chain, define):
+def define_to_stem_model(cg, chain, define):
     '''
     Extract a StemModel from a Bio.PDB.Chain structure.
 
@@ -140,11 +142,11 @@ def define_to_stem_model(chain, define):
     '''
     stem = StemModel(name=define)
 
-    mids = cgg.get_mids(chain, define)
+    mids = cgg.get_mids(cg, chain, define)
     #mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
 
     stem.mids = tuple([m.get_array() for m in mids])
-    stem.twists = cgg.get_twists(chain, define)
+    stem.twists = cgg.get_twists(cg, chain, define)
 
     return stem
 
@@ -169,8 +171,8 @@ def get_stem_rotation_matrix(stem, (u, v, t), use_average_method=False):
 
     return rot_mat4
 
-def align_chain_to_stem(chain, define, stem2, use_average_method=False):
-    stem1 = define_to_stem_model(chain, define)
+def align_chain_to_stem(cg, chain, define, stem2, use_average_method=False):
+    stem1 = define_to_stem_model(cg, chain, define)
     tw1 = cgg.virtual_res_3d_pos_core(stem1.mids, stem1.twists, 2, 4)[1]
     tw2 = cgg.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
 
@@ -194,47 +196,37 @@ def align_chain_to_stem(chain, define, stem2, use_average_method=False):
     rotate_chain(chain, np.linalg.inv(rot_mat), (stem1.mids[0] + stem1.mids[1]) / 2.)
     translate_chain(chain, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
 
-def reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library=dict(), stem=None, use_average_method=True):
+def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chain, stem_library=dict(), stem=None, use_average_method=True):
     '''
     Reconstruct a particular stem.
     '''
-    filename = '%s_%s.pdb' % (stem_def.pdb_name, "_".join(map(str, stem_def.define)))
-    '''
-    stem_def.define = [1375, 1376, 1638, 1639]
-    filename = '1jj2_1375_1376_1638_1639.pdb'
-    '''
-    pdb_file = os.path.join(cbc.Configuration.stem_fragment_dir, filename)
-    fud.pv('pdb_file')
+    pdb_filename = op.expanduser(op.join('~/doarse/', stem_def.pdb_name, "temp.pdb"))
+    cg_filename = op.expanduser(op.join('~/doarse/', stem_def.pdb_name, "temp.cg"))
 
-    #print len(stem_library.keys())
-    if filename in stem_library.keys():
-    #if False:
-        chain = stem_library[filename].copy()
-    else:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            chain = list(bpdb.PDBParser().get_structure('temp', pdb_file).get_chains())[0]
-        stem_library[filename] = chain.copy()
+    cg = ftmc.CoarseGrainRNA(cg_filename)
+    sd = cg.get_node_from_residue_num(stem_def.define[0])
+    chain = ftup.get_biggest_chain(pdb_filename)
+    chain = ftup.extract_subchain_from_res_list(chain, 
+                                       list(cg.define_residue_num_iterator(sd)))
 
-    align_chain_to_stem(chain, stem_def.define, stem, use_average_method)
+    align_chain_to_stem(cg, chain, sd, stem, use_average_method)
 
     for i in range(stem_def.bp_length):
         #print "i:", i
-        if orig_def[0] + i in new_chain:
+        if cg_orig.seq_ids[orig_def[0] + i - 1] in new_chain:
             new_chain.detach_child(new_chain[orig_def[0] + i].id)
 
-        e = chain[stem_def.define[0] + i]
-        e.id = (e.id[0], orig_def[0] + i, e.id[2])
-        #print "adding:", e.id
+        e = chain[cg.seq_ids[stem_def.define[0] + i-1]]
+        e.id = cg_orig.seq_ids[orig_def[0] + i - 1]
         new_chain.add(e)
 
-        if orig_def[2] + i in new_chain:
+        if cg_orig.seq_ids[orig_def[2] + i - 1] in new_chain:
             new_chain.detach_child(new_chain[orig_def[2] + i].id)
 
-        e = chain[stem_def.define[2] + i]
-        e.id = (e.id[0], orig_def[2] + i, e.id[2])
-        #print "adding:", e.id
+        e = chain[cg.seq_ids[stem_def.define[2] + i - 1]]
+        e.id = cg_orig.seq_ids[orig_def[2] + i-1] #(e.id[0], orig_def[2] + i, e.id[2])
         new_chain.add(e)
+
     return new_chain
 
 def extract_stem_from_chain(chain, stem_def):
@@ -257,10 +249,10 @@ def reconstruct_stem(sm, stem_name, new_chain, stem_library=dict(), stem=None):
     if stem is None:
         stem = sm.stems[stem_name]
 
-    stem_def = sm.stem_defs[stem_name]
+    stem_def = sm.elem_defs[stem_name]
     orig_def = sm.bg.defines[stem_name]
 
-    return reconstruct_stem_core(stem_def, orig_def, new_chain, stem_library, stem)
+    return reconstruct_stem_core(sm.bg, stem_def, orig_def, new_chain, stem_library, stem)
 
 def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name=''):
     '''
@@ -296,7 +288,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None):
+    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None):
         '''
         Initialize the structure.
 
@@ -313,6 +305,13 @@ class SpatialModel:
         self.constraint_energy = None
         self.junction_constraint_energy = None
 
+        self.elem_defs = None
+
+        if conf_stats is None:
+            self.conf_stats = ftms.get_conformation_stats()
+        else:
+            self.conf_stats = conf_stats
+
         self.bg = bg
         self.add_to_skip()
         
@@ -324,177 +323,42 @@ class SpatialModel:
                 continue
 
     def sample_stats(self):
-        self.sample_angles()
-        self.sample_stems()
-        self.sample_loops()
-        self.sample_fiveprime()
-        self.sample_threeprime()
+        self.elem_defs = dict()
+
+        for d in self.bg.defines:
+            if d[0] == 'm':
+                if self.bg.get_angle_type(d) is None:
+                    # this section isn't sampled because a multiloop
+                    # is broken here
+                    continue
+            try:
+                self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+            except:
+                print >>sys.stderr, "Error sampling stats for element %s." % (d)
+                raise
+
 
     def resample(self, d):
+        self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+        '''
         if d[0] == 's':
-            self.sample_stem(d)
+            self.stem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+            #self.sample_stem(d)
         else:
             if len(self.bg.edges[d]) == 2:
                 self.sample_angle(d)
-
-    def sample_angle(self, d):
-        size = self.bg.get_bulge_dimensions(d)
-
-        #HACK to overcome some sparse statistics
-        #TODO: remove this
-        '''
-        if size == (1,7):
-            size = (2,7)
-        if size == (2,7):
-            size = (3,7)
         '''
 
-        angle_defs = self.angle_defs
-
-        connections = list(self.bg.edges[d])
-        (s1b, s1e) = self.bg.get_sides(connections[0], d)
-        (s2b, s2e) = self.bg.get_sides(connections[1], d)
-        dir1 = self.bg.get_stem_direction(connections[0], connections[1])
-        dir2 = self.bg.get_stem_direction(connections[1], connections[0])
-
-        ang_type1 = self.bg.connection_type(d, connections)
-        ang_type3 = -ang_type1
-
-        try:
-            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[(size[0], size[1], ang_type1)])
-            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[(size[0], size[1], ang_type3)])
-        except IndexError:
-            #print >>sys.stderr, "No statistics for bulge %s of size: %s" % (d, size)
-
-            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type1] = choice(cbs.get_angle_stats()[(size1, size2, ang_type1)])
-            #print >>sys.stderr, "Using size instead:", size1, size2
-            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], ang_type1)[0]
-            angle_defs[d][ang_type3] = choice(cbs.get_angle_stats()[(size1, size2, ang_type3)])
-            #print >>sys.stderr, "Using size instead:", size1, size2
-            '''
-            print cbs.get_angle_stat_dims(size[0], size[1], ang_type1)
-            print cbs.get_angle_stat_dims(size[0], size[1], ang_type3)
-            '''
-
-    def sample_angles(self):
-        '''
-        Sample statistics for each bulge region. In this case they'll be random.
-
-        @return: A dictionary where the key is the name of a bulge and the value is a 
-            statistic for the angles of that bulge.
-        '''
-        self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
-        '''
-        angle_defs['start'][0][1] = cbs.AngleStat()
-        angle_defs['start'][1][0] = cbs.AngleStat()
-        '''
-
-        for d in self.bg.defines.keys():
-            if d[0] != 's': 
-                if len(self.bg.edges[d]) == 2:
-                    self.sample_angle(d)
-                '''
-                else:
-                    angle_defs[d][0][0] = cbs.AngleStat()
-                    pass
-                '''
-
-        #self.angle_defs = angle_defs
-
-    def sample_stem(self, d):
-        stem_defs = self.stem_defs
-        define = self.bg.defines[d]
-        length = self.bg.stem_length(d)
-
-        # retrieve a random entry from the StemStatsDict collection
-        ss = choice(cbs.get_stem_stats()[length])
-        stem_defs[d] = ss
-
-    def sample_stems(self):
-        '''
-        Sample statistics for each stem region.
-
-        @return: A dictionary containing statistics about the stems in the structure.
-        '''
-        self.stem_defs = dict()
-
-        for d in self.bg.defines.keys():
-            if d[0] == 's':
-                self.sample_stem(d)
-
-    def sample_native_stems(self):
-        '''
-        Sample the native stems for each stem region.
-
-        @return: A dictionary containing the real statistics about each stem in the
-        structure.
-        '''
-        stem_defs = dict()
-
-        for stats in cbs.get_stem_stats().values():
-            for stat in stats:
-                for d in self.bg.sampled.keys():
-                    if d[0] == 's':
-                        if stat.pdb_name == self.bg.sampled[d][0]:
-                            #define = " ".join(map(str,self.bg.defines[d]))
-                            if stat.define == self.bg.sampled[d][1:]:
-                                stem_defs[d] = stat
-
-        self.stem_defs = stem_defs
 
     def sampled_from_bg(self):
         '''
         Get the information about the sampled elements from the underlying BulgeGraph.
         '''
         # get the stem defs
-        self.get_sampled_bulges()
+        # self.get_sampled_bulges()
 
-        self.stem_defs = dict()
-        for s in self.bg.stem_iterator():
-            sl = self.bg.stem_length(s)
-            for ss in cbs.get_stem_stats()[sl]:
-                if ss.pdb_name == self.bg.sampled[s][0] and ss.define == self.bg.sampled[s][1:]:
-                    self.stem_defs[s] = ss
+        raise Exception("This needs to be re-written, possible using FilteredConformationStats")
 
-        self.angle_defs = c.defaultdict(lambda: c.defaultdict(dict))
-        for b in it.chain(self.bg.iloop_iterator(), self.bg.mloop_iterator()):
-            if b not in self.bg.sampled.keys():
-                print >>sys.stderr, "%s not sampled" % (b)
-                continue
-
-            size = self.bg.get_bulge_dimensions(b)
-            sb = self.bg.sampled[b]
-
-            (dist, size1, size2, _) = cbs.get_angle_stat_dims(size[0], size[1], sb[1])[0]
-            size = (size1, size2)
-
-            for ang_s in cbs.get_angle_stats()[(size[0], size[1], sb[1])]:
-                if ang_s.pdb_name == sb[0] and ang_s.define == sb[2:]:
-                    print >>sys.stderr, "some stuff", b
-
-                    self.angle_defs[b][sb[1]] = ang_s
-
-        self.loop_defs = dict()
-        for l in self.bg.hloop_iterator():
-            sl = self.bg.get_length(l)
-            for ls in cbs.get_loop_stats()[sl]:
-                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
-                    self.loop_defs[l] = ls
-
-        self.fiveprime_defs = dict()
-        for l in self.bg.floop_iterator():
-            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
-            for ls in cbs.get_fiveprime_stats()[sl]:
-                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
-                    self.fiveprime_defs[l] = ls
-
-        self.threeprime_defs = dict()
-        for l in self.bg.tloop_iterator():
-            sl = self.bg.defines[l][1] - self.bg.defines[l][0]
-            for ls in cbs.get_threeprime_stats()[sl]:
-                if ls.pdb_name == self.bg.sampled[l][0] and ls.define == self.bg.sampled[l][1:]:
-                    self.threeprime_defs[l] = ls
 
     def create_native_stem_models(self):
         '''
@@ -511,81 +375,13 @@ class SpatialModel:
 
         self.stems = stems
 
-    def sample_loops(self):
-        '''
-        Sample statistics for each loop region.
-
-        @return: A dictionary containing statistics about the loops in the structure.
-        '''
-        loop_defs = dict()
-
-        for d in self.bg.hloop_iterator():
-            define = self.bg.defines[d]
-            length = self.bg.get_length(d)
-
-            # retrieve a random entry from the StemStatsDict collection
-            try:
-                ls = choice(cbs.get_loop_stats()[length])
-            except IndexError:
-                print >>sys.stderr, "Error sampling loop %s of size %s. No available statistics." % (d, str(length))
-                sys.exit(1)
-
-            loop_defs[d] = ls
-
-        self.loop_defs = loop_defs
-
-    def sample_fiveprime(self):
-        '''
-        Sample statistics for the 5' unpaired region.
-
-        @return: A dictionary containing statistics about the 5' unpaired regions in the structure.
-        '''
-        fiveprime_defs = dict()
-
-        for d in self.bg.floop_iterator():
-            define = self.bg.defines[d]
-            length = self.bg.get_length(d)
-
-            # retrieve a random entry from the StemStatsDict collection
-            try:
-                ls = choice(cbs.get_fiveprime_stats()[length])
-            except IndexError:
-                print >>sys.stderr, "Error sampling 5' %s of size %s. No available statistics." % (d, str(length))
-                continue
-
-            fiveprime_defs[d] = ls
-
-        self.fiveprime_defs = fiveprime_defs
-
-    def sample_threeprime(self):
-        '''
-        Sample statistics for the 3' unpaired region.
-
-        @return: A dictionary containing statistics about the 3' unpaired regions in the structure.
-        '''
-        threeprime_defs = dict()
-
-        for d in self.bg.tloop_iterator():
-            define = self.bg.defines[d]
-            length = self.bg.get_length(d)
-
-            # retrieve a random entry from the StemStatsDict collection
-            try:
-                ls = choice(cbs.get_threeprime_stats()[length])
-            except IndexError:
-                print >>sys.stderr, "Error sampling threeprime %s of size %s. No available statistics." % (d, str(length))
-                continue
-
-            threeprime_defs[d] = ls
-
-        self.threeprime_defs = threeprime_defs
 
     def add_loop(self, name, prev_stem_node, params=None, loop_defs=None):
         '''
         Connect a loop to the previous stem.
         '''
         if loop_defs == None:
-            loop_defs = self.loop_defs
+            loop_defs = self.elem_defs
 
         prev_stem = self.stems[prev_stem_node]
         (s1b, s1e) = self.bg.get_sides(prev_stem_node, name)
@@ -597,12 +393,10 @@ class SpatialModel:
 
             params = (r, u, v)
 
-        #fud.pv('s1b, s1e')
         start_mid = prev_stem.mids[s1b]
         (r, u, v) = params
 
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
-        #fud.pv('r,u,v')
         end_mid = start_mid + direction
         self.bulges[name] = BulgeModel((start_mid, end_mid))
 
@@ -617,34 +411,12 @@ class SpatialModel:
         return (edge, define, StemModel(edge))
 
 
-        for define in self.bg.defines.keys():
-            if define[0] == 'h' or define[0] == 'f' or define[0] == 't':
-                for edge in self.bg.edges[define]:
-                    return (edge, define, StemModel(edge))
-
-    def save_sampled_stems(self):
+    def save_sampled_elems(self):
         '''
-        Save the information about the sampled stems to the bulge graph file.
+        Save the information about all of the sampled elements.
         '''
-        for sd in self.stem_defs.items():
-            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
-
-    def save_sampled_angles(self):
-        for (bulge, ang_type) in self.sampled_bulge_sides:
-            ad = self.angle_defs[bulge][ang_type]
-            self.bg.sampled[bulge] = [ad.pdb_name] + [ang_type] + ad.define
-
-    def save_sampled_loops(self):
-        for sd in self.loop_defs.items():
-            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
-
-    def save_sampled_fiveprimes(self):
-        for sd in self.fiveprime_defs.items():
-            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
-
-    def save_sampled_threeprimes(self):
-        for sd in self.threeprime_defs.items():
-            self.bg.sampled[sd[0]] = [sd[1].pdb_name] + sd[1].define
+        for d,ed in self.elem_defs.items():
+            self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
 
     def get_transform(self, edge):
         '''
@@ -684,7 +456,7 @@ class SpatialModel:
         Return a random set of parameters with which to create a stem.
         '''
 
-        return self.stem_defs[name]
+        return self.elem_defs[name]
 
     def get_random_bulge_stats(self, name, ang_type):
         '''
@@ -692,9 +464,10 @@ class SpatialModel:
         '''
         #if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
         if name[0] == 'h':
-            return cbs.AngleStat()
+            return ftms.AngleStat()
 
-        return self.angle_defs[name][ang_type]
+        #return self.angle_defs[name][ang_type]
+        return self.elem_defs[name]
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
@@ -708,6 +481,13 @@ class SpatialModel:
         @param prev_stem: The location of the previous stem
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
+        '''
+        '''
+        fud.pv('stem_name')
+        fud.pv('stem_params')
+        fud.pv('prev_stem')
+        fud.pv('bulge_params')
+        fud.pv('(s1b,s1e)')
         '''
 
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
@@ -723,6 +503,7 @@ class SpatialModel:
         loops = list(self.bg.hloop_iterator())
         fiveprime = list(self.bg.floop_iterator())
         threeprime = list(self.bg.tloop_iterator())
+        self.closed_bulges = []
 
         for d in self.bg.defines.keys():
             if d[0] != 's':
@@ -731,11 +512,9 @@ class SpatialModel:
                      #add loop
                     pass
                 elif d in fiveprime:
-                    self.add_loop(d, list(self.bg.edges[d])[0],
-                                  loop_defs = self.fiveprime_defs)
+                    self.add_loop(d, list(self.bg.edges[d])[0])
                 elif d in threeprime:
-                    self.add_loop(d, list(self.bg.edges[d])[0],
-                                  loop_defs = self.threeprime_defs)
+                    self.add_loop(d, list(self.bg.edges[d])[0])
                 else:
                     connections = list(self.bg.edges[d])
 
@@ -771,6 +550,10 @@ class SpatialModel:
         '''
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
         '''
+        # this should be changed in the future so that only stems whose 
+        # positions have changed have their virtual residue coordinates
+        # re-calculated
+        self.newly_added_stems = [d for d in self.bg.defines if d[0] == 's']
 
         #for stem in self.stems.keys():
         for stem in self.newly_added_stems:
@@ -827,11 +610,7 @@ class SpatialModel:
     def finish_building(self):
         self.fill_in_bulges_and_loops()
         self.elements_to_coords()
-        self.save_sampled_stems()
-        self.save_sampled_angles()
-        self.save_sampled_loops()
-        self.save_sampled_fiveprimes()
-        self.save_sampled_threeprimes()
+        self.save_sampled_elems()
 
     def add_to_skip(self):
         '''
@@ -871,9 +650,14 @@ class SpatialModel:
         If a constraint energy is provided, then the nascent structure
         must fullfill the constraint at every step of the process.
         '''
-        constraint_energy = self.constraint_energy
+        self.new_traverse_and_build(start='start')
+        return
 
-        #print >>sys.stderr, "traverse_and_build"
+        constraint_energy = self.constraint_energy
+        '''
+        import traceback
+        print "".join(traceback.format_stack()[-3:])
+        '''
         self.visited = set()
         self.to_visit = []
         #self.stems = dict()
@@ -882,6 +666,7 @@ class SpatialModel:
         self.sampled_bulge_sides = []
         self.closed_bulges = []
         self.newly_added_stems = []
+        self.sampled_ang_types = c.defaultdict(list)
 
         new_visited = []
         # the start node should be a loop region
@@ -889,6 +674,7 @@ class SpatialModel:
         paths = c.defaultdict(list)
 
         self.visit_order = []
+        self.prev_stem_list = []
 
         counter = 0
         '''
@@ -948,7 +734,7 @@ class SpatialModel:
                     if prev_node == 'start':
                         (ps1b, ps1e) = (1, 0)
                         ang_type = 1
-                        prev_params = cbs.AngleStat()
+                        prev_params = ftms.AngleStat()
                     else:
                         (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
                         ang_type = self.bg.connection_type(prev_node, 
@@ -962,6 +748,8 @@ class SpatialModel:
                     if len(self.bg.edges[prev_node]) == 2:
                         self.sampled_bulge_sides += [(prev_node, ang_type)]
 
+                    self.sampled_ang_types[prev_node] += [ang_type]
+
                     # the previous stem should always be in the direction(0, 1) 
                     if started:
                         new_visited += [curr_node]
@@ -972,6 +760,8 @@ class SpatialModel:
                         #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
                         #print "ps1b:", ps1b, "ps1e", ps1e
                         self.visit_order += [prev_node]
+
+                        self.prev_stem_list += [prev_stem.name]
                         stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
                         self.newly_added_stems += [curr_node]
 
@@ -985,9 +775,8 @@ class SpatialModel:
                         else:
                             self.stems[curr_node] = stem
 
-                        self.stem_to_coords(curr_node)
-
                         if constraint_energy != None and not restart:
+                            self.stem_to_coords(curr_node)
                             e1 = constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = new_visited)
                             #e1 = constraint_energy.eval_energy(self)
                             if e1 > 10:
@@ -1011,6 +800,21 @@ class SpatialModel:
                                         break
 
                                 to_change = p
+
+                                # remove all coordinates that haven't been built yet so that
+                                # we can get a more clear picture of the nascent structure
+                                to_remove = []
+                                for d in self.bg.coords:
+                                    if d not in self.visited:
+                                        to_remove += [d]
+
+                                for r in to_remove:
+                                    del self.bg.coords[r]
+
+                                #self.bg.to_file('temp.cg')
+
+                                #sys.exit(1)
+
                                 restart = True
                                 break
                             else:
@@ -1039,6 +843,7 @@ class SpatialModel:
 
             if not restart and self.constraint_energy != None:
                 e1 = self.constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = None)
+
                 if e1 > 0.:
                     #self.bg.to_file('bad.cg')
                     #print >>sys.stderr, "exiting1", e1
@@ -1074,6 +879,7 @@ class SpatialModel:
                 self.resample(to_change)
                 self.sampled_bulges = []
                 self.sampled_bulge_sides = []
+                self.sampled_ang_types = c.defaultdict(list)
                 self.closed_bulges = []
                 self.newly_added_stems = []
                 self.visited = set()
@@ -1094,3 +900,71 @@ class SpatialModel:
 
         self.finish_building()
 
+
+    def new_traverse_and_build(self, start='start'):
+        '''
+        A working version of the new traverse and build function.
+        '''
+        build_order = self.bg.traverse_graph()
+
+        # add the first stem in relation to a non-existent stem
+        self.stems['s0'] = self.add_stem('s0', self.elem_defs['s0'], StemModel(), 
+                                      ftms.AngleStat(), (0,1))
+
+        counter = 0
+        i = 0
+        while i < len(build_order):
+            (s1, l, s2) = build_order[i]
+            prev_stem = self.stems[s1]
+            angle_params = self.elem_defs[l]
+            stem_params = self.elem_defs[s2]
+            ang_type = self.bg.connection_type(l, [s1,s2])
+            connection_ends = self.bg.connection_ends(ang_type)
+
+            # get the direction of the first stem (which is used as a 
+            # coordinate system)
+            if connection_ends[0] == 0:
+                (s1b, s1e) = (1, 0)
+            elif connection_ends[0] == 1:
+                (s1b, s1e) = (0, 1)
+
+            stem = self.add_stem(s2, stem_params, prev_stem,
+                                 angle_params, (s1b, s1e))
+
+            # check which way the newly connected stem was added
+            # if its 1-end was added, the its coordinates need to
+            # be reversed to reflect the fact it was added backwards
+            if connection_ends[1] == 1:
+                self.stems[s2] = stem.reverse()
+            else:
+                self.stems[s2] = stem
+
+            nodes = set(list(it.chain(*[bo for bo in build_order[:i]])))
+
+            if self.constraint_energy != None:
+                self.stem_to_coords(s1)
+                self.stem_to_coords(s2)
+                e1 = self.constraint_energy.eval_energy(self,
+                                                        nodes=nodes,
+                                                        new_nodes=nodes)
+
+                if e1 > 0.:
+                    # pick a random node in the past
+                    i = random.randint(-1, i)
+
+                    # resample its stats
+                    d = build_order[i][1]
+                    self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+
+                
+
+            i += 1
+            counter += 1
+
+        self.finish_building()
+        '''
+        if self.constraint_energy != None:
+            fud.pv('self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)')
+
+        fud.pv('counter')
+        '''

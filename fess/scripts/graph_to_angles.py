@@ -4,9 +4,9 @@ import os.path as op
 import sys
 
 import forgi.threedee.model.coarse_grain as ttmc
-import borgy.utilities.vector as cuv
-import borgy.graph.graph_pdb as cgg
-import borgy.utilities.debug as cud
+import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.utilities.debug as fud
 
 from optparse import OptionParser
 
@@ -42,18 +42,9 @@ def print_stem_stats(bg):
     return out_str
 
 def get_loop_stat(bg, d):
-    base_pair_length = bg.get_length(d) #abs(bg.defines[d][0] - bg.defines[d][1])
-    phys_length = cuv.magnitude(bg.coords[d][1] - bg.coords[d][0])
+    loop_stat = bg.get_loop_stat(d)
 
-    stem1 = list(bg.edges[d])[0]
-    (s1b, s1e) = bg.get_sides(stem1, d)
-
-    stem1_vec = bg.coords[stem1][s1b] - bg.coords[stem1][s1e]
-    twist1_vec = bg.twists[stem1][s1b] - bg.twists[stem1][s1e]
-    bulge_vec = bg.coords[d][1] - bg.coords[d][0]
-
-    (r,u,v) = cgg.get_stem_separation_parameters(stem1_vec, twist1_vec, bulge_vec)
-    return (base_pair_length, r, u, v)
+    return (loop_stat.bp_length, loop_stat.r, loop_stat.u, loop_stat.v)
 
 def print_loop_stats(bg):
     out_str = ''
@@ -68,8 +59,9 @@ def print_5prime_unpaired(bg):
     out_str = ''
     for d in bg.defines.keys():
         if d[0] == 'f':
-            (base_pair_length, r, u, v) = get_loop_stat(bg, d)
-            out_str += "5prime " + " ".join(map(str, [ bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d])), "\n"]))
+            if len(bg.edges[d]) > 0:
+                (base_pair_length, r, u, v) = get_loop_stat(bg, d)
+                out_str += "5prime " + " ".join(map(str, [ bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d])), "\n"]))
 
     return out_str
 
@@ -77,8 +69,9 @@ def print_3prime_unpaired(bg):
     out_str = ''
     for d in bg.defines.keys():
         if d[0] == 't':
-            (base_pair_length, r, u, v) = get_loop_stat(bg, d)
-            out_str += "3prime " + " ".join(map(str, [bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d])), "\n"]))
+            if len(bg.edges[d]) > 0:
+                (base_pair_length, r, u, v) = get_loop_stat(bg, d)
+                out_str += "3prime " + " ".join(map(str, [bg.name, base_pair_length, r, u, v, " ".join(map(str, bg.defines[d])), "\n"]))
 
     return out_str
 
@@ -104,6 +97,7 @@ def main():
     out_str += print_loop_stats(bg)
     out_str += print_5prime_unpaired(bg)
     out_str += print_3prime_unpaired(bg)
+
 
     if options.dump:
         # dump an output file

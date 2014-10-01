@@ -10,6 +10,13 @@ setup(name='ernwin',
       package_data={'fess': ['stats/temp.stats', 'stats/cylinder_intersections*.csv',
                             'stats/subgraph_radius_of_gyration_sampled.csv',
                             'stats/subgraph_radius_of_gyration.csv',
-                            'stats/temp.longrange.stats']},
-      scripts=['fess/scripts/gibbs.py']
+                            'stats/temp.longrange.stats', 
+                             'stats/temp.longrange.random_radius_of_gyration_beta_16.stats',
+                             'stats/loop_loop3_distances_sampled.csv', 
+                             'stats/loop_loop3_distances_native.csv',
+                             'stats/tall.csv',
+                             'stats/all_elements.csv',
+                             'stats/aminors_1s72.csv',
+                             'stats/aminors_1jj2_sampled.csv']},
+      scripts=['fess/scripts/ernwin_go.py']
      )

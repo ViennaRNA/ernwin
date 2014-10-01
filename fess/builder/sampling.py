@@ -11,6 +11,7 @@ import scipy.stats as ss
 #import matplotlib.pyplot as plt
 
 import fess.builder.config as cbc
+import fess.builder.energy as fbe
 import forgi.threedee.model.stats as cbs
 
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -204,7 +205,7 @@ class SamplingStatistics:
 
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
-        self.no_rmsd = False
+        self.no_rmsd = no_rmsd
         self.creation_time = time.time()
 
         try:
@@ -235,6 +236,10 @@ class SamplingStatistics:
                 pass
 
         energy = prev_energy #energy_function.eval_energy(sm, background=True)
+        #energy = energy_function.eval_energy(sm, background=True)
+        energy_nobg = energy_function.eval_energy(sm, background=False)
+
+        #energy_nobg = 0.
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
             pass
@@ -242,11 +247,11 @@ class SamplingStatistics:
 
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
-            centers_new = ftug.bg_virtual_residues(sm.bg)
-            #r = cbr.centered_rmsd(self.centers_orig, centers_new)
             r = 0.
             if not self.no_rmsd:
-                r = cbr.drmsd(self.centers_orig, centers_new)
+                centers_new = ftug.bg_virtual_residues(sm.bg)
+                r = cbr.centered_rmsd(self.centers_orig, centers_new)
+                #r = cbr.drmsd(self.centers_orig, centers_new)
         else:
             r = 0.
 
@@ -266,11 +271,21 @@ class SamplingStatistics:
                 sys.exit(1)
 
 
-            atoms = ftug.virtual_atoms(sm.bg)
-            dist = ftuv.vec_distance(atoms[self.dist1]["C1'"],
-                                     atoms[self.dist2]["C1'"])
+            fud.pv('sm.bg.to_cg_string()')
+            atoms = ftug.virtual_atoms(sm.bg, sidechain=False)
 
-        self.energy_rmsd_structs += [(energy, r, copy.deepcopy(sm.bg))]
+            d1 = sm.bg.get_node_from_residue_num(self.dist1)
+            d2 = sm.bg.get_node_from_residue_num(self.dist2)
+
+            #fud.pv('d1,d2')
+            #fud.pv('atoms[self.dist1]')
+
+            dist = ftuv.vec_distance(atoms[self.dist1]["P"],
+                                     atoms[self.dist2]["P"])
+
+
+        #self.energy_rmsd_structs += [(energy, r, sm.bg)]
+        self.energy_rmsd_structs += [(energy_nobg, r, copy.deepcopy(sm.bg))]
         #self.energy_rmsd_structs += [(energy, r, sm.bg.copy())]
 
         sorted_energies = sorted(self.energy_rmsd_structs, key=lambda x: x[0])
@@ -284,6 +299,7 @@ class SamplingStatistics:
 
         lowest_energy = sorted_energies[0][0]
         lowest_rmsd = sorted_energies[0][1]
+        #fud.pv('lowest_energy, lowest_rmsd')
 
         '''
         if energy == lowest_energy:
@@ -298,10 +314,19 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd)
+            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
+
+            # assume that the energy function is a combined energy
+            for e in self.energy_function.energies:
+                if type(e) is fbe.DistanceExponentialEnergy:
+                    output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
+                                                                  e.to_elem,
+                                                                  e.get_distance(sm))
+            '''
             for e in tracking_energies[:1]:
                 output_str += " %.2f" % (e.prev_cg)
+            '''
 
             if dist:
                 output_str += " | dist %.2f" % (dist)
@@ -320,17 +345,21 @@ class SamplingStatistics:
 
         if self.counter % 10 == 0:
             if not self.silent:
-                self.save_top(self.save_n_best)
+                self.save_top(self.save_n_best, counter=self.counter)
 
         if self.step_save > 0:
             if self.counter % self.step_save == 0:
                 sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
             
 
-    def save_top(self, n = 100000):
+    def save_top(self, n = 100000, counter=100, step_save=0):
         '''
         Save the top n structures.
         '''
+        # if we don't want to save any structures, then don't save any structures
+        if n == 0:
+            return
+
         if n > len(self.energy_rmsd_structs):
             n = len(self.energy_rmsd_structs)
 
@@ -346,6 +375,10 @@ class SamplingStatistics:
 
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
+
+        if self.step_save > 0:
+            if self.counter % self.step_save == 0:
+                sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'intermediate_best%d.coord' % (counter)))
 
     def update_plots(self, energy, rmsd):
         '''
@@ -393,20 +426,29 @@ class MCMCSampler:
         self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
         self.energies_to_track = energies_to_track
+        self.dump_measures = False
+        self.resampled_energy = True
 
         sm.sample_stats()
         constraint_energy = sm.constraint_energy
-        junction_constraint_energy = sm.junction_constraint_energy
+        if sm.constraint_energy is not None:
+            junction_constraint_energy = sm.junction_constraint_energy
+            sm.constraint_energy = None
+            sm.junction_constraint_energy = None
+            print >>sys.stderr, "constraint energy about to build 1..."
+            sm.traverse_and_build()
+            print >>sys.stderr, "constraint energy finished building 1"
+            sm.constraint_energy = constraint_energy
+            sm.junction_constraint_energy = junction_constraint_energy
+            print >>sys.stderr, "constraint energy about to build 2..."
+            sm.traverse_and_build()
+            print >>sys.stderr, "constraint energy finished building 2"
+            energy_function.energies += sm.constraint_energy.energies
+            energy_function.energies += [sm.junction_constraint_energy]
+
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
-        sm.traverse_and_build()
-        sm.constraint_energy = constraint_energy
-        sm.junction_constraint_energy = junction_constraint_energy
-        sm.traverse_and_build()
-        energy_function.energies += sm.constraint_energy.energies
-        energy_function.energies += [sm.junction_constraint_energy]
-        sm.constraint_energy = None
-        sm.junction_constraint_energy = None
+        self.no_rmsd = no_rmsd
 
         #fud.pv('constraint_energy.eval_energy(sm)')
         #fud.pv('junction_constraint_energy.eval_energy(sm)')
@@ -418,155 +460,62 @@ class MCMCSampler:
         #sys.exit(1)
         sm.get_sampled_bulges()
 
-    def get_random_bulge(self, bg):
+    def change_elem(self):
         '''
-        Return a random interior or multiloop from the structure.
-        
-        @param bg: A forgi.graph.BulgeGraph data structure.
-        @return: The name of one of the bulges in bg selected randomly
+        Change a random element and accept the change with a probability
+        proportional to the energy function.
         '''
-        bulges = []
-        for d in bg.defines.keys():
-            if d[0] == 'i' or d[0] == 'm':
-                bulges += [d]
-        return random.choice(bulges)
+        # pick a random element and get a new statistic for it
+        d = random.choice(list(self.sm.bg.get_mst()))
+        new_stat = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, d))
 
-    def get_random_stem(self, bg):
-        '''
-        Return a random stem from the bulge graph.
-        
-        @param bg: A forgi.graph.BulgeGraph data structure.
-        @return: The name of one of the stems in bg selected randomly
-        '''
-        bulges = []
-        for d in bg.defines.keys():
-            if d[0] == 's':
-                bulges += [d]
-        return random.choice(bulges)
+        # get the energy before we replace the statistic
+        # it's dubious whether this is really necessary since we already
+        # store the previous energy in the accept/reject step
 
-    def get_random_loop(self, bg):
-        '''
-        Return a random hairpin loop from the bulge graph.
-        
-        @param bg: A forgi.graph.BulgeGraph data structure.
-        @return: The name of one of the hairpins in bg selected randomly
-        '''
-        bulges = []
-        for d in bg.defines.keys():
-            if d[0] == 'h':
-                bulges += [d]
+        # we have to replace the energy because we've probably re-calibrated
+        # the energy function
+        if self.resampled_energy:
+            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
+            self.resampled_energy = False
 
-        return random.choice(bulges)
+        prev_stat = self.sm.elem_defs[d]
 
-    def change_angle(self):
-        # pick a random bulge to vary
-        bulge = self.get_random_bulge(self.sm.bg)
-
-        if bulge == None:
-            # this structure has no bulges
-            return
-
-        while bulge not in self.sm.sampled_bulges:
-            bulge = self.get_random_bulge(self.sm.bg)
-
-        dims = self.sm.bg.get_bulge_dimensions(bulge)
-
-        # What are the potential angle statistics for it
-        #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
-        (bulge, ang_type1) = random.choice(self.sm.sampled_bulge_sides)
-        dims = self.sm.bg.get_bulge_dimensions(bulge)
-        
-        self.sm.traverse_and_build()
-        # What are the potential angle statistics for it
-        try:
-            if self.cont_stats:
-                pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
-            else:
-                possible_angles = cbs.get_angle_stats()[(dims[0], dims[1], ang_type1)]
-                pa = random.choice(possible_angles)
-        except IndexError:
-            (dist, size1, size2, typ1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
-            if self.cont_stats:
-                pa = self.cont_stats.sample_stats(tuple(list(dims) + [ang_type1]))
-            else:
-                possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
-                pa = random.choice(possible_angles)
-
-        #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
-        self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
-        prev_angle = self.sm.angle_defs[bulge][ang_type1]
-        self.sm.angle_defs[bulge][ang_type1] = pa
-        self.sm.traverse_and_build()
-        
+        # replace the statistic, rebuild the struture 
+        # and calculate a new energy
+        self.sm.elem_defs[d] = new_stat
+        self.sm.traverse_and_build(start=d)
         energy = self.energy_function.eval_energy(self.sm, background=True)
         #fud.pv('self.prev_energy, energy')
         self.stats.sampled_energy = energy
-        if energy > self.prev_energy:
+
+        if energy < self.prev_energy:
+            # lower energy means automatic acceptance accordint to the
+            # metropolis hastings criterion
+            self.prev_energy = energy
+            self.energy_function.accept_last_measure()
+        else:
+            # calculate a probability
             r = random.random()
-            #fud.pv('self.prev_energy, energy')
-            #print >>sys.stderr, "checking r:", r
             if r > math.exp(self.prev_energy - energy):
-                #fud.pv('self.sm.angle_defs[bulge][ang_type1]')
-                #fud.pv('prev_angle')
-                self.sm.angle_defs[bulge][ang_type1] = prev_angle
-                self.sm.traverse_and_build(start=bulge)
+                # reject the sampled statistic and replace it the old one
+                self.sm.elem_defs[d] = prev_stat
+                self.sm.traverse_and_build(start='start')
                 self.stats.sampled_energy = self.prev_energy
-                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
-                #print >>sys.stderr, "rejecting r:", r
-                #fud.pv('self.prev_energy, energy, self.energy_function.uncalibrated_energies[-1].measures[-1:]')
                 self.energy_function.reject_last_measure()
+                #print >>sys.stderr, "rejecting...", self.prev_energy
             else:
+                # accept the new statistic
                 self.prev_energy = energy
-                self.energy_function.accept_last_measure()
-        else:
-            self.prev_energy = energy
-            self.energy_function.accept_last_measure()
-
-
-    def change_stem(self):
-        # pick a random bulge to vary
-        stem = self.get_random_stem(self.sm.bg)
-        length = self.sm.bg.get_length(stem)
-
-        # What are the potential angle statistics for it
-        #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
-        
-        self.sm.traverse_and_build()
-        # What are the potential angle statistics for it
-        possible_stems = cbs.get_stem_stats()[length]
-
-        pa = random.choice(possible_stems)
-
-        #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
-        self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
-        prev_stem = self.sm.stem_defs[stem]
-        #fud.pv('loop,length,self.sm.loop_defs[loop]')
-        self.sm.stem_defs[stem] = pa
-        self.sm.traverse_and_build()
-
-        energy = self.energy_function.eval_energy(self.sm, background=True)
-        self.stats.sampled_energy = energy
-        if energy > self.prev_energy:
-            if random.random() > math.exp(self.prev_energy - energy):
-                self.sm.stem_defs[stem] = prev_stem
-                self.sm.traverse_and_build()
-                self.stats.sampled_energy = self.prev_energy
-                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
-                self.energy_function.reject_last_measure()
-            else:
-                self.prev_energy = energy
-                self.energy_function.accept_last_measure()
-        else:
-            self.prev_energy = energy
-            self.energy_function.accept_last_measure()
+                self.energy_function.accept_last_measure
 
     def step(self):
         #self.sm.sample_stems()
         #self.sm.sample_loops()
         #self.sm.sample_angles()
-        self.sm.traverse_and_build()
+        #self.sm.traverse_and_build()
 
-        self.change_angle()
+        self.change_elem()
         '''
         if random.random() < 0.5:
             self.change_angle()
@@ -576,81 +525,30 @@ class MCMCSampler:
             self.change_loop()
         '''
 
-        if self.step_counter % 20 == 0:
-            self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+        if self.dump_measures:
+            if self.step_counter % 20 == 0:
+                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
 
         if self.step_counter % 3 == 0:
+            self.resampled_energy = True
             self.energy_function.resample_background_kde(self.sm.bg)
 
         #fud.pv('self.energy_function.uncalibrated_energies[-1].accepted_measures[-1]')
         self.step_counter += 1
 
+        '''
         if self.step_counter % 3 == 0:
             self.energy_function.resample_background_kde(self.sm.bg)
-
         '''
+
         for e in self.energies_to_track:
             e.eval_energy(self.sm)
             e.accepted_measures += [e.measures[-1]]
 
             if self.step_counter % 20 == 0:
                 e.dump_measures(cbc.Configuration.sampling_output_dir)
-        '''
 
         self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track)
-
-    def change_loop(self):
-        # pick a random bulge to vary
-        loop = self.get_random_loop(self.sm.bg)
-        length = self.sm.bg.get_length(loop)
-
-        # What are the potential angle statistics for it
-        #possible_angles = cbs.get_angle_stats()[dims[0]][dims[1]]
-        
-        self.sm.traverse_and_build()
-        # What are the potential angle statistics for it
-        possible_loops = cbs.get_loop_stats()[length]
-
-
-        pa = random.choice(possible_loops)
-
-        #fud.pv('"pe", self.energy_function.eval_energy(self.sm, background=True)')
-        self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
-        prev_loop = self.sm.loop_defs[loop]
-        #fud.pv('loop,length,self.sm.loop_defs[loop]')
-        self.sm.loop_defs[loop] = pa
-        self.sm.traverse_and_build()
-
-        energy = self.energy_function.eval_energy(self.sm, background=True)
-        self.stats.sampled_energy = energy
-        if energy > self.prev_energy:
-            if random.random() > math.exp(self.prev_energy - energy):
-                self.sm.loop_defs[loop] = prev_loop
-                self.sm.traverse_and_build(start=loop)
-                self.stats.sampled_energy = self.prev_energy
-                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
-                self.energy_function.reject_last_measure()
-            else:
-                self.prev_energy = energy
-                self.energy_function.accept_last_measure()
-        else:
-            self.prev_energy = energy
-            self.energy_function.accept_last_measure()
-
-    '''
-    def step(self):
-        #self.sm.sample_stems()
-        #self.sm.sample_loops()
-        #self.sm.sample_angles()
-        self.sm.traverse_and_build()
-
-        if random.random() < 0.5:
-            self.change_angle()
-        else:
-            self.change_loop()
-
-        self.stats.update_statistics(self.energy_function, self.sm)
-    '''
 
 class GibbsBGSampler:
     '''
