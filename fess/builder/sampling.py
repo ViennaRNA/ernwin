@@ -271,7 +271,8 @@ class SamplingStatistics:
                 sys.exit(1)
 
 
-            atoms = ftug.virtual_atoms(sm.bg)
+            fud.pv('sm.bg.to_cg_string()')
+            atoms = ftug.virtual_atoms(sm.bg, sidechain=False)
 
             d1 = sm.bg.get_node_from_residue_num(self.dist1)
             d2 = sm.bg.get_node_from_residue_num(self.dist2)
@@ -351,7 +352,7 @@ class SamplingStatistics:
                 sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
             
 
-    def save_top(self, n = 100000, counter=100):
+    def save_top(self, n = 100000, counter=100, step_save=0):
         '''
         Save the top n structures.
         '''
@@ -375,7 +376,9 @@ class SamplingStatistics:
         for i in range(n):
             sorted_energies[i][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'best%d.coord' % (i)))
 
-        sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'intermediate_best%d.coord' % (counter)))
+        if self.step_save > 0:
+            if self.counter % self.step_save == 0:
+                sorted_energies[0][2].to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'intermediate_best%d.coord' % (counter)))
 
     def update_plots(self, energy, rmsd):
         '''
