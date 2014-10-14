@@ -546,7 +546,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                     points += [(p+ mult * v_r, d, i, 0)]
 
         if new_nodes == None:
-            coords = np.vstack([p[0] for p in points])
+            coords = np.vstack([point[0] for point in points])
             clash_pairs = []
 
             #kk = ss.KDTree(np.array(l))
@@ -851,7 +851,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                    cyl[1] + extension * cyl_vec]
             cyls[s2] = cyl
 
-            line_len = ftuv.vec_distance(line[1], line[0])
             intersects = ftuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
 
@@ -859,7 +858,7 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                 sys.exit(1)
 
             if len(intersects) == 0:
-                in_cyl_len = 0.
+                pass
             else:
                 #in_cyl_len = ftuv.magnitude(intersects[1] - intersects[0])
                 c1 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[0])
@@ -883,8 +882,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             #in_cyl_fractions[s1] += in_cyl_len / line_len
 
         for s in list(bg.stem_iterator()) + list(bg.iloop_iterator()):
-            total_len = ftuv.vec_distance(cyls[s][1], cyls[s][0])
-
             if len(covered[s]) == 0:
                 continue
 
@@ -906,7 +903,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         @return: A single floating point number describing this measure.
         '''
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
-        total_length = 0
 
         total_cylinder_intersections = sum(cyl_fractions.values())
 
@@ -947,7 +943,7 @@ def length_and_rog_from_file(filename):
     
     return length_and_rog(cg)
 
-class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
+class SimpleRadiusOfGyrationEnergy(EnergyFunction):
     def __init__(self):
         super(SimpleRadiusOfGyrationEnergy, self).__init__()
 
@@ -1029,7 +1025,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
 
     def get_shortest_distance_list(self, cg):
         pairs = []
-        total_dist = 0.
 
         for (l1, l2) in it.combinations(cg.hloop_iterator(), 2):
             (i1, i2) = ftuv.line_segment_distance(cg.coords[l1][0],
@@ -1289,7 +1284,6 @@ class AMinorEnergy(CoarseGrainEnergy):
 
 class SpecificAMinorEnergy(AMinorEnergy):
     def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_name='h0'):
-        import pandas as pd
         super(SpecificAMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
 
         self.real_stats_fn = 'real'
