@@ -1,16 +1,12 @@
 
 
 import StringIO
-import pdb
 import pickle
 import os
-import Bio.PDB as bpdb
 import copy
 import itertools as it
-import math
 import warnings
 import pkgutil as pu
-import traceback
 #import pandas as pa
 #import pylab
 
@@ -28,7 +24,6 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.aminor as fba
 import fess.builder.models as cbm
-import fess.builder.config as cbc
 import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
 
@@ -121,39 +116,6 @@ class EnergyFunction(object):
         @param energy_structs: A list of tuples of the form (energy, bg)
         '''
         pass
-
-    def calibrate(self, sm, iterations=10, bg_energy=None):
-        '''
-        Calibrate this energy function.
-
-        This is done by sampling structures given a background energy function.
-        The sampled structures are used to normalize the energy of this
-        function.
-        '''
-        self.calc_fg_parameters(sm.bg)
-
-        sampling_stats = cbs.SamplingStatistics(sm)
-        sampling_stats.silent = True
-
-        # if not background energy function is provided, then the background
-        # distribution is simply the proposal distribution implicit in
-        # cbs.GibbsBGSampler
-
-        if bg_energy is None:
-            bg_energy = EnergyFunction()
-
-        gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, sampling_stats)
-        for _ in range(iterations):
-            gs.step()
-
-        # Get the set of sampled structures
-        ser_structs = sorted(stats.energy_rmsd_structs, key=lambda x: x[0])
-
-        # I only want the top 2/3 of the sampled structures
-        selected = ser_structs[:2 * (len(ser_structs) / 3)]
-        selected_structs = [s[2] for s in selected]
-
-        self.calc_bg_parameters(selected_structs)
 
     def get_energy_name(self):
         '''
@@ -383,31 +345,6 @@ class CombinedEnergy:
                           self.uncalibrated_energies):
             e.dump_measures(base_directory, iteration)
 
-    def calibrate(self, sm, iterations=40,
-                  bg_energy=None,
-                  output_dir='/home/mescalin/pkerp/projects/ernwin/energies'):
-        '''
-        Calibrate each of the energies by taking into account the
-        background distribution induced by non-energy directed
-        sampling.
-        '''
-        self.energies[0].calibrate(sm, iterations)
-        filename = os.path.join(output_dir, str(sm.bg.name))
-        filename = os.path.join(filename, str(iterations))
-
-        self.save_energy(self.energies[0], filename)
-        filename = os.path.join(filename, self.energies[0].__class__.__name__)
-
-        for i in range(1, len(self.energies)):
-            ce = CombinedEnergy(self.energies[:i])
-            self.energies[i].calibrate(sm, iterations, ce)
-
-            self.save_energy(self.energies[i], filename)
-            filename = os.path.join(filename,
-                                    self.energies[i].__class__.__name__)
-
-        self.save_energy(self, filename)
-
     def eval_energy(self, sm, verbose=False, background=True,
                     nodes=None, new_nodes=None):
         total_energy = 0.
@@ -581,7 +518,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.bg = sm.bg
         self.bad_bulges = []
 
-        l = []
         bg = sm.bg
         mult = 8
         points = []
