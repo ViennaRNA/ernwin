@@ -4,15 +4,10 @@ import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
 import itertools as it
 import random
-import os
 import os.path as op
-import warnings
 import numpy as np
-import numpy.linalg as nl
 import math
 import sys
-import collections as c
-import random as rand
 import collections as c
 
 import fess.builder.config as cbc
@@ -23,7 +18,6 @@ import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as fud
 
-from math import pi
 
 class StemModel:
     '''

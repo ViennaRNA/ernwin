@@ -121,9 +121,6 @@ class StatisticsPlotter:
                         s = sorted_energy_rmsds[: 3 * len(sorted_energy_rmsds) / 4]
                         s = random.sample(s, min(len(s), 180))
 
-                        e = [s1[0] for s1 in s if s1[2] == color]
-                        r = [s1[1] for s1 in s if s1[2] == color]
-
                         #self.create_contour_plot(np.array(r), np.array(e), self.ax_plot, xlim, ylim, color)
                     except Exception as ex:
                         print "exception:", ex, "color:", color
@@ -143,6 +140,8 @@ class StatisticsPlotter:
 
     def diagnose_energy(self, energy_function, bgs):
         energies = [energy_function.eval_energy(cbm.SpatialModel(bg), background=True) for bg in bgs]
+
+        return energies
 
 
     def finish(self):
@@ -585,8 +584,6 @@ class GibbsBGSampler:
         (dist, size1, size2, type1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
         possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
 
-        if len(possible_angles) == 0:
-            print >>sys.stderr, "s1b", s1b, "s2b", s2b
         # only choose 10 possible angles
         if len(possible_angles) > self.angles_to_sample:
             possible_angles = random.sample(possible_angles, self.angles_to_sample)
@@ -632,7 +629,6 @@ class GibbsBGSampler:
         #fud.pv('[v for v in energy_probs.values()]')
 
         # sanity check
-        total_prob = sum([energy_probs[key] for key in energies.keys()])
         #assert(allclose(total_prob, 1.))
 
         #pick one new angle to accept given the probabilities of the

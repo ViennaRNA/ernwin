@@ -5,24 +5,18 @@ import random
 import optparse
 import os
 import os.path as op
-import pickle, pdb
 import subprocess as spr
 import sys
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
-import forgi.threedee.utilities.rmsd as ftur
 import forgi.utilities.debug as fud
 
 import fess.builder.energy as fbe
 import fess.builder.config as cbc
 import fess.builder.models as fbm
 import fess.builder.sampling as fbs
-
-def draw_helper():
-    draw()
-    pass
 
 def bgs_from_fasta(fasta_file):
     bgs = []
@@ -115,7 +109,6 @@ def predict(bg, energies_to_sample, options):
 
     colors = ['g','y','r']
     samplers = []
-    stats = []
 
     # only samples from the first energy will be saved
     silent = False
@@ -279,7 +272,6 @@ def main():
 
     if options.loop_energy:
         lle = fbe.ShortestLoopDistanceEnergy()
-        rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle])]
 
     if options.aminor_shortestloop:
@@ -424,7 +416,7 @@ def main():
 
                 e1 = bg.get_node_from_residue_num(int(r1))
                 e2 = bg.get_node_from_residue_num(int(r2))
-            except ValueError as ve:
+            except ValueError:
                 # ... or they are element names
                 e1 = r1
                 e2 = r2
