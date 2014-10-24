@@ -326,6 +326,7 @@ class SpatialModel:
                     # is broken here
                     continue
             try:
+                sampled_stats = self.conf_stats.sample_stats(self.bg, d)
                 self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
             except:
                 print >>sys.stderr, "Error sampling stats for element %s." % (d)
@@ -475,13 +476,6 @@ class SpatialModel:
         @param prev_stem: The location of the previous stem
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
-        '''
-        '''
-        fud.pv('stem_name')
-        fud.pv('stem_params')
-        fud.pv('prev_stem')
-        fud.pv('bulge_params')
-        fud.pv('(s1b,s1e)')
         '''
 
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
@@ -956,9 +950,3 @@ class SpatialModel:
             counter += 1
 
         self.finish_building()
-        '''
-        if self.constraint_energy != None:
-            fud.pv('self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)')
-
-        fud.pv('counter')
-        '''

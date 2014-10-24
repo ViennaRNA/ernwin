@@ -1,5 +1,3 @@
-
-
 import StringIO
 import pickle
 import os
@@ -93,7 +91,7 @@ class EnergyFunction(object):
         sm = cbm.SpatialModel(bg)
 
         for stem in bg.stems():
-            cgg.add_virtual_residues(bg, stem)
+            ftug.add_virtual_residues(bg, stem)
 
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
@@ -606,15 +604,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
 
-        '''
-        import traceback
-
-        for line in traceback.format_stack():
-            print line.strip()
-        
-        fud.pv('energy')
-        '''
-
         return energy
 
 class DistanceEnergy(EnergyFunction):
@@ -814,8 +803,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         for l in mol_sizes:
             all_lengths += cls[l]
 
-        fud.pv('len(all_lengths)')
-
         #all_lengths = [cls[l] for l in mol_sizes]
 
         return all_lengths
@@ -864,8 +851,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                 c1 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[0])
                 c2 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[1])
 
-                #fud.pv('s1,s2, cyl, line')
-
                 poss = [ftuv.vec_distance(cyl[0], c1), ftuv.vec_distance(cyl[0], c2)]
                 poss.sort()
 
@@ -890,7 +875,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
 
             #in_cyl_fractions[s] = cl / total_len
             in_cyl_fractions[s] = cl
-            #fud.pv('s, total_len, cl,  cl / total_len')
 
         return in_cyl_fractions
 
@@ -978,7 +962,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
 
-        #fud.pv('rog')
         self.measures += [rog]
         return rog
 
@@ -1048,7 +1031,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         all_dists = []
         for (l1, l2, dist) in to_eval:
             
-            #fud.pv('dist')
             if dist > self.max_dist:
                 continue
 
@@ -1058,7 +1040,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
 
     def get_shortest_distances(self, cg):
         all_dists = self.get_shortest_distance_list(cg)
-        #fud.pv('total_dist')
         return sum(all_dists)
 
     def get_cg_measure(self, sm):
@@ -1096,7 +1077,6 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
             if h == self.loop_name:
                 continue
 
-            #fud.pv('self.loop_name')
             (i1,i2) = ftuv.line_segment_distance(cg.coords[self.loop_name][0],
                                               cg.coords[self.loop_name][1],
                                               cg.coords[h][0],
@@ -1106,7 +1086,6 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
             if dist < min_dist:
                 min_dist = dist
 
-        #fud.pv('min_dist')
         return min_dist
 
     def get_energy_name(self):
@@ -1154,15 +1133,11 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.dbg_close = dict()
         self.types = {'h':0, 'i':1, 'm':2, 's': 3, 'f': 4, 't': 5}
         self.loop_type = self.types[loop_type]
-        #fud.pv('loop_type, self.loop_type')
 
         self.prob_funcs = dict()
         p_d_a_a2_given_i = dict()
         p_d_a_a2 = dict()
         p_i = dict()
-
-        #fud.pv('dall')
-        #fud.pv('dbg_close')
 
         for lt in ['i', 'h', 'm']:
             dl = self.dall[lt] = dall[[lt in x for x in dall['l1']]]
@@ -1198,7 +1173,6 @@ class AMinorEnergy(CoarseGrainEnergy):
         prob = 0.
         stem_counts = 0
         probs = []
-        #fud.pv('self.loop_type')
 
         for s in cg.stem_iterator():
             if s in cg.edges[d]:
@@ -1213,9 +1187,6 @@ class AMinorEnergy(CoarseGrainEnergy):
             prob += p
             probs += [p]
 
-            #fud.pv('point, s, p')
-
-        
         if len(probs) == 0:
             return np.array([0.])
 
@@ -1289,13 +1260,12 @@ class SpecificAMinorEnergy(AMinorEnergy):
         self.real_stats_fn = 'real'
         self.sampled_stats_fn = 'sampled'
         self.loop_name = loop_name
-        pass
 
     def get_distribution_from_file(self, filename, category):
         if filename == 'real':
-            rogs = list(np.linspace(0,1, 100)) + [1.1] * 400
+            rogs = list(np.linspace(0, 1, 100)) + [1.1] * 400
         else:
-            rogs = np.linspace(0,1, 100)
+            rogs = np.linspace(0, 1, 100)
 
         return (self.get_distribution_from_values(rogs), list(rogs))
 
@@ -1325,7 +1295,6 @@ class SpecificAMinorEnergy(AMinorEnergy):
         d = self.loop_name
 
         m = self.eval_prob(sm.bg, d)[0]
-        #fud.pv('m')
         self.measures.append(m)
 
         if background:
