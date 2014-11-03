@@ -242,7 +242,6 @@ class SamplingStatistics:
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
             pass
-            #fud.pv('self.sampled_energy, energy')
 
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
@@ -270,14 +269,11 @@ class SamplingStatistics:
                 sys.exit(1)
 
 
-            fud.pv('sm.bg.to_cg_string()')
             atoms = ftug.virtual_atoms(sm.bg, sidechain=False)
 
             d1 = sm.bg.get_node_from_residue_num(self.dist1)
             d2 = sm.bg.get_node_from_residue_num(self.dist2)
 
-            #fud.pv('d1,d2')
-            #fud.pv('atoms[self.dist1]')
 
             dist = ftuv.vec_distance(atoms[self.dist1]["P"],
                                      atoms[self.dist2]["P"])
@@ -298,7 +294,6 @@ class SamplingStatistics:
 
         lowest_energy = sorted_energies[0][0]
         lowest_rmsd = sorted_energies[0][1]
-        #fud.pv('lowest_energy, lowest_rmsd')
 
         '''
         if energy == lowest_energy:
@@ -449,12 +444,7 @@ class MCMCSampler:
         sm.junction_constraint_energy = None
         self.no_rmsd = no_rmsd
 
-        #fud.pv('constraint_energy.eval_energy(sm)')
-        #fud.pv('junction_constraint_energy.eval_energy(sm)')
         sm.traverse_and_build()
-        #fud.pv('constraint_energy.eval_energy(sm)')
-        #fud.pv('junction_constraint_energy.eval_energy(sm)')
-        #fud.pv('energy_function.eval_energy(sm)')
         self.prev_energy = energy_function.eval_energy(sm)
         #sys.exit(1)
         sm.get_sampled_bulges()
@@ -485,7 +475,6 @@ class MCMCSampler:
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
         energy = self.energy_function.eval_energy(self.sm, background=True)
-        #fud.pv('self.prev_energy, energy')
         self.stats.sampled_energy = energy
 
         if energy < self.prev_energy:
@@ -532,7 +521,6 @@ class MCMCSampler:
             self.resampled_energy = True
             self.energy_function.resample_background_kde(self.sm.bg)
 
-        #fud.pv('self.energy_function.uncalibrated_energies[-1].accepted_measures[-1]')
         self.step_counter += 1
 
         '''
@@ -598,7 +586,6 @@ class GibbsBGSampler:
             self.sm.traverse_and_build(start=bulge)
             energy = self.energy_function.eval_energy(self.sm, background=True)
             energies[pa] = energy
-        #fud.pv('[v for v in energies.values()]')
 
 
         # energy = -log(p(S)) 
@@ -610,8 +597,6 @@ class GibbsBGSampler:
         if max_energy - min_energy > 40:
             max_energy = min_energy + 40.
 
-        #fud.pv('max_energy')
-        #fud.pv('min_energy')
         for pa in possible_angles:
             prev_energy = energies[pa]
             if prev_energy > max_energy:
@@ -626,7 +611,6 @@ class GibbsBGSampler:
         energy_probs = dict()
         for key in energies.keys():
             energy_probs[key] = energies[key] / total_energy
-        #fud.pv('[v for v in energy_probs.values()]')
 
         # sanity check
         #assert(allclose(total_prob, 1.))
@@ -636,12 +620,8 @@ class GibbsBGSampler:
         prob_remaining = 1.
         for key in energy_probs.keys():
             if random.random() < energy_probs[key] / prob_remaining:
-                #fud.pv('energy_probs[key]')
-                #fud.pv('energies[key]')
                 self.sm.angle_defs[bulge][ang_type1] = key
                 #self.sm.traverse_and_build(start=bulge)
-                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
-                #fud.pv('self.energy_function.eval_energy(self.sm, background=True)')
                 break
 
             prob_remaining -= energy_probs[key]
