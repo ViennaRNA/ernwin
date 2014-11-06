@@ -27,8 +27,17 @@ def get_relative_orientation(cg, l1, l2):
     #fud.pv('angle1')
 
     tw = cg.get_twists(l2)
-    angle2 = ftuv.vec_angle((tw[0] + tw[1]) / 2.,
-                           i2 - i1)
+
+    if l2[0] != 's':
+        angle2 = ftuv.vec_angle((tw[0] + tw[1]) / 2.,
+                               i2 - i1)
+    else:
+        stem_len = cg.stem_length(l2)
+
+        pos = ftuv.magnitude(i2 - cg.coords[l2][0]) / ftuv.magnitude(cg.coords[l2][1] - cg.coords[l2][0]) * stem_len
+        vec = ftug.virtual_res_3d_pos_core(cg.coords[l2], cg.twists[l2], pos, stem_len)[1]
+        angle2 = ftuv.vec_angle(vec,
+                               i2 - i1)
 
     dist = ftug.element_distance(cg, l1, l2)
 

@@ -34,6 +34,7 @@ def bgs_from_fasta(fasta_file):
     return  bgs
 
 def predict(bg, energies_to_sample, options):
+    fud.pv('energies_to_sample[0].energies')
 
     if options.cheating:
         sm = fbm.SpatialModel(bg)
@@ -127,7 +128,7 @@ def predict(bg, energies_to_sample, options):
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy()])
             if options.track_energies:
-                energies_to_track = [fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy()]
+                energies_to_track = [fbe.RadiusOfGyrationEnergy()]
 
                 fud.pv('len(list(bg.hloop_iterator()))')
                 if len(list(bg.hloop_iterator())) > 1:
@@ -360,7 +361,6 @@ def main():
     if options.aminor:
         ame1 = fbe.AMinorEnergy(loop_type='h')
         ame2 = fbe.AMinorEnergy(loop_type='i')
-        print >>sys.stderr, "here!!!!"
         energies_to_sample += [fbe.CombinedEnergy([], [ame1, ame2])]
         #energies_to_sample += [fbe.CombinedEnergy([], [sse, ame1])]
 

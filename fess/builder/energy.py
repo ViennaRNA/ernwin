@@ -162,8 +162,6 @@ class CoarseGrainEnergy(EnergyFunction):
     def resample_background_kde(self, struct):
         values = self.accepted_measures
 
-        #print >>sys.stderr, "resampling the background kde", self.__class__.__name__
-
         if len(values) > 100:
             new_kde = self.get_distribution_from_values(values)
 
@@ -452,9 +450,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         clashes = 0
         indeces = kdt2.all_get_indices()
         for (ia,ib) in indeces:
-            '''
-            print >> sys.stderr, "----------------"
-            '''
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
                 continue
             if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
@@ -499,7 +494,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 #if ftuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
-        print >>sys.stderr, "clashes1", clashes
         return clashes
 
     def eval_energy(self, sm, background=False, nodes = None, new_nodes = None):
@@ -520,13 +514,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         mult = 8
         points = []
         energy = 0.
-
-        '''
-        print >>sys.stderr, "svrce eval_energy:"
-        import traceback as tb
-        for line in tb.format_stack():
-            print >>sys.stderr, line.strip()
-        '''
 
         if nodes == None:
             nodes = sm.bg.defines.keys()
@@ -1046,7 +1033,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         #import traceback
 
         #traceback.print_stack()
-        #print >>sys.stderr, "ShortestLoopDistance"
         return self.get_shortest_distances(sm.bg)
 
 
@@ -1118,7 +1104,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
 
         dall = pd.read_csv(load_local_data('stats/tall.csv'), delimiter=' ', 
-                           names=['l1','l2','l3','dist','angle', "angle2",'seq']) 
+                           names=['l1','l2','dist','angle', "angle2",'seq']) 
         dall = dall[dall["dist"] < 30]
 
         # load the loop-anything annotations filter to consider only those
@@ -1139,7 +1125,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         p_d_a_a2 = dict()
         p_i = dict()
 
-        for lt in ['i', 'h', 'm']:
+        for lt in ['i', 'h']:
             dl = self.dall[lt] = dall[[lt in x for x in dall['l1']]]
             db = self.dbg_close[lt] = dbg_close[[lt in x for x in dbg_close['l1']]]
             p_i[lt] = len(dl['dist']) / float(len(db['dist']))
@@ -1163,6 +1149,7 @@ class AMinorEnergy(CoarseGrainEnergy):
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
+        
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
 
