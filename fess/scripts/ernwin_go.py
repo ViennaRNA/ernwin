@@ -38,7 +38,7 @@ def predict(bg, energies_to_sample, options):
 
     if options.cheating:
         sm = fbm.SpatialModel(bg)
-        energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.CheatingEnergy(sm.bg)])]
+        energies_to_sample += [fbe.CombinedEnergy([], [fbe.CheatingEnergy(sm.bg)])]
 
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
@@ -122,8 +122,14 @@ def predict(bg, energies_to_sample, options):
         fud.pv('options.mcmc_sampler')
         if options.mcmc_sampler:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
-            sm.constraint_energy = fbe.CombinedEnergy([fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy()])
-            sm.junction_constraint_energy = fbe.RoughJunctionClosureEnergy()
+
+            sm.constraint_energy = fbe.CombinedEnergy([])
+            sm.junction_constraint_energy = fbe.CombinedEnergy([])
+
+            if not options.cheating:
+                sm.constraint_energy = fbe.CombinedEnergy([fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy()])
+                sm.junction_constraint_energy = fbe.RoughJunctionClosureEnergy()
+
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy()])
@@ -142,6 +148,7 @@ def predict(bg, energies_to_sample, options):
                 energies_to_track = []
 
             fud.pv('energies_to_track')
+            fud.pv('energy')
             sampler = fbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)
             sampler.dump_measures = options.dump_energies
             samplers += [sampler]
