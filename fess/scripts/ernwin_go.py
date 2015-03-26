@@ -13,6 +13,7 @@ import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.utilities.debug as fud
 
+import fess
 import fess.builder.energy as fbe
 import fess.builder.config as cbc
 import fess.builder.models as fbm
@@ -219,7 +220,7 @@ def main():
     parser.add_option('', '--step-save', dest='step_save', default=0, help="Save the structure at every n'th step.", type='int')
     parser.add_option('', '--no-background', dest='background', default=True, action='store_false', help="Don't use the background probability distribution.")
     parser.add_option('', '--stats-file', dest='stats_file', 
-                      default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
+                      default=fess.data_file('stats/combined.stats'), help='Use a different set of statistics for sampling', type='str') 
     parser.add_option('', '--filtered-stats-file', dest='filtered_stats_file', 
                       default=None, 
                       help='Filter the statistics used for sampling using some other file.', type='str') 
