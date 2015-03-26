@@ -5,24 +5,18 @@ import random
 import optparse
 import os
 import os.path as op
-import pickle, pdb
 import subprocess as spr
 import sys
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
-import forgi.threedee.utilities.rmsd as ftur
 import forgi.utilities.debug as fud
 
 import fess.builder.energy as fbe
 import fess.builder.config as cbc
 import fess.builder.models as fbm
 import fess.builder.sampling as fbs
-
-def draw_helper():
-    draw()
-    pass
 
 def bgs_from_fasta(fasta_file):
     bgs = []
@@ -40,10 +34,11 @@ def bgs_from_fasta(fasta_file):
     return  bgs
 
 def predict(bg, energies_to_sample, options):
+    fud.pv('energies_to_sample[0].energies')
 
     if options.cheating:
         sm = fbm.SpatialModel(bg)
-        energies_to_sample += [fbe.CombinedEnergy([], [fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy(), fbe.CheatingEnergy(sm.bg)])]
+        energies_to_sample += [fbe.CombinedEnergy([], [fbe.CheatingEnergy(sm.bg)])]
 
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
@@ -115,7 +110,6 @@ def predict(bg, energies_to_sample, options):
 
     colors = ['g','y','r']
     samplers = []
-    stats = []
 
     # only samples from the first energy will be saved
     silent = False
@@ -128,13 +122,19 @@ def predict(bg, energies_to_sample, options):
         fud.pv('options.mcmc_sampler')
         if options.mcmc_sampler:
             sm = fbm.SpatialModel(copy.deepcopy(bg))
-            sm.constraint_energy = fbe.CombinedEnergy([fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy()])
-            sm.junction_constraint_energy = fbe.RoughJunctionClosureEnergy()
+
+            sm.constraint_energy = fbe.CombinedEnergy([])
+            sm.junction_constraint_energy = fbe.CombinedEnergy([])
+
+            if not options.cheating:
+                sm.constraint_energy = fbe.CombinedEnergy([fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy()])
+                sm.junction_constraint_energy = fbe.RoughJunctionClosureEnergy()
+
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy(), fbe.RoughJunctionClosureEnergy()])
             if options.track_energies:
-                energies_to_track = [fbe.RadiusOfGyrationEnergy(), fbe.CylinderIntersectionEnergy()]
+                energies_to_track = [fbe.RadiusOfGyrationEnergy()]
 
                 fud.pv('len(list(bg.hloop_iterator()))')
                 if len(list(bg.hloop_iterator())) > 1:
@@ -148,6 +148,7 @@ def predict(bg, energies_to_sample, options):
                 energies_to_track = []
 
             fud.pv('energies_to_track')
+            fud.pv('energy')
             sampler = fbs.MCMCSampler(sm, energy, stat, options.stats_type, options.no_rmsd, energies_to_track=energies_to_track)
             sampler.dump_measures = options.dump_energies
             samplers += [sampler]
@@ -233,6 +234,7 @@ def main():
     parser.add_option('', '--dist2', dest='dist2', default=None, help="Calculate the distance between this residue and the residue at position dist1 at every iteration", type='int')
     parser.add_option('', '--save-iterative-cg-measures', dest='save_iterative_cg_measures', default=False, help='Save the coarse-grain measures every time the energy function is recalculated', action='store_true')
     parser.add_option('', '--jared-dir', dest='jared_dir', default=None, help='Use JAR3D to predict geometries for the interior loops', type='str')
+    parser.add_option('', '--start-at-native', dest='start_at_native', default=False, action='store_true', help='Start at the native conformation')
 
     (options, args) = parser.parse_args()
 
@@ -279,7 +281,6 @@ def main():
 
     if options.loop_energy:
         lle = fbe.ShortestLoopDistanceEnergy()
-        rog.background = options.background
         energies_to_sample += [fbe.CombinedEnergy([], [lle])]
 
     if options.aminor_shortestloop:
@@ -368,7 +369,6 @@ def main():
     if options.aminor:
         ame1 = fbe.AMinorEnergy(loop_type='h')
         ame2 = fbe.AMinorEnergy(loop_type='i')
-        print >>sys.stderr, "here!!!!"
         energies_to_sample += [fbe.CombinedEnergy([], [ame1, ame2])]
         #energies_to_sample += [fbe.CombinedEnergy([], [sse, ame1])]
 
@@ -424,7 +424,7 @@ def main():
 
                 e1 = bg.get_node_from_residue_num(int(r1))
                 e2 = bg.get_node_from_residue_num(int(r2))
-            except ValueError as ve:
+            except ValueError:
                 # ... or they are element names
                 e1 = r1
                 e2 = r2

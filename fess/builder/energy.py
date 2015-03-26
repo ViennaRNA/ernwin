@@ -1,16 +1,10 @@
-
-
 import StringIO
-import pdb
 import pickle
 import os
-import Bio.PDB as bpdb
 import copy
 import itertools as it
-import math
 import warnings
 import pkgutil as pu
-import traceback
 #import pandas as pa
 #import pylab
 
@@ -28,7 +22,6 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.aminor as fba
 import fess.builder.models as cbm
-import fess.builder.config as cbc
 import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
 
@@ -98,7 +91,7 @@ class EnergyFunction(object):
         sm = cbm.SpatialModel(bg)
 
         for stem in bg.stems():
-            cgg.add_virtual_residues(bg, stem)
+            ftug.add_virtual_residues(bg, stem)
 
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
@@ -121,39 +114,6 @@ class EnergyFunction(object):
         @param energy_structs: A list of tuples of the form (energy, bg)
         '''
         pass
-
-    def calibrate(self, sm, iterations=10, bg_energy=None):
-        '''
-        Calibrate this energy function.
-
-        This is done by sampling structures given a background energy function.
-        The sampled structures are used to normalize the energy of this
-        function.
-        '''
-        self.calc_fg_parameters(sm.bg)
-
-        sampling_stats = cbs.SamplingStatistics(sm)
-        sampling_stats.silent = True
-
-        # if not background energy function is provided, then the background
-        # distribution is simply the proposal distribution implicit in
-        # cbs.GibbsBGSampler
-
-        if bg_energy is None:
-            bg_energy = EnergyFunction()
-
-        gs = cbs.GibbsBGSampler(copy.deepcopy(sm), bg_energy, sampling_stats)
-        for _ in range(iterations):
-            gs.step()
-
-        # Get the set of sampled structures
-        ser_structs = sorted(stats.energy_rmsd_structs, key=lambda x: x[0])
-
-        # I only want the top 2/3 of the sampled structures
-        selected = ser_structs[:2 * (len(ser_structs) / 3)]
-        selected_structs = [s[2] for s in selected]
-
-        self.calc_bg_parameters(selected_structs)
 
     def get_energy_name(self):
         '''
@@ -201,8 +161,6 @@ class CoarseGrainEnergy(EnergyFunction):
 
     def resample_background_kde(self, struct):
         values = self.accepted_measures
-
-        #print >>sys.stderr, "resampling the background kde", self.__class__.__name__
 
         if len(values) > 100:
             new_kde = self.get_distribution_from_values(values)
@@ -383,31 +341,6 @@ class CombinedEnergy:
                           self.uncalibrated_energies):
             e.dump_measures(base_directory, iteration)
 
-    def calibrate(self, sm, iterations=40,
-                  bg_energy=None,
-                  output_dir='/home/mescalin/pkerp/projects/ernwin/energies'):
-        '''
-        Calibrate each of the energies by taking into account the
-        background distribution induced by non-energy directed
-        sampling.
-        '''
-        self.energies[0].calibrate(sm, iterations)
-        filename = os.path.join(output_dir, str(sm.bg.name))
-        filename = os.path.join(filename, str(iterations))
-
-        self.save_energy(self.energies[0], filename)
-        filename = os.path.join(filename, self.energies[0].__class__.__name__)
-
-        for i in range(1, len(self.energies)):
-            ce = CombinedEnergy(self.energies[:i])
-            self.energies[i].calibrate(sm, iterations, ce)
-
-            self.save_energy(self.energies[i], filename)
-            filename = os.path.join(filename,
-                                    self.energies[i].__class__.__name__)
-
-        self.save_energy(self, filename)
-
     def eval_energy(self, sm, verbose=False, background=True,
                     nodes=None, new_nodes=None):
         total_energy = 0.
@@ -517,9 +450,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         clashes = 0
         indeces = kdt2.all_get_indices()
         for (ia,ib) in indeces:
-            '''
-            print >> sys.stderr, "----------------"
-            '''
             if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
                 continue
             if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
@@ -564,7 +494,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 #if ftuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
-        print >>sys.stderr, "clashes1", clashes
         return clashes
 
     def eval_energy(self, sm, background=False, nodes = None, new_nodes = None):
@@ -581,18 +510,10 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.bg = sm.bg
         self.bad_bulges = []
 
-        l = []
         bg = sm.bg
         mult = 8
         points = []
         energy = 0.
-
-        '''
-        print >>sys.stderr, "svrce eval_energy:"
-        import traceback as tb
-        for line in tb.format_stack():
-            print >>sys.stderr, line.strip()
-        '''
 
         if nodes == None:
             nodes = sm.bg.defines.keys()
@@ -610,7 +531,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                     points += [(p+ mult * v_r, d, i, 0)]
 
         if new_nodes == None:
-            coords = np.vstack([p[0] for p in points])
+            coords = np.vstack([point[0] for point in points])
             clash_pairs = []
 
             #kk = ss.KDTree(np.array(l))
@@ -669,15 +590,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
-
-        '''
-        import traceback
-
-        for line in traceback.format_stack():
-            print line.strip()
-        
-        fud.pv('energy')
-        '''
 
         return energy
 
@@ -878,8 +790,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         for l in mol_sizes:
             all_lengths += cls[l]
 
-        fud.pv('len(all_lengths)')
-
         #all_lengths = [cls[l] for l in mol_sizes]
 
         return all_lengths
@@ -915,7 +825,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                    cyl[1] + extension * cyl_vec]
             cyls[s2] = cyl
 
-            line_len = ftuv.vec_distance(line[1], line[0])
             intersects = ftuv.cylinder_line_intersection(cyl, line,
                                                         self.max_dist)
 
@@ -923,13 +832,11 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
                 sys.exit(1)
 
             if len(intersects) == 0:
-                in_cyl_len = 0.
+                pass
             else:
                 #in_cyl_len = ftuv.magnitude(intersects[1] - intersects[0])
                 c1 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[0])
                 c2 = ftuv.closest_point_on_seg(cyl[0], cyl[1], intersects[1])
-
-                #fud.pv('s1,s2, cyl, line')
 
                 poss = [ftuv.vec_distance(cyl[0], c1), ftuv.vec_distance(cyl[0], c2)]
                 poss.sort()
@@ -947,8 +854,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             #in_cyl_fractions[s1] += in_cyl_len / line_len
 
         for s in list(bg.stem_iterator()) + list(bg.iloop_iterator()):
-            total_len = ftuv.vec_distance(cyls[s][1], cyls[s][0])
-
             if len(covered[s]) == 0:
                 continue
 
@@ -957,7 +862,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
 
             #in_cyl_fractions[s] = cl / total_len
             in_cyl_fractions[s] = cl
-            #fud.pv('s, total_len, cl,  cl / total_len')
 
         return in_cyl_fractions
 
@@ -970,7 +874,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         @return: A single floating point number describing this measure.
         '''
         cyl_fractions = self.calculate_intersection_coverages(sm.bg)
-        total_length = 0
 
         total_cylinder_intersections = sum(cyl_fractions.values())
 
@@ -1011,7 +914,7 @@ def length_and_rog_from_file(filename):
     
     return length_and_rog(cg)
 
-class SimpleRadiusOfGyrationEnenergy(EnergyFunction):
+class SimpleRadiusOfGyrationEnergy(EnergyFunction):
     def __init__(self):
         super(SimpleRadiusOfGyrationEnergy, self).__init__()
 
@@ -1046,7 +949,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
 
-        #fud.pv('rog')
         self.measures += [rog]
         return rog
 
@@ -1093,7 +995,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
 
     def get_shortest_distance_list(self, cg):
         pairs = []
-        total_dist = 0.
 
         for (l1, l2) in it.combinations(cg.hloop_iterator(), 2):
             (i1, i2) = ftuv.line_segment_distance(cg.coords[l1][0],
@@ -1117,7 +1018,6 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         all_dists = []
         for (l1, l2, dist) in to_eval:
             
-            #fud.pv('dist')
             if dist > self.max_dist:
                 continue
 
@@ -1127,14 +1027,12 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
 
     def get_shortest_distances(self, cg):
         all_dists = self.get_shortest_distance_list(cg)
-        #fud.pv('total_dist')
         return sum(all_dists)
 
     def get_cg_measure(self, sm):
         #import traceback
 
         #traceback.print_stack()
-        #print >>sys.stderr, "ShortestLoopDistance"
         return self.get_shortest_distances(sm.bg)
 
 
@@ -1165,7 +1063,6 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
             if h == self.loop_name:
                 continue
 
-            #fud.pv('self.loop_name')
             (i1,i2) = ftuv.line_segment_distance(cg.coords[self.loop_name][0],
                                               cg.coords[self.loop_name][1],
                                               cg.coords[h][0],
@@ -1175,7 +1072,6 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
             if dist < min_dist:
                 min_dist = dist
 
-        #fud.pv('min_dist')
         return min_dist
 
     def get_energy_name(self):
@@ -1208,7 +1104,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
 
         dall = pd.read_csv(load_local_data('stats/tall.csv'), delimiter=' ', 
-                           names=['l1','l2','l3','dist','angle', "angle2",'seq']) 
+                           names=['l1','l2','dist','angle', "angle2",'seq']) 
         dall = dall[dall["dist"] < 30]
 
         # load the loop-anything annotations filter to consider only those
@@ -1223,17 +1119,13 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.dbg_close = dict()
         self.types = {'h':0, 'i':1, 'm':2, 's': 3, 'f': 4, 't': 5}
         self.loop_type = self.types[loop_type]
-        #fud.pv('loop_type, self.loop_type')
 
         self.prob_funcs = dict()
         p_d_a_a2_given_i = dict()
         p_d_a_a2 = dict()
         p_i = dict()
 
-        #fud.pv('dall')
-        #fud.pv('dbg_close')
-
-        for lt in ['i', 'h', 'm']:
+        for lt in ['i', 'h']:
             dl = self.dall[lt] = dall[[lt in x for x in dall['l1']]]
             db = self.dbg_close[lt] = dbg_close[[lt in x for x in dbg_close['l1']]]
             p_i[lt] = len(dl['dist']) / float(len(db['dist']))
@@ -1257,6 +1149,7 @@ class AMinorEnergy(CoarseGrainEnergy):
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
+        
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
 
@@ -1267,7 +1160,6 @@ class AMinorEnergy(CoarseGrainEnergy):
         prob = 0.
         stem_counts = 0
         probs = []
-        #fud.pv('self.loop_type')
 
         for s in cg.stem_iterator():
             if s in cg.edges[d]:
@@ -1282,9 +1174,6 @@ class AMinorEnergy(CoarseGrainEnergy):
             prob += p
             probs += [p]
 
-            #fud.pv('point, s, p')
-
-        
         if len(probs) == 0:
             return np.array([0.])
 
@@ -1353,19 +1242,17 @@ class AMinorEnergy(CoarseGrainEnergy):
 
 class SpecificAMinorEnergy(AMinorEnergy):
     def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_name='h0'):
-        import pandas as pd
         super(SpecificAMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
 
         self.real_stats_fn = 'real'
         self.sampled_stats_fn = 'sampled'
         self.loop_name = loop_name
-        pass
 
     def get_distribution_from_file(self, filename, category):
         if filename == 'real':
-            rogs = list(np.linspace(0,1, 100)) + [1.1] * 400
+            rogs = list(np.linspace(0, 1, 100)) + [1.1] * 400
         else:
-            rogs = np.linspace(0,1, 100)
+            rogs = np.linspace(0, 1, 100)
 
         return (self.get_distribution_from_values(rogs), list(rogs))
 
@@ -1395,7 +1282,6 @@ class SpecificAMinorEnergy(AMinorEnergy):
         d = self.loop_name
 
         m = self.eval_prob(sm.bg, d)[0]
-        #fud.pv('m')
         self.measures.append(m)
 
         if background:
