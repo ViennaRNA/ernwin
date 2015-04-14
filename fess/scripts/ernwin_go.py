@@ -443,6 +443,11 @@ def main():
     for bg in bgs:
         options.bg_filename = args[0]
         fud.pv('energies_to_sample')
+
+        if len(list(bg.stem_iterator())) == 0:
+            print >> sys.stderr, "Cannot simulate an open chain, the structure needs to have at least one stem"
+            sys.exit(1)
+
         predict(bg, energies_to_sample, options)
 
 if __name__ == '__main__':

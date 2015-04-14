@@ -274,7 +274,7 @@ class SamplingStatistics:
             d1 = sm.bg.get_node_from_residue_num(self.dist1)
             d2 = sm.bg.get_node_from_residue_num(self.dist2)
 
-
+            #fud.pv('d1, sm.bg.get_node_dimensions(d1), d2, sm.bg.get_node_dimensions(d2)')
             dist = ftuv.vec_distance(atoms[self.dist1]["P"],
                                      atoms[self.dist2]["P"])
 
