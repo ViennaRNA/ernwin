@@ -274,9 +274,19 @@ class SamplingStatistics:
             d1 = sm.bg.get_node_from_residue_num(self.dist1)
             d2 = sm.bg.get_node_from_residue_num(self.dist2)
 
+            if sm.bg.seq[self.dist1-1] == 'A' or sm.bg.seq[self.dist1-1] == 'G':
+                aname1 = 'C8'
+            else:
+                aname1 = 'C5'
 
-            dist = ftuv.vec_distance(atoms[self.dist1]["P"],
-                                     atoms[self.dist2]["P"])
+            if sm.bg.seq[self.dist2-1] == 'A' or sm.bg.seq[self.dist2-1] == 'G':
+                aname2 = 'C8'
+            else:
+                aname2 = 'C5'
+
+            #fud.pv('d1, sm.bg.get_node_dimensions(d1), d2, sm.bg.get_node_dimensions(d2)')
+            dist = ftuv.vec_distance(atoms[self.dist1][aname1],
+                                     atoms[self.dist2][aname2])
 
 
         #self.energy_rmsd_structs += [(energy, r, sm.bg)]
