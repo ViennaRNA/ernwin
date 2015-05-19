@@ -254,6 +254,8 @@ class SamplingStatistics:
             r = 0.
 
         dist = None
+        dist2 = None
+
         if self.dist1 and self.dist2:
             if self.dist1 < 0:
                 print >> sys.stderr, "The first distance nucleotide number should be greater than or equal to 0."
@@ -269,25 +271,44 @@ class SamplingStatistics:
                 sys.exit(1)
 
 
-            atoms = ftug.virtual_atoms(sm.bg, sidechain=False)
+            try:
+                atoms = ftug.virtual_atoms(sm.bg, sidechain=True)
 
-            d1 = sm.bg.get_node_from_residue_num(self.dist1)
-            d2 = sm.bg.get_node_from_residue_num(self.dist2)
+                d1 = sm.bg.get_node_from_residue_num(self.dist1)
+                d2 = sm.bg.get_node_from_residue_num(self.dist2)
 
-            if sm.bg.seq[self.dist1-1] == 'A' or sm.bg.seq[self.dist1-1] == 'G':
-                aname1 = 'C8'
-            else:
-                aname1 = 'C5'
+                aname1 = "C1'"
+                aname2 = "C1'"
 
-            if sm.bg.seq[self.dist2-1] == 'A' or sm.bg.seq[self.dist2-1] == 'G':
-                aname2 = 'C8'
-            else:
-                aname2 = 'C5'
 
-            #fud.pv('d1, sm.bg.get_node_dimensions(d1), d2, sm.bg.get_node_dimensions(d2)')
-            dist = ftuv.vec_distance(atoms[self.dist1][aname1],
-                                     atoms[self.dist2][aname2])
+                #fud.pv('d1, sm.bg.get_node_dimensions(d1), d2, sm.bg.get_node_dimensions(d2)')
+                dist = ftuv.vec_distance(atoms[self.dist1][aname1],
+                                         atoms[self.dist2][aname2])
+            except:
+                pass
 
+            cg = sm.bg
+
+            node1 = cg.get_node_from_residue_num(self.dist1)
+            node2 = cg.get_node_from_residue_num(self.dist2)
+
+            pos1, len1 = cg.get_position_in_element(self.dist1)
+            pos2, len2 = cg.get_position_in_element(self.dist2)
+
+            #fud.pv('node1, node2, pos1, pos2')
+
+            vec1 = cg.coords[node1][1] - cg.coords[node1][0]
+            vec2 = cg.coords[node2][1] - cg.coords[node2][0]
+
+            #mid1 = (cg.coords[node1][0] + cg.coords[node1][1]) / 2
+            #mid2 = (cg.coords[node2][0] + cg.coords[node2][1]) / 2
+
+            mid1 = cg.coords[node1][0] + pos1 * (vec1 / len1)
+            mid2 = cg.coords[node2][0] + pos2 * (vec2 / len2)
+
+            #fud.pv('mid1, mid2')
+
+            dist2 = ftuv.vec_distance(mid1, mid2)
 
         #self.energy_rmsd_structs += [(energy, r, sm.bg)]
         self.energy_rmsd_structs += [(energy_nobg, r, copy.deepcopy(sm.bg))]
@@ -334,6 +355,9 @@ class SamplingStatistics:
 
             if dist:
                 output_str += " | dist %.2f" % (dist)
+
+            if dist2 is not None:
+                output_str += " | [dist2: %.2f]" % (dist2)
 
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
             output_str += "\n"
