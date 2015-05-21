@@ -305,7 +305,7 @@ class SamplingStatistics:
 
             mid1 = cg.coords[node1][0] + pos1 * (vec1 / len1)
             mid2 = cg.coords[node2][0] + pos2 * (vec2 / len2)
-
+            
             #fud.pv('mid1, mid2')
 
             dist2 = ftuv.vec_distance(mid1, mid2)
