@@ -182,7 +182,7 @@ class SamplingStatistics:
     Store statistics about a sample.
     '''
 
-    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dist1=None, dist2=None, no_rmsd=False, save_iterative_cg_measures=False):
+    def __init__(self, sm_orig, plotter=None, plot_color=None, silent=False, output_file=sys.stdout, save_n_best=3, dists=[], no_rmsd=False, save_iterative_cg_measures=False):
         '''
         @param sm_orig: The original Spatial Model against which to collect statistics.
         '''
@@ -199,8 +199,7 @@ class SamplingStatistics:
         self.step_save = 0
         self.save_iterative_cg_measures=save_iterative_cg_measures
 
-        self.dist1 = dist1
-        self.dist2 = dist2
+        self.dists = dists
 
         self.highest_rmsd = 0.
         self.lowest_rmsd = 10000000000.
@@ -256,39 +255,10 @@ class SamplingStatistics:
         dist = None
         dist2 = None
 
-        if self.dist1 and self.dist2:
-            if self.dist1 < 0:
-                print >> sys.stderr, "The first distance nucleotide number should be greater than or equal to 0."
-                sys.exit(1)
-            elif self.dist1 > sm.bg.seq_length:
-                print >> sys.stderr, "The first distance nucleotide number should be less than the length of the molecule."
-                sys.exit(1)
-            if self.dist2 < 0:
-                print >> sys.stderr, "The second distance nucleotide number should be greater than or equal to 0."
-                sys.exit(1)
-            elif self.dist2 > sm.bg.seq_length:
-                print >> sys.stderr, "The second distance nucleotide number should be less than the length of the molecule."
-                sys.exit(1)
+        cg = sm.bg
+        dists = []
 
-
-            try:
-                atoms = ftug.virtual_atoms(sm.bg, sidechain=True)
-
-                d1 = sm.bg.get_node_from_residue_num(self.dist1)
-                d2 = sm.bg.get_node_from_residue_num(self.dist2)
-
-                aname1 = "C1'"
-                aname2 = "C1'"
-
-
-                #fud.pv('d1, sm.bg.get_node_dimensions(d1), d2, sm.bg.get_node_dimensions(d2)')
-                dist = ftuv.vec_distance(atoms[self.dist1][aname1],
-                                         atoms[self.dist2][aname2])
-            except:
-                pass
-
-            cg = sm.bg
-
+        for (self.dist1, self.dist2) in self.dists:
             node1 = cg.get_node_from_residue_num(self.dist1)
             node2 = cg.get_node_from_residue_num(self.dist2)
 
@@ -308,7 +278,7 @@ class SamplingStatistics:
             
             #fud.pv('mid1, mid2')
 
-            dist2 = ftuv.vec_distance(mid1, mid2)
+            dists += [ftuv.vec_distance(mid1, mid2)]
 
         #self.energy_rmsd_structs += [(energy, r, sm.bg)]
         self.energy_rmsd_structs += [(energy_nobg, r, copy.deepcopy(sm.bg))]
@@ -356,8 +326,9 @@ class SamplingStatistics:
             if dist:
                 output_str += " | dist %.2f" % (dist)
 
-            if dist2 is not None:
-                output_str += " | [dist2: %.2f]" % (dist2)
+            for dist2 in dists:
+                if dist2 is not None:
+                    output_str += " | [dist2: %.2f]" % (dist2)
 
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
             output_str += "\n"
