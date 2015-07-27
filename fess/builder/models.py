@@ -504,7 +504,7 @@ class SpatialModel:
                 elif d in threeprime:
                     self.add_loop(d, list(self.bg.edges[d])[0])
                 else:
-                    connections = list(self.bg.edges[d])
+                    connections = self.bg.connections(d)
 
                     # Should be a bulge connecting two stems
                     assert(len(connections) == 2)

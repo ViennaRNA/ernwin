@@ -9,4 +9,4 @@ python setup.py install
 
 Usage:
 
-See the documentation in the docs folder.
+See the documentation at http://www.tbi.univie.ac.at/~pkerp/ernwin

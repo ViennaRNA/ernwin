@@ -13,6 +13,7 @@ import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.utilities.debug as fud
 
+import fess
 import fess.builder.energy as fbe
 import fess.builder.config as cbc
 import fess.builder.models as fbm
@@ -111,12 +112,23 @@ def predict(bg, energies_to_sample, options):
     colors = ['g','y','r']
     samplers = []
 
+    # parse the distances that we want to keep track of 
+    to_track_dists = []
+    if options.dists is not None:
+        for distance_pair in options.dists.split(':'):
+            to_track_dists += [map(int, distance_pair.split(','))]
+
     # only samples from the first energy will be saved
     silent = False
 
     for color,energy in zip(colors, energies_to_sample):
         fud.pv('options.no_rmsd')
-        stat = fbs.SamplingStatistics(sm, plotter, color, silent=silent, output_file=options.output_file, save_n_best = options.save_n_best, dist1 = options.dist1, dist2 = options.dist2, save_iterative_cg_measures=options.save_iterative_cg_measures, no_rmsd = options.no_rmsd)
+        stat = fbs.SamplingStatistics(sm, plotter, color, silent=silent, 
+                                      output_file=options.output_file, 
+                                      save_n_best = options.save_n_best, 
+                                      dists = to_track_dists, 
+                                      save_iterative_cg_measures=options.save_iterative_cg_measures, 
+                                      no_rmsd = options.no_rmsd)
         stat.step_save = options.step_save
 
         fud.pv('options.mcmc_sampler')
@@ -219,7 +231,7 @@ def main():
     parser.add_option('', '--step-save', dest='step_save', default=0, help="Save the structure at every n'th step.", type='int')
     parser.add_option('', '--no-background', dest='background', default=True, action='store_false', help="Don't use the background probability distribution.")
     parser.add_option('', '--stats-file', dest='stats_file', 
-                      default=cbc.Configuration.stats_file, help='Use a different set of statistics for sampling', type='str') 
+                      default=fess.data_file('stats/combined.stats'), help='Use a different set of statistics for sampling', type='str') 
     parser.add_option('', '--filtered-stats-file', dest='filtered_stats_file', 
                       default=None, 
                       help='Filter the statistics used for sampling using some other file.', type='str') 
@@ -230,8 +242,9 @@ def main():
                       default=False, help='Use only a single sampler', action='store_true')
     parser.add_option('', '--no-rmsd', dest='no_rmsd', 
                       default=False, help='Refrain from trying to calculate the rmsd.', action='store_true')
-    parser.add_option('', '--dist1', dest='dist1', default=None, help="Calculate the distance between this residue and the residue at position dist2 at every iteration", type='int')
-    parser.add_option('', '--dist2', dest='dist2', default=None, help="Calculate the distance between this residue and the residue at position dist1 at every iteration", type='int')
+    parser.add_option('', '--dists', dest='dists', default=None, 
+                      help="Calculate the distance between pairs of nucleotides (i.e. 14,96:14,119)", 
+                      type='str')
     parser.add_option('', '--save-iterative-cg-measures', dest='save_iterative_cg_measures', default=False, help='Save the coarse-grain measures every time the energy function is recalculated', action='store_true')
     parser.add_option('', '--jared-dir', dest='jared_dir', default=None, help='Use JAR3D to predict geometries for the interior loops', type='str')
     parser.add_option('', '--start-at-native', dest='start_at_native', default=False, action='store_true', help='Start at the native conformation')

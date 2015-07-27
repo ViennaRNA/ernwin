@@ -14,7 +14,7 @@ import forgi.utilities.debug as fud
 
 import fess.builder.ccd as cbc
 
-import borgy.builder.rmsd as brmsd
+import forgi.threedee.utilities.rmsd as brmsd
 
 #import borgy.aux.Barnacle as barn
 #import fess.aux.CPDB.BarnacleCPDB as barn
@@ -31,8 +31,7 @@ import scipy.stats as ss
 from scipy.stats import norm, poisson
 
 import os, math, sys
-import borgy.builder.config as conf
-import fess.builder.config as fbc
+import fess.builder.config as conf
 import copy, time
 import random as rand
 
