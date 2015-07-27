@@ -114,8 +114,9 @@ def predict(bg, energies_to_sample, options):
 
     # parse the distances that we want to keep track of 
     to_track_dists = []
-    for distance_pair in options.dists.split(':'):
-        to_track_dists += [map(int, distance_pair.split(','))]
+    if options.dists is not None:
+        for distance_pair in options.dists.split(':'):
+            to_track_dists += [map(int, distance_pair.split(','))]
 
     # only samples from the first energy will be saved
     silent = False

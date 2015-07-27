@@ -12,6 +12,7 @@ import scipy.stats as ss
 
 import fess.builder.config as cbc
 import fess.builder.energy as fbe
+import forgi.threedee.model.comparison as ftme
 import forgi.threedee.model.stats as cbs
 
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -242,6 +243,8 @@ class SamplingStatistics:
         if self.sampled_energy != energy:
             pass
 
+        mcc = None
+
         if self.centers_orig != None:
             # no original coordinates provided so we can't calculate rmsds
             r = 0.
@@ -249,6 +252,8 @@ class SamplingStatistics:
                 centers_new = ftug.bg_virtual_residues(sm.bg)
                 r = cbr.centered_rmsd(self.centers_orig, centers_new)
                 #r = cbr.drmsd(self.centers_orig, centers_new)
+                cm = ftme.confusion_matrix(sm.bg, self.sm_orig.bg)
+                mcc = ftme.mcc(cm)
         else:
             r = 0.
 
@@ -329,6 +334,9 @@ class SamplingStatistics:
             for dist2 in dists:
                 if dist2 is not None:
                     output_str += " | [dist2: %.2f]" % (dist2)
+
+            if mcc is not None:
+                output_str += " | [mcc: %.2f]" % (mcc)
 
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
             output_str += "\n"
