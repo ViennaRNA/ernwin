@@ -356,7 +356,7 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background, nodes=nodes, new_nodes=new_nodes)
+            contrib = energy.eval_energy(sm, background=background, nodes=nodes, new_nodes=new_nodes)
 
             self.bad_bulges += energy.bad_bulges
             total_energy += contrib
@@ -365,6 +365,17 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         if verbose:
+            import traceback
+
+            def f():
+                g()
+
+            def g():
+                for line in traceback.format_stack():
+                    print line.strip()
+
+            f()
+
             print "--------------------------"
             print "total_energy:", total_energy
 
@@ -581,7 +592,12 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
+            if len(set.intersection(bg.edges[s1], bg.edges[s2])) >= 0:
+                # the stems are connected
+                continue
+
             potential_clashes += 1
+            #fud.pv('s1,s2')
 
             if (s1,i1,a1) not in self.vras.keys():
                 self.vras[(s1,i1,a1)] = cgg.virtual_residue_atoms(bg, s1, i1, a1)

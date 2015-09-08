@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import collections as col
 import copy
 import random
 import optparse
@@ -39,7 +40,10 @@ def predict(bg, energies_to_sample, options):
 
     if options.cheating:
         sm = fbm.SpatialModel(bg)
-        energies_to_sample += [fbe.CombinedEnergy([], [fbe.CheatingEnergy(sm.bg)])]
+        #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CheatingEnergy(sm.bg)])]
+        energies_to_sample = [fbe.CheatingEnergy(sm.bg)]
+        import pudb
+        #pudb.set_trace()
 
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
@@ -56,11 +60,8 @@ def predict(bg, energies_to_sample, options):
     if not os.path.exists(cbc.Configuration.sampling_output_dir):
         os.makedirs(cbc.Configuration.sampling_output_dir)
 
-    fud.pv('options.stats_file')
-    if options.stats_file is not None:
-        cbc.Configuration.stats_file = options.stats_file
-        print >>sys.stderr, "1"
-        ftms.set_conformation_stats(ftms.ConformationStats(options.stats_file))
+    if options.fix_all_loops:
+        options.fix_loop = ','.join([d for d in bg.defines if d[0] == 'i'])
 
     if options.jared_dir is not None:
         # run the jar3d_annotate script to get a list of potential statistics for each interior loop
@@ -83,15 +84,35 @@ def predict(bg, energies_to_sample, options):
         filtered_stats = ftms.FilteredConformationStats(stats_file=options.stats_file,
                                                         filter_filename=filtered_stats_fn)
         ftms.set_conformation_stats(filtered_stats)
-
-    if options.filtered_stats_file is not None:
-        print >>sys.stderr, "2"
+        print >>sys.stderr, "Using JAR3D filtered stats"
+    elif options.filtered_stats_file is not None:
         filtered_stats = ftms.FilteredConformationStats(stats_file=options.stats_file,
                                                         filter_filename=options.filtered_stats_file)
         ftms.set_conformation_stats(filtered_stats)
+    elif options.fix_loop is not None:
+        filtered_stats = ftms.FilteredConformationStats(stats_file=options.stats_file)
+        filtered_stats.filtered_stats = col.defaultdict(list)
+
+        for element_to_fix in options.fix_loop.split(','):
+            print >>sys.stderr, "fixing loop", element_to_fix
+            if element_to_fix[0] != 'i' and element_to_fix[0] != 'm':
+                print >>sys.stderr, "Cannot fix non-interior loop or multi-loop stats, yet!"
+                sys.exit(1)
+            as1, as2 = bg.get_bulge_angle_stats(element_to_fix)
+
+
+            filtered_stats.filtered_stats[(element_to_fix, as1.ang_type)] += [as1]
+            filtered_stats.filtered_stats[(element_to_fix, as2.ang_type)] += [as2]
+
+        ftms.set_conformation_stats(filtered_stats)
+        fud.pv('element_to_fix')
+
+    elif options.stats_file is not None:
+        cbc.Configuration.stats_file = options.stats_file
+        print >>sys.stderr, "1"
+        ftms.set_conformation_stats(ftms.ConformationStats(options.stats_file))
 
     sm = fbm.SpatialModel(bg)
-
 
     if options.log_to_file:
         options.output_file = open(op.join(cbc.Configuration.sampling_output_dir, 'log.txt'), 'w')
@@ -138,9 +159,12 @@ def predict(bg, energies_to_sample, options):
             sm.constraint_energy = fbe.CombinedEnergy([])
             sm.junction_constraint_energy = fbe.CombinedEnergy([])
 
-            if not options.cheating:
+            if not (options.cheating or options.no_constraint):
                 sm.constraint_energy = fbe.CombinedEnergy([fbe.CoarseStemClashEnergy(), fbe.StemVirtualResClashEnergy()])
                 sm.junction_constraint_energy = fbe.RoughJunctionClosureEnergy()
+            else:
+                sm.constraint_energy = None
+                sm.junction_constraint_energy = None
 
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
             #sm.constraint_energy = fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
@@ -248,6 +272,10 @@ def main():
     parser.add_option('', '--save-iterative-cg-measures', dest='save_iterative_cg_measures', default=False, help='Save the coarse-grain measures every time the energy function is recalculated', action='store_true')
     parser.add_option('', '--jared-dir', dest='jared_dir', default=None, help='Use JAR3D to predict geometries for the interior loops', type='str')
     parser.add_option('', '--start-at-native', dest='start_at_native', default=False, action='store_true', help='Start at the native conformation')
+    parser.add_option('', '--fix-loop', dest='fix_loop', default=None, help='Fix the correct coordinates of a particular loop to the correct ones')
+    parser.add_option('', '--fix-all-loops', dest='fix_all_loops', default=False, action='store_true',  help='Fix the geometries of all loops in the structure')
+    parser
+    parser.add_option('', '--no-constraint', dest='no_constraint', default=False, action='store_true', help="Don't use a constraint energy")
 
     (options, args) = parser.parse_args()
 

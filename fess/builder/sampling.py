@@ -318,10 +318,11 @@ class SamplingStatistics:
             output_str += " |"
 
             # assume that the energy function is a combined energy
-            for e in self.energy_function.energies:
-                if type(e) is fbe.DistanceExponentialEnergy:
-                    output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
-                                                                  e.to_elem,
+            if type(self.energy_function) is fbe.CombinedEnergy:
+                for e in self.energy_function.energies:
+                    if type(e) is fbe.DistanceExponentialEnergy:
+                        output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
+                                                                      e.to_elem,
                                                                   e.get_distance(sm))
             '''
             for e in tracking_energies[:1]:
@@ -336,7 +337,7 @@ class SamplingStatistics:
                     output_str += " | [dist2: %.2f]" % (dist2)
 
             if mcc is not None:
-                output_str += " | [mcc: %.2f]" % (mcc)
+                output_str += " | [mcc: %.3f]" % (mcc)
 
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
             output_str += "\n"
@@ -469,6 +470,10 @@ class MCMCSampler:
         '''
         # pick a random element and get a new statistic for it
         d = random.choice(list(self.sm.bg.get_mst()))
+
+        #import pdb
+        #pdb.set_trace()
+
         new_stat = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, d))
 
         # get the energy before we replace the statistic
