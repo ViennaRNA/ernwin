@@ -902,6 +902,9 @@ class CheatingEnergy(EnergyFunction):
         self.real_residues = cgg.bg_virtual_residues(self.real_bg)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+	'''
+	@param sm: A SpatialModel, which contains a coarse grain model (sm.bg)
+	'''
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
