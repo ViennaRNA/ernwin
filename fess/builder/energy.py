@@ -338,7 +338,8 @@ class CombinedEnergy:
 
     def dump_measures(self, base_directory, iteration=None):
         for e in it.chain(self.energies,
-                          self.uncalibrated_energies):
+                          self.uncalibrate('Intersection', set([]))
+d_energies):
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
@@ -592,7 +593,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
-            if len(set.intersection(bg.edges[s1], bg.edges[s2])) >= 0:
+            if len(set.intersection(bg.edges[s1], bg.edges[s2])) > 0:
                 # the stems are connected
                 continue
 
