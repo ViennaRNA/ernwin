@@ -338,8 +338,7 @@ class CombinedEnergy:
 
     def dump_measures(self, base_directory, iteration=None):
         for e in it.chain(self.energies,
-                          self.uncalibrate('Intersection', set([]))
-d_energies):
+                          self.uncalibrate('Intersection', set([])):
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
