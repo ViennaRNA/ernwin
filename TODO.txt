@@ -1,0 +1,13 @@
+* Radius of Gyration energy should not be infinity.
+       - This is because the target distribution is too narrow, so it needs to be widened with a longer tail
+* StemVirtualResClashEnergy of ernwin_go.py shape-STMV-fig2/step000100.coord
+  should probably not be 0.  because it looks like there are clashes when viewing
+  the structure in pymol
+* Allow the toggling of energies, perhaps by listing them in an additional input file
+
+
+FAR-FETCHED
+-----------
+
+* Estimate a radius of gyration distribution from Cryo-EM data
+* Even more generally, estimate any energy function from Cryo-EM data
