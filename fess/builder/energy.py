@@ -365,16 +365,16 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         if verbose:
-            import traceback
+            #import traceback
 
-            def f():
-                g()
+            #def f():
+            #    g()
 
-            def g():
-                for line in traceback.format_stack():
-                    print line.strip()
+#            def g():
+#                for line in traceback.format_stack():
+#                    print line.strip()
 
-            f()
+            #f()
 
             print "--------------------------"
             print "total_energy:", total_energy
@@ -441,19 +441,19 @@ class StemVirtualResClashEnergy(EnergyFunction):
         '''
         virtual_atoms = []
         coords = []
+        #print("Self.vras:", self.vras)
         for key1 in self.vras.keys():
             for key2 in self.vras[key1].keys():
                 virtual_atoms += [(self.vras[key1][key2], key1, key2)]
                 coords += [self.vras[key1][key2]]
-
+        #print("virtual_residue_atom_clashes_kd: virtual_atoms=", virtual_atoms)
         if len(virtual_atoms) == 0:
             return 0
-
         #coords = np.vstack([p[0] for p in virtual_atoms])
         #coords = np.array([ line for line in np.array(virtual_atoms)[:,0]])
         coords = np.array(coords)
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+            #warnings.simplefilter("ignore")
             kdt2 = kd.KDTree(3)
             kdt2.set_coords(coords)
             kdt2.all_search(1.8)
@@ -542,6 +542,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                     points += [(p+ mult * v_r, d, i, 0)]
 
         if new_nodes == None:
+            #print("new_nodes==None")
             coords = np.vstack([point[0] for point in points])
             clash_pairs = []
 
@@ -555,6 +556,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #print len(kk.query_pairs(7.))
 
             indeces = kdt.all_get_indices()
+            #print("Indices", indeces)
             for (ia,ib) in indeces:
                 (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
                 (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
@@ -593,9 +595,12 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 continue
 
             if len(set.intersection(bg.edges[s1], bg.edges[s2])) > 0:
-                # the stems are connected
+                # the stems are connected            
+                #print("ClashPair:",  (s1, i1, a1), (s2,i2,a2))
+                #print("Intersection", set.intersection(bg.edges[s1], bg.edges[s2]))
+                #print("connected")
                 continue
-
+            #print("potential clash")
             potential_clashes += 1
             #fud.pv('s1,s2')
 
