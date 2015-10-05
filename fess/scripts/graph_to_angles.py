@@ -19,6 +19,9 @@ def print_new_bulge_angles(bg):
         if define[0] == 'i' or define[0] == 'm':
             (as1, as2) = bg.get_bulge_angle_stats(define)
 
+            out_str += str(as1) + "\n"
+            out_str += str(as2) + "\n"
+
             out_str += "angle " + " ".join(map(str, [ as1.pdb_name, as1.dim1, as1.dim2, as1.u, as1.v, as1.t, as1.r1, as1.u1, as1.v1, as1.ang_type, " ".join(map(str, as2.define)), " ".join(as1.seqs), "\n"]))
             out_str += "angle " + " ".join(map(str, [as2.pdb_name, as2.dim1, as2.dim2, as2.u, as2.v, as2.t, as2.r1, as2.u1, as2.v1, as2.ang_type, " ".join(map(str, as2.define)), " ".join(as2.seqs), "\n"]))
 
