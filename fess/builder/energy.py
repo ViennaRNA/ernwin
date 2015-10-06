@@ -65,10 +65,16 @@ class EnergyFunction(object):
 
     def __init__(self):
         self.interaction_energies = None
-
+        #: Used by constraint energies, to store tuples of stems that clash.
+        #: Updated every time eval_energy is called.
         self.bad_bulges = []
+
+
         self.measures = []
         self.accepted_measures = []
+
+  
+
 
     def accept_last_measure(self):
         if len(self.measures) > 0:
@@ -137,7 +143,7 @@ class EnergyFunction(object):
             with open(output_file + ".%d" % (iteration), 'w') as f:
                 f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
                 f.write("\n")
-
+    
 class CoarseGrainEnergy(EnergyFunction):
     def __init__(self, energy_prefactor=10):
         super(CoarseGrainEnergy, self).__init__()
@@ -325,7 +331,6 @@ class CombinedEnergy:
         for e in it.chain(self.energies,
                           self.uncalibrated_energies):
             e.resample_background_kde(struct)
-
         pass
 
     def accept_last_measure(self):
@@ -350,7 +355,6 @@ class CombinedEnergy:
             contrib = energy.eval_energy(sm, background,
                                                nodes, new_nodes)
             total_energy += contrib
-
             self.bad_bulges += energy.bad_bulges
             if verbose:
                 print energy.__class__.__name__, contrib
@@ -359,6 +363,7 @@ class CombinedEnergy:
             contrib = energy.eval_energy(sm, background=background, nodes=nodes, new_nodes=new_nodes)
 
             self.bad_bulges += energy.bad_bulges
+
             total_energy += contrib
 
             if verbose:
@@ -397,6 +402,7 @@ class CoarseStemClashEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=False, nodes=None, new_nodes=None):
         return 0.
+        self.last_clashes=[]
         bg = sm.bg
         min_distance = 8.45
         energy = 0.
@@ -420,10 +426,10 @@ class CoarseStemClashEnergy(EnergyFunction):
 
             closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
             #print "s1, s2", s1, s2, closest_distance
-
+            
             if closest_distance < min_distance:
+                self.last_clashes.append((s1,s2))
                 energy += 100000.0
-
         return energy
 
 class StemVirtualResClashEnergy(EnergyFunction):
@@ -520,7 +526,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.bases = dict()
         self.bg = sm.bg
         self.bad_bulges = []
-
+        self.last_clashes=[]
         bg = sm.bg
         mult = 8
         points = []
@@ -569,7 +575,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 if d[0] == 's':
                     s = d
                     s_len = bg.stem_length(s)
-                    #stem_inv = bg.stem_invs[s]
+                    #stem_inv DistanceIterator= bg.stem_invs[s]
 
                     for i in range(s_len):
                         (p, v, v_l, v_r) = bg.v3dposs[d][i]
@@ -611,8 +617,21 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
-
+        if energy>0.:
+            print ("Clash, bad bulges", set(self.bad_bulges))
         return energy
+
+class UnspecificInteractionEnergy(EnergyFunction):
+    def __init__(self, interaction_weight = -1):
+        super(UnspecificInteractionEnergy, self).__init__()
+        self.interaction_weight=interaction_weight
+    def eval_energy(self, sm, background=False):
+        energy=0.
+        distIt=DistanceIterator(0,25) 
+        for _ in distIt.iterate_over_interactions(sm.bg):
+            energy+=self.interaction_weight
+        return energy
+
 
 class DistanceEnergy(EnergyFunction):
 
@@ -638,7 +657,6 @@ class DistanceEnergy(EnergyFunction):
 class RoughJunctionClosureEnergy(EnergyFunction):
     def __init__(self):
         super(RoughJunctionClosureEnergy, self).__init__()
-
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         bg = sm.bg
         if nodes == None:
@@ -660,11 +678,11 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             #cutoff_distance = (bl) * 5.908 + 11.309
             #cutoff_distance = (bl) * 6.4 + 6.4
             cutoff_distance = (bl) * 6.22 + 14.0
-
-            if (dist > cutoff_distance):
+            # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long. 
+            if (dist > cutoff_distance):            
+                print (bulge, "DIST", dist,  "> cutoff of", cutoff_distance)
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
-                #print "bulge:", bulge, "bl:", bl, "cutoff_distance:",
-                # cutoff_distance, "dist:", dist
+                #print "bulge:", bulge, "bl:", bl, "cutoff_distance:", cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
 
         return energy
@@ -839,7 +857,6 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
             dist = ftuv.vec_distance(i1, i2)
             if dist > 30. or dist < 0.01:
                 continue
-
             # extend the cylinder on either side
             cyl_vec = ftuv.normalize(bg.coords[s2][1] - bg.coords[s2][0])
             cyl = [cyl[0] - extension * cyl_vec,

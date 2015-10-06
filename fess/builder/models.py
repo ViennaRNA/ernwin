@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from __future__ import print_function
+
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
@@ -9,6 +11,7 @@ import numpy as np
 import math
 import sys
 import collections as c
+import warnings
 
 import fess.builder.config as cbc
 import forgi.threedee.model.coarse_grain as ftmc
@@ -329,7 +332,7 @@ class SpatialModel:
                 sampled_stats = self.conf_stats.sample_stats(self.bg, d)
                 self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
             except:
-                print >>sys.stderr, "Error sampling stats for element %s." % (d)
+                print ("Error sampling stats for element %s." % (d), file=sys.stderr)
                 raise
 
 
@@ -888,21 +891,42 @@ class SpatialModel:
 
         self.finish_building()
 
+    
+      
 
-    def new_traverse_and_build(self, start='start'):
+    def new_traverse_and_build(self, start='start', fast=True):
         '''
         A working version of the new traverse and build function.
         '''
         build_order = self.bg.traverse_graph()
-
+        
+        def buildorder_of(stemid):
+            """
+            Returns the buildorder of the multi-/ interior loop before the stem with stemid.
+            @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
+            """
+            if stemid=="s0": return 0
+            if stemid.startswith('s'):
+              for i, stem_loop_stem in enumerate(build_order):
+                  if stemid==stem_loop_stem[2]:
+                      return i
+            else:
+              for i, stem_loop_stem in enumerate(build_order):
+                  if stemid==stem_loop_stem[1]:
+                      return i
+            raise ValueError("{} not found in {}.".format(stemid,build_order))
+            return -1
+            
         # add the first stem in relation to a non-existent stem
         self.stems['s0'] = self.add_stem('s0', self.elem_defs['s0'], StemModel(), 
                                       ftms.AngleStat(), (0,1))
 
         counter = 0
         i = 0
+        #print ("================================")
         while i < len(build_order):
-            (s1, l, s2) = build_order[i]
+            (s1, l, s2) = build_order[i]            
+            #print ("building", i, ": ", (s1, l, s2))
             prev_stem = self.stems[s1]
             angle_params = self.elem_defs[l]
             stem_params = self.elem_defs[s2]
@@ -927,25 +951,96 @@ class SpatialModel:
             else:
                 self.stems[s2] = stem
 
-            nodes = set(list(it.chain(*[bo for bo in build_order[:i]])))
-
-            if self.constraint_energy != None:
+            nodes=set(it.chain(*[bo for bo in build_order[:i+1]]))
+            if self.constraint_energy is not None:
                 self.stem_to_coords(s1)
                 self.stem_to_coords(s2)
-                e1 = self.constraint_energy.eval_energy(self,
-                                                        nodes=nodes,
-                                                        new_nodes=nodes)
-
-                if e1 > 0.:
-                    # pick a random node in the past
-                    i = random.randint(-1, i)
-
-                    # resample its stats
+                if self.junction_constraint_energy is None:
+                    ej=0.
+                else:
+                    ej = self.junction_constraint_energy.eval_energy(self,
+                                                          nodes=nodes,
+                                                          new_nodes=nodes)
+                if ej>0.:
+                    #A sampled multiloop segment is not good. Should not happen.
+                    bad_loops=self.junction_constraint_energy.bad_bulges                    
+                    warnings.warn("WARNING: Multiloop does not fulfill the "
+                                  " constraints: {}, i={},. buld_order[i]={};"
+                                  " Sampled as {}".format(bad_loops, i, build_order[i], 
+                                                          self.elem_defs[build_order[i][1]]))
+                else:
+                    ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
+                    ml_nodes=ml_nodes-set(it.chain(*[bo for bo in build_order]))
+                    newnodes=set()
+                    for n in ml_nodes:
+                        loop=set(self.bg.find_bulge_loop(n, 200))
+                        #print ("loop for {} is {}; (nodes|n)={}; loop-(nodes|n)={}".format(n, loop, (nodes|set([n])), loop-(nodes|set([n]))))
+                        if loop and loop<=(nodes|set([n])): #loop is empty for multiloop at 3'/ 5' end.
+                            newnodes.add(n)
+                    ej = self.junction_constraint_energy.eval_energy(self,
+                                                          nodes=(newnodes | nodes),
+                                                          new_nodes=(newnodes | nodes))                    
+                    #print ("i={}, Nodes {}, newNodes {}, ml_nodes {},  ej {}".format(i, nodes, newnodes, ml_nodes, ej))
+                if ej>0. and fast:
+                    bad_loops=self.junction_constraint_energy.bad_bulges                    
+                    #print ("Multiloop i={}, buld_order[i]={}; Bad loops:", bad_loops)
+                    random.shuffle(bad_loops)
+                    for stemid in bad_loops:
+                        try: newi=buildorder_of(stemid)
+                        except ValueError: continue
+                        if newi<=i:
+                            i=newi
+                            break
+                    else:
+                        raise RuntimeError( "Multiloop resampling Problem: i={}, ej={}, bad_loops={}, bo(bad_loops[0])={}".format(i, ej, bad_loops, buildorder_of(bad_loops[0])))
                     d = build_order[i][1]
                     self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
-                
-
-            i += 1
+                else:
+                    e1 = self.constraint_energy.eval_energy(self,
+                                                            nodes=nodes,
+                                                            new_nodes=nodes)
+                    if e1 > 0.:
+                        if fast:
+                            # find out what stems clash
+                            badstems=set(self.constraint_energy.bad_bulges)                        
+                            #print ("CLASH:", badstems)
+                            to_rebuild=set()
+                            for stemid in badstems:
+                                to_rebuild.add(buildorder_of(stemid))
+                            #print ("At building {}: Clashes: ".format(i), badstems, " with build order ", to_rebuild)
+                            assert min(to_rebuild) < i or i==-1
+                            i = random.randint(min(to_rebuild), i)
+                            #print ("Rebuilding {}".format(i))
+                        else:                        
+                            # pick a random node in the past
+                            i = random.randint(0, i)
+                        # resample its stats
+                        d = build_order[i][1]
+                        self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+                    else:   
+                        i += 1
+            else:
+                i+=1
             counter += 1
+            if self.constraint_energy is not None:
+                e1 = self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)                
+                ej = self.junction_constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)
+                #print ("i={}, E={}, Ej={}".format(i, e1, ej))
 
+        if self.junction_constraint_energy is None:
+            ej=0.
+        else:
+            """ 
+            ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
+            ml_nodes=ml_nodes-set(it.chain(*[bo for bo in build_order]))
+            newnodes=set()
+            for n in ml_nodes:
+                loop=set(self.bg.find_bulge_loop(n, 200))
+                #print ("loop for {} is {}; loop-nodes={}".format(n, loop, loop-(nodes|set(n))))
+                if loop<=(nodes|set([n])):
+                    newnodes.add(n)
+            #assert (newnodes | nodes)== set([x for x in self.bg.defines.keys() if x[0]=="m" or x[0]=="s" or x[0]=="h"]), "{}, {}, difference {}".format((newnodes | nodes), set(self.bg.defines.keys()), set(self.bg.defines.keys())^(newnodes | nodes) )"""
+            ej = self.junction_constraint_energy.eval_energy(self)
+        assert ej==0., "ej={}, bad_bulges={}".format(ej, self.junction_constraint_energy.bad_bulges)
+        print ("Counter {}, ej {}".format(counter, ej))
         self.finish_building()

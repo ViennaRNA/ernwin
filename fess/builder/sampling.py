@@ -224,7 +224,7 @@ class SamplingStatistics:
         self.counter += 1
         #sm.traverse_and_build()
 
-        if self.energy_orig == None:
+        if self.energy_orig is None:
             self.energy_orig = 0.
             try:
                 for s in sm.bg.stem_iterator():
@@ -245,7 +245,7 @@ class SamplingStatistics:
 
         mcc = None
 
-        if self.centers_orig != None:
+        if self.centers_orig is not None:
             # no original coordinates provided so we can't calculate rmsds
             r = 0.
             if not self.no_rmsd:
@@ -453,13 +453,16 @@ class MCMCSampler:
             print >>sys.stderr, "constraint energy finished building 2"
             energy_function.energies += sm.constraint_energy.energies
             energy_function.energies += [sm.junction_constraint_energy]
-
+            e=energy_function.eval_energy(sm)
+            fud.pv('e')
+            sys.exit()
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
         self.no_rmsd = no_rmsd
-
+        fud.pv('self.energy_function')
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
+        fud.pv('self.prev_energy')
         #sys.exit(1)
         sm.get_sampled_bulges()
 
