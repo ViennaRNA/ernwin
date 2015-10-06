@@ -943,7 +943,6 @@ class SpatialModel:
                     # resample its stats
                     d = build_order[i][1]
                     self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
-
                 
 
             i += 1

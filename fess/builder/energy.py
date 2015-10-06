@@ -337,8 +337,8 @@ class CombinedEnergy:
             e.reject_last_measure()
 
     def dump_measures(self, base_directory, iteration=None):
-        for e in it.chain(self.energies,
-                          self.uncalibrated_energies):
+        for e in it.chain(self.energies,                       
+                          self.uncalibrated_energies): 
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
@@ -592,7 +592,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
-            if len(set.intersection(bg.edges[s1], bg.edges[s2])) >= 0:
+            if len(set.intersection(bg.edges[s1], bg.edges[s2])) > 0:
                 # the stems are connected
                 continue
 
@@ -902,6 +902,9 @@ class CheatingEnergy(EnergyFunction):
         self.real_residues = cgg.bg_virtual_residues(self.real_bg)
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+	'''
+	@param sm: A SpatialModel, which contains a coarse grain model (sm.bg)
+	'''
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
