@@ -350,6 +350,11 @@ class SamplingStatistics:
 
         self.update_plots(energy, r)
 
+        '''
+        if self.counter % 1000 == 0:
+            import pdb; pdb.set_trace()
+        '''
+
         if self.counter % 10 == 0:
             if not self.silent:
                 self.save_top(self.save_n_best, counter=self.counter)
