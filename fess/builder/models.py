@@ -1042,5 +1042,5 @@ class SpatialModel:
             #assert (newnodes | nodes)== set([x for x in self.bg.defines.keys() if x[0]=="m" or x[0]=="s" or x[0]=="h"]), "{}, {}, difference {}".format((newnodes | nodes), set(self.bg.defines.keys()), set(self.bg.defines.keys())^(newnodes | nodes) )"""
             ej = self.junction_constraint_energy.eval_energy(self)
         assert ej==0., "ej={}, bad_bulges={}".format(ej, self.junction_constraint_energy.bad_bulges)
-        print ("Counter {}, ej {}".format(counter, ej))
+        #print ("Counter {}, ej {}".format(counter, ej))
         self.finish_building()

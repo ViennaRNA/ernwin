@@ -617,8 +617,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
-        if energy>0.:
-            print ("Clash, bad bulges", set(self.bad_bulges))
+        #if energy>0.:
+            #print ("Clash, bad bulges", set(self.bad_bulges))
         return energy
 
 class UnspecificInteractionEnergy(EnergyFunction):
@@ -672,7 +672,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             bl = bg.get_bulge_dimensions(bulge)[0]
             #dist = cgg.junction_virtual_res_distance(bg, bulge)
             dist = cgg.junction_virtual_atom_distance(bg, bulge)
-
+            
             #
             #cutoff_distance = (bl) * 5.9 + 13.4
             #cutoff_distance = (bl) * 5.908 + 11.309
@@ -680,7 +680,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             cutoff_distance = (bl) * 6.22 + 14.0
             # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long. 
             if (dist > cutoff_distance):            
-                print (bulge, "DIST", dist,  "> cutoff of", cutoff_distance)
+                #print (bulge, "DIST", dist,  "> cutoff of", cutoff_distance)
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
                 #print "bulge:", bulge, "bl:", bl, "cutoff_distance:", cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
