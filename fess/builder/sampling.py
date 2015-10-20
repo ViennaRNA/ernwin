@@ -453,16 +453,13 @@ class MCMCSampler:
             print >>sys.stderr, "constraint energy finished building 2"
             energy_function.energies += sm.constraint_energy.energies
             energy_function.energies += [sm.junction_constraint_energy]
-            e=energy_function.eval_energy(sm)
-            #fud.pv('e')
-            #fud.pv('sm.bg.defines')
+
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
         self.no_rmsd = no_rmsd
-        fud.pv('self.energy_function')
+
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
-        fud.pv('self.prev_energy')
         #sys.exit(1)
         sm.get_sampled_bulges()
 

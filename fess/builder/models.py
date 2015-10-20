@@ -891,8 +891,6 @@ class SpatialModel:
 
         self.finish_building()
 
-    
-      
 
     def new_traverse_and_build(self, start='start', fast=True):
         '''
@@ -923,10 +921,8 @@ class SpatialModel:
 
         counter = 0
         i = 0
-        #print ("================================")
         while i < len(build_order):
-            (s1, l, s2) = build_order[i]            
-            #print ("building", i, ": ", (s1, l, s2))
+            (s1, l, s2) = build_order[i]
             prev_stem = self.stems[s1]
             angle_params = self.elem_defs[l]
             stem_params = self.elem_defs[s2]
@@ -951,96 +947,86 @@ class SpatialModel:
             else:
                 self.stems[s2] = stem
 
+            self.stem_to_coords(s1)
+            self.stem_to_coords(s2)
+
+            #Nodes for energy calculation
             nodes=set(it.chain(*[bo for bo in build_order[:i+1]]))
-            if self.constraint_energy is not None:
-                self.stem_to_coords(s1)
-                self.stem_to_coords(s2)
-                if self.junction_constraint_energy is None:
-                    ej=0.
-                else:
-                    ej = self.junction_constraint_energy.eval_energy(self,
-                                                          nodes=nodes,
-                                                          new_nodes=nodes)
+
+            if self.junction_constraint_energy is not None and fast:
+                #Make sure, the sampled Multiloop segments fulfill the energy constraints.
+                assert self.junction_constraint_energy.eval_energy(self, nodes=nodes,
+                            new_nodes=nodes)==0., ("Multiloop does not fulfill the "
+                            " constraints: {}, i={},. buld_order[i]={};"
+                            " Sampled as {}".format(self.junction_constraint_energy.bad_bulges,
+                            i, build_order[i], self.elem_defs[build_order[i][1]]) )
+
+                # Add all multiloop segments that are already determined at the current 
+                # build-step to the list of nodes for energy evaluation.
+                ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
+                ml_nodes=ml_nodes-set(it.chain(*[bo for bo in build_order]))
+                newnodes=set()
+                for n in ml_nodes:
+                    loop=set(self.bg.find_bulge_loop(n, 200))
+                    if loop and loop<=(nodes|set([n])): #loop is empty for ml at 3'/ 5' end.
+                        newnodes.add(n)
+
+                ej = self.junction_constraint_energy.eval_energy(self,
+                                                      nodes=(newnodes | nodes),
+                                                      new_nodes=(newnodes | nodes))             
                 if ej>0.:
-                    #A sampled multiloop segment is not good. Should not happen.
                     bad_loops=self.junction_constraint_energy.bad_bulges                    
-                    warnings.warn("WARNING: Multiloop does not fulfill the "
-                                  " constraints: {}, i={},. buld_order[i]={};"
-                                  " Sampled as {}".format(bad_loops, i, build_order[i], 
-                                                          self.elem_defs[build_order[i][1]]))
-                else:
-                    ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
-                    ml_nodes=ml_nodes-set(it.chain(*[bo for bo in build_order]))
-                    newnodes=set()
-                    for n in ml_nodes:
-                        loop=set(self.bg.find_bulge_loop(n, 200))
-                        #print ("loop for {} is {}; (nodes|n)={}; loop-(nodes|n)={}".format(n, loop, (nodes|set([n])), loop-(nodes|set([n]))))
-                        if loop and loop<=(nodes|set([n])): #loop is empty for multiloop at 3'/ 5' end.
-                            newnodes.add(n)
-                    ej = self.junction_constraint_energy.eval_energy(self,
-                                                          nodes=(newnodes | nodes),
-                                                          new_nodes=(newnodes | nodes))                    
-                    #print ("i={}, Nodes {}, newNodes {}, ml_nodes {},  ej {}".format(i, nodes, newnodes, ml_nodes, ej))
-                if ej>0. and fast:
-                    bad_loops=self.junction_constraint_energy.bad_bulges                    
-                    #print ("Multiloop i={}, buld_order[i]={}; Bad loops:", bad_loops)
                     random.shuffle(bad_loops)
-                    for stemid in bad_loops:
-                        try: newi=buildorder_of(stemid)
-                        except ValueError: continue
+                    for bulgeid in bad_loops:
+                        try: newi=buildorder_of(bulgeid)
+                        except ValueError: continue #One ml-segment is not part of build-order.
                         if newi<=i:
                             i=newi
                             break
+                        else: assert False
                     else:
-                        raise RuntimeError( "Multiloop resampling Problem: i={}, ej={}, bad_loops={}, bo(bad_loops[0])={}".format(i, ej, bad_loops, buildorder_of(bad_loops[0])))
+                        assert False, ("Multiloop resampling Problem: At step i={}, encountered "
+                                       "Junction Energy ej={}, bad_loops={}. "
+                                       "Build_order(bad_loops[0])={}.".format(i, ej, 
+                                              bad_loops, buildorder_of(bad_loops[0])))
+                    d = build_order[i][1]
+                    self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))            
+                    counter += 1
+                    continue; #If the junction energy is non-zero, we do not bother with clashes 
+
+            if self.constraint_energy is not None:
+                e1 = self.constraint_energy.eval_energy(self, nodes=nodes,
+                                                        new_nodes=nodes)
+                #print ("Nodes {}, e1 {}".format(sorted(nodes), e1))
+                if e1 > 0.:
+                    if fast:
+                        # find out what stems clash
+                        badstems=set(self.constraint_energy.bad_bulges)                        
+                        #print ("CLASH:", badstems)
+                        clash_buildorders=set()
+                        for stemid in badstems:
+                            clash_buildorders.add(buildorder_of(stemid))
+                        assert min(clash_buildorders) < i or i==-1
+                        # We change one element between the first element in the clash 
+                        # and the currently built one
+                        i = random.randint(min(clash_buildorders), i)
+                    else:                        
+                        # pick a random node in the past
+                        i = random.randint(0, i)
+                    # resample its stats
                     d = build_order[i][1]
                     self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
-                else:
-                    e1 = self.constraint_energy.eval_energy(self,
-                                                            nodes=nodes,
-                                                            new_nodes=nodes)
-                    if e1 > 0.:
-                        if fast:
-                            # find out what stems clash
-                            badstems=set(self.constraint_energy.bad_bulges)                        
-                            #print ("CLASH:", badstems)
-                            to_rebuild=set()
-                            for stemid in badstems:
-                                to_rebuild.add(buildorder_of(stemid))
-                            #print ("At building {}: Clashes: ".format(i), badstems, " with build order ", to_rebuild)
-                            assert min(to_rebuild) < i or i==-1
-                            i = random.randint(min(to_rebuild), i)
-                            #print ("Rebuilding {}".format(i))
-                        else:                        
-                            # pick a random node in the past
-                            i = random.randint(0, i)
-                        # resample its stats
-                        d = build_order[i][1]
-                        self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
-                    else:   
-                        i += 1
-            else:
-                i+=1
+                    counter+=1;
+                    continue;
+            # All constraint energy is zero (or None) for the part of the RNA 
+            # that has been built so far.
+            i+=1
             counter += 1
             if self.constraint_energy is not None:
-                e1 = self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)                
-                ej = self.junction_constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes)
-                #print ("i={}, E={}, Ej={}".format(i, e1, ej))
-
-        if self.junction_constraint_energy is None:
-            ej=0.
-        else:
-            """ 
-            ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
-            ml_nodes=ml_nodes-set(it.chain(*[bo for bo in build_order]))
-            newnodes=set()
-            for n in ml_nodes:
-                loop=set(self.bg.find_bulge_loop(n, 200))
-                #print ("loop for {} is {}; loop-nodes={}".format(n, loop, loop-(nodes|set(n))))
-                if loop<=(nodes|set([n])):
-                    newnodes.add(n)
-            #assert (newnodes | nodes)== set([x for x in self.bg.defines.keys() if x[0]=="m" or x[0]=="s" or x[0]=="h"]), "{}, {}, difference {}".format((newnodes | nodes), set(self.bg.defines.keys()), set(self.bg.defines.keys())^(newnodes | nodes) )"""
-            ej = self.junction_constraint_energy.eval_energy(self)
-        assert ej==0., "ej={}, bad_bulges={}".format(ej, self.junction_constraint_energy.bad_bulges)
-        #print ("Counter {}, ej {}".format(counter, ej))
+                assert self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes) == 0, "i={}".format(i)
+        if self.junction_constraint_energy is not None: #Checking for logical bugs.
+            assert self.junction_constraint_energy.eval_energy(self)==0., ("bad_bulges={}".format(
+                                                      self.junction_constraint_energy.bad_bulges))
+        if self.constraint_energy is not None:
+            assert self.constraint_energy.eval_energy(self) == 0, "bb={}".format(self.constraint_energy.bad_bulges)
         self.finish_building()
