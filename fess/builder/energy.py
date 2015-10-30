@@ -33,7 +33,7 @@ import sys
 distribution_upper_bound = 1.0
 distribution_lower_bound = 1.0
 
-incr = 0.01
+INCR = 0.01
 
 def my_log(x):
     return np.log(x + 1e-200)
@@ -197,7 +197,6 @@ class CoarseGrainEnergy(EnergyFunction):
         self.fscales += [fscale]
         self.vals += [values]
         self.dists += [k]
-
         return k
 
     def measure_category(self, cg):
@@ -223,7 +222,11 @@ class CoarseGrainEnergy(EnergyFunction):
         cg = sm.bg
 
         if self.measure_category(cg) not in self.real_kdes.keys():
-            (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+            try:
+                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+                                                                                             self.measure_category(cg), adjust=100)
+            except Exception: 
+                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg))
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
 
@@ -234,7 +237,12 @@ class CoarseGrainEnergy(EnergyFunction):
 
         m = self.get_cg_measure(sm)
         self.measures.append(m)
-
+        
+        try:
+            m=m*self.adjustment
+        except AttributeError:
+            pass
+ 
         if background:
             energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
             self.prev_energy = energy
@@ -969,11 +977,10 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
-
         self.measures += [rog]
         return rog
 
-    def get_distribution_from_file(self, filename, length):
+    def get_distribution_from_file(self, filename, length, adjust=1):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
         rdata = []
@@ -982,13 +989,14 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         distribution_lower_bound = 1.0
 
         while (len(rdata) < 500):
-            distribution_lower_bound -= incr
-            distribution_upper_bound += incr
+            distribution_lower_bound -= INCR
+            distribution_upper_bound += INCR
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
 
         rogs = rdata[:,1]
+	rogs=[adjust*i for i in rogs]
         return (self.get_distribution_from_values(rogs), list(rogs))
 
 
@@ -1165,8 +1173,8 @@ class AMinorEnergy(CoarseGrainEnergy):
         distribution_upper_bound = 1.
 
         while (len(rdata) < 500):
-            distribution_lower_bound -= incr
-            distribution_upper_bound += incr
+            distribution_lower_bound -= INCR
+            distribution_upper_bound += INCR
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
