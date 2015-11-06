@@ -159,6 +159,8 @@ class CoarseGrainEnergy(EnergyFunction):
 
         self.energy_prefactor = energy_prefactor
 
+        self.adjustment=1.0
+
         pass
 
     def resample_background_kde(self, struct):
@@ -224,7 +226,7 @@ class CoarseGrainEnergy(EnergyFunction):
         if self.measure_category(cg) not in self.real_kdes.keys():
             try:
                 (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
-                                                                                             self.measure_category(cg), adjust=100)
+                                                                                             self.measure_category(cg), adjust=self.adjustment)
             except Exception: 
                 (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg))
@@ -1128,7 +1130,7 @@ class AMinorEnergy(CoarseGrainEnergy):
     def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_type='h'):
         import pandas as pd
         super(AMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
-
+        self.adjustment=adjustment
         self.real_stats_fn = 'stats/aminors_1s72.csv'
         self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
 
@@ -1276,7 +1278,7 @@ class SpecificAMinorEnergy(AMinorEnergy):
         self.real_stats_fn = 'real'
         self.sampled_stats_fn = 'sampled'
         self.loop_name = loop_name
-
+        self.adjustment=adjustment
     def get_distribution_from_file(self, filename, category):
         if filename == 'real':
             rogs = list(np.linspace(0, 1, 100)) + [1.1] * 400
