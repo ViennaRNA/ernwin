@@ -35,6 +35,9 @@ distribution_lower_bound = 1.0
 
 INCR = 0.01
 
+DEFAULT_ENERGY_PREFACTOR = 30
+
+
 def my_log(x):
     return np.log(x + 1e-200)
 
@@ -84,6 +87,7 @@ class EnergyFunction(object):
         '''
         The base energy function simply returns a random number.
         '''
+        warnings.warn("WARNING: using a random energy.")
         return rand.random()
 
     def resample_background_kde(self, struct):
@@ -121,16 +125,14 @@ class EnergyFunction(object):
         '''
         Return the name of the energy.
         '''
-
-        return self.__class__.__name__.lower() + ".measures"
+        return self.__class__.__name__.lower()
 
     def dump_measures(self, base_directory, iteration=None):
         '''
         Dump all of the coarse grain measures collected so far
         to a file.
         '''
-        output_file = op.join(base_directory, self.get_energy_name())
-
+        output_file = op.join(base_directory, self.get_energy_name()+".measures")
         with open(output_file, 'w') as f:
             f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
             f.write("\n")
@@ -216,35 +218,28 @@ class CoarseGrainEnergy(EnergyFunction):
         A generic function which simply evaluates the energy based on the
         previously calculated probability distributions.
         '''
-        '''
-        print "-------------------------------"
-        for line in traceback.format_stack():
-                    print line.strip()
-        '''
         cg = sm.bg
 
         if self.measure_category(cg) not in self.real_kdes.keys():
             try:
                 (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg), adjust=self.adjustment)
-            except Exception: 
+            except: 
                 (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg))
-            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
+            
+            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, 
+                                                                                             self.measure_category(cg))
+
+
 
             self.accepted_measures = self.measures[:]
 
         kr = self.real_kdes[self.measure_category(cg)]
         ks = self.sampled_kdes[self.measure_category(cg)]
-
         m = self.get_cg_measure(sm)
         self.measures.append(m)
         
-        try:
-            m=m*self.adjustment
-        except AttributeError:
-            pass
- 
         if background:
             energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
             self.prev_energy = energy
@@ -323,7 +318,14 @@ class CombinedEnergy:
         self.energies = energies
         self.uncalibrated_energies = uncalibrated_energies
         self.bad_bulges = []
-
+    def shortname(self):
+        name=[]
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            #try:
+                name.append(e.shortname())
+            #except:
+            #    name.append(e.__class__.__name__[:6])
+        return ",".join(name)
     def save_energy(self, energy, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -349,7 +351,7 @@ class CombinedEnergy:
 
     def dump_measures(self, base_directory, iteration=None):
         for e in it.chain(self.energies,                       
-                          self.uncalibrated_energies): 
+                          self.uncalibrated_energies):
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
@@ -485,7 +487,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
             if abs(resn1 - resn2) == 1:
                 continue
-
             self.bad_bulges += [key1[0], key2[0]]
             clashes += 1
 
@@ -956,7 +957,7 @@ class SimpleRadiusOfGyrationEnergy(EnergyFunction):
         return -rog
     
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
-    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR):
         super(RadiusOfGyrationEnergy, self).__init__(energy_prefactor=energy_prefactor)
         self.sampled_stats_fn = 'stats/subgraph_radius_of_gyration_sampled.csv'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
@@ -974,6 +975,18 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         self.adjustment = adjustment # the adjustment is used to enlarge or shrink
                                      # a particular distribution
 
+
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}ROG{}".format(pre,adj)
+
     def get_name(self):
         return "Radius Of Gyration"
 
@@ -982,7 +995,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         self.measures += [rog]
         return rog
 
-    def get_distribution_from_file(self, filename, length, adjust=1):
+    def get_distribution_from_file(self, filename, length, adjust=1.):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
         rdata = []
@@ -998,7 +1011,9 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
                                          data[:,0] < length * ( distribution_upper_bound ))]
 
         rogs = rdata[:,1]
-	rogs=[adjust*i for i in rogs]
+        rogs=np.array([adjust*i for i in rogs])
+        
+        print("Radii of gyration [{}, {}]: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)))
         return (self.get_distribution_from_values(rogs), list(rogs))
 
 
@@ -1075,6 +1090,17 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
         self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
 
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}SLD{}".format(pre,adj)
+
     def measure_category(self, cg):
         return 1
 
@@ -1127,7 +1153,7 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
 
         
 class AMinorEnergy(CoarseGrainEnergy):
-    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_type='h'):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR, loop_type='h'):
         import pandas as pd
         super(AMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
         self.adjustment=adjustment
@@ -1165,8 +1191,19 @@ class AMinorEnergy(CoarseGrainEnergy):
             p_d_a_a2[lt] = ss.gaussian_kde(np.array(zip(db["dist"], db["angle"], db["angle2"])).T)
             #self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point) * p_i[lt]) / (p_d_a_a2[lt](point))
             self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point)) / (p_d_a_a2[lt](point) + p_d_a_a2_given_i[lt](point))
+   
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}AME{}".format(pre,adj)
 
-    def get_distribution_from_file(self, filename, length):
+    def get_distribution_from_file(self, filename, length, adjust=1.0):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
         rdata = list()
@@ -1183,7 +1220,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
-
+        rogs= np.array([adjust*i for i in rogs])
         return (self.get_distribution_from_values(rogs), list(rogs))
 
     def eval_prob(self, cg, d):
@@ -1240,7 +1277,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         cg = sm.bg
 
         if self.measure_category(cg) not in self.real_kdes.keys():
-            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg))
+            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg), adjust=self.adjustment)
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
 
             self.accepted_measures = self.measures[:]
@@ -1272,19 +1309,19 @@ class AMinorEnergy(CoarseGrainEnergy):
         return energy
 
 class SpecificAMinorEnergy(AMinorEnergy):
-    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_name='h0'):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR, loop_name='h0'):
         super(SpecificAMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
 
         self.real_stats_fn = 'real'
         self.sampled_stats_fn = 'sampled'
         self.loop_name = loop_name
         self.adjustment=adjustment
-    def get_distribution_from_file(self, filename, category):
+    def get_distribution_from_file(self, filename, category, adjust=1.0):
         if filename == 'real':
             rogs = list(np.linspace(0, 1, 100)) + [1.1] * 400
         else:
             rogs = np.linspace(0, 1, 100)
-
+ 
         return (self.get_distribution_from_values(rogs), list(rogs))
 
     def get_cg_measure(self, cg):

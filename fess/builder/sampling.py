@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from __future__ import print_function
 
 import collections as c
 import sys, random, copy
@@ -124,7 +125,7 @@ class StatisticsPlotter:
 
                         #self.create_contour_plot(np.array(r), np.array(e), self.ax_plot, xlim, ylim, color)
                     except Exception as ex:
-                        print "exception:", ex, "color:", color
+                        print ("exception:", ex, "color:", color)
 
                         continue
                     
@@ -222,7 +223,6 @@ class SamplingStatistics:
         @param sm: The spatial model that was sampled.
         '''
         self.counter += 1
-        #sm.traverse_and_build()
 
         if self.energy_orig is None:
             self.energy_orig = 0.
@@ -314,7 +314,7 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
 
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
+            output_str = u"native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
 
             # assume that the energy function is a combined energy
@@ -324,10 +324,13 @@ class SamplingStatistics:
                         output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
                                                                       e.to_elem,
                                                                   e.get_distance(sm))
-            '''
-            for e in tracking_energies[:1]:
-                output_str += " %.2f" % (e.prev_cg)
-            '''
+            output_str += " | [tracked Energies]"
+            for e in tracking_energies:
+                sn=e.shortname()
+                if len(sn)>12:
+                    sn=sn[:9]+"..."
+                output_str += "  [{}]: ".format(sn)
+                output_str += "%5.03g" % (e.eval_energy(sm))
 
             if dist:
                 output_str += " | dist %.2f" % (dist)
@@ -342,11 +345,12 @@ class SamplingStatistics:
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
             output_str += "\n"
 
+            #Print to both STDOUT and the log file.
             if self.output_file != sys.stdout:
-                print output_str.strip()
+                print (output_str.strip())
 
             if self.output_file != None:
-                self.output_file.write(output_str)
+                print(output_str, file=self.output_file)
                 self.output_file.flush()
 
         self.update_plots(energy, r)
@@ -400,32 +404,35 @@ class SamplingStatistics:
         sm = cbm.SpatialModel(sorted_energies[0][2])
         sm.get_sampled_bulges()
 
-        print "---------------------------"
+        print ("---------------------------")
 
-        print [e[1] for e in sorted_energies[:10]]
+        print ([e[1] for e in sorted_energies[:10]])
 
         '''
         for energy in energy_function.energies:
             print energy.__class__.__name__, energy.eval_energy(sm)
         '''
 
-        print "-------------------------"
+        print ("-------------------------")
         
 
 class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, stats_type='discrete', no_rmsd=False, energies_to_track=[]):
+    def __init__(self, sm, energy_function, stats, no_rmsd=False, energies_to_track=[], start_from_scratch=False):
         '''
         param @sm: SpatialModel that will be used for sampling.
+    
+        :param start_from_scratch: Boolean. If true, always sample stats. If false and stats are present (e.g. *.coord file), start at the native conformation.
         '''
-        if stats_type == 'continuous':
-            self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
-        elif stats_type == 'random':
-            self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
-        else:
-            self.cont_stats = None
+        #BT: Seems to be not in used
+        #if stats_type == 'continuous':
+        #    self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        #elif stats_type == 'random':
+        #    self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
+        #else:
+        #    self.cont_stats = None
         
         self.step_counter = 0
         self.sm = sm
@@ -436,31 +443,34 @@ class MCMCSampler:
         self.energies_to_track = energies_to_track
         self.dump_measures = False
         self.resampled_energy = True
+        
+        if start_from_scratch:  
+            print("INFO: Starting with sampling of all stats.", file=sys.stderr)
+            sm.sample_stats()
+        elif not sm.elem_defs:
+            sm.sample_stats()
 
-        sm.sample_stats()
         constraint_energy = sm.constraint_energy
-        if sm.constraint_energy is not None:
+        if sm.constraint_energy is not None or sm.junction_constraint_energy is not None:
             junction_constraint_energy = sm.junction_constraint_energy
             sm.constraint_energy = None
             sm.junction_constraint_energy = None
-            print >>sys.stderr, "constraint energy about to build 1..."
+            print ("constraint energy about to build 1...", file=sys.stderr)
             sm.traverse_and_build()
-            print >>sys.stderr, "constraint energy finished building 1"
+            print ("constraint energy finished building 1", file=sys.stderr)
             sm.constraint_energy = constraint_energy
             sm.junction_constraint_energy = junction_constraint_energy
-            print >>sys.stderr, "constraint energy about to build 2..."
+            print ("constraint energy about to build 2...", file=sys.stderr)
             sm.traverse_and_build()
-            print >>sys.stderr, "constraint energy finished building 2"
-            energy_function.energies += sm.constraint_energy.energies
-            energy_function.energies += [sm.junction_constraint_energy]
-
+            print ("constraint energy finished building 2", file=sys.stderr)
+            self.energy_function.energies += sm.constraint_energy.energies
+            self.energy_function.energies += [sm.junction_constraint_energy]
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
         self.no_rmsd = no_rmsd
 
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
-        #sys.exit(1)
         sm.get_sampled_bulges()
 
     def change_elem(self):
@@ -545,11 +555,9 @@ class MCMCSampler:
         if self.step_counter % 3 == 0:
             self.energy_function.resample_background_kde(self.sm.bg)
         '''
-
         for e in self.energies_to_track:
             e.eval_energy(self.sm)
-            e.accepted_measures += [e.measures[-1]]
-
+            e.accept_last_measure()
             if self.step_counter % 20 == 0:
                 e.dump_measures(cbc.Configuration.sampling_output_dir)
 
