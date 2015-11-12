@@ -423,6 +423,7 @@ class SpatialModel:
 
         ..note: This is called by the __init__ function of the MCMCSampler to avoid building the structure from scratch.
         '''
+        build_order = self.bg.traverse_graph()
         self.elem_defs=dict()
         for d in self.bg.defines.keys():
             if d in self.bg.sampled:
@@ -435,7 +436,12 @@ class SpatialModel:
                 stat=self.bg.get_loop_stat(d)
                 stat.define=self.bg.defines[d]
             elif d[0] in ("m", "i"):
-                stat=self.bg.get_bulge_angle_stats(d)[0]
+                stat=ftms.AngleStat()
+                #load angle_stats in direction of build order!
+                for bo in build_order:
+                    if bo[1]==d:
+                        stat=self.bg.get_bulge_angle_stats_core(d,(bo[0],bo[2]))
+                        break
             if line:
                 stat.pdb_name=line[0]
             self.elem_defs[d]=stat
@@ -547,12 +553,15 @@ class SpatialModel:
                     self.bulges[d] = BulgeModel((s1mid, s2mid))
                     self.closed_bulges += [d]
 
-    def stem_to_coords(self, stem):
+    def stem_to_coords(self, stem, report_changes=False):
         sm = self.stems[stem]
-
+        if report_changes:
+            if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
+                print("Changing stem", stem, ":", self.bg.coords[stem], "!=", (sm.mids[0], sm.mids[1]))
         self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
         self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
-
+        if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
+            print("Changing stem twist", stem, ":", self.bg.twists[stem], "!=", (sm.twists[0], sm.twists[1]))
         '''
         for edge in self.bg.edges[stem]:
             if self.bg.weights[edge] == 2:
@@ -762,16 +771,16 @@ class SpatialModel:
             if self.constraint_energy is not None:
                 e1 = self.constraint_energy.eval_energy(self, nodes=nodes,
                                                         new_nodes=nodes)
-                #print ("Nodes {}, e1 {}".format(sorted(nodes), e1))
                 if e1 > 0.:
                     if fast:
                         # find out what stems clash
-                        badstems=set(self.constraint_energy.bad_bulges)
+                        bad_stems=set(self.constraint_energy.bad_bulges)
                         if verbose:
-                            warnings.warn("During traverse_and_build: Constraint energy >0: {}, bad stems: {}".format(e1, badstems))                                     
-                        #print ("CLASH:", badstems)
+                            warnings.warn("During traverse_and_build: Constraint energy >0: {}, bad stems: {}".format(e1, bad_stems))
+                            warnings.warn("build_order: {}".format(build_order))
+                        #print ("CLASH:", bad_stems)
                         clash_buildorders=set()
-                        for stemid in badstems:
+                        for stemid in bad_stems:
                             clash_buildorders.add(buildorder_of(stemid))
                         assert min(clash_buildorders) < i or i==-1
                         # We change one element between the first element in the clash 
