@@ -207,24 +207,26 @@ def setup_deterministic(args):
     else:
         cg = ftmc.CoarseGrainRNA(rnafile)
 
-    #Output file and directory
-    if args.output_base_dir and not os.path.exists(args.output_base_dir):
-        os.makedirs(args.output_base_dir)
-        print ("INFO: Directory {} created.".format(args.output_base_dir), file=sys.stderr)
-    subdir=cg.name+args.output_dir_suffix
-    config.Configuration.sampling_output_dir = os.path.join(args.output_base_dir, subdir)
-    if not os.path.exists(config.Configuration.sampling_output_dir):
-        os.makedirs(cbc.Configuration.sampling_output_dir)
-        print ("INFO: Directory {} created. This folder will be used for all output files.".format(cbc.Configuration.sampling_output_dir), file=sys.stderr)
+    #Output file and directory        
     ofilename=None
-    if args.output_file:
-        ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
+    if not args.eval_energy:
+        if args.output_base_dir and not os.path.exists(args.output_base_dir):
+            os.makedirs(args.output_base_dir)
+            print ("INFO: Directory {} created.".format(args.output_base_dir), file=sys.stderr)
+        subdir=cg.name+args.output_dir_suffix
+        config.Configuration.sampling_output_dir = os.path.join(args.output_base_dir, subdir)
+        if not os.path.exists(config.Configuration.sampling_output_dir):
+            os.makedirs(config.Configuration.sampling_output_dir)
+            print ("INFO: Directory {} created. This folder will be used for all output files.".format(config.Configuration.sampling_output_dir), file=sys.stderr)
+        if args.output_file:
+            ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
     #Initialize the requested energies
     if args.energy=="D":
         energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
     else:
         energy=parseCombinedEnergyString(args.energy, cg)
+
     #Initialize energies to track
     energies_to_track=[]
     for track_energy_string in args.track_energies.split(":"):

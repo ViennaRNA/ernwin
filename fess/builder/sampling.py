@@ -323,14 +323,15 @@ class SamplingStatistics:
                     if type(e) is fbe.DistanceExponentialEnergy:
                         output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
                                                                       e.to_elem,
-                                                                  e.get_distance(sm))
-            output_str += " | [tracked Energies]"
-            for e in tracking_energies:
-                sn=e.shortname()
-                if len(sn)>12:
-                    sn=sn[:9]+"..."
-                output_str += "  [{}]: ".format(sn)
-                output_str += "%5.03g" % (e.eval_energy(sm))
+                                                                      e.get_distance(sm))
+            if tracking_energies:
+                output_str += " | [tracked Energies]"
+                for e in tracking_energies:
+                    sn=e.shortname()
+                    if len(sn)>12:
+                        sn=sn[:9]+"..."
+                    output_str += "  [{}]: ".format(sn)
+                    output_str += "%5.03g" % (e.eval_energy(sm))
 
             if dist:
                 output_str += " | dist %.2f" % (dist)
@@ -343,7 +344,6 @@ class SamplingStatistics:
                 output_str += " | [mcc: %.3f]" % (mcc)
 
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
-            output_str += "\n"
 
             #Print to both STDOUT and the log file.
             if self.output_file != sys.stdout:
@@ -443,12 +443,13 @@ class MCMCSampler:
         self.energies_to_track = energies_to_track
         self.dump_measures = False
         self.resampled_energy = True
-        
-        if start_from_scratch:  
+
+        print("INFO: Trying to load sampled elements.", file=sys.stderr)
+        sm.load_sampled_elems()
+        if start_from_scratch or not sm.elem_defs:  
             print("INFO: Starting with sampling of all stats.", file=sys.stderr)
             sm.sample_stats()
-        elif not sm.elem_defs:
-            sm.sample_stats()
+
 
         constraint_energy = sm.constraint_energy
         if sm.constraint_energy is not None or sm.junction_constraint_energy is not None:

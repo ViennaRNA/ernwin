@@ -18,7 +18,7 @@ import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.pdb as ftup
-import forgi.threedee.utilities.vector as cuv
+import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
 
 
@@ -80,7 +80,7 @@ class StemModel:
         '''
         Get the length of this stem.
         '''
-        return cuv.magnitude(self.mids[1] - self.mids[0])
+        return ftuv.magnitude(self.mids[1] - self.mids[0])
 
 class BulgeModel:
     '''
@@ -106,7 +106,7 @@ def translate_chain(chain, translation):
     atoms = bpdb.Selection.unfold_entities(chain, 'A')
 
     for atom in atoms:
-        atom.transform(cuv.identity_matrix, translation)
+        atom.transform(ftuv.identity_matrix, translation)
 
 def rotate_chain(chain, rot_mat, offset):
     '''
@@ -160,9 +160,9 @@ def get_stem_rotation_matrix(stem, (u, v, t), use_average_method=False):
     # rotate down from the twist axis
     comp1 = np.cross(stem.vec(), twist1)
 
-    rot_mat1 = cuv.rotation_matrix(stem.vec(), t)
-    rot_mat2 = cuv.rotation_matrix(twist1, u - math.pi/2)
-    rot_mat3 = cuv.rotation_matrix(comp1, v)
+    rot_mat1 = ftuv.rotation_matrix(stem.vec(), t)
+    rot_mat2 = ftuv.rotation_matrix(twist1, u - math.pi/2)
+    rot_mat3 = ftuv.rotation_matrix(comp1, v)
 
     rot_mat4 = np.dot(rot_mat3, np.dot(rot_mat2, rot_mat1))
 
@@ -264,7 +264,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     '''
     stem = StemModel()
     
-    stem1_basis = cuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
+    stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
     start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
     stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
     twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
@@ -413,7 +413,32 @@ class SpatialModel:
         Save the information about all of the sampled elements.
         '''
         for d,ed in self.elem_defs.items():
+            #print (ed, "\n", repr(ed))  
             self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+            #print (d, self.bg.sampled[d], "\n===============\n")
+  
+    def load_sampled_elems(self):
+        '''
+        Load information from the CoarseGrainRNA into self.elem_defs
+
+        ..note: This is called by the __init__ function of the MCMCSampler to avoid building the structure from scratch.
+        '''
+        self.elem_defs=dict()
+        for d in self.bg.defines.keys():
+            if d in self.bg.sampled:
+                line = self.bg.sampled[d]
+            else: 
+                line=[]
+            if d[0]=="s":
+                stat=self.bg.get_stem_stats(d)
+            elif d[0] in ("h","f","t"):
+                stat=self.bg.get_loop_stat(d)
+                stat.define=self.bg.defines[d]
+            elif d[0] in ("m", "i"):
+                stat=self.bg.get_bulge_angle_stats(d)[0]
+            if line:
+                stat.pdb_name=line[0]
+            self.elem_defs[d]=stat
 
     def get_transform(self, edge):
         '''
@@ -444,7 +469,7 @@ class SpatialModel:
         vec1 = self.stems[edge].vec()
         twist1 = self.stems[edge].twists[1]
 
-        mat = cuv.get_double_alignment_matrix(target, [vec1, twist1])
+        mat = ftuv.get_double_alignment_matrix(target, [vec1, twist1])
 
         return mat
 
