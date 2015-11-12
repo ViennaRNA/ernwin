@@ -446,10 +446,11 @@ class MCMCSampler:
 
         print("INFO: Trying to load sampled elements.", file=sys.stderr)
         sm.load_sampled_elems()
+        resampled=False
         if start_from_scratch or not sm.elem_defs:  
             print("INFO: Starting with sampling of all stats.", file=sys.stderr)
             sm.sample_stats()
-
+            resampled=True
 
         constraint_energy = sm.constraint_energy
         if sm.constraint_energy is not None or sm.junction_constraint_energy is not None:
@@ -462,7 +463,7 @@ class MCMCSampler:
             sm.constraint_energy = constraint_energy
             sm.junction_constraint_energy = junction_constraint_energy
             print ("constraint energy about to build 2...", file=sys.stderr)
-            sm.traverse_and_build()
+            sm.traverse_and_build(verbose=not resampled)
             print ("constraint energy finished building 2", file=sys.stderr)
             self.energy_function.energies += sm.constraint_energy.energies
             self.energy_function.energies += [sm.junction_constraint_energy]

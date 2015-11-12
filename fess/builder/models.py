@@ -655,7 +655,7 @@ class SpatialModel:
         self.to_skip = to_skip
 
 
-    def traverse_and_build(self, start='start', fast=True):
+    def traverse_and_build(self, start='start', fast=True, verbose=False):
         '''
         Build a 3D structure from the graph in self.bg.
         '''
@@ -738,7 +738,9 @@ class SpatialModel:
                                                       nodes=(newnodes | nodes),
                                                       new_nodes=(newnodes | nodes))             
                 if ej>0.:
-                    bad_loops=self.junction_constraint_energy.bad_bulges                    
+                    bad_loops=self.junction_constraint_energy.bad_bulges
+                    if verbose:
+                        warnings.warn("During traverse_and_build: Junction energy >0: {}, bad loops: {}".format(ej, bad_loops))                
                     random.shuffle(bad_loops)
                     for bulgeid in bad_loops:
                         try: newi=buildorder_of(bulgeid)
@@ -764,7 +766,9 @@ class SpatialModel:
                 if e1 > 0.:
                     if fast:
                         # find out what stems clash
-                        badstems=set(self.constraint_energy.bad_bulges)                        
+                        badstems=set(self.constraint_energy.bad_bulges)
+                        if verbose:
+                            warnings.warn("During traverse_and_build: Constraint energy >0: {}, bad stems: {}".format(e1, badstems))                                     
                         #print ("CLASH:", badstems)
                         clash_buildorders=set()
                         for stemid in badstems:
