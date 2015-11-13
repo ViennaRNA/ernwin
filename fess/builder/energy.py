@@ -1236,7 +1236,11 @@ class AMinorEnergy(CoarseGrainEnergy):
             if s in cg.edges[d]:
                 continue
 
-            if ftug.element_distance(cg, d, s) > 30:
+            if not ftuv.elements_closer_then(cg.coords[d][0],
+                                       cg.coords[d][1],
+                                       cg.coords[s][0],
+                                       cg.coords[s][1], 30):
+            #if ftug.element_distance(cg, d, s) > 30:
                 continue
 
             point = fba.get_relative_orientation(cg, d, s)

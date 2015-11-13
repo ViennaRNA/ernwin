@@ -199,7 +199,9 @@ class SamplingStatistics:
         self.sm_orig = sm_orig
         self.energy_orig = None
         self.step_save = 0
-        self.save_iterative_cg_measures=save_iterative_cg_measures
+        self.save_iterative_cg_measures = save_iterative_cg_measures
+
+
 
         self.dists = dists
 
@@ -209,11 +211,14 @@ class SamplingStatistics:
         self.creation_time = time.time()
 
         try:
-            self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)
+            self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)        
+            self.confusion_matrix_calculator = ftme.ConfusionMatrix(sm_orig.bg)
         except KeyError:
             # if there are no coordinates provided in the original
             # bulge graph file, then don't calculate rmsds
             self.centers_orig = None
+            self.confusion_matrix_calculator = None
+
 
     def update_statistics(self, energy_function, sm, prev_energy, tracking_energies = []):
         '''
@@ -246,15 +251,15 @@ class SamplingStatistics:
         mcc = None
 
         if self.centers_orig is not None:
-            # no original coordinates provided so we can't calculate rmsds
             r = 0.
-            if not self.no_rmsd:
+            if not self.no_rmsd: #Takes up to 30% of the total runtime.
                 centers_new = ftug.bg_virtual_residues(sm.bg)
                 r = cbr.centered_rmsd(self.centers_orig, centers_new)
                 #r = cbr.drmsd(self.centers_orig, centers_new)
-                cm = ftme.confusion_matrix(sm.bg, self.sm_orig.bg)
+                cm = self.confusion_matrix_calculator.evaluate(sm.bg)
                 mcc = ftme.mcc(cm)
-        else:
+        else:            
+            # no original coordinates provided so we can't calculate rmsds
             r = 0.
 
         dist = None
