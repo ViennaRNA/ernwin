@@ -513,7 +513,7 @@ class MCMCSampler:
             else:
                 # accept the new statistic
                 self.prev_energy = energy
-                self.energy_function.accept_last_measure
+                self.energy_function.accept_last_measure()
 
     def step(self):
         #self.sm.sample_stems()
