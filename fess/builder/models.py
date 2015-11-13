@@ -800,7 +800,7 @@ class SpatialModel:
             counter += 1
             if self.constraint_energy is not None:
                 assert self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes) == 0, "i={}".format(i)
-        if self.junction_constraint_energy is not None: #Checking for logical bugs.
+        if self.junction_constraint_energy is not None and fast: #Checking for logical bugs.
             assert self.junction_constraint_energy.eval_energy(self)==0., ("bad_bulges={}".format(
                                                       self.junction_constraint_energy.bad_bulges))
         if self.constraint_energy is not None:
