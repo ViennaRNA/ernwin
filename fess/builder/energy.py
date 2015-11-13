@@ -172,7 +172,7 @@ class CoarseGrainEnergy(EnergyFunction):
             else:
                 print >>sys.stderr, "skipping this time..."
 
-            self.vals[1] = values
+            #self.vals[1] = values
 
     def get_distribution_from_values(self, values):
         '''
@@ -193,10 +193,12 @@ class CoarseGrainEnergy(EnergyFunction):
             f = ss.beta.fit(values, floc=floc, fscale=fscale)
             k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
 
+        '''
         self.flocs += [floc]
         self.fscales += [fscale]
         self.vals += [values]
         self.dists += [k]
+        '''
 
         return k
 

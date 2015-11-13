@@ -351,6 +351,11 @@ class SamplingStatistics:
 
         self.update_plots(energy, r)
 
+        '''
+        if self.counter % 1000 == 0:
+            import pdb; pdb.set_trace()
+        '''
+
         if self.counter % 10 == 0:
             if not self.silent:
                 self.save_top(self.save_n_best, counter=self.counter)
@@ -513,7 +518,7 @@ class MCMCSampler:
             else:
                 # accept the new statistic
                 self.prev_energy = energy
-                self.energy_function.accept_last_measure
+                self.energy_function.accept_last_measure()
 
     def step(self):
         #self.sm.sample_stems()

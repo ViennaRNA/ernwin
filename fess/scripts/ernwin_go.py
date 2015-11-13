@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!python
 
 import collections as col
 import copy
