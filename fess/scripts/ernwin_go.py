@@ -42,8 +42,6 @@ def predict(bg, energies_to_sample, options):
         sm = fbm.SpatialModel(bg)
         #energies_to_sample += [fbe.CombinedEnergy([], [fbe.CheatingEnergy(sm.bg)])]
         energies_to_sample = [fbe.CheatingEnergy(sm.bg)]
-        import pudb
-        #pudb.set_trace()
 
     if not os.path.exists(options.output_dir):
         os.makedirs(options.output_dir)
