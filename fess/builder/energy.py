@@ -65,8 +65,10 @@ class EnergyFunction(object):
 
     def __init__(self):
         self.interaction_energies = None
-
+        #: Used by constraint energies, to store tuples of stems that clash.
+        #: Updated every time eval_energy is called.
         self.bad_bulges = []
+
         self.measures = []
         self.accepted_measures = []
 
@@ -170,7 +172,7 @@ class CoarseGrainEnergy(EnergyFunction):
             else:
                 print >>sys.stderr, "skipping this time..."
 
-            self.vals[1] = values
+            #self.vals[1] = values
 
     def get_distribution_from_values(self, values):
         '''
@@ -191,10 +193,12 @@ class CoarseGrainEnergy(EnergyFunction):
             f = ss.beta.fit(values, floc=floc, fscale=fscale)
             k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
 
+        '''
         self.flocs += [floc]
         self.fscales += [fscale]
         self.vals += [values]
         self.dists += [k]
+        '''
 
         return k
 
@@ -325,7 +329,6 @@ class CombinedEnergy:
         for e in it.chain(self.energies,
                           self.uncalibrated_energies):
             e.resample_background_kde(struct)
-
         pass
 
     def accept_last_measure(self):
@@ -350,7 +353,6 @@ class CombinedEnergy:
             contrib = energy.eval_energy(sm, background,
                                                nodes, new_nodes)
             total_energy += contrib
-
             self.bad_bulges += energy.bad_bulges
             if verbose:
                 print energy.__class__.__name__, contrib
@@ -365,16 +367,16 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         if verbose:
-            import traceback
+            #import traceback
 
-            def f():
-                g()
+            #def f():
+            #    g()
 
-            def g():
-                for line in traceback.format_stack():
-                    print line.strip()
+#            def g():
+#                for line in traceback.format_stack():
+#                    print line.strip()
 
-            f()
+            #f()
 
             print "--------------------------"
             print "total_energy:", total_energy
@@ -397,6 +399,7 @@ class CoarseStemClashEnergy(EnergyFunction):
 
     def eval_energy(self, sm, background=False, nodes=None, new_nodes=None):
         return 0.
+        self.last_clashes=[]
         bg = sm.bg
         min_distance = 8.45
         energy = 0.
@@ -422,8 +425,8 @@ class CoarseStemClashEnergy(EnergyFunction):
             #print "s1, s2", s1, s2, closest_distance
 
             if closest_distance < min_distance:
+                self.last_clashes.append((s1,s2))
                 energy += 100000.0
-
         return energy
 
 class StemVirtualResClashEnergy(EnergyFunction):
@@ -516,11 +519,14 @@ class StemVirtualResClashEnergy(EnergyFunction):
                            This should always be false since clashes are independent
                            of any other energies.
         '''
+        #: A dict of dicts. The first key is a triple (stem, a, b), e.g.: ('s27', 5, 1)
+        #: Where a is the position within the strand and b is the stem (0 or 1)
+        #: The key of the inner dict is the atom, e.g. "O3'"
         self.vras = dict()
         self.bases = dict()
         self.bg = sm.bg
         self.bad_bulges = []
-
+        self.last_clashes=[]
         bg = sm.bg
         mult = 8
         points = []
@@ -655,11 +661,9 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             #cutoff_distance = (bl) * 5.908 + 11.309
             #cutoff_distance = (bl) * 6.4 + 6.4
             cutoff_distance = (bl) * 6.22 + 14.0
-
+            # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long. 
             if (dist > cutoff_distance):
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
-                #print "bulge:", bulge, "bl:", bl, "cutoff_distance:",
-                # cutoff_distance, "dist:", dist
                 energy += (dist - cutoff_distance) * 10000.
 
         return energy

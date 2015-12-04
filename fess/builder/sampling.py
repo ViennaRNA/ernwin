@@ -224,7 +224,7 @@ class SamplingStatistics:
         self.counter += 1
         #sm.traverse_and_build()
 
-        if self.energy_orig == None:
+        if self.energy_orig is None:
             self.energy_orig = 0.
             try:
                 for s in sm.bg.stem_iterator():
@@ -245,7 +245,7 @@ class SamplingStatistics:
 
         mcc = None
 
-        if self.centers_orig != None:
+        if self.centers_orig is not None:
             # no original coordinates provided so we can't calculate rmsds
             r = 0.
             if not self.no_rmsd:
@@ -350,6 +350,11 @@ class SamplingStatistics:
                 self.output_file.flush()
 
         self.update_plots(energy, r)
+
+        '''
+        if self.counter % 1000 == 0:
+            import pdb; pdb.set_trace()
+        '''
 
         if self.counter % 10 == 0:
             if not self.silent:
@@ -513,7 +518,7 @@ class MCMCSampler:
             else:
                 # accept the new statistic
                 self.prev_energy = energy
-                self.energy_function.accept_last_measure
+                self.energy_function.accept_last_measure()
 
     def step(self):
         #self.sm.sample_stems()
