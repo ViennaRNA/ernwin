@@ -220,7 +220,7 @@ class SamplingStatistics:
             self.confusion_matrix_calculator = None
 
 
-    def update_statistics(self, energy_function, sm, prev_energy, tracking_energies = []):
+    def update_statistics(self, energy_function, sm, prev_energy, tracking_energies = None, tracked_energies=None):
         '''
         Add a newly sampled structure to the set of statistics.
 
@@ -318,8 +318,8 @@ class SamplingStatistics:
                 for energy_func in energy_function.energies:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
-
-            output_str = u"native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
+            _, rog=fbe.length_and_rog(sm.bg)
+            output_str = u"native_energy [%s %d]: %3d %5.03g  %5.3f ROG: %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , rog, lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
 
             # assume that the energy function is a combined energy
@@ -329,13 +329,23 @@ class SamplingStatistics:
                         output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
                                                                       e.to_elem,
                                                                       e.get_distance(sm))
-            if tracking_energies:
+            if tracked_energies and tracking_energies:
+                output_str += " | [tracked Energies]"
+                for i,e in enumerate(tracking_energies):
+                    sn=e.shortname()
+                    if len(sn)>12:
+                        sn=sn[:9]+"..."
+                    output_str += "  [{}]: ".format(sn)
+                    #print("UPDATE STATISTICS:... Evaluating Energy for ", sn)
+                    output_str += "%5.03g" % (tracked_energies[i])
+            elif tracking_energies:
                 output_str += " | [tracked Energies]"
                 for e in tracking_energies:
                     sn=e.shortname()
                     if len(sn)>12:
                         sn=sn[:9]+"..."
                     output_str += "  [{}]: ".format(sn)
+                    #print("UPDATE STATISTICS:... Evaluating Energy for ", sn)
                     output_str += "%5.03g" % (e.eval_energy(sm))
 
             if dist:
@@ -483,6 +493,12 @@ class MCMCSampler:
 
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
+        #Accept the measure of the initial structure.
+        #This is required so reject_last_measure does not accept the last measure from the file a second time.
+        self.energy_function.accept_last_measure()
+        for e in self.energies_to_track:
+            e.eval_energy(self.sm)
+            e.accept_last_measure()
         sm.get_sampled_bulges()
 
     def change_elem(self):
@@ -505,6 +521,7 @@ class MCMCSampler:
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
         if self.resampled_energy:
+            #print("CHANGE ELEMENT: EVALUATING PREVIOUS ENERGY FOR self.energy_function")
             self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
             self.resampled_energy = False
 
@@ -514,6 +531,7 @@ class MCMCSampler:
         # and calculate a new energy
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
+        #print("CHANGE ELEMENT: EVALUATING ENERGY FOR self.energy_function")
         energy = self.energy_function.eval_energy(self.sm, background=True)
         self.stats.sampled_energy = energy
 
@@ -542,38 +560,32 @@ class MCMCSampler:
         #self.sm.sample_loops()
         #self.sm.sample_angles()
         #self.sm.traverse_and_build()
-
+        #print("=========================\nSampling energy")
         self.change_elem()
-        '''
-        if random.random() < 0.5:
-            self.change_angle()
-        elif random.random() < 0.5:
-            self.change_stem()
-        else:
-            self.change_loop()
-        '''
 
         if self.dump_measures:
             if self.step_counter % 20 == 0:
                 self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
 
-        if self.step_counter % 3 == 0:
-            self.resampled_energy = True
-            self.energy_function.resample_background_kde(self.sm.bg)
-
-        self.step_counter += 1
-
-        '''
-        if self.step_counter % 3 == 0:
-            self.energy_function.resample_background_kde(self.sm.bg)
-        '''
+        tracked_energies=[]
         for e in self.energies_to_track:
-            e.eval_energy(self.sm)
+            #print("STEP: EVALUATING ENERGY FOR ", e.shortname())
+            tracked_energies.append(e.eval_energy(self.sm))
+            #print("Tracked energy", e.shortname())
             e.accept_last_measure()
             if self.step_counter % 20 == 0:
                 e.dump_measures(cbc.Configuration.sampling_output_dir)
 
-        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track)
+
+        if self.step_counter % 3 == 0:
+            self.resampled_energy = True
+            self.energy_function.resample_background_kde(self.sm.bg)
+            for e in self.energies_to_track:
+                e.resample_background_kde(self.sm.bg)
+
+        self.step_counter += 1
+
+        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track, tracked_energies)
 
 class GibbsBGSampler:
     '''
