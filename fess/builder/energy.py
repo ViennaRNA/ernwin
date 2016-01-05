@@ -29,11 +29,16 @@ import scipy.stats as stats
 import scipy.stats as ss
 import sys
 
+import gc
+#from fess.builder.watcher import watcher
 
 distribution_upper_bound = 1.0
 distribution_lower_bound = 1.0
 
-incr = 0.01
+INCR = 0.01
+
+DEFAULT_ENERGY_PREFACTOR = 30
+
 
 def my_log(x):
     return np.log(x + 1e-200)
@@ -73,7 +78,7 @@ class EnergyFunction(object):
         self.accepted_measures = []
 
     def accept_last_measure(self):
-        if len(self.measures) > 0:
+        if len(self.measures) > 0:        
             self.accepted_measures += [self.measures[-1]]
 
     def reject_last_measure(self):
@@ -84,6 +89,7 @@ class EnergyFunction(object):
         '''
         The base energy function simply returns a random number.
         '''
+        warnings.warn("WARNING: using a random energy.")
         return rand.random()
 
     def resample_background_kde(self, struct):
@@ -121,16 +127,14 @@ class EnergyFunction(object):
         '''
         Return the name of the energy.
         '''
-
-        return self.__class__.__name__.lower() + ".measures"
+        return self.__class__.__name__.lower()
 
     def dump_measures(self, base_directory, iteration=None):
         '''
         Dump all of the coarse grain measures collected so far
         to a file.
         '''
-        output_file = op.join(base_directory, self.get_energy_name())
-
+        output_file = op.join(base_directory, self.get_energy_name()+".measures")
         with open(output_file, 'w') as f:
             f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
             f.write("\n")
@@ -159,12 +163,16 @@ class CoarseGrainEnergy(EnergyFunction):
 
         self.energy_prefactor = energy_prefactor
 
+        self.adjustment=1.0
+
         pass
 
     def resample_background_kde(self, struct):
         values = self.accepted_measures
 
         if len(values) > 100:
+            #print("RESAMPLING OF BACKGROUND")
+            #print(self, values)
             new_kde = self.get_distribution_from_values(values)
 
             if new_kde is not None:
@@ -217,26 +225,28 @@ class CoarseGrainEnergy(EnergyFunction):
         A generic function which simply evaluates the energy based on the
         previously calculated probability distributions.
         '''
-        '''
-        print "-------------------------------"
-        for line in traceback.format_stack():
-                    print line.strip()
-        '''
         cg = sm.bg
 
         if self.measure_category(cg) not in self.real_kdes.keys():
-            (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+            try:
+                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+                                                                                             self.measure_category(cg), adjust=self.adjustment)
+            except: 
+                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg))
-            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
+            
+            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, 
+                                                                                             self.measure_category(cg))
+
+
 
             self.accepted_measures = self.measures[:]
 
         kr = self.real_kdes[self.measure_category(cg)]
         ks = self.sampled_kdes[self.measure_category(cg)]
-
         m = self.get_cg_measure(sm)
         self.measures.append(m)
-
+        
         if background:
             energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
             self.prev_energy = energy
@@ -311,11 +321,24 @@ class DistanceIterator:
 
 
 class CombinedEnergy:
-    def __init__(self, energies=[], uncalibrated_energies=[]):
-        self.energies = energies
-        self.uncalibrated_energies = uncalibrated_energies
+    def __init__(self, energies=None, uncalibrated_energies=None):
+        if energies is not None:
+            self.energies = energies
+        else:
+            self.energies=[]
+        if uncalibrated_energies is not None:
+            self.uncalibrated_energies = uncalibrated_energies
+        else:
+            self.uncalibrated_energies=[]
         self.bad_bulges = []
-
+    def shortname(self):
+        name=[]
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            #try:
+                name.append(e.shortname())
+            #except:
+            #    name.append(e.__class__.__name__[:6])
+        return ",".join(name)
     def save_energy(self, energy, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -341,7 +364,7 @@ class CombinedEnergy:
 
     def dump_measures(self, base_directory, iteration=None):
         for e in it.chain(self.energies,                       
-                          self.uncalibrated_energies): 
+                          self.uncalibrated_energies):
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
@@ -351,15 +374,18 @@ class CombinedEnergy:
 
         for energy in self.uncalibrated_energies:
             contrib = energy.eval_energy(sm, background,
-                                               nodes, new_nodes)
+                                               nodes, new_nodes)            
+            #try: print("uncalibrated ",energy.shortname(), " contributes ",contrib ,"to the combined energy")
+            #except Exception: print("uncalibrated ",energy, " contributes ",contrib ,"to the combined energy")
             total_energy += contrib
             self.bad_bulges += energy.bad_bulges
             if verbose:
                 print energy.__class__.__name__, contrib
 
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background=background, nodes=nodes, new_nodes=new_nodes)
-
+            contrib = energy.eval_energy(sm, background=background, nodes=nodes, new_nodes=new_nodes)            
+            #try: print(energy.shortname(), " contributes ",contrib ,"to the combined energy")
+            #except Exception: print(energy, " contributes ",contrib ,"to the combined energy")
             self.bad_bulges += energy.bad_bulges
             total_energy += contrib
 
@@ -380,7 +406,7 @@ class CombinedEnergy:
 
             print "--------------------------"
             print "total_energy:", total_energy
-
+        #print("Total Energy", total_energy)
         return total_energy
 
     def __str__(self):
@@ -477,7 +503,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
             if abs(resn1 - resn2) == 1:
                 continue
-
             self.bad_bulges += [key1[0], key2[0]]
             clashes += 1
 
@@ -948,7 +973,7 @@ class SimpleRadiusOfGyrationEnergy(EnergyFunction):
         return -rog
     
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
-    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR):
         super(RadiusOfGyrationEnergy, self).__init__(energy_prefactor=energy_prefactor)
         self.sampled_stats_fn = 'stats/subgraph_radius_of_gyration_sampled.csv'
         self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
@@ -966,16 +991,27 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         self.adjustment = adjustment # the adjustment is used to enlarge or shrink
                                      # a particular distribution
 
+
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}ROG{}".format(pre,adj)
+
     def get_name(self):
         return "Radius Of Gyration"
 
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
-
         self.measures += [rog]
         return rog
 
-    def get_distribution_from_file(self, filename, length):
+    def get_distribution_from_file(self, filename, length, adjust=1.):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
         rdata = []
@@ -984,13 +1020,16 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         distribution_lower_bound = 1.0
 
         while (len(rdata) < 500):
-            distribution_lower_bound -= incr
-            distribution_upper_bound += incr
+            distribution_lower_bound -= INCR
+            distribution_upper_bound += INCR
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
 
         rogs = rdata[:,1]
+        rogs=np.array([adjust*i for i in rogs])
+        
+        print("Radii of gyration [{}, {}]: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)))
         return (self.get_distribution_from_values(rogs), list(rogs))
 
 
@@ -1067,6 +1106,17 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
         self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
 
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}SLD{}".format(pre,adj)
+
     def measure_category(self, cg):
         return 1
 
@@ -1117,12 +1167,14 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
                                                                         nodes,
                                                                         new_nodes)
 
+
+
         
 class AMinorEnergy(CoarseGrainEnergy):
-    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_type='h'):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR, loop_type='h'):
         import pandas as pd
         super(AMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
-
+        self.adjustment=adjustment
         self.real_stats_fn = 'stats/aminors_1s72.csv'
         self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
 
@@ -1157,8 +1209,24 @@ class AMinorEnergy(CoarseGrainEnergy):
             p_d_a_a2[lt] = ss.gaussian_kde(np.array(zip(db["dist"], db["angle"], db["angle2"])).T)
             #self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point) * p_i[lt]) / (p_d_a_a2[lt](point))
             self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point)) / (p_d_a_a2[lt](point) + p_d_a_a2_given_i[lt](point))
+        #print ("SELF>MEASURES ({}): {}".format(self.shortname(),len(self.measures)))
+        #print (self.measures)
 
-    def get_distribution_from_file(self, filename, length):
+        #: The number of coarse grain elements considered in this energy
+        self.num_loops=None
+
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}AME({}){}".format(pre,self.loop_type, adj)
+
+    def get_distribution_from_file(self, filename, length, adjust=1.0):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
 
         rdata = list()
@@ -1167,15 +1235,15 @@ class AMinorEnergy(CoarseGrainEnergy):
         distribution_upper_bound = 1.
 
         while (len(rdata) < 500):
-            distribution_lower_bound -= incr
-            distribution_upper_bound += incr
+            distribution_lower_bound -= INCR
+            distribution_upper_bound += INCR
 
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
         
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
-
+        rogs= np.array([adjust*i for i in rogs])
         return (self.get_distribution_from_values(rogs), list(rogs))
 
     def eval_prob(self, cg, d):
@@ -1188,7 +1256,11 @@ class AMinorEnergy(CoarseGrainEnergy):
             if s in cg.edges[d]:
                 continue
 
-            if ftug.element_distance(cg, d, s) > 30:
+            if not ftuv.elements_closer_than(cg.coords[d][0],
+                                       cg.coords[d][1],
+                                       cg.coords[s][0],
+                                       cg.coords[s][1], 30):
+            #if ftug.element_distance(cg, d, s) > 30:
                 continue
 
             point = fba.get_relative_orientation(cg, d, s)
@@ -1196,10 +1268,11 @@ class AMinorEnergy(CoarseGrainEnergy):
             p = self.prob_funcs[lt](point)
             prob += p
             probs += [p]
-
+            #print("dsp:",d,s,p)
         if len(probs) == 0:
+            #print("eval_prob: Returning Array with one zero.")
             return np.array([0.])
-
+        #print ("eval_prob: Returning max(probs).", max(probs))
         return max(probs)
         #return (prob, stem_counts)
         #return prob / stem_counts
@@ -1224,24 +1297,35 @@ class AMinorEnergy(CoarseGrainEnergy):
         else:
             return "A-Minor Energy"
 
+    def accept_last_measure(self):
+        #The AMinor energy appends more than one measure per step
+        #print (hex(id(self)), "Before Accepting measures. length {} Now ".format(self.num_loops), self.accepted_measures)
+        if len(self.measures) > 0:        
+            self.accepted_measures += self.measures[-self.num_loops:]
+        #print (hex(id(self)), "Accepting measures. Now ", self.accepted_measures)
+
+    def reject_last_measure(self):
+        #print (hex(id(self)), "Before Rejecting measures. length {} Now ".format(self.num_loops), self.accepted_measures)
+        if len(self.accepted_measures) > 0:
+            self.accepted_measures += self.accepted_measures[-self.num_loops:]
+        #print (hex(id(self)), "Rejecting measures. Now ", self.accepted_measures)
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
-        '''
-        A generic function which simply evaluates the energy based on the
-        previously calculated probability distributions.
-        '''
         cg = sm.bg
 
+
+
         if self.measure_category(cg) not in self.real_kdes.keys():
-            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg))
+            (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg), adjust=self.adjustment)
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
-
+            #print (hex(id(self)), "Loading measures. Now ", self.measures)
             self.accepted_measures = self.measures[:]
-
-
         kr = self.real_kdes[self.measure_category(cg)]
         ks = self.sampled_kdes[self.measure_category(cg)]
+
         energy = 0
 
+        if self.num_loops is None:
+            self.num_loops=len([d for d in sm.bg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(sm.bg.get_define_seq_str(d))])
         for d in sm.bg.defines.keys():
 
             # the loop type is encoded as an integer so that the stats file can be 
@@ -1256,27 +1340,26 @@ class AMinorEnergy(CoarseGrainEnergy):
                 prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
                 self.prev_energy = energy
                 self.prev_cg = m
-                #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
-                energy +=  -1 * self.energy_prefactor * prev_energy
+                energy +=  -1 * self.energy_prefactor * prev_energy                
             else:
                 energy +=  -np.log(kr(m))
-        
         return energy
 
+"""
 class SpecificAMinorEnergy(AMinorEnergy):
-    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=30, loop_name='h0'):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR, loop_name='h0'):
         super(SpecificAMinorEnergy, self).__init__(energy_prefactor=energy_prefactor)
 
         self.real_stats_fn = 'real'
         self.sampled_stats_fn = 'sampled'
         self.loop_name = loop_name
-
-    def get_distribution_from_file(self, filename, category):
+        self.adjustment=adjustment
+    def get_distribution_from_file(self, filename, category, adjust=1.0):
         if filename == 'real':
             rogs = list(np.linspace(0, 1, 100)) + [1.1] * 400
         else:
             rogs = np.linspace(0, 1, 100)
-
+ 
         return (self.get_distribution_from_values(rogs), list(rogs))
 
     def get_cg_measure(self, cg):
@@ -1300,13 +1383,13 @@ class SpecificAMinorEnergy(AMinorEnergy):
 
         kr = self.real_kdes[self.measure_category(cg)]
         ks = self.sampled_kdes[self.measure_category(cg)]
-        energy = 0
 
         d = self.loop_name
 
         m = self.eval_prob(sm.bg, d)[0]
         self.measures.append(m)
 
+        energy = 0
         if background:
             prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
             self.prev_energy = energy
@@ -1317,3 +1400,4 @@ class SpecificAMinorEnergy(AMinorEnergy):
             energy +=  -np.log(kr(m))
         
         return energy
+"""
