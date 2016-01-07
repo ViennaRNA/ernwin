@@ -303,7 +303,6 @@ class SamplingStatistics:
         if r < self.lowest_rmsd:
             self.lowest_rmsd = r
 
-
         lowest_energy = sorted_energies[0][0]
         lowest_rmsd = sorted_energies[0][1]
 

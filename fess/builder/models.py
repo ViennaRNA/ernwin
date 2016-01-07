@@ -329,7 +329,6 @@ class SpatialModel:
                     # is broken here
                     continue
             try:
-                sampled_stats = self.conf_stats.sample_stats(self.bg, d)
                 self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
             except:
                 print ("Error sampling stats for element %s." % (d), file=sys.stderr)
@@ -415,6 +414,35 @@ class SpatialModel:
         '''
         for d,ed in self.elem_defs.items():
             self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+  
+    def load_sampled_elems(self):
+        '''
+        Load information from the CoarseGrainRNA into self.elem_defs
+
+        ..note: This is called by the __init__ function of the MCMCSampler to avoid building the structure from scratch.
+        '''
+        build_order = self.bg.traverse_graph()
+        self.elem_defs=dict()
+        for d in self.bg.defines.keys():
+            if d in self.bg.sampled:
+                line = self.bg.sampled[d]
+            else: 
+                line=[]
+            if d[0]=="s":
+                stat=self.bg.get_stem_stats(d)
+            elif d[0] in ("h","f","t"):
+                stat=self.bg.get_loop_stat(d)
+                stat.define=self.bg.defines[d]
+            elif d[0] in ("m", "i"):
+                stat=ftms.AngleStat()
+                #load angle_stats in direction of build order!
+                for bo in build_order:
+                    if bo[1]==d:
+                        stat=self.bg.get_bulge_angle_stats_core(d,(bo[0],bo[2]))
+                        break
+            if line:
+                stat.pdb_name=line[0]
+            self.elem_defs[d]=stat
 
     def get_transform(self, edge):
         '''
@@ -628,273 +656,10 @@ class SpatialModel:
 
         self.to_skip = to_skip
 
-    def traverse_and_build(self, start='start'):
+
+    def traverse_and_build(self, start='start', fast=True, verbose=False):
         '''
         Build a 3D structure from the graph in self.bg.
-
-        This is done by doing a breadth-first search through the graph
-        and adding stems. 
-
-        Once all of the stems have been added, the bulges and loops
-        are added.
-
-        If a constraint energy is provided, then the nascent structure
-        must fullfill the constraint at every step of the process.
-        '''
-        self.new_traverse_and_build(start='start')
-        return
-
-        constraint_energy = self.constraint_energy
-        '''
-        import traceback
-        print "".join(traceback.format_stack()[-3:])
-        '''
-        self.visited = set()
-        self.to_visit = []
-        #self.stems = dict()
-        #self.bulges = dict()
-        self.sampled_bulges = []
-        self.sampled_bulge_sides = []
-        self.closed_bulges = []
-        self.newly_added_stems = []
-        self.sampled_ang_types = c.defaultdict(list)
-
-        new_visited = []
-        # the start node should be a loop region
-        self.to_visit = [self.find_start_node()]
-        paths = c.defaultdict(list)
-
-        self.visit_order = []
-        self.prev_stem_list = []
-
-        counter = 0
-        '''
-        self.bg.coords = dict()
-        self.bg.bases = dict()
-        self.bg.stem_invs = dict()
-        '''
-        started = False
-
-        if start == '':
-            started = True
-
-        restart=False
-
-        #print "starting:"
-
-        while True:
-            while len(self.to_visit) > 0:
-                #self.to_visit.sort(key=lambda x: ('a' if x[1][0] == 's' else x[1][0], -self.bg.stem_length(x[1])))
-                (curr_node, prev_node, prev_stem) = self.to_visit.pop(0)
-                tbc = True
-                while curr_node in self.visited or curr_node in self.to_skip:
-                    if len(self.to_visit) > 0:
-                        (curr_node, prev_node, prev_stem) = self.to_visit.pop()
-                    else:
-                        #self.finish_building()
-                        tbc = False
-                        break
-
-                if not tbc:
-                    break
-
-                # keep track of the leaf to root paths
-                paths[curr_node] += [curr_node]
-                paths[curr_node] += paths[prev_node]
-
-                self.visited.add(curr_node)
-
-                v = list(self.visited)
-                v.sort()
-
-                stem = prev_stem
-
-                #if curr_node == start:
-                if start in paths[curr_node] or start == 'start':
-                    started = True
-
-                if curr_node[0] == 's':
-                    params = self.get_random_stem_stats(curr_node)
-
-                    if prev_node == 'start':
-                        (s1b, s1e) = (0, 1)
-                    else:
-                        (s1b, s1e) = self.bg.get_sides(curr_node, prev_node)
-
-                    # get some parameters for the previous bulge
-                    if prev_node == 'start':
-                        (ps1b, ps1e) = (1, 0)
-                        ang_type = 1
-                        prev_params = ftms.AngleStat()
-                    else:
-                        (ps1b, ps1e) = self.bg.get_sides(prev_stem.name, prev_node)
-                        ang_type = self.bg.connection_type(prev_node, 
-                                                           [prev_stem.name, 
-                                                            curr_node])
-
-                        prev_params = self.get_random_bulge_stats(prev_node,
-                                                                 ang_type)
-
-                    self.sampled_bulges += [prev_node]
-                    if len(self.bg.edges[prev_node]) == 2:
-                        self.sampled_bulge_sides += [(prev_node, ang_type)]
-
-                    self.sampled_ang_types[prev_node] += [ang_type]
-
-                    # the previous stem should always be in the direction(0, 1) 
-                    if started:
-                        new_visited += [curr_node]
-                        '''
-                        if curr_node == 's10':
-                            print "started prev_node:", prev_node, "curr_node:", curr_node, "start:", start
-                        '''
-                        #stem = self.add_stem(curr_node, params, prev_stem, prev_params, (0, 1))
-                        #print "ps1b:", ps1b, "ps1e", ps1e
-                        self.visit_order += [prev_node]
-
-                        self.prev_stem_list += [prev_stem.name]
-                        stem = self.add_stem(curr_node, params, prev_stem, prev_params, (ps1e, ps1b))
-                        self.newly_added_stems += [curr_node]
-
-                        # the following is done to maintain the invariant that mids[s1b] is
-                        # always in the direction of the bulge from which s1b was obtained
-                        # i.e. s1e -> s1b -> bulge -> s2b -> s2e
-                        #self.stems[curr_node] = stem
-
-                        if s1b == 1:
-                            self.stems[curr_node] = stem.reverse()
-                        else:
-                            self.stems[curr_node] = stem
-
-                        if constraint_energy != None and not restart:
-                            self.stem_to_coords(curr_node)
-                            e1 = constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = new_visited)
-                            #e1 = constraint_energy.eval_energy(self)
-                            if e1 > 10:
-                                #self.bg.to_file('bad1.cg')
-                                #print >>sys.stderr, "exiting0", e1
-                                #sys.exit(1)
-
-                                bb = set(self.constraint_energy.bad_bulges)
-                                bp = []
-                                for b in bb:
-                                    bp += [(len(paths[b]), b)]
-
-                                bp.sort()
-                                sb = max((bp))[1]
-                                #sb = random.choice(list(bb))
-
-                                for p in paths[sb]:
-                                    if p[0] == 's':
-                                        continue
-                                    if random.random() < 0.8:
-                                        break
-
-                                to_change = p
-
-                                # remove all coordinates that haven't been built yet so that
-                                # we can get a more clear picture of the nascent structure
-                                to_remove = []
-                                for d in self.bg.coords:
-                                    if d not in self.visited:
-                                        to_remove += [d]
-
-                                for r in to_remove:
-                                    del self.bg.coords[r]
-
-                                #self.bg.to_file('temp.cg')
-
-                                #sys.exit(1)
-
-                                restart = True
-                                break
-                            else:
-                                pass
-                            new_visited = []
-
-                    else:
-                        '''
-                        if curr_node == 's13':
-                            print "unstarted prev_node:", prev_node, "start:", start
-                        '''
-                        if s1b == 1:
-                            stem = self.stems[curr_node].reverse()
-                        else:
-                            stem = self.stems[curr_node]
-
-                to_append = []
-                for edge in self.bg.edges[curr_node]:
-                    if edge not in self.visited:
-                        to_append.append((edge, curr_node, stem))
-                        to_append.sort(key=lambda x: -self.bg.stem_length(x[1]))
-
-                self.to_visit += to_append
-
-                counter += 1
-
-            if not restart and self.constraint_energy != None:
-                e1 = self.constraint_energy.eval_energy(self, nodes=self.visited, new_nodes = None)
-
-                if e1 > 0.:
-                    #self.bg.to_file('bad.cg')
-                    #print >>sys.stderr, "exiting1", e1
-                    #sys.exit(1)
-                    bb = set(self.constraint_energy.bad_bulges)
-                    bp = []
-                    for b in bb:
-                        bp += [(len(paths[b]), b)]
-
-                    bp.sort()
-                    sb = max((bp))[1]
-                    #sb = random.choice(list(bb))
-
-                    for p in paths[sb]:
-                        if p[0] == 's':
-                            continue
-                        if random.random() < 0.5:
-                            break
-
-                    to_change = p
-                    restart = True
-
-            if not restart and self.junction_constraint_energy != None:
-                e1 = self.junction_constraint_energy.eval_energy(self)
-                if e1 > 0.:
-                    #self.bg.to_file('bad2.cg')
-                    #print >>sys.stderr, "exiting2", e1
-                    #sys.exit(1)
-                    to_change = random.choice(self.junction_constraint_energy.bad_bulges)
-                    restart = True
-
-            if restart:
-                self.resample(to_change)
-                self.sampled_bulges = []
-                self.sampled_bulge_sides = []
-                self.sampled_ang_types = c.defaultdict(list)
-                self.closed_bulges = []
-                self.newly_added_stems = []
-                self.visited = set()
-                self.to_visit = [self.find_start_node()]
-                self.visit_order = []
-                #paths = c.defaultdict(list)
-                paths = c.defaultdict(list)
-                start = to_change
-                #start = 'start'
-                started = False
-                new_visited = []
-                #sys.exit(1)
-                #self.traverse_and_build(to_change)
-                #return
-                restart = False
-            else:
-                break
-
-        self.finish_building()
-
-
-    def new_traverse_and_build(self, start='start', fast=True):
-        '''
-        A working version of the new traverse and build function.
         '''
         build_order = self.bg.traverse_graph()
         
@@ -975,7 +740,9 @@ class SpatialModel:
                                                       nodes=(newnodes | nodes),
                                                       new_nodes=(newnodes | nodes))             
                 if ej>0.:
-                    bad_loops=self.junction_constraint_energy.bad_bulges                    
+                    bad_loops=self.junction_constraint_energy.bad_bulges
+                    if verbose:
+                        warnings.warn("During traverse_and_build: Junction energy >0: {}, bad loops: {}".format(ej, bad_loops))                
                     random.shuffle(bad_loops)
                     for bulgeid in bad_loops:
                         try: newi=buildorder_of(bulgeid)
@@ -997,14 +764,16 @@ class SpatialModel:
             if self.constraint_energy is not None:
                 e1 = self.constraint_energy.eval_energy(self, nodes=nodes,
                                                         new_nodes=nodes)
-                #print ("Nodes {}, e1 {}".format(sorted(nodes), e1))
                 if e1 > 0.:
                     if fast:
                         # find out what stems clash
-                        badstems=set(self.constraint_energy.bad_bulges)                        
-                        #print ("CLASH:", badstems)
+                        bad_stems=set(self.constraint_energy.bad_bulges)
+                        if verbose:
+                            warnings.warn("During traverse_and_build: Constraint energy >0: {}, bad stems: {}".format(e1, bad_stems))
+                            warnings.warn("build_order: {}".format(build_order))
+                        #print ("CLASH:", bad_stems)
                         clash_buildorders=set()
-                        for stemid in badstems:
+                        for stemid in bad_stems:
                             clash_buildorders.add(buildorder_of(stemid))
                         assert min(clash_buildorders) < i or i==-1
                         # We change one element between the first element in the clash 
@@ -1028,5 +797,6 @@ class SpatialModel:
             assert self.junction_constraint_energy.eval_energy(self)==0., ("bad_bulges={}".format(
                                                       self.junction_constraint_energy.bad_bulges))
         if self.constraint_energy is not None:
-            assert self.constraint_energy.eval_energy(self) == 0, "bb={}".format(self.constraint_energy.bad_bulges)
+            c_energy=self.constraint_energy.eval_energy(self)
+            assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}".format(c_energy, self.constraint_energy.bad_bulges)
         self.finish_building()
