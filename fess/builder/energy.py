@@ -393,20 +393,8 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         if verbose:
-            #import traceback
-
-            #def f():
-            #    g()
-
-#            def g():
-#                for line in traceback.format_stack():
-#                    print line.strip()
-
-            #f()
-
             print "--------------------------"
             print "total_energy:", total_energy
-        #print("Total Energy", total_energy)
         return total_energy
 
     def __str__(self):
@@ -1018,8 +1006,9 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
         distribution_upper_bound = 1.0
         distribution_lower_bound = 1.0
-
-        while (len(rdata) < 500):
+        target_len=500
+        target_len=min(target_len,len(data[:]))
+        while (len(rdata) < target_len):
             distribution_lower_bound -= INCR
             distribution_upper_bound += INCR
 
@@ -1028,8 +1017,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
         rogs = rdata[:,1]
         rogs=np.array([adjust*i for i in rogs])
-        
-        print("Radii of gyration [{}, {}]: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)))
+        print("Radii of gyration [{}, {}]: min-median-max: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)))
         return (self.get_distribution_from_values(rogs), list(rogs))
 
 
@@ -1127,7 +1115,6 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
         return (self.get_distribution_from_values(rogs), list(rogs))
 
     def get_cg_measure(self, sm):
-        #import traceback
         min_dist = 10000.
 
         cg = sm.bg
