@@ -415,7 +415,6 @@ class SpatialModel:
         for d,ed in self.elem_defs.items():
             #print (ed, "\n", repr(ed))  
             self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
-            #print (d, self.bg.sampled[d], "\n===============\n")
   
     def load_sampled_elems(self):
         '''
