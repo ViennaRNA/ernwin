@@ -7,7 +7,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
-import argparse, sys, warnings, copy, os, random
+import argparse, sys, warnings, copy, os, random, math
 import os.path
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
@@ -81,10 +81,16 @@ def get_parser():
                               "PRE: optional energy prefactor\n"
                               "ADJ: optional adjustment of target distribution\n"
                               "     (float), default=1.0\n"
+                              "     use START_END or START_STEP_END to modify the "
+                              "     adjustment during sampling. E.g. 1.0_0.1_1.4 "
+                              "     For each adjustment, equally many sampling steps are used."
+                              "     If step is not given, 1.0 or 0.1 is used, depending on the "
+                              "     difference between START and END."
                               "TYP: one of the following\n"
                               "       ROG:  Radius of gyration energy\n"
                               "       SLD:  shortest loop distance per loop\n"
                               "       AME:  A-Minor energy\n"
+                              "       PRO:  Match Projection distances. Requires the --projected-dist option\n"
                               "       DEF:  add all default energies to the \n"
                               "             combined energy\n"
                               "Example: ROG10,SLD,AME")
@@ -94,6 +100,10 @@ def get_parser():
                               "for the --energy option.\n"
                               "These energies are not used for sampling, \n"
                               "but only calculated after each step.")
+    parser.add_argument('--projected-dist', action='store', type=str, default="",
+                        help= "A ':' seperated list of tripels: cgelement, cgelement, dist\n"
+                              "Where dist is the projected distance in the image in Angstrom.\n"
+                              "Example: 's1,h3,10:s2,h3,12'")
     return parser
 
 def getSLDenergies(cg):
@@ -116,8 +126,8 @@ def getAMinorEnergies(pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
 
     :returns: A list of energies
     """
-    return [fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj),
-            fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)]
+    return [fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj)] #,
+            #fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)]
 
 def getDefaultEnergies(cg):
     """
@@ -136,12 +146,25 @@ def getDefaultEnergies(cg):
     energies += getAMinorEnergies()
     return energies
 
-def parseCombinedEnergyString(stri, cg):
+def getPROenergy(proj_dist_str):
+    contributions=proj_dist_str.split(":")
+    distances={}
+    for contrib in contributions:
+        f=contrib.split(",")
+        if len(f)!=3:
+            raise ValueError("Could not parse projected-dist string: '{}'".format(contrib))
+        distances[(f[0],f[1])]=float(f[2])
+    if not distances:
+        raise ValueError("The --projected-dist option is required if the PRO energy is used.".format(contrib))
+    return fbe.ProjectionMatchEnergy(distances)
+
+def parseCombinedEnergyString(stri, cg, iterations, proj_dist):
     """
     Parses an energy string, as used for the --energy commandline option
 
     :param stri: The energy string
     :param cg: The coarse-grained RNA
+    :iterations: The number of iterations. This is used for adjustments that change during sampling
     :returs: A combined energy
     """
     contributions=stri.split(",")
@@ -154,15 +177,27 @@ def parseCombinedEnergyString(stri, cg):
             energies+=getDefaultEnergies(cg)
         elif "ROG" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "ROG")
-            energies.append(fbe.RadiusOfGyrationEnergy( energy_prefactor=pre, adjustment=adj))
+            e = fbe.RadiusOfGyrationEnergy( energy_prefactor=pre, adjustment=adj[0])
+            if adj[1]:
+                e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
+            energies.append(e)
         elif "AME" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "AME")
-            energies+=getAMinorEnergies(pre, adj)
+            es=getAMinorEnergies(pre, adj[0])
+            if adj[1]:
+                for e in es:
+                    e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
+            energies+=es
         elif "SLD" in contrib:
             pre,_, adj=contrib.partition("SLD")
             if pre!="" or adj!="":
                 warnings.warn("Prefactor '{}' and adjustment '{}' are ignored for ShortestLoopdistancePerLoop energy!".format(pre, adj))
             energies+=getSLDenergies(cg)
+        elif "PRO" in contrib:
+            pre,_, adj=contrib.partition("PRO")
+            if pre!="" or adj!="":
+                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored for ProjectionMatchEnergy energy!".format(pre, adj))
+            energies.append(getPROenergy(proj_dist))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
             sys.exit(1)
@@ -180,9 +215,34 @@ def parseEnergyContributionString(contrib, sep):
     pre,_,adj=contrib.partition(sep)
     if not pre:
         pre=DEFAULT_ENERGY_PREFACTOR
+    if "_" in adj:
+        a=adj.split("_")
+        if len(a)==2:
+            adj=float(a[0])
+            end=float(a[1])
+            if abs(adj-end)<1.2:
+                step=0.1
+            else:
+                step=1
+            if end<adj:
+                step=step*-1
+            num_steps=math.ceil((end-adj)/step)+1
+            assert num_steps>1, numSteps
+            return float(pre), (adj, step, num_steps)
+        elif len(a)==3:
+            adj=float(a[0])
+            step=float(a[1])
+            end=float(a[2])
+            num_steps=math.ceil((end-adj)/step)+1
+            if num_steps<2:
+                raise ValueError("Could not parse adjustment in option '{}': Expected START_STEP_STOP, found {}, {}, {} which would lead to a total of {} steps".format(contrib, adj, step, end, num_steps))
+            return float(pre), (adj, step, num_steps)
+        else:
+            raise ValueError("Could not parse adjustment in option: '{}'".format(contrib))
+        
     if not adj:
         adj=1.0
-    return float(pre), float(adj)
+    return float(pre), (float(adj),0,0)
 
 
 
@@ -225,7 +285,7 @@ def setup_deterministic(args):
     if args.energy=="D":
         energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
     else:
-        energy=parseCombinedEnergyString(args.energy, cg)
+        energy=parseCombinedEnergyString(args.energy, cg, args.iterations, args.projected_dist)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -234,7 +294,7 @@ def setup_deterministic(args):
             if track_energy_string=="D":
                 energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
             else:
-                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg))
+                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations))
         #Initialize the spatial model
     sm=fbm.SpatialModel(cg)
 
@@ -270,8 +330,10 @@ def setup_stat(out_file, sm, args):
     return stat
 
 
+# Parser is available even if __name__!="__main__", to allow for 
+# documentation with sphinxcontrib.autoprogram
+parser = get_parser()
 if __name__=="__main__":
-    parser = get_parser()
     args = parser.parse_args()
 
     #Setup that does not use the random number generator.

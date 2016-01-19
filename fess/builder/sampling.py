@@ -584,8 +584,11 @@ class MCMCSampler:
                 e.resample_background_kde(self.sm.bg)
 
         self.step_counter += 1
-
         self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track, tracked_energies)
+        
+        self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
+        for e in self.energies_to_track:
+            e.update_adjustment(self.step_counter, self.sm.bg)
 
 class GibbsBGSampler:
     '''

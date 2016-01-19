@@ -27,7 +27,8 @@ import forgi.threedee.utilities.rmsd as cbr
 
 import scipy.stats as stats
 import scipy.stats as ss
-import sys
+import scipy.optimize
+import sys, math
 
 import gc
 #from fess.builder.watcher import watcher
@@ -83,7 +84,7 @@ class EnergyFunction(object):
 
     def reject_last_measure(self):
         if len(self.accepted_measures) > 0:
-            print ("REJECTION => Accepting ", self.accepted_measures[-1])
+
             self.accepted_measures += [self.accepted_measures[-1]]
 
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
@@ -145,6 +146,77 @@ class EnergyFunction(object):
                 f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
                 f.write("\n")
 
+
+
+  
+class ProjectionMatchEnergy(EnergyFunction):
+    def __init__(self, distances={}):
+        """
+        :param directions: A dict where the keys are tuples of coarse grain element names (e.g.: ("h1","m1"))
+                       and the values are the distance IN THE PROJECTED PLANE (i.e. in the micrograph).
+        """
+        self.distances=distances
+        super(ProjectionMatchEnergy, self).__init__()
+    def shortname(self):
+        return "PRO"
+    def update_adjustment(*args, **kwargs):pass
+    def get_name(self):
+        return "Projection Matching Energy"
+
+    def optimizeProjectionDistance(self, p):
+        """
+        :param c: A numpy array. The projection vector that HAS TO BE NORMALIZED
+
+        Let theta be the angle between the p, normal vector of the plane of projection, and the vector a which is projected onto that plain.
+        Then dist_2d=dist_3d*cos(alpha)=dist_3d*cos(90 degrees-theta) 
+        Then the angle theta is given by: cos(theta)=a*p/len(a) if p is normalized.
+        Then dist_2d=dist_3d*sqrt(1-(a*p/len(a))^2)
+        This means dist_2d^2=dist3d^2*(1-(a*p/len(a))^2)
+        And dist_3d^2-dist2d^2=(a*p/len(a))^2 (Eq.1)
+        We now search for the projection angle p which best generates the projected lengths given the current 3D structure.
+        In the optimal case, Eq 1 holds for some values of p for all vectors a.
+        In the suboptimal case, there is a squared deviation d: d=(a*p/len(a))^2-(dist_3d^2-dist2d^2)
+        We want to minimize the sum over all square deviations for all distances considered in this energy function.
+        minimize sum(d)=sum((a*p/len(a))^2-(dist_3d^2-dist2d^2)) with respect to p for all d, i.e. for all a, dist_3d, dist_2d considered.
+        Under the side constraint that p has to be normalized.
+        """
+        x=0
+        #Sum over all given distances
+        for (s,e), dist in self.distances.items():
+            #The middle point of the cg element
+            start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
+            end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
+            a=end-start
+            lengthDifferenceExperiment=ftuv.magnitude(a)**2-dist**2
+            lengthDifferenceGivenP=(p[0]*a[0]+p[1]*a[1]+p[2]*a[2])**2          
+            #Add the square deviation between (3d length-2d length) observed vs calculated for the given projection angle
+            x+=(lengthDifferenceGivenP-lengthDifferenceExperiment)**2
+        return x
+
+    def eval_energy(self, sm, background=None, nodes=None, new_nodes=None):
+        #: This is used for the optimization
+        self.cg=sm.bg
+        # The projection vector has to be normalized
+        cons={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
+        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, np.array([1,0,0]), constraints=cons, options={"maxiter":10000} )
+        print (opt.x, ":", opt.fun)
+        x=opt.x
+        if (x[0]**2+x[1]**2+x[2]**2)>1.00000000001:
+            print((x[0]**2+x[1]**2+x[2]**2))
+            print(opt)
+        print ("Distances:")
+        for (s,e), dist in self.distances.items():
+            #The middle point of the cg element
+            start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
+            end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
+            a=end-start
+            lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
+            print (s,e,lengthGivenP)
+        if opt.success:
+            return opt.fun
+        else:
+            return 10000
+
 class CoarseGrainEnergy(EnergyFunction):
     def __init__(self, energy_prefactor=10):
         super(CoarseGrainEnergy, self).__init__()
@@ -166,8 +238,20 @@ class CoarseGrainEnergy(EnergyFunction):
 
         self.adjustment=1.0
 
-        pass
+        self.adjustment_stepwidth=0
+        self.adjustment_steps_per_value=float("inf")
+        self.current_adjustment_step=0
 
+    def set_dynamic_adjustment(self, step, steps_per_value):
+        self.adjustment_stepwidth=step
+        self.adjustment_steps_per_value=steps_per_value
+    def set_next_adjustment(self, cg):
+        del self.real_kdes[self.measure_category(cg)]
+        self.adjustment+=self.adjustment_stepwidth
+        self.current_adjustment_step+=1
+    def update_adjustment(self, step, cg):
+        if step>self.adjustment_steps_per_value*(1+self.current_adjustment_step):
+            self.set_next_adjustment(cg)
     def resample_background_kde(self, struct):
         values = self.accepted_measures
 
@@ -235,12 +319,9 @@ class CoarseGrainEnergy(EnergyFunction):
             except: 
                 (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
                                                                                              self.measure_category(cg))
-            
+        if self.measure_category(cg) not in self.sampled_kdes.keys():
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, 
                                                                                              self.measure_category(cg))
-
-
-
             self.accepted_measures = self.measures[:]
 
         kr = self.real_kdes[self.measure_category(cg)]
@@ -248,10 +329,13 @@ class CoarseGrainEnergy(EnergyFunction):
         m = self.get_cg_measure(sm)
         self.measures.append(m)
         
+
         if background:
             energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
             self.prev_energy = energy
             self.prev_cg = m
+            #if isinstance(self, ShortestLoopDistancePerLoop):
+            #    print("Measure {}, energy {}.".format(m, (-1 * self.energy_prefactor * energy)[0]))
             #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
             return -1 * self.energy_prefactor * energy
         else:
@@ -354,7 +438,9 @@ class CombinedEnergy:
                           self.uncalibrated_energies):
             e.resample_background_kde(struct)
         pass
-
+    def update_adjustment(self, step, cg):
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            e.update_adjustment(step, cg)
     def accept_last_measure(self):
         for e in it.chain(self.energies, self.uncalibrated_energies):
             e.accept_last_measure()
@@ -411,7 +497,7 @@ class CoarseStemClashEnergy(EnergyFunction):
 
     def __init__(self):
         super(CoarseStemClashEnergy, self).__init__()
-
+    def update_adjustment(self, step, cg): pass
     def eval_energy(self, sm, background=False, nodes=None, new_nodes=None):
         return 0.
         self.last_clashes=[]
@@ -452,7 +538,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
     def __init__(self):
         super(StemVirtualResClashEnergy, self).__init__()
         self.bad_bulges = []
-
+    def update_adjustment(self, step, cg): pass
     def virtual_residue_atom_clashes_kd(self):
         '''
         Check if any of the virtual residue atoms clash.
@@ -653,7 +739,7 @@ class DistanceEnergy(EnergyFunction):
 class RoughJunctionClosureEnergy(EnergyFunction):
     def __init__(self):
         super(RoughJunctionClosureEnergy, self).__init__()
-
+    def update_adjustment(self, step, cg): pass
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         bg = sm.bg
         if nodes == None:
@@ -977,9 +1063,8 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
         self.background=True
         self.dist_type = 'kde'
-        self.adjustment = adjustment # the adjustment is used to enlarge or shrink
-                                     # a particular distribution
-
+        #: the adjustment is used to enlarge or shrink the target distribution
+        self.adjustment = adjustment 
 
     def shortname(self):
         if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
@@ -1087,6 +1172,8 @@ class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
         #traceback.print_stack()
         return self.get_shortest_distances(sm.bg)
 
+class DoNotContribute(Exception):
+  pass
 
 class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
     def __init__(self, loop_name):
@@ -1112,7 +1199,9 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
 
     def get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
-
+        if filename == self.sampled_stats_fn:
+            rogs=np.linspace(5, 200, num=40)
+            data=np.concatenate([data, rogs])
         rogs = data
         return (self.get_distribution_from_values(rogs), list(rogs))
 
@@ -1133,7 +1222,8 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
             dist = ftuv.vec_distance(i1, i2)
             if dist < min_dist:
                 min_dist = dist
-
+        #if min_dist>60:
+          #raise DoNotContribute
         return min_dist
 
     def get_energy_name(self):
@@ -1151,10 +1241,15 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
         if len(list(sm.bg.hloop_iterator())) < 2:
             return 0.
         else:
-            return super(ShortestLoopDistancePerLoop, self).eval_energy(sm,
-                                                                        background,
-                                                                        nodes,
-                                                                        new_nodes)
+            try:
+              energy= super(ShortestLoopDistancePerLoop, self).eval_energy(sm,
+                                                                         background,
+                                                                         nodes,
+                                                                         new_nodes)
+            except DoNotContribute:
+              energy=0
+            # We only consider stems that are close enough to other stems to have an interaction.
+            return min(energy, 0)
 
 
 
@@ -1300,13 +1395,10 @@ class AMinorEnergy(CoarseGrainEnergy):
         #print (hex(id(self)), "Rejecting measures. Now ", self.accepted_measures)
     def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
         cg = sm.bg
-
-
-
         if self.measure_category(cg) not in self.real_kdes.keys():
             (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg), adjust=self.adjustment)
+        if self.measure_category(cg) not in self.sampled_kdes.keys():
             (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, self.measure_category(cg))
-            #print (hex(id(self)), "Loading measures. Now ", self.measures)
             self.accepted_measures = self.measures[:]
         kr = self.real_kdes[self.measure_category(cg)]
         ks = self.sampled_kdes[self.measure_category(cg)]
