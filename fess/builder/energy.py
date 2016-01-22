@@ -189,8 +189,8 @@ class ProjectionMatchEnergy(EnergyFunction):
             a=end-start
             lengthDifferenceExperiment=ftuv.magnitude(a)**2-dist**2
             lengthDifferenceGivenP=(p[0]*a[0]+p[1]*a[1]+p[2]*a[2])**2          
-            #Add the square deviation between (3d length-2d length) observed vs calculated for the given projection angle
-            x+=(lengthDifferenceGivenP-lengthDifferenceExperiment)**2
+            #Add the deviation between (3d length-2d length)**2 observed vs calculated for the given projection angle
+            x+=abs(lengthDifferenceGivenP-lengthDifferenceExperiment)
         return x
 
     def eval_energy(self, sm, background=None, nodes=None, new_nodes=None):
@@ -201,10 +201,6 @@ class ProjectionMatchEnergy(EnergyFunction):
         opt=scipy.optimize.minimize(self.optimizeProjectionDistance, np.array([1,0,0]), constraints=cons, options={"maxiter":10000} )
         print (opt.x, ":", opt.fun)
         x=opt.x
-        if (x[0]**2+x[1]**2+x[2]**2)>1.00000000001:
-            print((x[0]**2+x[1]**2+x[2]**2))
-            print(opt)
-        print ("Distances:")
         for (s,e), dist in self.distances.items():
             #The middle point of the cg element
             start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
@@ -213,9 +209,9 @@ class ProjectionMatchEnergy(EnergyFunction):
             lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
             print (s,e,lengthGivenP)
         if opt.success:
-            return opt.fun
+            return math.sqrt(opt.fun)
         else:
-            return 10000
+            return 10**11
 
 class CoarseGrainEnergy(EnergyFunction):
     def __init__(self, energy_prefactor=10):
