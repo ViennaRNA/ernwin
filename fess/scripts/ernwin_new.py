@@ -106,7 +106,7 @@ def get_parser():
                               "Example: 's1,h3,10:s2,h3,12'")
     return parser
 
-def getSLDenergies(cg):
+def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
     """
     Get the shortest loopdistance per loop energy for each hloop.
 
@@ -115,7 +115,7 @@ def getSLDenergies(cg):
     """
     energies=[]
     for hloop in cg.hloop_iterator():
-        energies+= [fbe.ShortestLoopDistancePerLoop(hloop)]
+        energies+= [fbe.ShortestLoopDistancePerLoop(hloop, prefactor)]
     return energies
 def getAMinorEnergies(pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
     """
@@ -190,9 +190,11 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist):
             energies+=es
         elif "SLD" in contrib:
             pre,_, adj=contrib.partition("SLD")
-            if pre!="" or adj!="":
-                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored for ShortestLoopdistancePerLoop energy!".format(pre, adj))
-            energies+=getSLDenergies(cg)
+            if adj!="":
+                warnings.warn("Adjustment '{}' is ignored for ShortestLoopdistancePerLoop energy!".format(pre, adj))            
+            if pre=="": pre=DEFAULT_ENERGY_PREFACTOR
+            else: pre=int(pre)
+            energies+=getSLDenergies(cg, pre)
         elif "PRO" in contrib:
             pre,_, adj=contrib.partition("PRO")
             if pre!="" or adj!="":

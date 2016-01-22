@@ -150,12 +150,13 @@ class EnergyFunction(object):
 
   
 class ProjectionMatchEnergy(EnergyFunction):
-    def __init__(self, distances={}):
+    def __init__(self, distances={}, prefactor=1):
         """
         :param directions: A dict where the keys are tuples of coarse grain element names (e.g.: ("h1","m1"))
                        and the values are the distance IN THE PROJECTED PLANE (i.e. in the micrograph).
         """
         self.distances=distances
+        self.prefactor=prefactor
         super(ProjectionMatchEnergy, self).__init__()
     def shortname(self):
         return "PRO"
@@ -209,7 +210,7 @@ class ProjectionMatchEnergy(EnergyFunction):
             lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
             print (s,e,lengthGivenP)
         if opt.success:
-            return math.sqrt(opt.fun)
+            return self.prefactor*math.sqrt(opt.fun)
         else:
             return 10**11
 
@@ -1172,10 +1173,10 @@ class DoNotContribute(Exception):
   pass
 
 class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
-    def __init__(self, loop_name):
+    def __init__(self, loop_name, prefactor=10):
         super(ShortestLoopDistancePerLoop, self).__init__()
         self.loop_name = loop_name
-
+        self.energy_prefactor=prefactor
         self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
 
