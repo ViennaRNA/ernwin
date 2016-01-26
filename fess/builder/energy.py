@@ -146,9 +146,6 @@ class EnergyFunction(object):
                 f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
                 f.write("\n")
 
-
-
-  
 class ProjectionMatchEnergy(EnergyFunction):
     def __init__(self, distances={}, prefactor=1):
         """
@@ -203,19 +200,30 @@ class ProjectionMatchEnergy(EnergyFunction):
         self.cg=sm.bg
         # The projection vector has to be normalized
         cons={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
-        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, self.opt_start, constraints=cons, options={"maxiter":10000} )
-        print (opt.x, ":", opt.fun)
-        x=opt.x
-        for (s,e), dist in self.distances.items():
-            #The middle point of the cg element
-            start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
-            end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
-            a=end-start
-            lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
-            print (s,e,lengthGivenP)
-        if opt.success:
+        bestopt=None
+        for direction in [self.opt_start,
+                          np.array([1,0,0]), np.array([0,1,0]), np.array([0,0,1]),
+                          np.array([0.707,0.707,0]), np.array([0.707,0,0.707]), np.array([0,0.707,0.707]),
+                          np.array([0.707,-0.707,0]), np.array([0.707,0,-0.707]), np.array([0,0.707,-0.707]),
+                          np.array([0.577,0.577,0.577]),
+                          np.array([-0.577,0.577,0.577]), np.array([0.577,-0.577,0.577]), np.array([0.577,0.577,-0.577])]:
+            opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=cons, options={"maxiter":1000} )
+            if opt.success:
+                #print("Starting from {}: {} has an energy of {}".format(direction, opt.x, opt.fun))
+                if not bestopt or opt.fun<bestopt.fun:
+                    bestopt=opt           
+        if bestopt:        
+            print (bestopt.x, ":", bestopt.fun)
+            x=bestopt.x
             self.opt_start=opt.x
-            return self.prefactor*math.sqrt(opt.fun)/len(self.distances)
+            for (s,e), dist in self.distances.items():
+                #The middle point of the cg element
+                start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
+                end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
+                a=end-start
+                lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
+                print (s,e,lengthGivenP)
+            return self.prefactor*math.sqrt(opt.fun)/len(self.distances)         
         else:
             return 10**11
 

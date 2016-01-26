@@ -146,7 +146,7 @@ def getDefaultEnergies(cg):
     energies += getAMinorEnergies()
     return energies
 
-def getPROenergy(proj_dist_str):
+def getPROenergy(proj_dist_str, prefactor):
     contributions=proj_dist_str.split(":")
     distances={}
     for contrib in contributions:
@@ -156,7 +156,7 @@ def getPROenergy(proj_dist_str):
         distances[(f[0],f[1])]=float(f[2])
     if not distances:
         raise ValueError("The --projected-dist option is required if the PRO energy is used.".format(contrib))
-    return fbe.ProjectionMatchEnergy(distances)
+    return fbe.ProjectionMatchEnergy(distances, prefactor)
 
 def parseCombinedEnergyString(stri, cg, iterations, proj_dist):
     """
@@ -197,9 +197,13 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist):
             energies+=getSLDenergies(cg, pre)
         elif "PRO" in contrib:
             pre,_, adj=contrib.partition("PRO")
-            if pre!="" or adj!="":
-                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored for ProjectionMatchEnergy energy!".format(pre, adj))
-            energies.append(getPROenergy(proj_dist))
+            if adj!="":
+                warnings.warn("Adjustment '{}' is ignored for ProjectionMatchEnergy energy!".format(pre, adj))
+            if pre:
+                pre=int(pre)
+            else:
+                pre=1
+            energies.append(getPROenergy(proj_dist, pre))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
             sys.exit(1)
@@ -262,7 +266,7 @@ def setup_deterministic(args):
         cg = ftmc.CoarseGrainRNA()
         try:
             with open(rnafile) as fastafile:
-                cg.from_fasta(rnafile)
+                cg.from_fasta(fastafile.read())
         except IOError as e:
             print("ERROR: Could not open file '{}' for reading:".format(rnafile),e, file=sys.stderr)
             sys.exit(1)
@@ -296,7 +300,7 @@ def setup_deterministic(args):
             if track_energy_string=="D":
                 energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
             else:
-                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations))
+                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations, args.projected_dist))
         #Initialize the spatial model
     sm=fbm.SpatialModel(cg)
 
