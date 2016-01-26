@@ -158,6 +158,10 @@ class ProjectionMatchEnergy(EnergyFunction):
         self.distances=distances
         self.prefactor=prefactor
         super(ProjectionMatchEnergy, self).__init__()
+        #: A hint used by scipy.optimize.minimize where to start minimization. This is repeatedly updated by the class.
+        self.opt_start=np.array([1.,0.,0.])
+        #: The optimal projection direction for the last accepted step.
+        self.last_projDir=np.array([1.,1.,1.])
     def shortname(self):
         return "PRO"
     def update_adjustment(*args, **kwargs):pass
@@ -199,7 +203,7 @@ class ProjectionMatchEnergy(EnergyFunction):
         self.cg=sm.bg
         # The projection vector has to be normalized
         cons={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
-        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, np.array([1,0,0]), constraints=cons, options={"maxiter":10000} )
+        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, self.opt_start, constraints=cons, options={"maxiter":10000} )
         print (opt.x, ":", opt.fun)
         x=opt.x
         for (s,e), dist in self.distances.items():
@@ -210,9 +214,33 @@ class ProjectionMatchEnergy(EnergyFunction):
             lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
             print (s,e,lengthGivenP)
         if opt.success:
-            return self.prefactor*math.sqrt(opt.fun)
+            self.opt_start=opt.x
+            return self.prefactor*math.sqrt(opt.fun)/len(self.distances)
         else:
             return 10**11
+
+    def dump_measures(self, base_directory, iteration=None):
+        '''
+        Save an optimal projection for the current step.
+        '''        
+        if iteration is not None:
+            import matplotlib.pyplot as plt
+            output_file = op.join(base_directory, "projection"+ ".%d" % (iteration)+".png")
+            projection=ftmp.Projection2D(self.cg, self.last_projDir)
+            elems=set( x for p in self.distances.keys() for x in p )
+            fig, ax=plt.subplots()
+            projection.plot(ax, margin=15, linewidth=8, add_labels=elems, show_distances=self.distances.keys(), print_distances=True)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            ax.text(0.01,0.01,"Projection direction: ({},{},{})".format(round(self.last_projDir[0],3), 
+                                                                        round(self.last_projDir[1],3), 
+                                                                        round(self.last_projDir[2],3)),
+                              transform=current_axes.transAxes)
+            plt.savefig(output_file,format="pgf")
+
+    def accept_last_measure(self):
+        self.last_projDir=self.opt_start
+
 
 class CoarseGrainEnergy(EnergyFunction):
     def __init__(self, energy_prefactor=10):

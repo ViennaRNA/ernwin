@@ -465,8 +465,13 @@ class MCMCSampler:
         self.resampled_energy = True
 
         print("INFO: Trying to load sampled elements.", file=sys.stderr)
-        sm.load_sampled_elems()
-        resampled=False
+        try:
+            sm.load_sampled_elems()
+        except:
+            start_from_scratch=True
+        else:
+            resampled=False
+
         if start_from_scratch or not sm.elem_defs:  
             print("INFO: Starting with sampling of all stats.", file=sys.stderr)
             sm.sample_stats()
@@ -565,7 +570,7 @@ class MCMCSampler:
 
         if self.dump_measures:
             if self.step_counter % 20 == 0:
-                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, self.step_counter)
 
         tracked_energies=[]
         for e in self.energies_to_track:
