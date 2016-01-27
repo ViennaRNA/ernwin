@@ -47,30 +47,30 @@ class TestProjectionMatchEnergy(unittest.TestCase):
         self.assertLessEqual(e, ENERGY_TOLERANCE)
         targetdir=np.array([0.362,0.023, -0.826])
         targetdir=targetdir/ftuv.magnitude(targetdir)
-        if self.energy1a.opt_start[2]>0:
+        if self.energy1a.projDir[2]>0:
             targetdir=-1*targetdir
-        nptest.assert_allclose(self.energy1a.opt_start, targetdir,atol=VECTOR_A_TOLERANCE)
+        nptest.assert_allclose(self.energy1a.projDir, targetdir,atol=VECTOR_A_TOLERANCE)
         e=self.energy1b.eval_energy(self.sm1)
         self.assertLessEqual(e, ENERGY_TOLERANCE)
         targetdir= np.array([-0.193,-0.319,0.074])
         targetdir=targetdir/ftuv.magnitude(targetdir)
-        if self.energy1b.opt_start[1]>0:
+        if self.energy1b.projDir[1]>0:
             targetdir=-1*targetdir
-        nptest.assert_allclose(self.energy1b.opt_start, targetdir, atol=VECTOR_A_TOLERANCE)
+        nptest.assert_allclose(self.energy1b.projDir, targetdir, atol=VECTOR_A_TOLERANCE)
         e=self.energy2a.eval_energy(self.sm2)
         self.assertLessEqual(e, ENERGY_TOLERANCE)
         targetdir=np.array([-0.223,0.048,-0.579])
         targetdir=targetdir/ftuv.magnitude(targetdir)
-        if self.energy2a.opt_start[2]>0:
+        if self.energy2a.projDir[2]>0:
             targetdir=-1*targetdir
-        nptest.assert_allclose(self.energy2a.opt_start, targetdir,atol=VECTOR_A_TOLERANCE)
+        nptest.assert_allclose(self.energy2a.projDir, targetdir,atol=VECTOR_A_TOLERANCE)
         e=self.energy2b.eval_energy(self.sm2)
         self.assertLessEqual(e, ENERGY_TOLERANCE)
         targetdir=np.array([-0.464,-0.345,-0.192])
         targetdir=targetdir/ftuv.magnitude(targetdir)
-        if self.energy2b.opt_start[2]>0:
+        if self.energy2b.projDir[2]>0:
             targetdir=-1*targetdir
-        nptest.assert_allclose(self.energy2b.opt_start, targetdir, atol=VECTOR_A_TOLERANCE)
+        nptest.assert_allclose(self.energy2b.projDir, targetdir, atol=VECTOR_A_TOLERANCE)
 
     def test_ProjectionMatchEnergy_eval_energy_wrong_projection(self):  
         WRONG_ENERGY=1.5

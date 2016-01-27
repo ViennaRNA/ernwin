@@ -379,10 +379,14 @@ class SamplingStatistics:
             if not self.silent:
                 self.save_top(self.save_n_best, counter=self.counter)
 
-        if self.step_save > 0:
-            if self.counter % self.step_save == 0:
-                sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
-            
+        if self.step_save > 0 and self.counter % self.step_save == 0:
+            #If a projection match energy was used, save the optimal projection direction to the file.
+            if type(self.energy_function) is fbe.CombinedEnergy:
+                for e in self.energy_function.energies:
+                    if type(e) is fbe.ProjectionMatchEnergy:
+                        sm.bg.project_from=e.accepted_projDir
+            sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
+
 
     def save_top(self, n = 100000, counter=100, step_save=0):
         '''
