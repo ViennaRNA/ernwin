@@ -226,6 +226,7 @@ class SamplingStatistics:
 
         @param energy_function: The energy_function used to evaluate the structure.
         @param sm: The spatial model that was sampled.
+        @param prev_energy: The evaluated (accepted) energy of the current step 
         '''
         self.counter += 1
 
@@ -252,7 +253,7 @@ class SamplingStatistics:
 
         if self.centers_orig is not None:
             r = 0.
-            if not self.no_rmsd: #Takes up to 30% of the total runtime.
+            if not self.no_rmsd:
                 centers_new = ftug.bg_virtual_residues(sm.bg)
                 r = cbr.centered_rmsd(self.centers_orig, centers_new)
                 #r = cbr.drmsd(self.centers_orig, centers_new)
@@ -319,13 +320,14 @@ class SamplingStatistics:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
             _, rog=fbe.length_and_rog(sm.bg)
+            #output_str = u"native_energy [{:s} {:d}]: {:3d} {:5.03g} {:5.3f} ROG: {:5.3f} | min:
             output_str = u"native_energy [%s %d]: %3d %5.03g  %5.3f ROG: %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , rog, lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
 
             # assume that the energy function is a combined energy
-            if type(self.energy_function) is fbe.CombinedEnergy:
-                for e in self.energy_function.energies:
-                    if type(e) is fbe.DistanceExponentialEnergy:
+            if isinstance(self.energy_function, fbe.CombinedEnergy):
+                for e in self.energy_function.iterate_energies():
+                    if isinstance(e,fbe.DistanceExponentialEnergy):
                         output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
                                                                       e.to_elem,
                                                                       e.get_distance(sm))
@@ -336,7 +338,6 @@ class SamplingStatistics:
                     if len(sn)>12:
                         sn=sn[:9]+"..."
                     output_str += "  [{}]: ".format(sn)
-                    #print("UPDATE STATISTICS:... Evaluating Energy for ", sn)
                     output_str += "%5.03g" % (tracked_energies[i])
             elif tracking_energies:
                 output_str += " | [tracked Energies]"
@@ -345,7 +346,6 @@ class SamplingStatistics:
                     if len(sn)>12:
                         sn=sn[:9]+"..."
                     output_str += "  [{}]: ".format(sn)
-                    #print("UPDATE STATISTICS:... Evaluating Energy for ", sn)
                     output_str += "%5.03g" % (e.eval_energy(sm))
 
             if dist:
@@ -381,9 +381,9 @@ class SamplingStatistics:
 
         if self.step_save > 0 and self.counter % self.step_save == 0:
             #If a projection match energy was used, save the optimal projection direction to the file.
-            if type(self.energy_function) is fbe.CombinedEnergy:
-                for e in self.energy_function.energies:
-                    if type(e) is fbe.ProjectionMatchEnergy:
+            if isinstance(self.energy_function, fbe.CombinedEnergy):
+                for e in self.energy_function.iterate_energies():
+                    if isinstance(e, fbe.ProjectionMatchEnergy):
                         sm.bg.project_from=e.accepted_projDir
             sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
 

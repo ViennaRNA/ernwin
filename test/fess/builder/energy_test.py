@@ -41,8 +41,8 @@ class TestProjectionMatchEnergy(unittest.TestCase):
         self.energyA4=fbe.ProjectionMatchEnergy({("h0", "m0"): 39.78})
         return
     def test_ProjectionMatchEnergy_eval_energy_correct_projection(self):
-        ENERGY_TOLERANCE=0.6
-        VECTOR_A_TOLERANCE=0.25
+        ENERGY_TOLERANCE=0.2
+        VECTOR_A_TOLERANCE=0.05
         e=self.energy1a.eval_energy(self.sm1)
         self.assertLessEqual(e, ENERGY_TOLERANCE)
         targetdir=np.array([0.362,0.023, -0.826])
@@ -73,7 +73,7 @@ class TestProjectionMatchEnergy(unittest.TestCase):
         nptest.assert_allclose(self.energy2b.projDir, targetdir, atol=VECTOR_A_TOLERANCE)
 
     def test_ProjectionMatchEnergy_eval_energy_wrong_projection(self):  
-        WRONG_ENERGY=1.5
+        WRONG_ENERGY=1.8
         e=self.energy1a.eval_energy(self.sm2)
         self.assertGreater(e,WRONG_ENERGY)
         e=self.energy1b.eval_energy(self.sm2)
@@ -90,13 +90,13 @@ class TestProjectionMatchEnergy(unittest.TestCase):
         More constraints mean that some constraints are likely to be not fulfilled, which can lead to an increase of energy.
         However, if they are equally fulfilled, the energy should stay approximately the same.
         """
-        ENERGY_CHANGE=2
+        ENERGY_CHANGE=1.2
         #Correct 3D structure
         e1=self.energyA1.eval_energy(self.sm2)
         e2=self.energyA2.eval_energy(self.sm2)
         e3=self.energyA3.eval_energy(self.sm2)
         e4=self.energyA4.eval_energy(self.sm2)
-        print("ENERGIES", e1,e2,e3,e4)
+        #print("ENERGIES", e1,e2,e3,e4)
         self.assertLess(abs(e2-e1)/e1,ENERGY_CHANGE)
         self.assertLess(abs(e3-e1)/e1,ENERGY_CHANGE)
         self.assertLess(abs(e3-e2)/e2,ENERGY_CHANGE)
@@ -108,7 +108,7 @@ class TestProjectionMatchEnergy(unittest.TestCase):
         e2=self.energyA2.eval_energy(self.sm1)
         e3=self.energyA3.eval_energy(self.sm1)
         e4=self.energyA4.eval_energy(self.sm1)
-        print("ENERGIES", e1,e2,e3,e4)
+        #print("ENERGIES", e1,e2,e3,e4)
         self.assertLess(abs(e3-e2)/e2,ENERGY_CHANGE)
         self.assertLess(abs(e2-e1)/e1,ENERGY_CHANGE)
         self.assertLess(abs(e3-e1)/e1,ENERGY_CHANGE)

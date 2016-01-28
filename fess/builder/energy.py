@@ -184,9 +184,11 @@ class ProjectionMatchEnergy(EnergyFunction):
         x=0
         #Sum over all given distances
         for (s,e), dist in self.distances.items():
+            sc=self.cg.coords[s]
+            ec=self.cg.coords[e]
             #The middle point of the cg element
-            start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
-            end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
+            start=(sc[0]+sc[1])/2
+            end=(ec[0]+ec[1])/2
             a=end-start
             lengthDifferenceExperiment=ftuv.magnitude(a)**2-dist**2
             lengthDifferenceGivenP=(p[0]*a[0]+p[1]*a[1]+p[2]*a[2])**2          
@@ -202,23 +204,23 @@ class ProjectionMatchEnergy(EnergyFunction):
         bestopt=None
         for direction in [ np.array([0.577,0.577,0.577]), np.array([-0.577,0.577,0.577]), 
                            np.array([0.577,-0.577,0.577]), np.array([0.577,0.577,-0.577])]:
-            opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=cons, options={"maxiter":1000} )
+            opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=cons, options={"maxiter":500} )
             if opt.success:
                 #print("Starting from {}: {} has an energy of {}".format(direction, opt.x, opt.fun))
                 if not bestopt or opt.fun<bestopt.fun:
                     bestopt=opt           
         if bestopt:        
-            print (bestopt.x, ":", bestopt.fun)
+            #print (bestopt.x, ":", bestopt.fun)
             x=bestopt.x
-            self.projDir=opt.x
-            for (s,e), dist in self.distances.items():
-                #The middle point of the cg element
-                start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
-                end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
-                a=end-start
-                lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
-                print (s,e,lengthGivenP)
-            return self.prefactor*math.sqrt(opt.fun)/len(self.distances)         
+            self.projDir=bestopt.x
+            #for (s,e), dist in self.distances.items():
+            #    #The middle point of the cg element
+            #    start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
+            #    end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
+            #    a=end-start
+            #    lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
+            #    print (s,e,lengthGivenP)
+            return self.prefactor*math.sqrt(bestopt.fun)/len(self.distances)         
         else:
             return 10**11
     """
@@ -445,6 +447,18 @@ class CombinedEnergy:
         else:
             self.uncalibrated_energies=[]
         self.bad_bulges = []
+
+    def iterate_energies(self):
+        """
+        Iterate over all member enegies (calibrated and uncalibrated) 
+        in a way that flattens nested CombinedEnergies.
+        """
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            if isinstance(e, CombinedEnergy):
+                for e2 in e.iterate_energies():
+                    yield e2
+            else:
+                yield e
     def shortname(self):
         name=[]
         for e in it.chain(self.energies, self.uncalibrated_energies):
