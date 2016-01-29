@@ -158,6 +158,24 @@ class ProjectionMatchEnergy(EnergyFunction):
         #: The optimal projection direction for the last accepted step.
         self.accepted_projDir=np.array([1.,1.,1.])
         self.projDir=np.array([1.,1.,1.])
+        self.start_points=self.get_start_points(50)
+    def get_start_points(self, numPoints):
+        """Implements the 2nd algorithm from https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf"""
+        numPoints=2*numPoints
+        a=4*math.pi/numPoints
+        d=math.sqrt(a)
+        Mt=int(math.pi/d)
+        dt=math.pi/Mt
+        df=a/dt
+        points=[]
+        for m in range(Mt):
+            theta=math.pi*(m+0.5)/Mt
+            Mf=int(2*math.pi*math.sin(theta)/df)
+            for n in range(Mf):
+                phi=2*math.pi*n/Mf
+                points.append((math.sin(theta)*math.cos(theta), math.sin(theta)*math.sin(phi), math.cos(theta)))
+        return [np.array(p) for p in points if p[0]>=0]  
+
     def shortname(self):
         return "PRO"
     def update_adjustment(*args, **kwargs):pass
@@ -197,12 +215,42 @@ class ProjectionMatchEnergy(EnergyFunction):
         return x
 
     def eval_energy(self, sm, background=None, nodes=None, new_nodes=None):
+        self.cg=sm.bg
+        # The projection vector has to be normalized
+        c1={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
+        best_start=np.array([0.,0.,0.])
+        best_score=float('inf')
+        for direction in self.start_points:
+            score=self.optimizeProjectionDistance(direction)
+            if score<best_score:
+                best_start=direction
+                best_score=score
+        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=c1, options={"maxiter":200} )
+        if opt.success:
+            self.projDir=opt.x
+            return self.prefactor*math.sqrt(opt.fun)/len(self.distances)         
+        else:
+            return 10**11
+
+    def eval_energy_old(self, sm, background=None, nodes=None, new_nodes=None):
+        #Too inefficient.
         #: This is used for the optimization
         self.cg=sm.bg
         # The projection vector has to be normalized
-        cons={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
+        c1={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
+        # The function is symmetric: f(x)=f(-x).
+        # By forcing the first coordinate to be positive, our results have a
+        # well-defined from which side we look at the projection. This has the disadvantage 
+        # that gradient walks (depending on the solver used for minimization) may lead 
+        # us to the boundaries instead of a local minimum.
+        c2={'type':'ineq', 'fun':lambda x: x[0]}
+        cons=[c1,c2]
+            
         bestopt=None
-        for direction in [ np.array([0.577,0.577,0.577]), np.array([-0.577,0.577,0.577]), 
+        # We sample starting from 4 directions, each of which on the corners of a cube inside the unit sphere.
+        # As the function is symmetric, we do not need all 8 corners.
+        # Different starting points increase the chance to find a global not only a local minimum.
+        for direction in [ np.array([0.577,0.577,0.577]), np.array([0.577,-0.577,-0.577]), 
                            np.array([0.577,-0.577,0.577]), np.array([0.577,0.577,-0.577])]:
             opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=cons, options={"maxiter":500} )
             if opt.success:
@@ -223,27 +271,7 @@ class ProjectionMatchEnergy(EnergyFunction):
             return self.prefactor*math.sqrt(bestopt.fun)/len(self.distances)         
         else:
             return 10**11
-    """
-    def dump_measures(self, base_directory, iteration=None):
-        '''
-        Save an optimal projection for the current step.
-        ''' 
-             
-        if iteration is not None:
-            import matplotlib.pyplot as plt
-            output_file = op.join(base_directory, "projection"+ ".%d" % (iteration)+".png")
-            projection=ftmp.Projection2D(self.cg, self.last_projDir)
-            elems=set( x for p in self.distances.keys() for x in p )
-            fig, ax=plt.subplots()
-            projection.plot(ax, margin=15, linewidth=8, add_labels=elems, show_distances=self.distances.keys(), print_distances=True)
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-            ax.text(0.01,0.01,"Projection direction: ({},{},{})".format(round(self.last_projDir[0],3), 
-                                                                        round(self.last_projDir[1],3), 
-                                                                        round(self.last_projDir[2],3)),
-                              transform=current_axes.transAxes)
-            plt.savefig(output_file,format="pgf")
-    """
+
     def accept_last_measure(self):
         self.accepted_projDir=self.projDir
     
