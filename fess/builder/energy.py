@@ -160,7 +160,11 @@ class ProjectionMatchEnergy(EnergyFunction):
         self.projDir=np.array([1.,1.,1.])
         self.start_points=self.get_start_points(50)
     def get_start_points(self, numPoints):
-        """Implements the 2nd algorithm from https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf"""
+        """
+        Return numPoints equally-distributed points on half the unit sphere.
+
+        Implements the 2nd algorithm from https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf
+        """
         numPoints=2*numPoints
         a=4*math.pi/numPoints
         d=math.sqrt(a)
@@ -215,6 +219,17 @@ class ProjectionMatchEnergy(EnergyFunction):
         return x
 
     def eval_energy(self, sm, background=None, nodes=None, new_nodes=None):
+        """
+        Returns a measure that is zero for a perfect fit with the target projection distances and increases as the fit gets worse. 
+
+        This function tries to minimize its value over all projection directions.
+        A global optimization is attempted and we are only interested in projection directions 
+        from the origin to points on half the unit sphere. Thus we first sample the energy for 
+        multiple, equally distributed directions. From the best one we operform a local optimization.
+
+        For our specific purpose, where our starting points can give a good overview over the landscape,
+        this is better and faster than more suffisticated global optimization techniques.
+        """
         self.cg=sm.bg
         # The projection vector has to be normalized
         c1={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
