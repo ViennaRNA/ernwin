@@ -694,6 +694,7 @@ class SpatialModel:
         i = 0
         while i < len(build_order):
             (s1, l, s2) = build_order[i]
+            print("Building", l)
             prev_stem = self.stems[s1]
             angle_params = self.elem_defs[l]
             stem_params = self.elem_defs[s2]
@@ -726,9 +727,8 @@ class SpatialModel:
 
             if self.junction_constraint_energy is not None and fast:
                 #Make sure, the sampled Multiloop segments fulfill the energy constraints.
-                assert self.junction_constraint_energy.eval_energy(self, nodes=nodes,
-                            new_nodes=nodes)==0., ("Multiloop does not fulfill the "
-                            " constraints: {}, i={},. buld_order[i]={};"
+                assert self.junction_constraint_energy.eval_energy(self, nodes=nodes)==0., ("Multiloop"
+                            " does not fulfill the constraints: {}, i={},. buld_order[i]={};"
                             " Sampled as {}".format(self.junction_constraint_energy.bad_bulges,
                             i, build_order[i], self.elem_defs[build_order[i][1]]) )
 
@@ -742,13 +742,11 @@ class SpatialModel:
                     if loop and loop<=(nodes|set([n])): #loop is empty for ml at 3'/ 5' end.
                         newnodes.add(n)
 
-                ej = self.junction_constraint_energy.eval_energy(self,
-                                                      nodes=(newnodes | nodes),
-                                                      new_nodes=(newnodes | nodes))             
+                ej = self.junction_constraint_energy.eval_energy( self, nodes=(newnodes | nodes) )             
                 if ej>0.:
                     bad_loops=self.junction_constraint_energy.bad_bulges
                     if verbose:
-                        warnings.warn("During traverse_and_build: Junction energy >0: {}, bad loops: {}".format(ej, bad_loops))                
+                        warnings.warn("The 3D structure has to be resampled (it contained unsuitable multiloops)!")                
                     random.shuffle(bad_loops)
                     for bulgeid in bad_loops:
                         try: newi=buildorder_of(bulgeid)
@@ -768,15 +766,16 @@ class SpatialModel:
                     continue; #If the junction energy is non-zero, we do not bother with clashes 
 
             if self.constraint_energy is not None:
-                e1 = self.constraint_energy.eval_energy(self, nodes=nodes,
-                                                        new_nodes=nodes)
+                e1 = self.constraint_energy.eval_energy(self, nodes=nodes)
                 if e1 > 0.:
                     if fast:
                         # find out what stems clash
                         bad_stems=set(self.constraint_energy.bad_bulges)
+                        all_e=self.constraint_energy.eval_energy(self)
+                        print("ALLE", all_e)
                         if verbose:
-                            warnings.warn("During traverse_and_build: Constraint energy >0: {}, bad stems: {}".format(e1, bad_stems))
-                            warnings.warn("build_order: {}".format(build_order))
+                            warnings.warn("The 3D structure has to be resampled (it contained clashes)!")                
+
                         #print ("CLASH:", bad_stems)
                         clash_buildorders=set()
                         for stemid in bad_stems:
@@ -798,7 +797,7 @@ class SpatialModel:
             i+=1
             counter += 1
             if self.constraint_energy is not None:
-                assert self.constraint_energy.eval_energy(self, nodes=nodes, new_nodes=nodes) == 0, "i={}".format(i)
+                assert self.constraint_energy.eval_energy(self, nodes=nodes) == 0, "i={}".format(i)
         if self.junction_constraint_energy is not None and fast: #Checking for logical bugs.
             assert self.junction_constraint_energy.eval_energy(self)==0., ("bad_bulges={}".format(
                                                       self.junction_constraint_energy.bad_bulges))

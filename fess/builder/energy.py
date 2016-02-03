@@ -87,7 +87,7 @@ class EnergyFunction(object):
 
             self.accepted_measures += [self.accepted_measures[-1]]
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         '''
         The base energy function simply returns a random number.
         '''
@@ -158,7 +158,7 @@ class ProjectionMatchEnergy(EnergyFunction):
         #: The optimal projection direction for the last accepted step.
         self.accepted_projDir=np.array([1.,1.,1.])
         self.projDir=np.array([1.,1.,1.])
-        self.start_points=self.get_start_points(50)
+        self.start_points=self.get_start_points(60)
     def get_start_points(self, numPoints):
         """
         Return numPoints equally-distributed points on half the unit sphere.
@@ -218,7 +218,7 @@ class ProjectionMatchEnergy(EnergyFunction):
             x+=abs(lengthDifferenceGivenP-lengthDifferenceExperiment)
         return x
 
-    def eval_energy(self, sm, background=None, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=None, nodes=None):
         """
         Returns a measure that is zero for a perfect fit with the target projection distances and increases as the fit gets worse. 
 
@@ -247,7 +247,7 @@ class ProjectionMatchEnergy(EnergyFunction):
         else:
             return 10**11
 
-    def eval_energy_old(self, sm, background=None, nodes=None, new_nodes=None):
+    def eval_energy_old(self, sm, background=None, nodes=None):
         #Too inefficient.
         #: This is used for the optimization
         self.cg=sm.bg
@@ -379,7 +379,7 @@ class CoarseGrainEnergy(EnergyFunction):
         '''
         return cg.seq_length
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         '''
         A generic function which simply evaluates the energy based on the
         previously calculated probability distributions.
@@ -425,7 +425,7 @@ class ConstantEnergy(EnergyFunction):
         super(ConstantEnergy, self).__init__()
 
     
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         return 0.
 
 class RandomEnergy(EnergyFunction):
@@ -436,7 +436,7 @@ class RandomEnergy(EnergyFunction):
         super(RandomEnergy, self).__init__()
 
     
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         return rand.uniform(-5, 3)
 
 
@@ -541,13 +541,13 @@ class CombinedEnergy:
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
-                    nodes=None, new_nodes=None):
+                    nodes=None):
         total_energy = 0.
         self.bad_bulges = []
 
         for energy in self.uncalibrated_energies:
             contrib = energy.eval_energy(sm, background,
-                                               nodes, new_nodes)            
+                                               nodes)            
             #try: print("uncalibrated ",energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print("uncalibrated ",energy, " contributes ",contrib ,"to the combined energy")
             total_energy += contrib
@@ -556,7 +556,7 @@ class CombinedEnergy:
                 print energy.__class__.__name__, contrib
 
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background=background, nodes=nodes, new_nodes=new_nodes)            
+            contrib = energy.eval_energy(sm, background=background, nodes=nodes)            
             #try: print(energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print(energy, " contributes ",contrib ,"to the combined energy")
             self.bad_bulges += energy.bad_bulges
@@ -584,7 +584,7 @@ class CoarseStemClashEnergy(EnergyFunction):
     def __init__(self):
         super(CoarseStemClashEnergy, self).__init__()
     def update_adjustment(self, step, cg): pass
-    def eval_energy(self, sm, background=False, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=False, nodes=None):
         return 0.
         self.last_clashes=[]
         bg = sm.bg
@@ -696,7 +696,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         return clashes
 
-    def eval_energy(self, sm, background=False, nodes = None, new_nodes = None):
+    def eval_energy(self, sm, background=False, nodes = None):
         '''
         Count how many clashes of virtual residues there are.
 
@@ -733,53 +733,28 @@ class StemVirtualResClashEnergy(EnergyFunction):
                     points += [(p+ mult * v_l, d, i, 1)]
                     points += [(p+ mult * v_r, d, i, 0)]
 
-        if new_nodes == None:
-            coords = np.vstack([point[0] for point in points])
-            clash_pairs = []
+        coords = np.vstack([point[0] for point in points])
+        clash_pairs = []
+        #kk = ss.KDTree(np.array(l))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            kdt = kd.KDTree(3)
+            kdt.set_coords(coords)
+            kdt.all_search(10.)
+        #print len(kdt.all_get_indices())
+        #print len(kk.query_pairs(7.))
+        indeces = kdt.all_get_indices()
+        for (ia,ib) in indeces:
+            (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
+            (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
+            clash_pairs += [((s1,i1,a2), (s2,i2,a2))]
+            #print("NO NEW NODES: ", sorted(clash_pairs))
 
-            #kk = ss.KDTree(np.array(l))
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                kdt = kd.KDTree(3)
-                kdt.set_coords(coords)
-                kdt.all_search(10.)
-            #print len(kdt.all_get_indices())
-            #print len(kk.query_pairs(7.))
-
-            indeces = kdt.all_get_indices()
-            for (ia,ib) in indeces:
-                (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
-                (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
-                clash_pairs += [((s1,i1,a2), (s2,i2,a2))]
-        else:
-            new_points = []
-            indeces = []
-            clash_pairs = []
-            for d in new_nodes:
-                if d[0] == 's':
-                    s = d
-                    s_len = bg.stem_length(s)
-                    #stem_inv = bg.stem_invs[s]
-
-                    for i in range(s_len):
-                        (p, v, v_l, v_r) = bg.v3dposs[d][i]
-
-                        new_points += [(p+ mult * v_l, d, i, 1)]
-                        new_points += [(p+ mult * v_r, d, i, 0)]
-
-            for i,p in enumerate(points):
-                for ni, newp in enumerate(new_points):
-                    if p[1] == newp[1]:
-                        continue
-                    if ftuv.vec_distance(p[0],newp[0]) < 10.:
-                        clash_pairs += [(p[1:], newp[1:])]
-
-        potential_clashes = 0
+        #potential_clashes = 0
         for (s1, i1, a1), (s2,i2,a2) in clash_pairs:
-
-            if new_nodes != None:
-                if s1 not in new_nodes and s2 not in new_nodes:
-                    continue
+            #if new_nodes != None:
+            #    if s1 not in new_nodes and s2 not in new_nodes:
+            #        continue
 
             if s1 == s2:
                 continue
@@ -788,7 +763,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 # the stems are connected
                 continue
 
-            potential_clashes += 1
+            #potential_clashes += 1
             #fud.pv('s1,s2')
 
             if (s1,i1,a1) not in self.vras.keys():
@@ -826,7 +801,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     def __init__(self):
         super(RoughJunctionClosureEnergy, self).__init__()
     def update_adjustment(self, step, cg): pass
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         bg = sm.bg
         if nodes == None:
             nodes = bg.defines.keys()
@@ -893,7 +868,7 @@ class DistanceExponentialEnergy(EnergyFunction):
         closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
         return closest_distance
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         closest_distance = self.get_distance(sm)
 
         if closest_distance < self.distance:
@@ -1091,7 +1066,7 @@ class CheatingEnergy(EnergyFunction):
         self.real_bg = copy.deepcopy(real_bg)
         self.real_residues = cgg.bg_virtual_residues(self.real_bg)
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
 	'''
 	@param sm: A SpatialModel, which contains a coarse grain model (sm.bg)
 	'''
@@ -1127,7 +1102,7 @@ class SimpleRadiusOfGyrationEnergy(EnergyFunction):
     def __init__(self):
         super(SimpleRadiusOfGyrationEnergy, self).__init__()
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         cg = sm.bg
         (length, rog) = length_and_rog(cg)
 
@@ -1319,7 +1294,7 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
 
         return self.__class__.__name__.lower() + "_" + self.loop_name + ".measures"
 
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         '''
         We want to return an energy of 0. if there's less than two hairpin
         loops.
@@ -1330,8 +1305,7 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
             try:
               energy= super(ShortestLoopDistancePerLoop, self).eval_energy(sm,
                                                                          background,
-                                                                         nodes,
-                                                                         new_nodes)
+                                                                         nodes)
             except DoNotContribute:
               energy=0
             # We only consider stems that are close enough to other stems to have an interaction.
@@ -1479,7 +1453,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         if len(self.accepted_measures) > 0:
             self.accepted_measures += self.accepted_measures[-self.num_loops:]
         #print (hex(id(self)), "Rejecting measures. Now ", self.accepted_measures)
-    def eval_energy(self, sm, background=True, nodes=None, new_nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None):
         cg = sm.bg
         if self.measure_category(cg) not in self.real_kdes.keys():
             (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg), adjust=self.adjustment)

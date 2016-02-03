@@ -14,6 +14,44 @@ import fess.builder.energy as fbe
 import fess.builder.models as fbm
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.vector as ftuv
+
+class TestClashEnergy(unittest.TestCase):
+    def setUp(self):
+        cg=ftmc.CoarseGrainRNA('test/fess/data/someSTMV.coord')
+        cg_clash=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-clash.coord')
+        self.sm = fbm.SpatialModel(cg)
+        self.sm.load_sampled_elems()
+        self.sm_clash= fbm.SpatialModel(cg_clash)
+        self.sm_clash.load_sampled_elems()
+        self.energy=fbe.StemVirtualResClashEnergy()
+    def test_stem_virtual_res_clash_energy(self):
+        self.assertEqual(self.energy.eval_energy(self.sm), 0.)
+        nodes=['i0', 'i1', 'i10', 'i11', 'i12', 'i13', 'i14', 'i15', 'i16', 'i17', 'i18', 'i19', 
+               'i2', 'i20', 'i21', 'i22', 'i23', 'i24', 'i25', 'i26', 'i27', 'i28', 'i29', 'i3', 
+               'i30', 'i31', 'i32', 'i33', 'i34', 'i35', 'i36', 'i37', 'i39', 'i4', 'i40', 'i41',
+               'i42', 'i5', 'i6', 'i7', 'i8', 'i9', 'm0', 'm1', 'm10', 'm11', 'm13', 'm14', 'm15',
+               'm17', 'm18', 'm19', 'm20', 'm22', 'm23', 'm24', 'm25', 'm26', 'm27', 'm28', 'm29',
+               'm3', 'm32', 'm33', 'm34', 'm4', 'm5', 'm6', 'm7', 'm8', 's0', 's1', 's10', 's11',
+               's12', 's13', 's14', 's15', 's16', 's17', 's18', 's19', 's2', 's20', 's21', 's22',
+               's23', 's24', 's25', 's26', 's27', 's28', 's29', 's3', 's30', 's31', 's32', 's33',
+               's34', 's35', 's36', 's37', 's38', 's39', 's4', 's40', 's41', 's42', 's43', 's44',
+               's45', 's46', 's47', 's48', 's49', 's5', 's50', 's51', 's52', 's53', 's54', 's55',
+               's56', 's57', 's58', 's59', 's6', 's60', 's61', 's62', 's64', 's67', 's68', 's69', 
+               's7', 's70', 's71', 's72', 's73', 's8', 's9']
+        self.assertEqual(self.energy.eval_energy(self.sm, nodes=nodes), 0.)
+        nodes=['s12', 's13', 's14', 's15', 's16', 's17', 's18', 's19', 's2', 's20', 's21']
+        self.assertEqual(self.energy.eval_energy(self.sm, nodes=nodes), 0.)
+        #Raises, if not at least one stem in Nodes.
+        with self.assertRaises(ValueError):
+            self.assertEqual(self.energy.eval_energy(self.sm, nodes=["i5"]), 0.)
+        with self.assertRaises(ValueError):
+            self.assertEqual(self.energy.eval_energy(self.sm, nodes=[]), 0.)
+        #Raises, if stem not in Graph
+        with self.assertRaises(KeyError):
+            self.assertEqual(self.energy.eval_energy(self.sm, nodes=["s220"]), 0.)
+        #Structure with a clash
+        self.assertGreater(self.energy.eval_energy(self.sm_clash), 100.)
+        
 class TestProjectionMatchEnergySetup(unittest.TestCase):
     def test_ProjectionMatchEnergy_init(self):
         try:
