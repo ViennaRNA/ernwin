@@ -694,7 +694,6 @@ class SpatialModel:
         i = 0
         while i < len(build_order):
             (s1, l, s2) = build_order[i]
-            print("Building", l)
             prev_stem = self.stems[s1]
             angle_params = self.elem_defs[l]
             stem_params = self.elem_defs[s2]
