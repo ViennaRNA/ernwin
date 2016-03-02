@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from __future__ import print_function
 
 import collections as c
 import sys, random, copy
@@ -124,7 +125,7 @@ class StatisticsPlotter:
 
                         #self.create_contour_plot(np.array(r), np.array(e), self.ax_plot, xlim, ylim, color)
                     except Exception as ex:
-                        print "exception:", ex, "color:", color
+                        print ("exception:", ex, "color:", color)
 
                         continue
                     
@@ -198,7 +199,9 @@ class SamplingStatistics:
         self.sm_orig = sm_orig
         self.energy_orig = None
         self.step_save = 0
-        self.save_iterative_cg_measures=save_iterative_cg_measures
+        self.save_iterative_cg_measures = save_iterative_cg_measures
+
+
 
         self.dists = dists
 
@@ -208,21 +211,24 @@ class SamplingStatistics:
         self.creation_time = time.time()
 
         try:
-            self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)
+            self.centers_orig = ftug.bg_virtual_residues(sm_orig.bg)        
+            self.confusion_matrix_calculator = ftme.ConfusionMatrix(sm_orig.bg)
         except KeyError:
             # if there are no coordinates provided in the original
             # bulge graph file, then don't calculate rmsds
             self.centers_orig = None
+            self.confusion_matrix_calculator = None
 
-    def update_statistics(self, energy_function, sm, prev_energy, tracking_energies = []):
+
+    def update_statistics(self, energy_function, sm, prev_energy, tracking_energies = None, tracked_energies=None):
         '''
         Add a newly sampled structure to the set of statistics.
 
         @param energy_function: The energy_function used to evaluate the structure.
         @param sm: The spatial model that was sampled.
+        @param prev_energy: The evaluated (accepted) energy of the current step 
         '''
         self.counter += 1
-        #sm.traverse_and_build()
 
         if self.energy_orig is None:
             self.energy_orig = 0.
@@ -246,20 +252,15 @@ class SamplingStatistics:
         mcc = None
 
         if self.centers_orig is not None:
-            # no original coordinates provided so we can't calculate rmsds
             r = 0.
             if not self.no_rmsd:
                 centers_new = ftug.bg_virtual_residues(sm.bg)
                 r = cbr.centered_rmsd(self.centers_orig, centers_new)
                 #r = cbr.drmsd(self.centers_orig, centers_new)
-                cm = ftme.confusion_matrix(sm.bg, self.sm_orig.bg)
-                #print >>sys.stderr, "cm:", cm
-                cm['tp'] += 1
-                cm['fp'] += 1
-                cm['fn'] += 1
-                cm['tn'] += 1
+                cm = self.confusion_matrix_calculator.evaluate(sm.bg)
                 mcc = ftme.mcc(cm)
-        else:
+        else:            
+            # no original coordinates provided so we can't calculate rmsds
             r = 0.
 
         dist = None
@@ -318,21 +319,34 @@ class SamplingStatistics:
                 for energy_func in energy_function.energies:
                     print energy_func.__class__.__name__, energy_func.eval_energy(sm)
                 '''
-
-            output_str = "native_energy [%s %d]: %3d %5.03g  %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
+            _, rog=fbe.length_and_rog(sm.bg)
+            #output_str = u"native_energy [{:s} {:d}]: {:3d} {:5.03g} {:5.3f} ROG: {:5.3f} | min:
+            output_str = u"native_energy [%s %d]: %3d %5.03g  %5.3f ROG: %5.3f | min: %5.2f (%5.2f) %5.2f | extreme_rmsds: %5.2f %5.2f (%.2f)" % ( sm.bg.name, sm.bg.seq_length, self.counter, energy, r , rog, lowest_energy, self.energy_orig, lowest_rmsd, self.lowest_rmsd, self.highest_rmsd, energy_nobg)
             output_str += " |"
 
             # assume that the energy function is a combined energy
-            if type(self.energy_function) is fbe.CombinedEnergy:
-                for e in self.energy_function.energies:
-                    if type(e) is fbe.DistanceExponentialEnergy:
+            if isinstance(self.energy_function, fbe.CombinedEnergy):
+                for e in self.energy_function.iterate_energies():
+                    if isinstance(e,fbe.DistanceExponentialEnergy):
                         output_str += " [clamp {},{}: {:.1f}]".format(e.from_elem,
                                                                       e.to_elem,
-                                                                  e.get_distance(sm))
-            '''
-            for e in tracking_energies[:1]:
-                output_str += " %.2f" % (e.prev_cg)
-            '''
+                                                                      e.get_distance(sm))
+            if tracked_energies and tracking_energies:
+                output_str += " | [tracked Energies]"
+                for i,e in enumerate(tracking_energies):
+                    sn=e.shortname()
+                    if len(sn)>12:
+                        sn=sn[:9]+"..."
+                    output_str += "  [{}]: ".format(sn)
+                    output_str += "%5.03g" % (tracked_energies[i])
+            elif tracking_energies:
+                output_str += " | [tracked Energies]"
+                for e in tracking_energies:
+                    sn=e.shortname()
+                    if len(sn)>12:
+                        sn=sn[:9]+"..."
+                    output_str += "  [{}]: ".format(sn)
+                    output_str += "%5.03g" % (e.eval_energy(sm))
 
             if dist:
                 output_str += " | dist %.2f" % (dist)
@@ -345,13 +359,13 @@ class SamplingStatistics:
                 output_str += " | [mcc: %.3f]" % (mcc)
 
             output_str += " [time: %.1f]" % (time.time() - self.creation_time)
-            output_str += "\n"
 
+            #Print to both STDOUT and the log file.
             if self.output_file != sys.stdout:
-                print output_str.strip()
+                print (output_str.strip())
 
             if self.output_file != None:
-                self.output_file.write(output_str)
+                print(output_str, file=self.output_file)
                 self.output_file.flush()
 
         self.update_plots(energy, r)
@@ -365,10 +379,14 @@ class SamplingStatistics:
             if not self.silent:
                 self.save_top(self.save_n_best, counter=self.counter)
 
-        if self.step_save > 0:
-            if self.counter % self.step_save == 0:
-                sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
-            
+        if self.step_save > 0 and self.counter % self.step_save == 0:
+            #If a projection match energy was used, save the optimal projection direction to the file.
+            if isinstance(self.energy_function, fbe.CombinedEnergy):
+                for e in self.energy_function.iterate_energies():
+                    if isinstance(e, fbe.ProjectionMatchEnergy):
+                        sm.bg.project_from=e.accepted_projDir
+            sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
+
 
     def save_top(self, n = 100000, counter=100, step_save=0):
         '''
@@ -410,32 +428,35 @@ class SamplingStatistics:
         sm = cbm.SpatialModel(sorted_energies[0][2])
         sm.get_sampled_bulges()
 
-        print "---------------------------"
+        print ("---------------------------")
 
-        print [e[1] for e in sorted_energies[:10]]
+        print ([e[1] for e in sorted_energies[:10]])
 
         '''
         for energy in energy_function.energies:
             print energy.__class__.__name__, energy.eval_energy(sm)
         '''
 
-        print "-------------------------"
+        print ("-------------------------")
         
 
 class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, stats_type='discrete', no_rmsd=False, energies_to_track=[]):
+    def __init__(self, sm, energy_function, stats, no_rmsd=False, energies_to_track=[], start_from_scratch=False):
         '''
         param @sm: SpatialModel that will be used for sampling.
+    
+        :param start_from_scratch: Boolean. If true, always sample stats. If false and stats are present (e.g. *.coord file), start at the native conformation.
         '''
-        if stats_type == 'continuous':
-            self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
-        elif stats_type == 'random':
-            self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
-        else:
-            self.cont_stats = None
+        #BT: Seems to be not in used
+        #if stats_type == 'continuous':
+        #    self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        #elif stats_type == 'random':
+        #    self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
+        #else:
+        #    self.cont_stats = None
         
         self.step_counter = 0
         self.sm = sm
@@ -447,30 +468,46 @@ class MCMCSampler:
         self.dump_measures = False
         self.resampled_energy = True
 
-        sm.sample_stats()
+        print("INFO: Trying to load sampled elements.", file=sys.stderr)
+        try:
+            sm.load_sampled_elems()
+        except:
+            start_from_scratch=True
+        else:
+            resampled=False
+
+        if start_from_scratch or not sm.elem_defs:  
+            print("INFO: Starting with sampling of all stats.", file=sys.stderr)
+            sm.sample_stats()
+            resampled=True
+
         constraint_energy = sm.constraint_energy
-        if sm.constraint_energy is not None:
+        if sm.constraint_energy is not None or sm.junction_constraint_energy is not None:
             junction_constraint_energy = sm.junction_constraint_energy
             sm.constraint_energy = None
             sm.junction_constraint_energy = None
-            print >>sys.stderr, "constraint energy about to build 1..."
+            print ("constraint energy about to build 1...", file=sys.stderr)
             sm.traverse_and_build()
-            print >>sys.stderr, "constraint energy finished building 1"
+            print ("constraint energy finished building 1", file=sys.stderr)
             sm.constraint_energy = constraint_energy
             sm.junction_constraint_energy = junction_constraint_energy
-            print >>sys.stderr, "constraint energy about to build 2..."
-            sm.traverse_and_build()
-            print >>sys.stderr, "constraint energy finished building 2"
-            energy_function.energies += sm.constraint_energy.energies
-            energy_function.energies += [sm.junction_constraint_energy]
-
+            print ("constraint energy about to build 2...", file=sys.stderr)
+            sm.traverse_and_build(verbose=not resampled)
+            print ("constraint energy finished building 2", file=sys.stderr)
+            self.energy_function.energies += sm.constraint_energy.energies
+            self.energy_function.energies += [sm.junction_constraint_energy]
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
         self.no_rmsd = no_rmsd
 
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
-        #sys.exit(1)
+        #Accept the measure of the initial structure.
+        #This is required so reject_last_measure does not accept the last measure from the file a second time.
+        self.energy_function.accept_last_measure()
+        for e in self.energies_to_track:
+            e.eval_energy(self.sm)
+            e.accept_last_measure()
         sm.get_sampled_bulges()
 
     def change_elem(self):
@@ -493,6 +530,7 @@ class MCMCSampler:
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
         if self.resampled_energy:
+            #print("CHANGE ELEMENT: EVALUATING PREVIOUS ENERGY FOR self.energy_function")
             self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
             self.resampled_energy = False
 
@@ -502,6 +540,7 @@ class MCMCSampler:
         # and calculate a new energy
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
+        #print("CHANGE ELEMENT: EVALUATING ENERGY FOR self.energy_function")
         energy = self.energy_function.eval_energy(self.sm, background=True)
         self.stats.sampled_energy = energy
 
@@ -530,40 +569,35 @@ class MCMCSampler:
         #self.sm.sample_loops()
         #self.sm.sample_angles()
         #self.sm.traverse_and_build()
-
+        #print("=========================\nSampling energy")
         self.change_elem()
-        '''
-        if random.random() < 0.5:
-            self.change_angle()
-        elif random.random() < 0.5:
-            self.change_stem()
-        else:
-            self.change_loop()
-        '''
 
         if self.dump_measures:
             if self.step_counter % 20 == 0:
-                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir)
+                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, self.step_counter)
+
+        tracked_energies=[]
+        for e in self.energies_to_track:
+            #print("STEP: EVALUATING ENERGY FOR ", e.shortname())
+            tracked_energies.append(e.eval_energy(self.sm))
+            #print("Tracked energy", e.shortname())
+            e.accept_last_measure()
+            if self.step_counter % 20 == 0:
+                e.dump_measures(cbc.Configuration.sampling_output_dir)
+
 
         if self.step_counter % 3 == 0:
             self.resampled_energy = True
             self.energy_function.resample_background_kde(self.sm.bg)
+            for e in self.energies_to_track:
+                e.resample_background_kde(self.sm.bg)
 
         self.step_counter += 1
-
-        '''
-        if self.step_counter % 3 == 0:
-            self.energy_function.resample_background_kde(self.sm.bg)
-        '''
-
+        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track, tracked_energies)
+        
+        self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
         for e in self.energies_to_track:
-            e.eval_energy(self.sm)
-            e.accepted_measures += [e.measures[-1]]
-
-            if self.step_counter % 20 == 0:
-                e.dump_measures(cbc.Configuration.sampling_output_dir)
-
-        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track)
+            e.update_adjustment(self.step_counter, self.sm.bg)
 
 class GibbsBGSampler:
     '''

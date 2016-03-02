@@ -272,9 +272,8 @@ def main():
     parser.add_option('', '--start-at-native', dest='start_at_native', default=False, action='store_true', help='Start at the native conformation')
     parser.add_option('', '--fix-loop', dest='fix_loop', default=None, help='Fix the correct coordinates of a particular loop to the correct ones')
     parser.add_option('', '--fix-all-loops', dest='fix_all_loops', default=False, action='store_true',  help='Fix the geometries of all loops in the structure')
-    parser
     parser.add_option('', '--no-constraint', dest='no_constraint', default=False, action='store_true', help="Don't use a constraint energy")
-
+    parser.add_option('', '--stretch', dest='stretch', default=1.0, help="Stretch RO target distribution.", type='float')
     (options, args) = parser.parse_args()
 
     fud.pv('options.no_rmsd')
@@ -435,7 +434,7 @@ def main():
 
 
     if len(energies_to_sample) == 0 or options.aminor_perloop_radius_of_gyration:
-        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor)
+        rog = fbe.RadiusOfGyrationEnergy(energy_prefactor=options.energy_prefactor, adjustment=options.stretch)
         nonconstraint = [rog]
 
         bg = bgs[0]
