@@ -253,6 +253,11 @@ class SamplingStatistics:
                 r = cbr.centered_rmsd(self.centers_orig, centers_new)
                 #r = cbr.drmsd(self.centers_orig, centers_new)
                 cm = ftme.confusion_matrix(sm.bg, self.sm_orig.bg)
+                #print >>sys.stderr, "cm:", cm
+                cm['tp'] += 1
+                cm['fp'] += 1
+                cm['fn'] += 1
+                cm['tn'] += 1
                 mcc = ftme.mcc(cm)
         else:
             r = 0.
