@@ -285,7 +285,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None):
+    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None, fast=False):
         '''
         Initialize the structure.
 
@@ -312,12 +312,13 @@ class SpatialModel:
         self.bg = bg
         self.add_to_skip()
         
-        for s in bg.stem_iterator():
-            try:
-                cgg.add_virtual_residues(self.bg,s)
-            except KeyError:
-                # The structure is probably new and doesnt have coordinates yet
-                continue
+        if not fast:
+            for s in bg.stem_iterator():
+                try:
+                    cgg.add_virtual_residues(self.bg,s)
+                except KeyError:
+                    # The structure is probably new and doesnt have coordinates yet
+                    continue
 
     def sample_stats(self):
         self.elem_defs = dict()
