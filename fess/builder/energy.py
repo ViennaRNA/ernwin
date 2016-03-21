@@ -665,6 +665,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if abs(resn1 - resn2) == 1:
                 continue
             self.bad_bulges += [key1[0], key2[0]]
+            self.bad_atoms[key1[0]].append(virtual_atoms[ia][0])
+            self.bad_atoms[key2[0]].append(virtual_atoms[ib][0])
             clashes += 1
 
         return clashes
@@ -712,6 +714,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.bases = dict()
         self.bg = sm.bg
         self.bad_bulges = []
+        self.bad_atoms = c.defaultdict(list)
         self.last_clashes=[]
         bg = sm.bg
         mult = 8

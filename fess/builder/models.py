@@ -285,7 +285,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None, fast=False):
+    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None):
         '''
         Initialize the structure.
 
@@ -304,22 +304,25 @@ class SpatialModel:
 
         self.elem_defs = None
 
-        if conf_stats is None:
-            self.conf_stats = ftms.get_conformation_stats()
-        else:
-            self.conf_stats = conf_stats
+        # Used by the conf_stats property!
+        self._conf_stats = conf_stats
 
         self.bg = bg
         self.add_to_skip()
         
-        if not fast:
-            for s in bg.stem_iterator():
-                try:
-                    cgg.add_virtual_residues(self.bg,s)
-                except KeyError:
-                    # The structure is probably new and doesnt have coordinates yet
-                    continue
+        for s in bg.stem_iterator():
+            try:
+                cgg.add_virtual_residues(self.bg,s)
+            except KeyError:
+                # The structure is probably new and doesnt have coordinates yet
+                continue
 
+    @property
+    def conf_stats(self):
+        if self._conf_stats is None:
+            #This takes up to 4 seconds, which is why we only load the stats the first time we use them.
+            self._conf_stats = ftms.get_conformation_stats()
+        return self._conf_stats
     def sample_stats(self):
         self.elem_defs = dict()
 
