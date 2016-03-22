@@ -17,6 +17,8 @@ from fess.builder import energy as fbe
 from fess.builder import models as fbm
 from fess.builder import sampling as fbs
 from fess.builder import config
+
+import scipy.ndimage
 #Magic numbers
 DEFAULT_ENERGY_PREFACTOR=30
 
@@ -81,16 +83,20 @@ def get_parser():
                               "PRE: optional energy prefactor\n"
                               "ADJ: optional adjustment of target distribution\n"
                               "     (float), default=1.0\n"
-                              "     use START_END or START_STEP_END to modify the "
-                              "     adjustment during sampling. E.g. 1.0_0.1_1.4 "
-                              "     For each adjustment, equally many sampling steps are used."
-                              "     If step is not given, 1.0 or 0.1 is used, depending on the "
-                              "     difference between START and END."
+                              "     use START_END or START_STEP_END to modify the\n"
+                              "     adjustment during sampling. E.g. 1.0_0.1_1.4\n"
+                              "     For each adjustment, equally many sampling steps \n"
+                              "     are used.\n"
+                              "     If step is not given, 1.0 or 0.1 is used, \n"
+                              "     depending on the difference between START and END.\n"
                               "TYP: one of the following\n"
                               "       ROG:  Radius of gyration energy\n"
                               "       SLD:  shortest loop distance per loop\n"
                               "       AME:  A-Minor energy\n"
-                              "       PRO:  Match Projection distances. Requires the --projected-dist option\n"
+                              "       PRO:  Match Projection distances. \n"
+                              "             Requires the --projected-dist option\n"
+                              "       HDE:  Hausdorff distance based Energy \n"
+                              "             Requires the --ref-img and --scale  options.\n"
                               "       DEF:  add all default energies to the \n"
                               "             combined energy\n"
                               "Example: ROG10,SLD,AME")
@@ -101,9 +107,20 @@ def get_parser():
                               "These energies are not used for sampling, \n"
                               "but only calculated after each step.")
     parser.add_argument('--projected-dist', action='store', type=str, default="",
-                        help= "A ':' seperated list of tripels: cgelement, cgelement, dist\n"
-                              "Where dist is the projected distance in the image in Angstrom.\n"
+                        help= "A ':' seperated list of tripels: \n"
+                              "cgelement, cgelement, dist\n"
+                              "Where dist is the projected distance in the image \n"
+                              "in Angstrom.\n"
                               "Example: 's1,h3,10:s2,h3,12'")
+    parser.add_argument('--ref-img', action='store', type=str, default="",
+                        help= "A black and white square image (e.g. in png format)\n"
+                              "as a reference projection for the Hausdorff Energy.\n"
+                              "White is the RNA, black is the background.\n"
+                              "Requires the Python Imaging Library (PIL) or Pillow.")
+    parser.add_argument('--scale', action='store', type=int, default="",
+                        help= "Used for the Hausdorff Energy.\n"
+                              "The length (in Angstrom) of each side \n"
+                              "of the image is")
     return parser
 
 def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
@@ -126,8 +143,8 @@ def getAMinorEnergies(pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
 
     :returns: A list of energies
     """
-    return [fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj)] #,
-            #fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)]
+    return [fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj) ,
+            fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)]
 
 def getDefaultEnergies(cg):
     """
@@ -158,7 +175,11 @@ def getPROenergy(proj_dist_str, prefactor):
         raise ValueError("The --projected-dist option is required if the PRO energy is used.".format(contrib))
     return fbe.ProjectionMatchEnergy(distances, prefactor)
 
-def parseCombinedEnergyString(stri, cg, iterations, proj_dist):
+def getHDEenergy(hde_image, scale, pre):
+    img=scipy.ndimage.imread(hde_image)
+    return fbe.HausdorffEnergy(img, scale, pre)
+
+def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image):
     """
     Parses an energy string, as used for the --energy commandline option
 
@@ -191,19 +212,28 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist):
         elif "SLD" in contrib:
             pre,_, adj=contrib.partition("SLD")
             if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for ShortestLoopdistancePerLoop energy!".format(pre, adj))            
+                warnings.warn("Adjustment '{}' is ignored for ShortestLoopdistancePerLoop energy!".format(adj))            
             if pre=="": pre=DEFAULT_ENERGY_PREFACTOR
             else: pre=int(pre)
             energies+=getSLDenergies(cg, pre)
         elif "PRO" in contrib:
             pre,_, adj=contrib.partition("PRO")
             if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for ProjectionMatchEnergy energy!".format(pre, adj))
+                warnings.warn("Adjustment '{}' is ignored for ProjectionMatchEnergy energy!".format(adj))
             if pre:
                 pre=int(pre)
             else:
                 pre=1
             energies.append(getPROenergy(proj_dist, pre))
+        elif "HDE" in contrib:
+            pre,_, adj=contrib.partition("HDE")
+            if adj!="":
+                warnings.warn("Adjustment '{}' is ignored for Hausdorff energy!".format(adj))
+            if pre:
+                pre=int(pre)
+            else:
+                pre=1
+            energies.append(getHDEenergy(hde_image, scale, pre))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
             sys.exit(1)
@@ -291,7 +321,7 @@ def setup_deterministic(args):
     if args.energy=="D":
         energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
     else:
-        energy=parseCombinedEnergyString(args.energy, cg, args.iterations, args.projected_dist)
+        energy=parseCombinedEnergyString(args.energy, cg, args.iterations, args.projected_dist,args.scale, args.ref_img)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -300,7 +330,7 @@ def setup_deterministic(args):
             if track_energy_string=="D":
                 energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
             else:
-                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations, args.projected_dist))
+                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations, args.projected_dist, args.scale, args.ref_img))
         #Initialize the spatial model
     sm=fbm.SpatialModel(cg)
 

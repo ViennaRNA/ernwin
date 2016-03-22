@@ -24,10 +24,12 @@ import fess.builder.aminor as fba
 import fess.builder.models as cbm
 import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
+import forgi.projection.hausdorff as fph
 
 import scipy.stats as stats
 import scipy.stats as ss
 import scipy.optimize
+import scipy.ndimage
 import sys, math
 
 import gc
@@ -81,6 +83,9 @@ class EnergyFunction(object):
     def accept_last_measure(self):
         if len(self.measures) > 0:        
             self.accepted_measures += [self.measures[-1]]
+
+    def update_adjustment(*args, **kwargs):
+        pass
 
     def reject_last_measure(self):
         if len(self.accepted_measures) > 0:
@@ -146,15 +151,36 @@ class EnergyFunction(object):
                 f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
                 f.write("\n")
 
+class HausdorffEnergy(EnergyFunction):
+    def __init__(self, img, scale, prefactor):
+        """
+        :param img: A boolean, square 2D numpy.array
+        :param scale: Int or float. How many Angstrom the side length of the image is.
+        """
+        super(HausdorffEnergy, self).__init__()        
+        self.prefactor=prefactor
+        self.ref_img=img
+        self.ref_quarter=(scipy.ndimage.zoom(img, 0.25)>0.3)
+        self.scale=scale
+        self.last_dir=None
+    def shortname(self):
+        return "HDF"
+    def get_name(self):
+        return "Hausdorff-Energy"
+    def eval_energy(self, sm, background=None, nodes=None):
+        s, i, self.last_dir, last_rot = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg)
+        score, img, self.last_dir, _ = fph.locally_minimal_distance_one(self.ref_img, self.scale, sm.bg, last_rot, self.last_dir, 100)
+        return self.prefactor*score**2
+
 class ProjectionMatchEnergy(EnergyFunction):
     def __init__(self, distances={}, prefactor=1):
         """
         :param directions: A dict where the keys are tuples of coarse grain element names (e.g.: ("h1","m1"))
                        and the values are the distance IN THE PROJECTED PLANE (i.e. in the micrograph).
-        """
+        """        
+        super(ProjectionMatchEnergy, self).__init__()
         self.distances=distances
         self.prefactor=prefactor
-        super(ProjectionMatchEnergy, self).__init__()
         #: The optimal projection direction for the last accepted step.
         self.accepted_projDir=np.array([1.,1.,1.])
         self.projDir=np.array([1.,1.,1.])
@@ -182,7 +208,7 @@ class ProjectionMatchEnergy(EnergyFunction):
 
     def shortname(self):
         return "PRO"
-    def update_adjustment(*args, **kwargs):pass
+
     def get_name(self):
         return "Projection Matching Energy"
 
