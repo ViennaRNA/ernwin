@@ -323,6 +323,9 @@ class SpatialModel:
             #This takes up to 4 seconds, which is why we only load the stats the first time we use them.
             self._conf_stats = ftms.get_conformation_stats()
         return self._conf_stats
+    @conf_stats.setter
+    def conf_stats(self, val):
+        raise NotImplementedError #To see if this is needed.
     def sample_stats(self):
         self.elem_defs = dict()
 
@@ -775,7 +778,6 @@ class SpatialModel:
                         # find out what stems clash
                         bad_stems=set(self.constraint_energy.bad_bulges)
                         all_e=self.constraint_energy.eval_energy(self)
-                        print("ALLE", all_e)
                         if verbose:
                             warnings.warn("The 3D structure has to be resampled (it contained clashes)!")                
 

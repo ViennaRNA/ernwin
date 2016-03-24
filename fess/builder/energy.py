@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import StringIO
 import pickle
 import os
@@ -26,13 +28,18 @@ import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
 import forgi.projection.hausdorff as fph
 
+from fess.builder import config
+
 import scipy.stats as stats
 import scipy.stats as ss
 import scipy.optimize
 import scipy.ndimage
+import scipy.misc
 import sys, math
 
 import gc
+import os.path
+import time
 #from fess.builder.watcher import watcher
 
 distribution_upper_bound = 1.0
@@ -161,16 +168,54 @@ class HausdorffEnergy(EnergyFunction):
         self.prefactor=prefactor
         self.ref_img=img
         self.ref_quarter=(scipy.ndimage.zoom(img, 0.25)>0.3)
+        self.get_refimg_longest_axis()
         self.scale=scale
         self.last_dir=None
+    def get_refimg_longest_axis(self):
+        import matplotlib.pyplot as plt
+        max_sdist=0
+        best_points=None
+        for p1, p2 in it.combinations(np.transpose(np.where(self.ref_img)),2):
+            if (p2[0]-p1[0])**2+(p2[1]-p1[1])**2>max_sdist:
+                max_sdist=(p2[0]-p1[0])**2+(p2[1]-p1[1])**2
+                best_points=(p1,p2)
+        deg=math.degrees(math.atan2(best_points[1][0]-best_points[0][0], best_points[1][1]-best_points[0][1]))
+        deg=90-deg
+        self.initial_degrees=[deg%360, (deg+180)%360]
+        #fig, ax=plt.subplots(2)
+        #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
+        #z=np.zeros_like(self.ref_img)
+        #z[best_points[0][0], best_points[0][1]]=1
+        #z[best_points[1][0], best_points[1][1]]=1
+        #ax[1].imshow(z, interpolation="none", cmap='gray')
+        #plt.show()
+        #print ("Starting rotations are ", self.initial_degrees)
     def shortname(self):
         return "HDF"
     def get_name(self):
         return "Hausdorff-Energy"
     def eval_energy(self, sm, background=None, nodes=None):
-        s, i, self.last_dir, last_rot = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg)
+        import matplotlib.pyplot as plt
+        #Interestingly, start_points has almost no effect on the execution speed.
+        #s, i, self.last_dir, last_rot = fph.globally_minimal_distance(self.ref_img, self.scale, sm.bg, virtual_atoms=True, start_points=40, starting_rotations=self.initial_degrees) 
+        s, i, self.last_dir, last_rot = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg, virtual_atoms=False, start_points=40, starting_rotations=self.initial_degrees) 
+        #fig, ax=plt.subplots(2)
+        #ax[0].imshow(self.ref_quarter, interpolation="none", cmap='gray')
+        #ax[1].imshow(i, interpolation="none", cmap='gray')
+        #ax[0].set_title("Reference Global Optimization")
+        #ax[1].set_title("{} distance".format(s))
+        #plt.show()
         score, img, self.last_dir, _ = fph.locally_minimal_distance_one(self.ref_img, self.scale, sm.bg, last_rot, self.last_dir, 100)
-        return self.prefactor*score**2
+        #fig, ax=plt.subplots(2)
+        #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
+        #ax[1].imshow(img, interpolation="none", cmap='gray')
+        #ax[0].set_title("Final Opt Reference")
+        #ax[1].set_title("{} distance".format(score))
+        #plt.show()
+        imgpath=os.path.join(config.Configuration.sampling_output_dir, str(time.time())+".raster."+str(int(10*score))+".png")
+        scipy.misc.imsave(imgpath, img)
+        print("HDE Score is {}... ".format(score), end="")
+        return self.prefactor*score
 
 class ProjectionMatchEnergy(EnergyFunction):
     def __init__(self, distances={}, prefactor=1):
@@ -363,7 +408,7 @@ class CoarseGrainEnergy(EnergyFunction):
             if new_kde is not None:
                 self.sampled_kdes[self.measure_category(struct)] = new_kde
             else:
-                print >>sys.stderr, "skipping this time..."
+                print ("skipping this time...", file=sys.stderr)
 
             #self.vals[1] = values
 
@@ -516,7 +561,11 @@ class CombinedEnergy:
         else:
             self.uncalibrated_energies=[]
         self.bad_bulges = []
-
+    def uses_background(self):
+        for e in it.chain(self.energies, self.uncalibrated_energies):
+            if hasattr(e, "sampled_kdes"):
+                return True
+        return False
     def iterate_energies(self):
         """
         Iterate over all member enegies (calibrated and uncalibrated) 
@@ -542,7 +591,7 @@ class CombinedEnergy:
 
         filename = os.path.join(directory,
                                 energy.__class__.__name__ + ".energy")
-        print "saving filename:", filename
+        print ("saving filename:", filename)
         pickle.dump(energy, open(filename, 'w'))
 
     def resample_background_kde(self, struct):
@@ -579,7 +628,7 @@ class CombinedEnergy:
             total_energy += contrib
             self.bad_bulges += energy.bad_bulges
             if verbose:
-                print energy.__class__.__name__, contrib
+                print (energy.__class__.__name__, contrib)
 
         for energy in self.energies:
             contrib = energy.eval_energy(sm, background=background, nodes=nodes)            
@@ -589,11 +638,11 @@ class CombinedEnergy:
             total_energy += contrib
 
             if verbose:
-                print energy.__class__.__name__, contrib
+                print (energy.__class__.__name__, contrib)
 
         if verbose:
-            print "--------------------------"
-            print "total_energy:", total_energy
+            print ("--------------------------")
+            print ("total_energy:", total_energy)
         return total_energy
 
     def __str__(self):

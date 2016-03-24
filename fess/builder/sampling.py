@@ -242,8 +242,10 @@ class SamplingStatistics:
 
         energy = prev_energy #energy_function.eval_energy(sm, background=True)
         #energy = energy_function.eval_energy(sm, background=True)
-        energy_nobg = energy_function.eval_energy(sm, background=False)
-
+        if energy_function.uses_background():
+            energy_nobg = energy_function.eval_energy(sm, background=False)
+        else:
+            energy_nobg=energy
         #energy_nobg = 0.
         #energy = self.sampled_energy
         if self.sampled_energy != energy:
@@ -516,12 +518,18 @@ class MCMCSampler:
         proportional to the energy function.
         '''
         # pick a random element and get a new statistic for it
-        d = random.choice(list(self.sm.bg.get_mst()))
+        possible_elements=list(self.sm.bg.get_mst())
+        pe=set(possible_elements)
+        #print(len(pe), " =?=",  len(possible_elements))
+        #print("possible_elements: ", possible_elements)
+        d = random.choice(possible_elements)
 
         #import pdb
         #pdb.set_trace()
-
-        new_stat = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, d))
+        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
+        #print(len(possible_stats), " =?=",  len(set(possible_stats)))
+        #print ("possible_stats for {} are: {}".format(d, [ x.pdb_name for x in possible_stats]))
+        new_stat = random.choice(possible_stats)
 
         # get the energy before we replace the statistic
         # it's dubious whether this is really necessary since we already
@@ -529,7 +537,7 @@ class MCMCSampler:
 
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
-        if self.resampled_energy:
+        if self.resampled_energy and self.energy_function.uses_background():
             #print("CHANGE ELEMENT: EVALUATING PREVIOUS ENERGY FOR self.energy_function")
             self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
             self.resampled_energy = False
@@ -541,7 +549,11 @@ class MCMCSampler:
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
         #print("CHANGE ELEMENT: EVALUATING ENERGY FOR self.energy_function")
+        #print ("Replaced {}:{} with {} ({}). ".format(d, prev_stat.pdb_name, new_stat.pdb_name, new_stat.u), end="")
+        #if prev_stat is new_stat and len(possible_stats)>100:
+        #    warnings.warn("Doing a no-op here! Element {}, {} replaces itself, {} choices were availabe. Problem with random number generator/".format(d, new_stat.pdb_name, len(possible_stats)))
         energy = self.energy_function.eval_energy(self.sm, background=True)
+        #print ("Energy {}".format(energy), end="")
         self.stats.sampled_energy = energy
 
         if energy < self.prev_energy:
@@ -549,6 +561,7 @@ class MCMCSampler:
             # metropolis hastings criterion
             self.prev_energy = energy
             self.energy_function.accept_last_measure()
+            print ("...accepting")
         else:
             # calculate a probability
             r = random.random()
@@ -558,11 +571,12 @@ class MCMCSampler:
                 self.sm.traverse_and_build(start='start')
                 self.stats.sampled_energy = self.prev_energy
                 self.energy_function.reject_last_measure()
-                #print >>sys.stderr, "rejecting...", self.prev_energy
+                print ("...rejecting")
             else:
                 # accept the new statistic
                 self.prev_energy = energy
                 self.energy_function.accept_last_measure()
+                print ("...still accepting")
 
     def step(self):
         #self.sm.sample_stems()

@@ -232,7 +232,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image)
             if pre:
                 pre=int(pre)
             else:
-                pre=1
+                pre=DEFAULT_ENERGY_PREFACTOR
             energies.append(getHDEenergy(hde_image, scale, pre))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
