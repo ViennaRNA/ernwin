@@ -825,7 +825,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         for (ia,ib) in indeces:
             (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
             (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
-            clash_pairs += [((s1,i1,a2), (s2,i2,a2))]
+            clash_pairs += [((s1,i1,a1), (s2,i2,a2))]
             #print("NO NEW NODES: ", sorted(clash_pairs))
 
         #potential_clashes = 0
