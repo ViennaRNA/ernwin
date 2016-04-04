@@ -117,7 +117,7 @@ def get_parser():
                               "as a reference projection for the Hausdorff Energy.\n"
                               "White is the RNA, black is the background.\n"
                               "Requires the Python Imaging Library (PIL) or Pillow.")
-    parser.add_argument('--scale', action='store', type=int, default="",
+    parser.add_argument('--scale', action='store', type=int,
                         help= "Used for the Hausdorff Energy.\n"
                               "The length (in Angstrom) of each side \n"
                               "of the image is")

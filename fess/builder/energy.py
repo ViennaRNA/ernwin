@@ -26,7 +26,7 @@ import fess.builder.aminor as fba
 import fess.builder.models as cbm
 import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
-import forgi.projection.hausdorff as fph
+import forgi.projection.hausdorff_neu as fph
 
 from fess.builder import config
 
@@ -39,7 +39,7 @@ import sys, math
 
 import gc
 import os.path
-import time
+import time, random
 #from fess.builder.watcher import watcher
 
 distribution_upper_bound = 1.0
@@ -167,12 +167,14 @@ class HausdorffEnergy(EnergyFunction):
         super(HausdorffEnergy, self).__init__()        
         self.prefactor=prefactor
         self.ref_img=img
-        self.ref_quarter=(scipy.ndimage.zoom(img, 0.25)>0.3)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.ref_quarter=(scipy.ndimage.zoom(img, 0.3)>150)
         self.get_refimg_longest_axis()
         self.scale=scale
         self.last_dir=None
     def get_refimg_longest_axis(self):
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt
         max_sdist=0
         best_points=None
         for p1, p2 in it.combinations(np.transpose(np.where(self.ref_img)),2):
@@ -195,27 +197,34 @@ class HausdorffEnergy(EnergyFunction):
     def get_name(self):
         return "Hausdorff-Energy"
     def eval_energy(self, sm, background=None, nodes=None):
-        import matplotlib.pyplot as plt
-        #Interestingly, start_points has almost no effect on the execution speed.
-        #s, i, self.last_dir, last_rot = fph.globally_minimal_distance(self.ref_img, self.scale, sm.bg, virtual_atoms=True, start_points=40, starting_rotations=self.initial_degrees) 
-        s, i, self.last_dir, last_rot = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg, virtual_atoms=False, start_points=40, starting_rotations=self.initial_degrees) 
+        #import matplotlib.pyplot as plt
+        s, i, params = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg,  
+                                                          start_points=40, 
+                                                          starting_rotations=self.initial_degrees,
+                                                          virtual_atoms=False) 
         #fig, ax=plt.subplots(2)
         #ax[0].imshow(self.ref_quarter, interpolation="none", cmap='gray')
-        #ax[1].imshow(i, interpolation="none", cmap='gray')
+        #ax[1].imshow(i>0, interpolation="none", cmap='gray')
         #ax[0].set_title("Reference Global Optimization")
         #ax[1].set_title("{} distance".format(s))
         #plt.show()
-        score, img, self.last_dir, _ = fph.locally_minimal_distance_one(self.ref_img, self.scale, sm.bg, last_rot, self.last_dir, 100)
+        score, img, params = fph.locally_minimal_distance(self.ref_img, self.scale, sm.bg, 
+                                                          params[1], params[2], params[0], 
+                                                          maxiter=200)
         #fig, ax=plt.subplots(2)
         #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
-        #ax[1].imshow(img, interpolation="none", cmap='gray')
+        #ax[1].imshow(img>0, interpolation="none", cmap='gray')
         #ax[0].set_title("Final Opt Reference")
         #ax[1].set_title("{} distance".format(score))
         #plt.show()
+        self.last_dir=params[0]
         imgpath=os.path.join(config.Configuration.sampling_output_dir, str(time.time())+".raster."+str(int(10*score))+".png")
         scipy.misc.imsave(imgpath, img)
-        print("HDE Score is {}... ".format(score), end="")
+        print("HDE Score is {}, params {}... ".format(score, params), end="")
         return self.prefactor*score
+    def accept_last_measure(self):
+        self.accepted_projDir=fph.from_polar([1,self.last_dir[0], self.last_dir[1]])
+
 
 class ProjectionMatchEnergy(EnergyFunction):
     def __init__(self, distances={}, prefactor=1):
@@ -796,7 +805,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         points = []
         energy = 0.
 
-        if nodes == None:
+        if nodes is None:
             nodes = sm.bg.defines.keys()
 
         for d in nodes:
@@ -825,7 +834,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         for (ia,ib) in indeces:
             (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
             (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
-            clash_pairs += [((s1,i1,a2), (s2,i2,a2))]
+            clash_pairs += [((s1,i1,a1), (s2,i2,a2))]
             #print("NO NEW NODES: ", sorted(clash_pairs))
 
         #potential_clashes = 0

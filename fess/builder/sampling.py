@@ -385,7 +385,7 @@ class SamplingStatistics:
             #If a projection match energy was used, save the optimal projection direction to the file.
             if isinstance(self.energy_function, fbe.CombinedEnergy):
                 for e in self.energy_function.iterate_energies():
-                    if isinstance(e, fbe.ProjectionMatchEnergy):
+                    if hasattr(e, "accepted_projDir"):
                         sm.bg.project_from=e.accepted_projDir
             sm.bg.to_cg_file(os.path.join(cbc.Configuration.sampling_output_dir, 'step%06d.coord' % (self.counter)))
 
@@ -520,20 +520,12 @@ class MCMCSampler:
         # pick a random element and get a new statistic for it
         possible_elements=list(self.sm.bg.get_mst())
         pe=set(possible_elements)
-        #print(len(pe), " =?=",  len(possible_elements))
-        #print("possible_elements: ", possible_elements)
         d = random.choice(possible_elements)
 
         #import pdb
         #pdb.set_trace()
         possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
-        #print(len(possible_stats), " =?=",  len(set(possible_stats)))
-        #print ("possible_stats for {} are: {}".format(d, [ x.pdb_name for x in possible_stats]))
         new_stat = random.choice(possible_stats)
-
-        # get the energy before we replace the statistic
-        # it's dubious whether this is really necessary since we already
-        # store the previous energy in the accept/reject step
 
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
@@ -555,7 +547,7 @@ class MCMCSampler:
         energy = self.energy_function.eval_energy(self.sm, background=True)
         #print ("Energy {}".format(energy), end="")
         self.stats.sampled_energy = energy
-
+        print("Energy is {}, prev_energy is {} ...".format(energy, self.prev_energy), end="\n")
         if energy < self.prev_energy:
             # lower energy means automatic acceptance accordint to the
             # metropolis hastings criterion

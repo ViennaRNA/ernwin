@@ -20,7 +20,7 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
-
+import copy
 
 class StemModel:
     '''
@@ -306,7 +306,10 @@ class SpatialModel:
 
         # Used by the conf_stats property!
         self._conf_stats = conf_stats
-
+        #if conf_stats is None:
+        #    self._default_conf_stats=True #Used for deepcopy to avoid copying the stats
+        #else:
+        #    self._default_conf_stats=False
         self.bg = bg
         self.add_to_skip()
         
@@ -780,8 +783,7 @@ class SpatialModel:
                         all_e=self.constraint_energy.eval_energy(self)
                         if verbose:
                             warnings.warn("The 3D structure has to be resampled (it contained clashes)!")                
-
-                        #print ("CLASH:", bad_stems)
+                        assert all_e>=e1, "A bug in the clash energy"
                         clash_buildorders=set()
                         for stemid in bad_stems:
                             clash_buildorders.add(buildorder_of(stemid))
@@ -810,3 +812,23 @@ class SpatialModel:
             c_energy=self.constraint_energy.eval_energy(self)
             assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}".format(c_energy, self.constraint_energy.bad_bulges)
         self.finish_building()
+    """
+    def __deepcopy__(self, memo={}):
+        # According to https://mail.python.org/pipermail/tutor/2009-June/069433.html
+        # this allows for subclassing SpatialModel
+        dup = type(self).__new__(type(self))
+        dup.stems = copy.deepcopy(self.stems, memo)
+        dup.bulges = copy.deepcopy(self.bulges, memo)
+        dup.chain = copy.deepcopy(self.chain, memo)
+        dup.build_chain=self.build_chain
+        dup.constraint_energy = copy.deepcopy(self.constraint_energy, memo)
+        dup.junction_constraint_energy = copy.deepcopy(self.junction_constraint_energy, memo)
+        dup.elem_defs = copy.deepcopy(self.elem_defs, memo)
+        if self._default_conf_stats:
+            dup._conf_stats=None
+        else:
+            dup._conf_stats = copy.deepcopy(self._conf_stats, memo)
+        dup._default_conf_stats=self._default_conf_stats 
+        dup.bg = copy.deepcopy(self.bg, memo)
+        return dup
+    """

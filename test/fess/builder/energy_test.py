@@ -6,10 +6,10 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
-import unittest, sys
+import unittest, sys, random
 import numpy as np
 import numpy.testing as nptest
-import forgi.threedee.model.projection2d as ftmp
+import forgi.projection.projection2d as ftmp
 import fess.builder.energy as fbe
 import fess.builder.models as fbm
 import forgi.threedee.model.coarse_grain as ftmc
@@ -18,9 +18,12 @@ import forgi.threedee.utilities.vector as ftuv
 class TestClashEnergy(unittest.TestCase):
     def setUp(self):
         cg=ftmc.CoarseGrainRNA('test/fess/data/someSTMV.coord')
+        cg2=ftmc.CoarseGrainRNA('test/fess/data/anotherSTMV.coord')
         cg_clash=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-clash.coord')
         self.sm = fbm.SpatialModel(cg)
         self.sm.load_sampled_elems()
+        self.sm2 = fbm.SpatialModel(cg2)
+        self.sm2.load_sampled_elems()
         self.sm_clash= fbm.SpatialModel(cg_clash)
         self.sm_clash.load_sampled_elems()
         self.energy=fbe.StemVirtualResClashEnergy()
@@ -51,7 +54,22 @@ class TestClashEnergy(unittest.TestCase):
             self.assertEqual(self.energy.eval_energy(self.sm, nodes=["s220"]), 0.)
         #Structure with a clash
         self.assertGreater(self.energy.eval_energy(self.sm_clash), 100.)
-        
+    def test_energy_independent_of_nodes(self):
+        for i,sm in enumerate([self.sm, self.sm_clash, self.sm2]):
+            for l in range(10,len(sm.bg.defines),2):
+                nodes=random.sample(sm.bg.defines.keys(),l)
+                try:
+                    e_nodes=self.energy.eval_energy(sm, nodes=nodes)
+                except ValueError: #No stem in nodes
+                    e_nodes=0
+                c1=self.energy.c
+                e=self.energy.eval_energy(sm)
+                c2=self.energy.c
+                np.set_printoptions(threshold=np.nan)
+                self.assertLessEqual(e_nodes, e, "{} is not <= {}. The clash energy should be "
+                                     "smaller or the same, if nodes are used. Nodes used were {} "
+                                     "for spatial model {}. VRAS1 {}, VRAS2{}".format(e_nodes, e, nodes, i, c1, c2))
+
 class TestProjectionMatchEnergySetup(unittest.TestCase):
     def test_ProjectionMatchEnergy_init(self):
         try:
