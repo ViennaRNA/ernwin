@@ -39,9 +39,9 @@ def main():
     vposs = []
     rposs = []
     stem_length = 0
+    bg.add_all_virtual_residues()
     for s in bg.stems():
         stem_length += bg.stem_length(s)
-        cgg.add_virtual_residues(bg, s)
         for i in range(bg.stem_length(s)):
             for strand in range(2):
                 va = cgg.virtual_residue_atoms(bg, s, i, strand)

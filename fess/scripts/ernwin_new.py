@@ -11,13 +11,15 @@ import argparse, sys, warnings, copy, os, random, math
 import os.path
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.utilities.debug as fud
 from fess.builder import energy as fbe
 from fess.builder import models as fbm
 from fess.builder import sampling as fbs
 from fess.builder import config
-
+from fess.builder import samplingStatisticsNew2 as sstats
+from fess import data_file
 import scipy.ndimage
 #Magic numbers
 DEFAULT_ENERGY_PREFACTOR=30
@@ -158,7 +160,7 @@ def getDefaultEnergies(cg):
     energies.append(fbe.RadiusOfGyrationEnergy(energy_prefactor=DEFAULT_ENERGY_PREFACTOR,
                                                adjustment=1.0))
     #Shortest loop distance per loop
-    energies+=getSLDenergies(cg)
+    energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg) ) ]
     #A-minor energies
     energies += getAMinorEnergies()
     return energies
@@ -215,7 +217,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image)
                 warnings.warn("Adjustment '{}' is ignored for ShortestLoopdistancePerLoop energy!".format(adj))            
             if pre=="": pre=DEFAULT_ENERGY_PREFACTOR
             else: pre=int(pre)
-            energies+=getSLDenergies(cg, pre)
+            energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg, pre) ) ]
         elif "PRO" in contrib:
             pre,_, adj=contrib.partition("PRO")
             if adj!="":
@@ -332,7 +334,7 @@ def setup_deterministic(args):
             else:
                 energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations, args.projected_dist, args.scale, args.ref_img))
         #Initialize the spatial model
-    sm=fbm.SpatialModel(cg)
+    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(data_file("stats/all.stats")))
 
     #Initialize the Constraint energies
     junction_energy=None
@@ -347,22 +349,24 @@ def setup_deterministic(args):
 
     return sm, ofilename, energy, energies_to_track
 
-def setup_stat(out_file, sm, args):
+def setup_stat(out_file, sm, args, plter):
     """
-    Setup the stat object used for loging/ output.
+    Setup the stat object used for logging/ output.
 
     :param out_file: an opened file handle for writing
     :param sm: The spatial model. Note: A deepcopy of this object will be generated as a reference structure.
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
-    original_sm=copy.deepcopy(sm)
-    stat = fbs.SamplingStatistics(original_sm, None, None, silent=False,
-                                      output_file=out_file, 
-                                      save_n_best = args.save_n_best, 
-                                      dists = [], 
-                                      save_iterative_cg_measures=args.save_iterative_cg_measures, 
-                                      no_rmsd = args.no_rmsd)
-    stat.step_save = args.step_save
+    original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
+
+    #stat = fbs.SamplingStatistics(original_sm, plter , None, silent=False,
+    #                                  output_file=out_file, 
+    #                                  save_n_best = args.save_n_best, 
+    #                                  dists = [], 
+    #                                  save_iterative_cg_measures=args.save_iterative_cg_measures, 
+    #                                  no_rmsd = args.no_rmsd)
+    #stat.step_save = args.step_save
+    stat = sstats.SamplingStatistics(original_sm)
     return stat
 
 
@@ -379,8 +383,7 @@ if __name__=="__main__":
     fud.pv("energies_to_track")
     #Eval-energy mode
     if args.eval_energy:
-        for s in sm.bg.stem_iterator():
-            ftug.add_virtual_residues(sm.bg, s)
+        sm.bg.add_all_virtual_residues()
         fud.pv('energy.eval_energy(sm, verbose=True, background=False)')
         if sm.constraint_energy:
             fud.pv('sm.constraint_energy.eval_energy(sm, verbose=True, background=False)')
@@ -397,14 +400,16 @@ if __name__=="__main__":
     else:
         seed_num = random.randint(0, sys.maxint)            
     random.seed(seed_num)
-    #Main function, dependent on random.seed
+    #Main function, dependent on random.seed        
+    plter=None #fbs.StatisticsPlotter()
     with open_for_out(ofilename) as out_file:
-        stat=setup_stat(out_file, sm,args)            
+        stat=setup_stat(out_file, sm,args, plter)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             sampler = fbs.MCMCSampler(sm, energy, stat, args.no_rmsd, energies_to_track=energies_to_track, start_from_scratch=args.start_from_scratch)
             sampler.dump_measures = args.dump_energies
             for i in range(args.iterations):
-                sampler.step()
+                sampler.step()            
+            #plter.finish()
         finally: #Clean-up 
             print("INFO: Random seed was {}".format(seed_num), file=sys.stderr)

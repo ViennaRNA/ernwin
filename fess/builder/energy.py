@@ -26,9 +26,10 @@ import fess.builder.aminor as fba
 import fess.builder.models as cbm
 import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
-import forgi.projection.hausdorff_neu as fph
+import forgi.projection.hausdorff as fph
+import forgi.threedee.utilities.rmsd as ftur
 
-from fess.builder import config
+from . import config
 
 import scipy.stats as stats
 import scipy.stats as ss
@@ -112,8 +113,7 @@ class EnergyFunction(object):
     def interaction_energy_iter(self, bg, background):
         sm = cbm.SpatialModel(bg)
 
-        for stem in bg.stems():
-            ftug.add_virtual_residues(bg, stem)
+        bg.add_all_virtual_residues()
 
         self.eval_energy(sm, background)
         for key in self.interaction_energies.keys():
@@ -220,7 +220,7 @@ class HausdorffEnergy(EnergyFunction):
         self.last_dir=params[0]
         imgpath=os.path.join(config.Configuration.sampling_output_dir, str(time.time())+".raster."+str(int(10*score))+".png")
         scipy.misc.imsave(imgpath, img)
-        print("HDE Score is {}, params {}... ".format(score, params), end="")
+        #print("HDE Score is {}, params {}... ".format(score, params), end="")
         return self.prefactor*score
     def accept_last_measure(self):
         self.accepted_projDir=fph.from_polar([1,self.last_dir[0], self.last_dir[1]])
@@ -417,7 +417,8 @@ class CoarseGrainEnergy(EnergyFunction):
             if new_kde is not None:
                 self.sampled_kdes[self.measure_category(struct)] = new_kde
             else:
-                print ("skipping this time...", file=sys.stderr)
+                #print ("skipping this time...", file=sys.stderr)
+                pass
 
             #self.vals[1] = values
 
@@ -589,18 +590,25 @@ class CombinedEnergy:
     def shortname(self):
         name=[]
         for e in it.chain(self.energies, self.uncalibrated_energies):
-            #try:
-                name.append(e.shortname())
-            #except:
-            #    name.append(e.__class__.__name__[:6])
-        return ",".join(name)
+            try:
+                sn=e.shortname()
+                if len(sn)>12:
+                    sn=sn[:9]+"..."
+                name.append(sn)
+            except:
+                name.append(e.__class__.__name__[:9]+"...")
+        sn=",".join(name)
+        if len(sn)>12:
+            sn=sn[:9]+"..."
+        return sn
+
     def save_energy(self, energy, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
 
         filename = os.path.join(directory,
                                 energy.__class__.__name__ + ".energy")
-        print ("saving filename:", filename)
+        #print ("saving filename:", filename)
         pickle.dump(energy, open(filename, 'w'))
 
     def resample_background_kde(self, struct):
@@ -628,10 +636,13 @@ class CombinedEnergy:
                     nodes=None):
         total_energy = 0.
         self.bad_bulges = []
-
+        self.constituing_energies=[]
         for energy in self.uncalibrated_energies:
-            contrib = energy.eval_energy(sm, background,
-                                               nodes)            
+            contrib = energy.eval_energy(sm, background=background,
+                                               nodes=nodes)
+            if np.isscalar(contrib):
+                contrib=np.array([contrib])
+            self.constituing_energies.append((energy.shortname(), contrib[0]))
             #try: print("uncalibrated ",energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print("uncalibrated ",energy, " contributes ",contrib ,"to the combined energy")
             total_energy += contrib
@@ -640,7 +651,14 @@ class CombinedEnergy:
                 print (energy.__class__.__name__, contrib)
 
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background=background, nodes=nodes)            
+            contrib = energy.eval_energy(sm, background=background, nodes=nodes)
+            try:
+                sn=energy.shortname()
+                if len(sn)>12:
+                    sn=sn[:9]+"..."
+            except AttributeError:
+                sn = str(type(energy))[8:17]+"..."
+            self.constituing_energies.append((sn, contrib))
             #try: print(energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print(energy, " contributes ",contrib ,"to the combined energy")
             self.bad_bulges += energy.bad_bulges
@@ -1161,20 +1179,8 @@ class CheatingEnergy(EnergyFunction):
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
 
-def get_coords(cg):
-    '''
-    Return a list of all the coordinates in this structure.
-    '''
-    coords = []
-    for s in cg.sorted_stem_iterator():
-        coords += [cg.coords[s][0]]
-        coords += [cg.coords[s][1]]
-    return coords
-
-import forgi.threedee.utilities.rmsd as ftur
-
 def length_and_rog(cg):
-    coords = get_coords(cg)
+    coords = cg.get_ordered_stem_poss()
     rog = ftur.radius_of_gyration(coords)
     total_length = sum([len(list(cg.define_residue_num_iterator(d))) for d in cg.defines.keys()])
     
@@ -1252,7 +1258,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         rogs = rdata[:,1]
         rogs=np.array([adjust*i for i in rogs])
 
-        print("Radii of gyration [{}, {}]: min-median-max: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)))
+        print("Radii of gyration [{}, {}]: min-median-max: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)), file=sys.stderr)
         return (self.get_distribution_from_values(rogs), list(rogs))
 
 

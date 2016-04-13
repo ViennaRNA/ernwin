@@ -72,19 +72,16 @@ def main():
         pymol_printer.energy_function = cbe.ImgHelixOrientationEnergy()
     if options.loop_loop_energy:
         for bg in bgs:
-            for s in bg.stems():
-                cgg.add_virtual_residues(bg, s)
+            bg.add_all_virtual_residues()
         pymol_printer.energy_function = cbe.LoopLoopEnergy()
 
     if options.stem_stem_energy:
         for bg in bgs:
-            for s in bg.stems():
-                cgg.add_virtual_residues(bg, s)
+            bg.add_all_virtual_residues()
         pymol_printer.energy_function = cbe.StemStemOrientationEnergy()
     if options.cylinder_intersect_energy:
         for bg in bgs:
-            for s in bg.stems():
-                cgg.add_virtual_residues(bg, s)
+            bg.add_all_virtual_residues()
         pymol_printer.energy_function = cbe.CylinderIntersectionEnergy()
     if options.pdb_file:
         pymol_printer.pdb_file = options.pdb_file
@@ -152,8 +149,7 @@ def main():
         pymol_printer.transform_segments(translation_matrix, rotation_matrix)
 
         if options.stem_atoms:
-            for s in bg.stems():
-                cgg.add_virtual_residues(bg, s)
+            bg.add_all_virtual_residues()
 
             for (s,i) in bg.virtual_residues():
                 vra = []

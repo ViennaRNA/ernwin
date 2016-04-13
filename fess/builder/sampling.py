@@ -10,7 +10,7 @@ import time
 import scipy.stats as ss
 
 #import matplotlib.pyplot as plt
-
+from . import samplingStatisticsNew2 as sstats
 import fess.builder.config as cbc
 import fess.builder.energy as fbe
 import forgi.threedee.model.comparison as ftme
@@ -65,17 +65,19 @@ class StatisticsPlotter:
         #X,Y = np.meshgrid(new_m1, new_m2)
         positions = np.vstack([X.ravel(), Y.ravel()])
         values = np.vstack([m1, m2])
-        kernel = ss.gaussian_kde(values)
-        Z = np.reshape(kernel(positions).T, X.shape)
-
-        if color == 'b':
-            ax.contourf(X, Y, Z, cmap=plt.cm.Blues,alpha=0.5)
-        if color == 'r':
-            ax.contourf(X, Y, Z, cmap=plt.cm.Reds,alpha=0.5)
-        if color == 'g':
-            ax.contourf(X, Y, Z, cmap=plt.cm.Greens, alpha=0.5)
-        if color == 'y':
-            ax.contourf(X, Y, Z, cmap=plt.cm.YlOrBr, alpha=0.5)
+        try:
+          kernel = ss.gaussian_kde(values)
+        except: pass
+        else:
+            Z = np.reshape(kernel(positions).T, X.shape)
+            if color == 'b':
+                ax.contourf(X, Y, Z, cmap=plt.cm.Blues,alpha=0.5)
+            if color == 'r':
+                ax.contourf(X, Y, Z, cmap=plt.cm.Reds,alpha=0.5)
+            if color == 'g':
+                ax.contourf(X, Y, Z, cmap=plt.cm.Greens, alpha=0.5)
+            if color == 'y':
+                ax.contourf(X, Y, Z, cmap=plt.cm.YlOrBr, alpha=0.5)
 
     def add_data(self, energy, rmsd, color):
         self.energies[color] += [energy]
@@ -113,7 +115,7 @@ class StatisticsPlotter:
                 #self.ax_plot.set_xlim(xlim)
 
             for i in range(min(5, len(sorted_energy_rmsds))):
-                self.ax_plot.plot(sorted_energy_rmsds[i][1], sorted_energy_rmsds[i][0], '%so' % (sorted_energy_rmsds[i][2]), alpha=0.5)
+                self.ax_plot.plot(sorted_energy_rmsds[i][1], sorted_energy_rmsds[i][0], 'o', alpha=0.5) #'%so' % (sorted_energy_rmsds[i][2]), alpha=0.5)
 
 
             if len(self.energies[color]) > 2. and len(sorted_energies) > 4:
@@ -130,12 +132,13 @@ class StatisticsPlotter:
                         continue
                     
             for color in self.energies.keys():
-                self.ax_plot.plot(self.rmsds[color], self.energies[color], '%so' % (color), alpha=0.05)
+                self.ax_plot.plot(self.rmsds[color], self.energies[color], 'o', alpha=0.5) #'%so' % (color), alpha=0.05)
 
         for color in self.energies.keys():
             xlim = (0, sorted_rmsds[-1] + 0.5)
             self.ax_hist.set_xlim(xlim)
-            self.ax_hist.hist(self.rmsds[color], color=color, alpha=0.5, normed=True)
+            if len(self.rmsds[color])>2:
+                self.ax_hist.hist(self.rmsds[color], color=color, alpha=0.5, normed=True)
 
         import matplotlib.pyplot as plt
         plt.draw()
@@ -153,12 +156,12 @@ class StatisticsPlotter:
         sorted_energies = sorted([s[0] for s in sorted_energy_rmsds])
         sorted_rmsds = sorted([s[1] for s in sorted_energy_rmsds])
 
-        se = sorted_energies[:3 * len(sorted_energies) / 4]
-        sr = sorted_rmsds[:3 * len(sorted_rmsds) / 4]
+        se = sorted_energies[:3 * len(sorted_energies) // 4]
+        sr = sorted_rmsds[:3 * len(sorted_rmsds) // 4]
 
-        ylim = (sorted_energies[0] - 5., sorted_energies[3 * len(sorted_energies) / 4] + 5.)
+        ylim = (sorted_energies[0] - 5., sorted_energies[3 * len(sorted_energies) // 4] + 5.)
         #xlim = (sorted_rmsds[0] - 5., sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
-        xlim = (0, sorted_rmsds[3 * len(sorted_rmsds) / 4] + 5.)
+        xlim = (0, sorted_rmsds[3 * len(sorted_rmsds) // 4] + 5.)
 
         self.xlim = xlim
         self.ylim = ylim
@@ -167,14 +170,15 @@ class StatisticsPlotter:
         self.ax_plot.set_xlim(xlim)
 
         for i in range(min(5, len(sorted_energy_rmsds))):
-            self.ax_plot.plot(sorted_energy_rmsds[i][1], sorted_energy_rmsds[i][0], '%so' % (sorted_energy_rmsds[i][2]), alpha=0.5)
+            self.ax_plot.plot(sorted_energy_rmsds[i][1], sorted_energy_rmsds[i][0], 'o', alpha=0.5)
                     
         for color in self.energies.keys():
-            self.ax_plot.plot(self.rmsds[color], self.energies[color], '%so' % (color), alpha=0.05)
+            self.ax_plot.plot(self.rmsds[color], self.energies[color], 'o', alpha=0.05)
 
         for color in self.energies.keys():
             self.create_contour_plot(np.array(self.rmsds[color]), np.array(self.energies[color]), self.ax_plot, self.xlim, self.ylim, color)
 
+        import matplotlib.pyplot as plt
         plt.ioff()
         plt.show()
 
@@ -224,32 +228,29 @@ class SamplingStatistics:
         '''
         Add a newly sampled structure to the set of statistics.
 
-        @param energy_function: The energy_function used to evaluate the structure.
-        @param sm: The spatial model that was sampled.
-        @param prev_energy: The evaluated (accepted) energy of the current step 
+        :param energy_function: The energy_function used to evaluate the structure.
+        :param sm: The spatial model that was sampled.
+        :param prev_energy: The evaluated (accepted) energy of the current step 
+        :tracking_energyis: The energy_functions which are calculated for statistics, but not used for sampling.
+        :tracked_energies: The energy values of the tracking_energies.
         '''
         self.counter += 1
 
         if self.energy_orig is None:
             self.energy_orig = 0.
             try:
-                for s in sm.bg.stem_iterator():
-                    ftug.add_virtual_residues(self.sm_orig.bg, s)
+                self.sm_orig.bg.add_all_virtual_residues()
                 self.energy_orig = energy_function.eval_energy(self.sm_orig)
             except KeyError:
                 # most likely no native structure was provided
                 pass
 
-        energy = prev_energy #energy_function.eval_energy(sm, background=True)
+        energy = prev_energy
         #energy = energy_function.eval_energy(sm, background=True)
         if energy_function.uses_background():
             energy_nobg = energy_function.eval_energy(sm, background=False)
         else:
             energy_nobg=energy
-        #energy_nobg = 0.
-        #energy = self.sampled_energy
-        if self.sampled_energy != energy:
-            pass
 
         mcc = None
 
@@ -448,7 +449,7 @@ class MCMCSampler:
     '''
     def __init__(self, sm, energy_function, stats, no_rmsd=False, energies_to_track=[], start_from_scratch=False):
         '''
-        param @sm: SpatialModel that will be used for sampling.
+        :param sm: SpatialModel that will be used for sampling.
     
         :param start_from_scratch: Boolean. If true, always sample stats. If false and stats are present (e.g. *.coord file), start at the native conformation.
         '''
@@ -464,7 +465,8 @@ class MCMCSampler:
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
-        self.stats.energy_function = energy_function
+        if not isinstance(stats, sstats.SamplingStatistics):
+            self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
         self.energies_to_track = energies_to_track
         self.dump_measures = False
@@ -504,6 +506,10 @@ class MCMCSampler:
 
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
+        try:
+            self.prev_constituing = self.energy_function.constituing_energies
+        except AttributeError: 
+            pass
         #Accept the measure of the initial structure.
         #This is required so reject_last_measure does not accept the last measure from the file a second time.
         self.energy_function.accept_last_measure()
@@ -511,6 +517,8 @@ class MCMCSampler:
             e.eval_energy(self.sm)
             e.accept_last_measure()
         sm.get_sampled_bulges()
+        if isinstance(stats, sstats.SamplingStatistics):
+            self.stats.print_header()
 
     def change_elem(self):
         '''
@@ -532,28 +540,30 @@ class MCMCSampler:
         if self.resampled_energy and self.energy_function.uses_background():
             #print("CHANGE ELEMENT: EVALUATING PREVIOUS ENERGY FOR self.energy_function")
             self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
+            try:
+                self.prev_constituing =  self.energy_function.constituing_energies
+            except AttributeError: pass
             self.resampled_energy = False
 
         prev_stat = self.sm.elem_defs[d]
 
-        # replace the statistic, rebuild the struture 
-        # and calculate a new energy
+
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
-        #print("CHANGE ELEMENT: EVALUATING ENERGY FOR self.energy_function")
-        #print ("Replaced {}:{} with {} ({}). ".format(d, prev_stat.pdb_name, new_stat.pdb_name, new_stat.u), end="")
-        #if prev_stat is new_stat and len(possible_stats)>100:
-        #    warnings.warn("Doing a no-op here! Element {}, {} replaces itself, {} choices were availabe. Problem with random number generator/".format(d, new_stat.pdb_name, len(possible_stats)))
         energy = self.energy_function.eval_energy(self.sm, background=True)
-        #print ("Energy {}".format(energy), end="")
-        self.stats.sampled_energy = energy
-        print("Energy is {}, prev_energy is {} ...".format(energy, self.prev_energy), end="\n")
+
+        # self.stats.sampled_energy = energy
+
+        #print("Energy is {}, prev_energy is {} ...".format(energy, self.prev_energy), end="\n")
         if energy < self.prev_energy:
             # lower energy means automatic acceptance accordint to the
             # metropolis hastings criterion
             self.prev_energy = energy
+            try:
+                self.prev_constituing =  self.energy_function.constituing_energies
+            except AttributeError: pass
             self.energy_function.accept_last_measure()
-            print ("...accepting")
+            #print ("...accepting")
         else:
             # calculate a probability
             r = random.random()
@@ -561,14 +571,17 @@ class MCMCSampler:
                 # reject the sampled statistic and replace it the old one
                 self.sm.elem_defs[d] = prev_stat
                 self.sm.traverse_and_build(start='start')
-                self.stats.sampled_energy = self.prev_energy
+                # self.stats.sampled_energy = self.prev_energy
                 self.energy_function.reject_last_measure()
-                print ("...rejecting")
+                #print ("...rejecting")
             else:
                 # accept the new statistic
                 self.prev_energy = energy
+                try:
+                    self.prev_constituing =  self.energy_function.constituing_energies
+                except AttributeError: pass
                 self.energy_function.accept_last_measure()
-                print ("...still accepting")
+                #print ("...still accepting")
 
     def step(self):
         #self.sm.sample_stems()
@@ -585,7 +598,7 @@ class MCMCSampler:
         tracked_energies=[]
         for e in self.energies_to_track:
             #print("STEP: EVALUATING ENERGY FOR ", e.shortname())
-            tracked_energies.append(e.eval_energy(self.sm))
+            tracked_energies.append((e.shortname(), e.eval_energy(self.sm)))
             #print("Tracked energy", e.shortname())
             e.accept_last_measure()
             if self.step_counter % 20 == 0:
@@ -599,7 +612,11 @@ class MCMCSampler:
                 e.resample_background_kde(self.sm.bg)
 
         self.step_counter += 1
-        self.stats.update_statistics(self.energy_function, self.sm, self.prev_energy, self.energies_to_track, tracked_energies)
+        if isinstance(self.stats, sstats.SamplingStatistics):
+            self.stats.update_statistics( self.sm, self.prev_energy[0], self.prev_constituing )
+        else:
+            self.stats.update_statistics( self.energy_function, self.sm, 
+                                          self.prev_energy, self.energies_to_track )
         
         self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
         for e in self.energies_to_track:

@@ -285,14 +285,14 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, stats_file=cbc.Configuration.stats_file, angle_defs = None, stem_defs = None, loop_defs = None, conf_stats=None):
+    def __init__(self, bg, conf_stats=None):
         '''
         Initialize the structure.
 
         @param bg: The BulgeGraph containing information about the coarse grained
                    elements and how they are connected.
-        @param angle_stats: The statistics about the inter-helical angles.
-        @param angle_defs: Pre-determined statistics for each bulge
+
+
         '''
 
         self.stems = dict()
@@ -313,12 +313,11 @@ class SpatialModel:
         self.bg = bg
         self.add_to_skip()
         
-        for s in bg.stem_iterator():
-            try:
-                cgg.add_virtual_residues(self.bg,s)
-            except KeyError:
-                # The structure is probably new and doesnt have coordinates yet
-                continue
+        try:
+            self.bg.add_all_virtual_residues()
+        except ftmc.RnaMissing3dError:
+            # The structure is probably new and doesnt have coordinates yet
+            pass
 
     @property
     def conf_stats(self):
