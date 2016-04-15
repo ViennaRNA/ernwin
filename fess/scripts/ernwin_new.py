@@ -60,7 +60,7 @@ def get_parser():
     #Controll output
     parser.add_argument('--save-n-best', default=3, 
                         help='Save the best (lowest energy) n structures.', type=int)
-    parser.add_argument('--save--min-rmsd', default=3, 
+    parser.add_argument('--save-min-rmsd', default=3, 
                         help='Save the best (lowest rmsd) n structures.', type=int)
     parser.add_argument('--step-save', default=0, help="Save the structure at every n'th step.",
                          type=int)
@@ -398,10 +398,10 @@ def setup_stat(out_file, sm, args, energies_to_track):
     #stat.step_save = args.step_save
     options={}
     if args.no_rmsd:
-        options["rmsd":False]
-    options[ "step_save" : args.step_save ]
-    options[ "save_n_best" : args.save_n_best ]
-    options[ "save_minrmsd" : args.save_min_rmsd ]
+        options["rmsd"] = False
+    options[ "step_save" ] = args.step_save 
+    options[ "save_n_best" ] = args.save_n_best 
+    options[ "save_min_rmsd" ] = args.save_min_rmsd 
     stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
                                      options=options)
     return stat

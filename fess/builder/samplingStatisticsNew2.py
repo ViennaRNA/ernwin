@@ -145,7 +145,7 @@ class RMSDStatistics(StatisticsCollector):
             self.best_cgs.insert((copy.deepcopy(sm.bg),rmsd))
             if step % 10 == 0:
                 for i, bg in enumerate(self.best_cgs):
-                    bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+                    bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
                               'best_rmsd{:d}.coord'.format(i)))
             if self._showMinMax:
                 if rmsd>self._maxRMSD:
@@ -317,13 +317,14 @@ class SamplingStatistics:
         if options=="all":
             self.options=_statisticsDefaultOptions
         elif isinstance(options, dict):
-            self.options=copy.copy(_statisticsDefaultOptions).update(options)
+            self.options=copy.copy(_statisticsDefaultOptions)
+            self.options.update(options)
         else:
             raise ValueError("Options '{}' not recognized. Please use a  "
                              "dict or the string 'all'".format(options))
 
 
-        if self.options["rog"]:  collectors.append(ROGStatistics())
+        if self.options["rog"]: collectors.append(ROGStatistics())
         if self.options["mcc"]: collectors.append(MCCStatistics(sm_orig))
         if self.options["rmsd"]:
             r_col=RMSDStatistics(sm_orig, show_min_max = self.options["extreme_rmsd"],
@@ -387,9 +388,9 @@ class SamplingStatistics:
         
         if self.step % 10 == 0:
             for i, bg in enumerate(self.best_cgs):
-                bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+                bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
                               'best{:d}.coord'.format(i)))
                               
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
-            sm.bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+            sm.bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
                               'step{:06d}.coord'.format(self.step)))
