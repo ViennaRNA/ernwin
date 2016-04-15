@@ -4,11 +4,13 @@ import sys
 import warnings
 
 import Bio.PDB as bpdb
-import borgy.builder.config as cbc
-import borgy.builder.rmsd as cbr
-import tess.threedee.model.coarse_grain as ttmc
-import borgy.graph.graph_pdb as cgg
-import borgy.utilities.debug as cud
+import fess.builder.config as cbc
+import forgi.threedee.utilities.rmsd as cbr
+import forgi.threedee.model.coarse_grain as ttmc
+import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.utilities.debug as cud
+
+import numpy as np
 
 from optparse import OptionParser
 
@@ -40,12 +42,11 @@ def main():
     rposs = []
     stem_length = 0
     bg.add_all_virtual_residues()
-    for s in bg.stems():
+    for s in bg.stem_iterator():
         stem_length += bg.stem_length(s)
         for i in range(bg.stem_length(s)):
             for strand in range(2):
                 va = cgg.virtual_residue_atoms(bg, s, i, strand)
-
                 r = bg.stem_side_vres_to_resn(s, strand, i)
                 for a, p in va.items():
                     try:
@@ -57,7 +58,7 @@ def main():
                     except KeyError as ke:
                         continue
 
-    print cbc.Configuration.mids_method, stem_length, cbr.centered_rmsd(vposs, rposs)
+    print cbc.Configuration.mids_method, stem_length, cbr.rmsd(np.array(vposs), np.array(rposs))
 
 if __name__ == '__main__':
     main()

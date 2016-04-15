@@ -748,7 +748,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             warnings.simplefilter("ignore")
             kdt2 = kd.KDTree(3)
             kdt2.set_coords(coords)
-            kdt2.all_search(1.8)
+            kdt2.all_search(1.4) #Distance in Angstrom. #1.8
 
         clashes = 0
         indeces = kdt2.all_get_indices()
@@ -794,7 +794,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         for a1 in atoms1.values():
             for a2 in atoms2.values():
-                if ftuv.vec_distance(a1,a2) < 1.8: 
+                if ftuv.vec_distance(a1,a2) < 1.8:
                 #if ftuv.magnitude(a1 - a2) < 1.8:
                     clashes += 1
 
