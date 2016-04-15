@@ -392,5 +392,5 @@ class SamplingStatistics:
                               'best{:d}.coord'.format(i)))
                               
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
-            sm.bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+            sm.bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
                               'step{:06d}.coord'.format(self.step)))
