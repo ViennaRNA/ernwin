@@ -50,15 +50,6 @@ INCR = 0.01
 
 DEFAULT_ENERGY_PREFACTOR = 30
 
-
-def my_log(x):
-    return np.log(x + 1e-200)
-
-
-class MissingTargetException(Exception):
-    def __init__(self, message):
-        Exception.__init__(self, message)
-
 def load_local_data(filename):
     '''
     Load a data file that is located within this
@@ -80,7 +71,6 @@ class EnergyFunction(object):
     '''
 
     def __init__(self):
-        self.interaction_energies = None
         #: Used by constraint energies, to store tuples of stems that clash.
         #: Updated every time eval_energy is called.
         self.bad_bulges = []
@@ -97,7 +87,6 @@ class EnergyFunction(object):
 
     def reject_last_measure(self):
         if len(self.accepted_measures) > 0:
-
             self.accepted_measures += [self.accepted_measures[-1]]
 
     def eval_energy(self, sm, background=True, nodes=None):
@@ -109,16 +98,6 @@ class EnergyFunction(object):
 
     def resample_background_kde(self, struct):
         pass
-
-    def interaction_energy_iter(self, bg, background):
-        sm = cbm.SpatialModel(bg)
-
-        bg.add_all_virtual_residues()
-
-        self.eval_energy(sm, background)
-        for key in self.interaction_energies.keys():
-            if abs(self.interaction_energies[key]) > 0.0000001:
-                yield (key, self.interaction_energies[key])
 
     def calc_fg_parameters(self, bg):
         '''
@@ -135,7 +114,7 @@ class EnergyFunction(object):
 
         @param energy_structs: A list of tuples of the form (energy, bg)
         '''
-        pass
+        raise NotImplementedError("TODO")
 
     def get_energy_name(self):
         '''
@@ -148,7 +127,7 @@ class EnergyFunction(object):
         Dump all of the coarse grain measures collected so far
         to a file.
         '''
-        output_file = op.join(base_directory, self.get_energy_name()+".measures")
+        output_file = op.join(base_directory, self.get_energy_name()+str(hex(id(self)))+".measures")
         with open(output_file, 'w') as f:
             f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
             f.write("\n")
@@ -163,6 +142,7 @@ class HausdorffEnergy(EnergyFunction):
         """
         :param img: A boolean, square 2D numpy.array
         :param scale: Int or float. How many Angstrom the side length of the image is.
+        :param prefactor: Multiply the pseudo-energy with this value.
         """
         super(HausdorffEnergy, self).__init__()        
         self.prefactor=prefactor
@@ -173,64 +153,63 @@ class HausdorffEnergy(EnergyFunction):
         self.get_refimg_longest_axis()
         self.scale=scale
         self.last_dir=None
+        self.accepted_projDir=None
+        self.last_img=None
+        self.accepted_img
     def get_refimg_longest_axis(self):
-        #import matplotlib.pyplot as plt
         max_sdist=0
         best_points=None
         for p1, p2 in it.combinations(np.transpose(np.where(self.ref_img)),2):
             if (p2[0]-p1[0])**2+(p2[1]-p1[1])**2>max_sdist:
                 max_sdist=(p2[0]-p1[0])**2+(p2[1]-p1[1])**2
                 best_points=(p1,p2)
-        deg=math.degrees(math.atan2(best_points[1][0]-best_points[0][0], best_points[1][1]-best_points[0][1]))
+        deg=math.degrees(math.atan2(best_points[1][0]-best_points[0][0], 
+                                    best_points[1][1]-best_points[0][1]))
         deg=90-deg
         self.initial_degrees=[deg%360, (deg+180)%360]
-        #fig, ax=plt.subplots(2)
-        #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
-        #z=np.zeros_like(self.ref_img)
-        #z[best_points[0][0], best_points[0][1]]=1
-        #z[best_points[1][0], best_points[1][1]]=1
-        #ax[1].imshow(z, interpolation="none", cmap='gray')
-        #plt.show()
-        #print ("Starting rotations are ", self.initial_degrees)
     def shortname(self):
-        return "HDF"
+        return "HDE"
     def get_name(self):
         return "Hausdorff-Energy"
     def eval_energy(self, sm, background=None, nodes=None):
-        #import matplotlib.pyplot as plt
+
         s, i, params = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg,  
                                                           start_points=40, 
                                                           starting_rotations=self.initial_degrees,
-                                                          virtual_atoms=False) 
-        #fig, ax=plt.subplots(2)
-        #ax[0].imshow(self.ref_quarter, interpolation="none", cmap='gray')
-        #ax[1].imshow(i>0, interpolation="none", cmap='gray')
-        #ax[0].set_title("Reference Global Optimization")
-        #ax[1].set_title("{} distance".format(s))
-        #plt.show()
+                                                          virtual_atoms=False)         
         score, img, params = fph.locally_minimal_distance(self.ref_img, self.scale, sm.bg, 
                                                           params[1], params[2], params[0], 
                                                           maxiter=200)
+        self.last_dir=params[0]
+        self.measures.append(score)
+        #import matplotlib.pyplot as plt
         #fig, ax=plt.subplots(2)
         #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
         #ax[1].imshow(img>0, interpolation="none", cmap='gray')
         #ax[0].set_title("Final Opt Reference")
         #ax[1].set_title("{} distance".format(score))
         #plt.show()
-        self.last_dir=params[0]
-        imgpath=os.path.join(config.Configuration.sampling_output_dir, str(time.time())+".raster."+str(int(10*score))+".png")
-        scipy.misc.imsave(imgpath, img)
-        #print("HDE Score is {}, params {}... ".format(score, params), end="")
         return self.prefactor*score
     def accept_last_measure(self):
+        super(HausdorffEnergy, self).accept_last_measure()
         self.accepted_projDir=fph.from_polar([1,self.last_dir[0], self.last_dir[1]])
-
+        self.accepted_img = self.last_img
+        
+    def dump_measures(self, base_directory, iteration=None):
+        '''
+        Dump all of the coarse grain measures collected so far
+        to a file.
+        '''
+        super(HausdorffEnergy, self).dump_measures(base_directory, iteration)
+        image_file = op.join(base_directory, "HDE_image."+iteration+".png")
+        scipy.misc.imsave(image_file, self.accepted_img)
 
 class ProjectionMatchEnergy(EnergyFunction):
     def __init__(self, distances={}, prefactor=1):
         """
-        :param directions: A dict where the keys are tuples of coarse grain element names (e.g.: ("h1","m1"))
-                       and the values are the distance IN THE PROJECTED PLANE (i.e. in the micrograph).
+        :param directions: A dict where the keys are tuples of coarse grain element names 
+                           (e.g.: ("h1","m1")) and the values are the distance 
+                           IN THE PROJECTED PLANE (i.e. in the micrograph).
         """        
         super(ProjectionMatchEnergy, self).__init__()
         self.distances=distances
@@ -257,7 +236,9 @@ class ProjectionMatchEnergy(EnergyFunction):
             Mf=int(2*math.pi*math.sin(theta)/df)
             for n in range(Mf):
                 phi=2*math.pi*n/Mf
-                points.append((math.sin(theta)*math.cos(theta), math.sin(theta)*math.sin(phi), math.cos(theta)))
+                points.append((math.sin(theta)*math.cos(theta), 
+                               math.sin(theta)*math.sin(phi), 
+                               math.cos(theta)))
         return [np.array(p) for p in points if p[0]>=0]  
 
     def shortname(self):
@@ -270,17 +251,22 @@ class ProjectionMatchEnergy(EnergyFunction):
         """
         :param c: A numpy array. The projection vector that HAS TO BE NORMALIZED
 
-        Let theta be the angle between the p, normal vector of the plane of projection, and the vector a which is projected onto that plain.
+        Let theta be the angle between the p, normal vector of the plane of projection, 
+        and the vector a which is projected onto that plain.
         Then dist_2d=dist_3d*cos(alpha)=dist_3d*cos(90 degrees-theta) 
         Then the angle theta is given by: cos(theta)=a*p/len(a) if p is normalized.
         Then dist_2d=dist_3d*sqrt(1-(a*p/len(a))^2)
         This means dist_2d^2=dist3d^2*(1-(a*p/len(a))^2)
         And dist_3d^2-dist2d^2=(a*p/len(a))^2 (Eq.1)
-        We now search for the projection angle p which best generates the projected lengths given the current 3D structure.
+        We now search for the projection angle p which best generates the projected 
+        lengths given the current 3D structure.
         In the optimal case, Eq 1 holds for some values of p for all vectors a.
-        In the suboptimal case, there is a squared deviation d: d=(a*p/len(a))^2-(dist_3d^2-dist2d^2)
-        We want to minimize the sum over all square deviations for all distances considered in this energy function.
-        minimize sum(d)=sum((a*p/len(a))^2-(dist_3d^2-dist2d^2)) with respect to p for all d, i.e. for all a, dist_3d, dist_2d considered.
+        In the suboptimal case, there is a squared deviation d: 
+        d=(a*p/len(a))^2-(dist_3d^2-dist2d^2)
+        We want to minimize the sum over all square deviations for all distances 
+        considered in this energy function.
+        minimize sum(d)=sum((a*p/len(a))^2-(dist_3d^2-dist2d^2)) with respect to p 
+        for all d, i.e. for all a, dist_3d, dist_2d considered.
         Under the side constraint that p has to be normalized.
         """
         x=0
@@ -294,21 +280,24 @@ class ProjectionMatchEnergy(EnergyFunction):
             a=end-start
             lengthDifferenceExperiment=ftuv.magnitude(a)**2-dist**2
             lengthDifferenceGivenP=(p[0]*a[0]+p[1]*a[1]+p[2]*a[2])**2          
-            #Add the deviation between (3d length-2d length)**2 observed vs calculated for the given projection angle
+            # Add the deviation between (3d length-2d length)**2 observed vs calculated 
+            # for the given projection angle
             x+=abs(lengthDifferenceGivenP-lengthDifferenceExperiment)
         return x
 
     def eval_energy(self, sm, background=None, nodes=None):
         """
-        Returns a measure that is zero for a perfect fit with the target projection distances and increases as the fit gets worse. 
+        Returns a measure that is zero for a perfect fit with the target 
+        projection distances and increases as the fit gets worse. 
 
         This function tries to minimize its value over all projection directions.
         A global optimization is attempted and we are only interested in projection directions 
         from the origin to points on half the unit sphere. Thus we first sample the energy for 
         multiple, equally distributed directions. From the best one we operform a local optimization.
 
-        For our specific purpose, where our starting points can give a good overview over the landscape,
-        this is better and faster than more suffisticated global optimization techniques.
+        For our specific purpose, where our starting points can give a good overview over 
+        the landscape, this is better and faster than more sophisticated 
+        global optimization techniques.
         """
         self.cg=sm.bg
         # The projection vector has to be normalized
@@ -320,59 +309,27 @@ class ProjectionMatchEnergy(EnergyFunction):
             if score<best_score:
                 best_start=direction
                 best_score=score
-        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=c1, options={"maxiter":200} )
+        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, 
+                                    constraints=c1, options={"maxiter":200} )
         if opt.success:
             self.projDir=opt.x
-            return self.prefactor*math.sqrt(opt.fun)/len(self.distances)         
-        else:
-            return 10**11
-
-    def eval_energy_old(self, sm, background=None, nodes=None):
-        #Too inefficient.
-        #: This is used for the optimization
-        self.cg=sm.bg
-        # The projection vector has to be normalized
-        c1={'type':'eq', 'fun':lambda x: x[0]**2+x[1]**2+x[2]**2-1}
-        # The function is symmetric: f(x)=f(-x).
-        # By forcing the first coordinate to be positive, our results have a
-        # well-defined from which side we look at the projection. This has the disadvantage 
-        # that gradient walks (depending on the solver used for minimization) may lead 
-        # us to the boundaries instead of a local minimum.
-        c2={'type':'ineq', 'fun':lambda x: x[0]}
-        cons=[c1,c2]
-            
-        bestopt=None
-        # We sample starting from 4 directions, each of which on the corners of a cube inside the unit sphere.
-        # As the function is symmetric, we do not need all 8 corners.
-        # Different starting points increase the chance to find a global not only a local minimum.
-        for direction in [ np.array([0.577,0.577,0.577]), np.array([0.577,-0.577,-0.577]), 
-                           np.array([0.577,-0.577,0.577]), np.array([0.577,0.577,-0.577])]:
-            opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, constraints=cons, options={"maxiter":500} )
-            if opt.success:
-                #print("Starting from {}: {} has an energy of {}".format(direction, opt.x, opt.fun))
-                if not bestopt or opt.fun<bestopt.fun:
-                    bestopt=opt           
-        if bestopt:        
-            #print (bestopt.x, ":", bestopt.fun)
-            x=bestopt.x
-            self.projDir=bestopt.x
-            #for (s,e), dist in self.distances.items():
-            #    #The middle point of the cg element
-            #    start=(self.cg.coords[s][0]+self.cg.coords[s][1])/2
-            #    end=(self.cg.coords[e][0]+self.cg.coords[e][1])/2
-            #    a=end-start
-            #    lengthGivenP=ftuv.magnitude(a)*math.sqrt(1-(x[0]*a[0]+x[1]*a[1]+x[2]*a[2])**2/(ftuv.magnitude(a)**2*ftuv.magnitude(x)**2))
-            #    print (s,e,lengthGivenP)
-            return self.prefactor*math.sqrt(bestopt.fun)/len(self.distances)         
-        else:
+            score = math.sqrt(opt.fun)/len(self.distances)
+            self.measures.append(score)
+            return self.prefactor*score
+        else:            
+            self.measures.append(10**11)
             return 10**11
 
     def accept_last_measure(self):
+        super(ProjectionMatchingEnergy, self).accept_last_measure()
         self.accepted_projDir=self.projDir
     
 
 class CoarseGrainEnergy(EnergyFunction):
     def __init__(self, energy_prefactor=10):
+        """
+        A base class for Energy functions that use a background distribution.
+        """
         super(CoarseGrainEnergy, self).__init__()
 
         self.real_kdes = dict()

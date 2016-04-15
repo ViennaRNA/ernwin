@@ -8,8 +8,12 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 
 import forgi.threedee.utilities.rmsd as ftur
 import forgi.threedee.model.comparison as ftme
+from . import config as conf
+import sys, time, copy
+import os.path
 
-import sys, time
+from ..aux.SortedCollection import SortedCollection
+
 
 __metaclass__=type
 
@@ -31,7 +35,7 @@ class StatisticsCollector:
         Return the header as a tab-separated string.
         """
         return "\t".join(self.header)
-    def update(self, sm):
+    def update(self, sm, step):
         """
         Add statistics for the given spatial model to the history
         and return them as a string ready for printing to the screen.
@@ -66,11 +70,11 @@ class CombinedStatistics(StatisticsCollector):
     @property
     def history(self):
         return [ history for member in self._members for history in member.history if not member.silent and member.history is not None ]
-    def update(self, sm):
+    def update(self, sm, step):
         line=[]
         for member in self._members:
             if not member.silent:
-                line.append(member.update(sm))
+                line.append(member.update(sm, step))
         return self._joiner.join(line)
 
 class ROGStatistics(StatisticsCollector):
@@ -80,7 +84,7 @@ class ROGStatistics(StatisticsCollector):
     def __init__(self):
         super(ROGStatistics, self).__init__()
         self.header=["ROG"]
-    def update(self, sm):
+    def update(self, sm, step):
         rog=ftur.radius_of_gyration(sm.bg.get_ordered_stem_poss())
         self.history[0].append(rog)
         return "{:6.2f} A".format(rog)
@@ -100,7 +104,7 @@ class MCCStatistics(StatisticsCollector):
         else:
             self.header=[ "MCC" ]
 
-    def update(self, sm):
+    def update(self, sm, step):
         if self.silent:
             return
         else:
@@ -112,12 +116,13 @@ class RMSDStatistics(StatisticsCollector):
     """
     Store and print the Root Mean Square Deviation from the reference SM.
     """
-    def __init__(self, reference_sm, show_min_max=True):
+    def __init__(self, reference_sm, show_min_max=True, save_n_best=0):
         """
         :param reference_sm: The reference spatial model, against which to collect statistics.
         :param show_min_max: Bool. Whether to show the minimal and maximal RMSD so far.
         """
         super(RMSDStatistics, self).__init__()
+        self.best_cgs=SortedCollection(key=lambda x: x[1], maxlen=save_n_best)
         try:
             self._reference = reference_sm.bg.get_ordered_virtual_residue_poss()
         except:
@@ -133,10 +138,15 @@ class RMSDStatistics(StatisticsCollector):
             else:
                 self.header = ["RMSD"]
 
-    def update(self, sm):
+    def update(self, sm, step):
         if not self.silent:
             curr_vress=sm.bg.get_ordered_virtual_residue_poss()
             rmsd=ftur.rmsd(self._reference, curr_vress)
+            self.best_cgs.insert((copy.deepcopy(sm.bg),rmsd))
+            if step % 10 == 0:
+                for i, bg in enumerate(self.best_cgs):
+                    bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+                              'best_rmsd{:d}.coord'.format(i)))
             if self._showMinMax:
                 if rmsd>self._maxRMSD:
                     self._maxRMSD=rmsd
@@ -170,7 +180,7 @@ class EnergyTracking(StatisticsCollector):
         self._background = background
         self.header = [ "Energy-Name", "Energy" ]
         self.hiostory = [ [], [] ]
-    def update(self, sm):
+    def update(self, sm, step):
         if self._background:
             energy=self._energy_function.eval_energy(sm, background=True)
             self._energy_function.accept_last_measure()
@@ -198,7 +208,7 @@ class ShowTime(StatisticsCollector):
             self._start_time=start_time
         self.header = [ "time" ]
         self.history= None #This does not save its history.
-    def update(self, sm):
+    def update(self, sm, step):
         elapsed=time.time()-self._start_time
         if elapsed<1000:
             return "{:5.1f} sec".format(elapsed)
@@ -216,7 +226,7 @@ class Delimitor(StatisticsCollector):
         self._delimitor=delimitor
         self.history = None
         self.header= ["|"]
-    def update(self, sm):
+    def update(self, sm, step):
         return self._delimitor
 
 ###################################################################################################
@@ -235,7 +245,10 @@ _statisticsDefaultOptions={
     "extreme_rmsd": True,
     "silent":False,
     "constituing_energies": True,
-    "history": "all"
+    "history": "all",
+    "step_save": 0,
+    "save_n_best": 0,
+    "save_min_rmsd": 0
 }
 
 
@@ -266,7 +279,8 @@ class SamplingStatistics:
                             If sm_orig is missing 3D coordinates, this will always be false.
                       * `"rmsd": True|False`: 
                             Root Mean Square Deviation to sm_orig
-                            If sm_orig is missing 3D coordinates, this will always be false.                       
+                            If sm_orig is missing 3D coordinates, 
+                            this will always be false.                       
                       * `"extreme_rmsd": TRUE | FALSE`
                             Whether to show the minimal and maximal RMSD.
 
@@ -287,7 +301,13 @@ class SamplingStatistics:
                       * `"showtime": starttime|"now"|False`:
                             Show the elapsed time at each iteration step.
                             If `starttime` is given, show elapsed time since start time, else
-                            since the creation time of this object.                      
+                            since the creation time of this object.
+                      * `"step_save": INT`:
+                            Save the CoarseGraiNRNA every n steps. If this is 0, don't save it.
+                      * `"save_n_best": INT`:
+                            Save the n structures with lowest energy
+                      * `"save_min_rmsd": INT`:
+                            Save the n structures with lowest RMSD.
         """
         self.collector=None
         self.step = 0
@@ -306,7 +326,8 @@ class SamplingStatistics:
         if self.options["rog"]:  collectors.append(ROGStatistics())
         if self.options["mcc"]: collectors.append(MCCStatistics(sm_orig))
         if self.options["rmsd"]:
-            r_col=RMSDStatistics(sm_orig, show_min_max = self.options["extreme_rmsd"])
+            r_col=RMSDStatistics(sm_orig, show_min_max = self.options["extreme_rmsd"],
+                                 save_n_best=self.options["save_min_rmsd"])
             if not r_col.silent:
                 collectors.append(Delimitor())
                 collectors.append(r_col)
@@ -319,7 +340,12 @@ class SamplingStatistics:
 
         if self.options["showtime"] is not False:
             collectors.append(ShowTime(self.options["showtime"]))
+        
+        #Note: SortedCollection(maxlen=0) is valid!
+        # should contain tuples: `(bg, energy)`
+        self.best_cgs = SortedCollection(key=lambda x: x[1], maxlen=self.options["save_n_best"]) 
 
+        
         self.collector = CombinedStatistics(collectors)
 
     def printline(self, line):
@@ -353,6 +379,17 @@ class SamplingStatistics:
         line=["{:6d}\t{:10.3f}".format(self.step, energy)]
         if self.options["constituing_energies"]:
             line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies)+" )")
-        line.append(self.collector.update(sm))
+        line.append(self.collector.update(sm, self.step))
         self.printline("\t".join(line))
-
+        
+        #The deepcopy might be too expensive if the energy is too high and the bg will not used.
+        self.best_cgs.insert((copy.deepcopy(sm.bg), energy))
+        
+        if self.step % 10 == 0:
+            for i, bg in enumerate(self.best_cgs):
+                bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+                              'best{:d}.coord'.format(i)))
+                              
+        if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
+            sm.bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
+                              'step{:06d}.coord'.format(self.step)))

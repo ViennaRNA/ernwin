@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       int, map, next, oct, open, pow, range, round,
-                      str, super, zip)
+                      str, super, zip) #future package
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
@@ -23,8 +23,6 @@ from fess import data_file
 import scipy.ndimage
 #Magic numbers
 DEFAULT_ENERGY_PREFACTOR=30
-
-
 
 
 @contextlib.contextmanager
@@ -51,33 +49,48 @@ def get_parser():
     #Options
     #Modify general behavior
     parser.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
-    parser.add_argument('--start-from-scratch', default=False, action='store_true', help="Do not attempt to start at the input conformation.\n"
-                                                                                         "(Automatically True for fasta files.)")
-    parser.add_argument('--eval-energy', default=False, action='store_true', help='Evaluate the energy of the input structure and\n'
-                                                                                  'exit without sampling.')
-    parser.add_argument('--seed', action='store', help="Seed for the random number generator.", type=int)
+    parser.add_argument('--start-from-scratch', default=False, action='store_true', 
+                        help="Do not attempt to start at the input conformation.\n"
+                             "(Automatically True for fasta files.)")
+    parser.add_argument('--eval-energy', default=False, action='store_true', 
+                        help='Evaluate the energy of the input structure and\n'
+                             'exit without sampling.')
+    parser.add_argument('--seed', action='store', help="Seed for the random number generator.",
+                        type=int)
     #Controll output
-    parser.add_argument('--save-n-best', default=3, help='Save the best n structures.', type=int)
-    parser.add_argument('--step-save', default=0, help="Save the structure at every n'th step.", type=int)
-    parser.add_argument('--save-iterative-cg-measures', default=False, help="Save the coarse-grain measures every time\n"
-                               " the energy function is recalculated", action='store_true')
-    parser.add_argument('--dump-energies', default=False, action='store_true', help='Dump the energies to file')
-    parser.add_argument('--no-rmsd', default=False, help='Refrain from trying to calculate the rmsd.', action='store_true')
+    parser.add_argument('--save-n-best', default=3, 
+                        help='Save the best (lowest energy) n structures.', type=int)
+    parser.add_argument('--save--min-rmsd', default=3, 
+                        help='Save the best (lowest rmsd) n structures.', type=int)
+    parser.add_argument('--step-save', default=0, help="Save the structure at every n'th step.",
+                         type=int)
+    parser.add_argument('--dump-energies', default=False, action='store_true', 
+                        help='Dump the measures used for energy calculation to file')
+    parser.add_argument('--no-rmsd', default=False, 
+                        help='Refrain from trying to calculate the rmsd.', action='store_true')
+    parser.add_argument('--rmsd-to', action='store', type=str, 
+                        help="A *.cg/ *.coord or *.pdb file.\n"
+                             "Calculate the RMSD and MCC relative to the structure in this file,\n"
+                             "not to the structure used as starting point for sampling.")
     #Controll output files
-    parser.add_argument('--output-file', action='store', type=str, help="Filename for output (log). \n"
-                                                    "This file will be created inside the --output-base-dir.\n"
-                                                    "Default: standard out")
-    parser.add_argument('--output-base-dir', action='store', type=str, default="", help="Base dir for the output. \n"
-                                                   "In this directory, a subfolder with the name\n"
-                                                   "from the fasta-file will be generated")
-    parser.add_argument('-o', '--output-dir-suffix', action='store', type=str, default="", help="Suffix attached to the name from the fasta-file, \n"
-                                                                                                "used as name for the subfolder with all structures.")
+    parser.add_argument('--output-file', action='store', type=str, 
+                        help="Filename for output (log). \n"
+                             "This file will be created inside the --output-base-dir.\n"
+                             "Default: standard out")
+    parser.add_argument('--output-base-dir', action='store', type=str, default="", 
+                        help="Base dir for the output. \n"
+                              "In this directory, a subfolder with the name\n"
+                              "from the fasta-file will be generated")
+    parser.add_argument('-o', '--output-dir-suffix', action='store', type=str, 
+                        default="", help="Suffix attached to the name from the fasta-file, \n"
+                                         "used as name for the subfolder with all structures.")
     #Choose energy function(s)
-    parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, help="The type of constraint energy to use. \n"
-                                                   "D=Default    clash- and junction closure energy\n"
-                                                   "B=Both       same ad 'D'\n"
-                                                   "J=junction   only junction closure energy\n"
-                                                   "C=clash      only stem clash energy")
+    parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, 
+                                    help="The type of constraint energy to use. \n"
+                                         "D=Default    clash- and junction closure energy\n"
+                                         "B=Both       same as 'D'\n"
+                                         "J=junction   only junction closure energy\n"
+                                         "C=clash      only stem clash energy")
     parser.add_argument('-e', '--energy', default="D", action='store', type=str, 
                         help= "The type of non-constraint energy to use. D=Default\n"
                               "Specify a ','-separated list of energy contributions.\n"
@@ -196,7 +209,8 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image)
         if "DEF" in contrib:
             pre,_,adj=contrib.partition("DEF")
             if pre!="" or adj!="":
-                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored for default energy!".format(pre, adj))
+                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored "
+                              "for default energy!".format(pre, adj))
             energies+=getDefaultEnergies(cg)
         elif "ROG" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "ROG")
@@ -214,14 +228,16 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image)
         elif "SLD" in contrib:
             pre,_, adj=contrib.partition("SLD")
             if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for ShortestLoopdistancePerLoop energy!".format(adj))            
+                warnings.warn("Adjustment '{}' is ignored for "
+                              "ShortestLoopdistancePerLoop energy!".format(adj))            
             if pre=="": pre=DEFAULT_ENERGY_PREFACTOR
             else: pre=int(pre)
             energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg, pre) ) ]
         elif "PRO" in contrib:
             pre,_, adj=contrib.partition("PRO")
             if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for ProjectionMatchEnergy energy!".format(adj))
+                warnings.warn("Adjustment '{}' is ignored for "
+                              "ProjectionMatchEnergy energy!".format(adj))
             if pre:
                 pre=int(pre)
             else:
@@ -273,7 +289,10 @@ def parseEnergyContributionString(contrib, sep):
             end=float(a[2])
             num_steps=math.ceil((end-adj)/step)+1
             if num_steps<2:
-                raise ValueError("Could not parse adjustment in option '{}': Expected START_STEP_STOP, found {}, {}, {} which would lead to a total of {} steps".format(contrib, adj, step, end, num_steps))
+                raise ValueError("Could not parse adjustment in option '{}': "
+                                  "Expected START_STEP_STOP, found {}, {}, {} which would "
+                                  "lead to a total of {} steps".format(contrib, adj, step, 
+                                                                       end, num_steps))
             return float(pre), (adj, step, num_steps)
         else:
             raise ValueError("Could not parse adjustment in option: '{}'".format(contrib))
@@ -288,7 +307,8 @@ def setup_deterministic(args):
     """
     The part of the setup procedure that does not use any call to the random number generator.
 
-    @TESTS: Verify that subsequent calls to this function with the same input lead to the same output. (TODO)
+    @TESTS: Verify that subsequent calls to this function with the same input lead to the 
+            same output. (TODO)
 
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
@@ -315,7 +335,8 @@ def setup_deterministic(args):
         config.Configuration.sampling_output_dir = os.path.join(args.output_base_dir, subdir)
         if not os.path.exists(config.Configuration.sampling_output_dir):
             os.makedirs(config.Configuration.sampling_output_dir)
-            print ("INFO: Directory {} created. This folder will be used for all output files.".format(config.Configuration.sampling_output_dir), file=sys.stderr)
+            print ("INFO: Directory {} created. This folder will be used for all output "
+                   "files.".format(config.Configuration.sampling_output_dir), file=sys.stderr)
         if args.output_file:
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
@@ -323,7 +344,8 @@ def setup_deterministic(args):
     if args.energy=="D":
         energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
     else:
-        energy=parseCombinedEnergyString(args.energy, cg, args.iterations, args.projected_dist,args.scale, args.ref_img)
+        energy=parseCombinedEnergyString(args.energy, cg, args.iterations,
+                                         args.projected_dist,args.scale, args.ref_img)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -332,7 +354,9 @@ def setup_deterministic(args):
             if track_energy_string=="D":
                 energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
             else:
-                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg, args.iterations, args.projected_dist, args.scale, args.ref_img))
+                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
+                                         args.iterations, args.projected_dist, args.scale,
+                                         args.ref_img))
         #Initialize the spatial model
     sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(data_file("stats/all.stats")))
 
@@ -343,21 +367,27 @@ def setup_deterministic(args):
         sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
     if args.constraint_energy in ["D","B","C"]:
         sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
-    
-
-
-
     return sm, ofilename, energy, energies_to_track
 
-def setup_stat(out_file, sm, args, plter):
+def setup_stat(out_file, sm, args, energies_to_track):
     """
     Setup the stat object used for logging/ output.
 
     :param out_file: an opened file handle for writing
-    :param sm: The spatial model. Note: A deepcopy of this object will be generated as a reference structure.
+    :param sm: The spatial model. Note: A deepcopy of this object will be generated as a 
+               reference structure. This is unused if args.rmds_to is set.
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
-    original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
+    if args.rmsd_to:
+        if args.rmsd_to.ends_with(".pdb"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
+                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
+        else:
+            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
+    else:
+        original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
 
     #stat = fbs.SamplingStatistics(original_sm, plter , None, silent=False,
     #                                  output_file=out_file, 
@@ -366,7 +396,14 @@ def setup_stat(out_file, sm, args, plter):
     #                                  save_iterative_cg_measures=args.save_iterative_cg_measures, 
     #                                  no_rmsd = args.no_rmsd)
     #stat.step_save = args.step_save
-    stat = sstats.SamplingStatistics(original_sm)
+    options={}
+    if args.no_rmsd:
+        options["rmsd":False]
+    options[ "step_save" : args.step_save ]
+    options[ "save_n_best" : args.save_n_best ]
+    options[ "save_minrmsd" : args.save_min_rmsd ]
+    stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
+                                     options=options)
     return stat
 
 
@@ -403,11 +440,11 @@ if __name__=="__main__":
     #Main function, dependent on random.seed        
     plter=None #fbs.StatisticsPlotter()
     with open_for_out(ofilename) as out_file:
-        stat=setup_stat(out_file, sm,args, plter)
+        stat=setup_stat(out_file, sm, args, energies_to_track)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
-            sampler = fbs.MCMCSampler(sm, energy, stat, args.no_rmsd, energies_to_track=energies_to_track, start_from_scratch=args.start_from_scratch)
-            sampler.dump_measures = args.dump_energies
+            sampler = fbs.MCMCSampler(sm, energy, stat, start_from_scratch=args.start_from_scratch,
+                                      dump_measures=args.dump_energies)
             for i in range(args.iterations):
                 sampler.step()            
             #plter.finish()

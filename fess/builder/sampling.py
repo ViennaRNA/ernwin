@@ -447,7 +447,7 @@ class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, no_rmsd=False, energies_to_track=[], start_from_scratch=False):
+    def __init__(self, sm, energy_function, stats, start_from_scratch=False, dump_measures=False):
         '''
         :param sm: SpatialModel that will be used for sampling.
     
@@ -468,8 +468,7 @@ class MCMCSampler:
         if not isinstance(stats, sstats.SamplingStatistics):
             self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
-        self.energies_to_track = energies_to_track
-        self.dump_measures = False
+        self.dump_measures = dump_measures
         self.resampled_energy = True
 
         print("INFO: Trying to load sampled elements.", file=sys.stderr)
@@ -502,7 +501,6 @@ class MCMCSampler:
             self.energy_function.energies += [sm.junction_constraint_energy]
         sm.constraint_energy = None
         sm.junction_constraint_energy = None
-        self.no_rmsd = no_rmsd
 
         sm.traverse_and_build()
         self.prev_energy = energy_function.eval_energy(sm)
@@ -511,11 +509,9 @@ class MCMCSampler:
         except AttributeError: 
             pass
         #Accept the measure of the initial structure.
-        #This is required so reject_last_measure does not accept the last measure from the file a second time.
+        #This is required so reject_last_measure does not accept the last measure from the 
+        #file a second time.
         self.energy_function.accept_last_measure()
-        for e in self.energies_to_track:
-            e.eval_energy(self.sm)
-            e.accept_last_measure()
         sm.get_sampled_bulges()
         if isinstance(stats, sstats.SamplingStatistics):
             self.stats.print_header()
@@ -584,43 +580,28 @@ class MCMCSampler:
                 #print ("...still accepting")
 
     def step(self):
-        #self.sm.sample_stems()
-        #self.sm.sample_loops()
-        #self.sm.sample_angles()
-        #self.sm.traverse_and_build()
-        #print("=========================\nSampling energy")
+    
         self.change_elem()
-
+        if isinstance(self.energy_function, fbe.CombinedEnergy):
+            for e in self.energy_function.iterate_energies():
+                if hasattr(e, "accepted_projDir"):
+                    sm.bg.project_from=e.accepted_projDir
+        
         if self.dump_measures:
             if self.step_counter % 20 == 0:
-                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, self.step_counter)
-
-        tracked_energies=[]
-        for e in self.energies_to_track:
-            #print("STEP: EVALUATING ENERGY FOR ", e.shortname())
-            tracked_energies.append((e.shortname(), e.eval_energy(self.sm)))
-            #print("Tracked energy", e.shortname())
-            e.accept_last_measure()
-            if self.step_counter % 20 == 0:
-                e.dump_measures(cbc.Configuration.sampling_output_dir)
-
+                self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, 
+                                                   self.step_counter)
 
         if self.step_counter % 3 == 0:
             self.resampled_energy = True
             self.energy_function.resample_background_kde(self.sm.bg)
-            for e in self.energies_to_track:
-                e.resample_background_kde(self.sm.bg)
 
         self.step_counter += 1
         if isinstance(self.stats, sstats.SamplingStatistics):
             self.stats.update_statistics( self.sm, self.prev_energy[0], self.prev_constituing )
-        else:
-            self.stats.update_statistics( self.energy_function, self.sm, 
-                                          self.prev_energy, self.energies_to_track )
-        
+
         self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
-        for e in self.energies_to_track:
-            e.update_adjustment(self.step_counter, self.sm.bg)
+
 
 class GibbsBGSampler:
     '''
