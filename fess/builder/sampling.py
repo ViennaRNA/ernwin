@@ -585,7 +585,7 @@ class MCMCSampler:
         if isinstance(self.energy_function, fbe.CombinedEnergy):
             for e in self.energy_function.iterate_energies():
                 if hasattr(e, "accepted_projDir"):
-                    sm.bg.project_from=e.accepted_projDir
+                    self.sm.bg.project_from=e.accepted_projDir
         
         if self.dump_measures:
             if self.step_counter % 20 == 0:

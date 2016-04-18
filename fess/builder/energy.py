@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+
 import StringIO
 import pickle
 import os
@@ -42,6 +43,30 @@ import gc
 import os.path
 import time, random
 #from fess.builder.watcher import watcher
+import functools
+import os
+import psutil
+
+def sizeof_fmt(num, suffix='B'):
+    #http://stackoverflow.com/a/1094933
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
+
+def profile(fn):
+    #http://stackoverflow.com/a/16624539
+    def wrapper(*args, **kwargs):
+        process = psutil.Process(os.getpid())
+        start_rss, start_vms = process.memory_info()[:2]
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            end_rss, end_vms = process.memory_info()[:2]
+            print(fn.__doc__, sizeof_fmt(end_rss - start_rss), sizeof_fmt(end_vms - start_vms))
+    return wrapper
+
 
 distribution_upper_bound = 1.0
 distribution_lower_bound = 1.0
@@ -77,8 +102,9 @@ class EnergyFunction(object):
 
         self.measures = []
         self.accepted_measures = []
-
+    
     def accept_last_measure(self):
+        """EnergyFunction.acceptLastMeasure"""
         if len(self.measures) > 0:        
             self.accepted_measures += [self.measures[-1]]
 
@@ -86,6 +112,7 @@ class EnergyFunction(object):
         pass
 
     def reject_last_measure(self):
+        """EnergyFunction.rejectLastMeasure"""
         if len(self.accepted_measures) > 0:
             self.accepted_measures += [self.accepted_measures[-1]]
 
@@ -157,7 +184,7 @@ class HausdorffEnergy(EnergyFunction):
         self.last_dir=None
         self.accepted_projDir=None
         self.last_img=None
-        self.accepted_img
+        self.accepted_img=None
     def get_refimg_longest_axis(self):
         max_sdist=0
         best_points=None
@@ -192,6 +219,7 @@ class HausdorffEnergy(EnergyFunction):
         #ax[1].set_title("{} distance".format(score))
         #plt.show()
         return self.prefactor*score
+
     def accept_last_measure(self):
         super(HausdorffEnergy, self).accept_last_measure()
         self.accepted_projDir=fph.from_polar([1,self.last_dir[0], self.last_dir[1]])
@@ -574,10 +602,11 @@ class CombinedEnergy:
         for e in it.chain(self.energies, self.uncalibrated_energies):
             e.update_adjustment(step, cg)
     def accept_last_measure(self):
+        """CombinedEnergy.acceptLastMeasure"""
         for e in it.chain(self.energies, self.uncalibrated_energies):
             e.accept_last_measure()
-
     def reject_last_measure(self):
+        """CombinedEnergy.rejectLastMeasure"""
         for e in it.chain(self.energies, self.uncalibrated_energies):
             e.reject_last_measure()
 
@@ -1485,17 +1514,17 @@ class AMinorEnergy(CoarseGrainEnergy):
             return "A-Minor Energy"
 
     def accept_last_measure(self):
+        """AMinor.acceptLastMeasure"""
         #The AMinor energy appends more than one measure per step
         #print (hex(id(self)), "Before Accepting measures. length {} Now ".format(self.num_loops), self.accepted_measures)
-        if len(self.measures) > 0:        
+        if len(self.measures) >0 and self.num_loops>0:        
             self.accepted_measures += self.measures[-self.num_loops:]
         #print (hex(id(self)), "Accepting measures. Now ", self.accepted_measures)
 
     def reject_last_measure(self):
-        #print (hex(id(self)), "Before Rejecting measures. length {} Now ".format(self.num_loops), self.accepted_measures)
-        if len(self.accepted_measures) > 0:
+        """AMinor.rejectLastMeasure"""
+        if len(self.accepted_measures) > 0 and self.num_loops>0:
             self.accepted_measures += self.accepted_measures[-self.num_loops:]
-        #print (hex(id(self)), "Rejecting measures. Now ", self.accepted_measures)
     def eval_energy(self, sm, background=True, nodes=None):
         cg = sm.bg
         if self.measure_category(cg) not in self.real_kdes.keys():
