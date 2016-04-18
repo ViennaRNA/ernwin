@@ -697,7 +697,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             warnings.simplefilter("ignore")
             kdt2 = kd.KDTree(3)
             kdt2.set_coords(coords)
-            kdt2.all_search(1.4) #Distance in Angstrom. #1.8
+            kdt2.all_search(1.8) #Distance in Angstrom. #1.8
 
         clashes = 0
         indeces = kdt2.all_get_indices()
