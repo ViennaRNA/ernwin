@@ -9,6 +9,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 import forgi.threedee.utilities.rmsd as ftur
 import forgi.threedee.model.comparison as ftme
 from . import config as conf
+from . import energy as fbe
 import sys, time, copy
 import os.path
 
@@ -244,7 +245,7 @@ _statisticsDefaultOptions={
     "reference_energy": None,
     "extreme_rmsd": True,
     "silent":False,
-    "constituing_energies": True,
+    "constituing_energies": "no_clash",
     "history": "all",
     "step_save": 0,
     "save_n_best": 0,
@@ -295,9 +296,10 @@ class SamplingStatistics:
                             "l": lowest energy only, "h": highest only
                             The order is not relevant, unrecognized characters are ignored.
 
-                      * `"constituing_energies": TRUE|FALSE`
+                      * `"constituing_energies": TRUE|FALSE|"no_clash"`
                             Show the energies that generated the sampling energies 
                             (If the sampling energy is a CombinedEnergy)
+                            "no_clash": Show constituing energies except clash energies.
                       * `"showtime": starttime|"now"|False`:
                             Show the elapsed time at each iteration step.
                             If `starttime` is given, show elapsed time since start time, else
@@ -378,8 +380,13 @@ class SamplingStatistics:
         """
         self.step+=1
         line=["{:6d}\t{:10.3f}".format(self.step, energy)]
-        if self.options["constituing_energies"]:
-            line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies)+" )")
+        if self.options["constituing_energies"]=="no_clash":
+            ignore_names=[fbe.RoughJunctionClosureEnergy().shortname(),
+                         fbe.StemVirtualResClashEnergy().shortname()]
+        else:
+            ignore_names=[]
+        line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies 
+                                      if x[0] not in ignore_names)+" )")
         line.append(self.collector.update(sm, self.step))
         self.printline("\t".join(line))
         

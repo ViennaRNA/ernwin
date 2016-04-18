@@ -73,10 +73,10 @@ def get_parser():
                              "Calculate the RMSD and MCC relative to the structure in this file,\n"
                              "not to the structure used as starting point for sampling.")
     #Controll output files
-    parser.add_argument('--output-file', action='store', type=str, 
+    parser.add_argument('--output-file', action='store', type=str, default="out.log",
                         help="Filename for output (log). \n"
                              "This file will be created inside the --output-base-dir.\n"
-                             "Default: standard out")
+                             "Default: out.log")
     parser.add_argument('--output-base-dir', action='store', type=str, default="", 
                         help="Base dir for the output. \n"
                               "In this directory, a subfolder with the name\n"
@@ -403,7 +403,7 @@ def setup_stat(out_file, sm, args, energies_to_track):
     options[ "save_n_best" ] = args.save_n_best 
     options[ "save_min_rmsd" ] = args.save_min_rmsd 
     stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
-                                     options=options)
+                                     output_file=out_file, options=options)
     return stat
 
 

@@ -122,6 +122,8 @@ class EnergyFunction(object):
         '''
         return self.__class__.__name__.lower()
 
+    def shortname(self):
+        return self.__class__.__name__.lower()[:9]+"..."
     def dump_measures(self, base_directory, iteration=None):
         '''
         Dump all of the coarse grain measures collected so far
@@ -547,13 +549,8 @@ class CombinedEnergy:
     def shortname(self):
         name=[]
         for e in it.chain(self.energies, self.uncalibrated_energies):
-            try:
-                sn=e.shortname()
-                if len(sn)>12:
-                    sn=sn[:9]+"..."
-                name.append(sn)
-            except:
-                name.append(e.__class__.__name__[:9]+"...")
+            sn=e.shortname()
+            name.append(sn)
         sn=",".join(name)
         if len(sn)>12:
             sn=sn[:9]+"..."
@@ -609,12 +606,7 @@ class CombinedEnergy:
 
         for energy in self.energies:
             contrib = energy.eval_energy(sm, background=background, nodes=nodes)
-            try:
-                sn=energy.shortname()
-                if len(sn)>12:
-                    sn=sn[:9]+"..."
-            except AttributeError:
-                sn = str(type(energy))[8:17]+"..."
+            sn=energy.shortname()
             self.constituing_energies.append((sn, contrib))
             #try: print(energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print(energy, " contributes ",contrib ,"to the combined energy")
