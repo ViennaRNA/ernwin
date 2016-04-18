@@ -1127,7 +1127,8 @@ class CheatingEnergy(EnergyFunction):
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
         return  cbr.centered_rmsd(self.real_residues, new_residues)
-
+    def shortname(self):
+        return "CHE"
 def length_and_rog(cg):
     coords = cg.get_ordered_stem_poss()
     rog = ftur.radius_of_gyration(coords)

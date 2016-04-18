@@ -114,6 +114,7 @@ def get_parser():
                               "             Requires the --ref-img and --scale  options.\n"
                               "       DEF:  add all default energies to the \n"
                               "             combined energy\n"
+                              "       CHE:  Cheating Energy. Tries to minimize the RMSD\n"
                               "Example: ROG10,SLD,AME")
     parser.add_argument('--track-energies', action='store', type=str, default="",
                         help= "A ':' seperated list of combined energies.\n"
@@ -194,7 +195,7 @@ def getHDEenergy(hde_image, scale, pre):
     img=scipy.ndimage.imread(hde_image)
     return fbe.HausdorffEnergy(img, scale, pre)
 
-def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image):
+def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image, reference_cg):
     """
     Parses an energy string, as used for the --energy commandline option
 
@@ -252,6 +253,12 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image)
             else:
                 pre=DEFAULT_ENERGY_PREFACTOR
             energies.append(getHDEenergy(hde_image, scale, pre))
+        elif "CHE" in contrib:
+            pre,_, adj=contrib.partition("CHE")
+            if pre!="" or adj!="":
+                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored "
+                              "for cheating energy!".format(pre, adj))
+            energies.append(fbe.CheatingEnergy(reference_cg))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
             sys.exit(1)
@@ -325,6 +332,21 @@ def setup_deterministic(args):
     else:
         cg = ftmc.CoarseGrainRNA(rnafile)
 
+    #Initialize the spatial model
+    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(data_file("stats/all.stats")))
+    
+    #Load the reference sm (if given)
+    if args.rmsd_to:
+        if args.rmsd_to.ends_with(".pdb"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
+                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
+        else:
+            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
+    else:
+        original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
+        
     #Output file and directory        
     ofilename=None
     if not args.eval_energy:
@@ -341,11 +363,13 @@ def setup_deterministic(args):
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
     #Initialize the requested energies
+    
     if args.energy=="D":
-        energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
+        energy=fbe.CombinedEnergy([],getDefaultEnergies(cg), reference_cg = original_sm.bg)     
     else:
         energy=parseCombinedEnergyString(args.energy, cg, args.iterations,
-                                         args.projected_dist,args.scale, args.ref_img)
+                                         args.projected_dist,args.scale,
+                                         args.ref_img, reference_cg=original_sm.bg)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -357,8 +381,7 @@ def setup_deterministic(args):
                 energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
                                          args.iterations, args.projected_dist, args.scale,
                                          args.ref_img))
-        #Initialize the spatial model
-    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(data_file("stats/all.stats")))
+
 
     #Initialize the Constraint energies
     junction_energy=None
@@ -367,9 +390,9 @@ def setup_deterministic(args):
         sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
     if args.constraint_energy in ["D","B","C"]:
         sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
-    return sm, ofilename, energy, energies_to_track
+    return sm, original_sm, ofilename, energy, energies_to_track
 
-def setup_stat(out_file, sm, args, energies_to_track):
+def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     """
     Setup the stat object used for logging/ output.
 
@@ -378,16 +401,7 @@ def setup_stat(out_file, sm, args, energies_to_track):
                reference structure. This is unused if args.rmds_to is set.
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
-    if args.rmsd_to:
-        if args.rmsd_to.ends_with(".pdb"):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
-                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
-        else:
-            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
-    else:
-        original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
+
 
     #stat = fbs.SamplingStatistics(original_sm, plter , None, silent=False,
     #                                  output_file=out_file, 
@@ -415,7 +429,7 @@ if __name__=="__main__":
 
     #Setup that does not use the random number generator.
     randstate=random.getstate()#Just for verification purposes
-    sm, ofilename, energy, energies_to_track = setup_deterministic(args)
+    sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args)
     assert randstate==random.getstate()#Just for verification purposes
     fud.pv("energies_to_track")
     #Eval-energy mode
@@ -440,7 +454,7 @@ if __name__=="__main__":
     #Main function, dependent on random.seed        
     plter=None #fbs.StatisticsPlotter()
     with open_for_out(ofilename) as out_file:
-        stat=setup_stat(out_file, sm, args, energies_to_track)
+        stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             sampler = fbs.MCMCSampler(sm, energy, stat, start_from_scratch=args.start_from_scratch,
