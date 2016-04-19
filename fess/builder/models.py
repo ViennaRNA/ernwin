@@ -749,7 +749,7 @@ class SpatialModel:
                     loop=set(self.bg.find_bulge_loop(n, 200))
                     if loop and loop<=(nodes|set([n])): #loop is empty for ml at 3'/ 5' end.
                         newnodes.add(n)
-
+                #See if the determined (not sampled) multiloop segments fulfill the constraints.
                 ej = self.junction_constraint_energy.eval_energy( self, nodes=(newnodes | nodes) )             
                 if ej>0.:
                     bad_loops=self.junction_constraint_energy.bad_bulges

@@ -115,6 +115,10 @@ def get_parser():
                               "       DEF:  add all default energies to the \n"
                               "             combined energy\n"
                               "       CHE:  Cheating Energy. Tries to minimize the RMSD\n"
+                              "       CLA:  Clamp elements (not nucleotides) together \n"
+                              "             (at 15 Angstrom) with an exponential energy. \n"
+                              "             The prefactor is used as scale (default 1).\n"
+                              "             Requires the --clamp option\n"
                               "Example: ROG10,SLD,AME")
     parser.add_argument('--track-energies', action='store', type=str, default="",
                         help= "A ':' seperated list of combined energies.\n"
@@ -137,6 +141,11 @@ def get_parser():
                         help= "Used for the Hausdorff Energy.\n"
                               "The length (in Angstrom) of each side \n"
                               "of the image is")
+    parser.add_argument('--clamp', action='store', type=str,
+                        help= "Used for the CLA energy.\n"
+                              "A list `p1,p2:p3,p4:...` where p1 and p2 are clamped together\n"
+                              " and p3+p4 are clamped together. The pi are either emelents\n"
+                              " ('s1','i1',...) or integers (positions in the sequence).\n")
     return parser
 
 def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
@@ -259,6 +268,41 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                 warnings.warn("Prefactor '{}' and adjustment '{}' are ignored "
                               "for cheating energy!".format(pre, adj))
             energies.append(fbe.CheatingEnergy(reference_cg))
+        elif "CLA" in contrib:
+            pre,_, adj=contrib.partition("CLA")
+            if adj!="":
+                warnings.warn("Adjustment '{}' is ignored for Clamp Energy!".format(adj))
+            if pre:
+                pre=int(pre)
+            else:
+                pre=1
+            pairs = args.clamp.split(':')
+            clamp=[]
+            for pair in pairs:
+                r1,r2=pair.split(",")
+                try: # initially we assume the clamp target are residue numbers
+                    r1=int(r1)
+                except ValueError: #Or they are element names
+                    e1=r1
+                else:
+                    e1=cg.get_node_from_residue_num(r1)
+                try: # initially we assume the clamp target are residue numbers
+                    r2=int(r2)
+                except ValueError: #Or they are element names
+                    e2=r2
+                else:
+                    e2=cg.get_node_from_residue_num(r2)
+                if e1 not in cg.defines or e2 not in cg.defines:
+                    print("ERROR: Invalid Clamp values '{}'-'{}' "
+                          "(elements '{}'-'{}').".format(r1,r2,e1,e2), file=sys.stderr)
+                    sys.exit(1)
+                if e1==e2:
+                    warnings.warn("Cannot clamp identical elements "
+                                  " {} and {} ({}=={})".format(r1,r2,e1,e2))
+                else:
+                    clamp+=[fbe.DistanceExponentialEnergy(e1,e2,15.,pre)]
+            if clamp:
+                energies.append(fbe.CombinedEnergy([],clamp))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
             sys.exit(1)
@@ -365,11 +409,11 @@ def setup_deterministic(args):
     #Initialize the requested energies
     
     if args.energy=="D":
-        energy=fbe.CombinedEnergy([],getDefaultEnergies(cg), reference_cg = original_sm.bg)     
+        energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
     else:
         energy=parseCombinedEnergyString(args.energy, cg, args.iterations,
                                          args.projected_dist,args.scale,
-                                         args.ref_img, reference_cg=original_sm.bg)
+                                         args.ref_img, original_sm.bg)
 
     #Initialize energies to track
     energies_to_track=[]

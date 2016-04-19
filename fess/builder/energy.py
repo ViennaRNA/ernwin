@@ -351,7 +351,7 @@ class ProjectionMatchEnergy(EnergyFunction):
             return 10**11
 
     def accept_last_measure(self):
-        super(ProjectionMatchingEnergy, self).accept_last_measure()
+        super(ProjectionMatchEnergy, self).accept_last_measure()
         self.accepted_projDir=self.projDir
     
 
@@ -950,7 +950,11 @@ class DistanceExponentialEnergy(EnergyFunction):
 
         closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
         return closest_distance
-
+    def shortname(self):
+        if self.scale==1:
+            return "CLA({},{})".format(self.from_elem, self.to_elem)
+        else:
+            return "{}CLA({},{})".format(self.scale,self.from_elem, self.to_elem) 
     def eval_energy(self, sm, background=True, nodes=None):
         closest_distance = self.get_distance(sm)
 
