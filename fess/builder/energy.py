@@ -47,27 +47,6 @@ import functools
 import os
 import psutil
 
-def sizeof_fmt(num, suffix='B'):
-    #http://stackoverflow.com/a/1094933
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
-
-def profile(fn):
-    #http://stackoverflow.com/a/16624539
-    def wrapper(*args, **kwargs):
-        process = psutil.Process(os.getpid())
-        start_rss, start_vms = process.memory_info()[:2]
-        try:
-            return fn(*args, **kwargs)
-        finally:
-            end_rss, end_vms = process.memory_info()[:2]
-            print(fn.__doc__, sizeof_fmt(end_rss - start_rss), sizeof_fmt(end_vms - start_vms))
-    return wrapper
-
-
 distribution_upper_bound = 1.0
 distribution_lower_bound = 1.0
 
@@ -176,9 +155,14 @@ class HausdorffEnergy(EnergyFunction):
         super(HausdorffEnergy, self).__init__()        
         self.prefactor=prefactor
         self.ref_img=img
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            self.ref_quarter=(scipy.ndimage.zoom(img, 0.3)>150)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.ref_quarter=(scipy.ndimage.zoom(img, 0.3)>150)
+        except RuntimeError:
+            print("IMG WAS ", img)
+            print( "Min is {}, max is {}".format(img.min(), img.max()))
+            raise
         self.get_refimg_longest_axis()
         self.scale=scale
         self.last_dir=None

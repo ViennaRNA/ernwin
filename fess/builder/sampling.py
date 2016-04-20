@@ -6,13 +6,14 @@ import sys, random, copy
 import numpy as np
 import math, os
 import time
+import psutil
 
 import scipy.stats as ss
 
 #import matplotlib.pyplot as plt
 from . import samplingStatisticsNew2 as sstats
-import fess.builder.config as cbc
-import fess.builder.energy as fbe
+from . import config as cbc
+from . import energy as fbe
 import forgi.threedee.model.comparison as ftme
 import forgi.threedee.model.stats as cbs
 
@@ -23,7 +24,27 @@ import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
 import fess.builder.models as cbm
 
-import numpy as np
+#from guppy import hpy
+
+def sizeof_fmt(num, suffix='B'):
+    #http://stackoverflow.com/a/1094933
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
+
+def profile(fn):
+    #http://stackoverflow.com/a/16624539
+    def wrapper(*args, **kwargs):
+        process = psutil.Process(os.getpid())
+        start_rss, start_vms = process.memory_info()[:2]
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            end_rss, end_vms = process.memory_info()[:2]
+            print(fn.__doc__[1:25], sizeof_fmt(end_rss - start_rss), sizeof_fmt(end_vms - start_vms), sizeof_fmt(end_rss), sizeof_fmt(end_vms))
+    return wrapper
 
 class StatisticsPlotter:
     '''
@@ -516,6 +537,7 @@ class MCMCSampler:
         if isinstance(stats, sstats.SamplingStatistics):
             self.stats.print_header()
 
+    @profile
     def change_elem(self):
         '''
         Change a random element and accept the change with a probability
@@ -578,6 +600,7 @@ class MCMCSampler:
                 except AttributeError: pass
                 self.energy_function.accept_last_measure()
                 #print ("...still accepting")
+
 
     def step(self):
     
