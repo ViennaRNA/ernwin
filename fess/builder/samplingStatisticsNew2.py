@@ -91,26 +91,26 @@ class ROGStatistics(StatisticsCollector):
         return "{:6.2f} A".format(rog)
 
 
-class MCCStatistics(StatisticsCollector):
+class ACCStatistics(StatisticsCollector):
     """
-    Store and print the Matthews Correlation Coefficient
+    Store and print the Adjacency Correlation Coefficient
     """
     def __init__(self, reference_sm):
-        super(MCCStatistics, self).__init__()
+        super(ACCStatistics, self).__init__()
         try:
-            self._cm_calc = ftme.ConfusionMatrix(sm_orig.bg)
+            self._cm_calc = ftme.AdjacencyCorrelation(sm_orig.bg)
         except:
             self.silent = True
             self.history=None
         else:
-            self.header=[ "MCC" ]
+            self.header=[ "ACC" ]
 
     def update(self, sm, step):
         if self.silent:
             return
         else:
-            mcc = self._cm_calc.evaluate(sm.bg)
-            self.history[0].append(mcc)
+            acc = self._cm_calc.evaluate(sm.bg)
+            self.history[0].append(acc)
         return "{:5.3f}".format(rog)
 
 class RMSDStatistics(StatisticsCollector):
