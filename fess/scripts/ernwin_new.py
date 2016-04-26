@@ -204,7 +204,7 @@ def getHDEenergy(hde_image, scale, pre):
     img=scipy.ndimage.imread(hde_image)
     return fbe.HausdorffEnergy(img, scale, pre)
 
-def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image, reference_cg):
+def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image, reference_cg, stats_options):
     """
     Parses an energy string, as used for the --energy commandline option
 
@@ -261,7 +261,12 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                 pre=int(pre)
             else:
                 pre=DEFAULT_ENERGY_PREFACTOR
-            energies.append(getHDEenergy(hde_image, scale, pre))
+            e=getHDEenergy(hde_image, scale, pre)
+            energies.append(e)
+            if "measure" in stats_options:
+              stats_options["measure"].append(e)
+            else:
+              stats_options["measure"]=[e]
         elif "CHE" in contrib:
             pre,_, adj=contrib.partition("CHE")
             if pre!="" or adj!="":
@@ -354,7 +359,7 @@ def parseEnergyContributionString(contrib, sep):
 
 
 
-def setup_deterministic(args):
+def setup_deterministic(args, stats_options):
     """
     The part of the setup procedure that does not use any call to the random number generator.
 
@@ -413,7 +418,7 @@ def setup_deterministic(args):
     else:
         energy=parseCombinedEnergyString(args.energy, cg, args.iterations,
                                          args.projected_dist,args.scale,
-                                         args.ref_img, original_sm.bg)
+                                         args.ref_img, original_sm.bg, stats_options)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -424,7 +429,7 @@ def setup_deterministic(args):
             else:
                 energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
                                          args.iterations, args.projected_dist, args.scale,
-                                         args.ref_img))
+                                         args.ref_img), stats_options)
 
 
     #Initialize the Constraint energies
@@ -436,7 +441,7 @@ def setup_deterministic(args):
         sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
     return sm, original_sm, ofilename, energy, energies_to_track
 
-def setup_stat(out_file, sm, args, energies_to_track, original_sm):
+def setup_stat(out_file, sm, args, energies_to_track, original_sm, options):
     """
     Setup the stat object used for logging/ output.
 
@@ -454,7 +459,6 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     #                                  save_iterative_cg_measures=args.save_iterative_cg_measures, 
     #                                  no_rmsd = args.no_rmsd)
     #stat.step_save = args.step_save
-    options={}
     if args.no_rmsd:
         options["rmsd"] = False
     options[ "step_save" ] = args.step_save 
@@ -470,10 +474,10 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
 parser = get_parser()
 if __name__=="__main__":
     args = parser.parse_args()
-
+    stats_options = {}
     #Setup that does not use the random number generator.
     randstate=random.getstate()#Just for verification purposes
-    sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args)
+    sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args, stats_options)
     assert randstate==random.getstate()#Just for verification purposes
     fud.pv("energies_to_track")
     #Eval-energy mode
@@ -498,7 +502,7 @@ if __name__=="__main__":
     #Main function, dependent on random.seed        
     plter=None #fbs.StatisticsPlotter()
     with open_for_out(ofilename) as out_file:
-        stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
+        stat=setup_stat(out_file, sm, args, energies_to_track, original_sm, stats_options)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             sampler = fbs.MCMCSampler(sm, energy, stat, start_from_scratch=args.start_from_scratch,

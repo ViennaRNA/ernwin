@@ -117,13 +117,15 @@ class RMSDStatistics(StatisticsCollector):
     """
     Store and print the Root Mean Square Deviation from the reference SM.
     """
-    def __init__(self, reference_sm, show_min_max=True, save_n_best=0):
+    def __init__(self, reference_sm, show_min_max=True, save_n_best=0, mode="RMSD"):
         """
         :param reference_sm: The reference spatial model, against which to collect statistics.
         :param show_min_max: Bool. Whether to show the minimal and maximal RMSD so far.
+        :param mode: "RMSD" or "dRMSD"
         """
         super(RMSDStatistics, self).__init__()
         self.best_cgs=SortedCollection(key=lambda x: x[1], maxlen=save_n_best)
+        self.mode=mode
         try:
             self._reference = reference_sm.bg.get_ordered_virtual_residue_poss()
         except:
@@ -132,17 +134,20 @@ class RMSDStatistics(StatisticsCollector):
         else:
             self._showMinMax=show_min_max
             if show_min_max:
-                self.header = [ "RMSD", "minRMSD", "maxRMSD" ]
+                self.header = [ mode, "min"+mode, "max"+mode ]
                 self.history= [ [],[],[] ]
                 self._minRMSD = float("inf")
                 self._maxRMSD = float("-inf")
             else:
-                self.header = ["RMSD"]
+                self.header = [mode]
 
     def update(self, sm, step):
         if not self.silent:
             curr_vress=sm.bg.get_ordered_virtual_residue_poss()
-            rmsd=ftur.rmsd(self._reference, curr_vress)
+            if self.mode=="RMSD":
+              rmsd=ftur.rmsd(self._reference, curr_vress)
+            elif self.mode=="dRMSD":
+              rmsd=ftur.drmsd(self._reference, curr_vress)
             self.best_cgs.insert((copy.deepcopy(sm.bg),rmsd))
             if step % 10 == 0:
                 for i, bg in enumerate(self.best_cgs):
@@ -180,19 +185,37 @@ class EnergyTracking(StatisticsCollector):
         self._energy_function = energy_function
         self._background = background
         self.header = [ "Energy-Name", "Energy" ]
-        self.hiostory = [ [], [] ]
+        self.history = [ [], [] ]
     def update(self, sm, step):
         if self._background:
             energy=self._energy_function.eval_energy(sm, background=True)
             self._energy_function.accept_last_measure()
         else:
             energy=self._energy_function.eval_energy(sm)
-        self.history[0].append(energy)
+        self.history[0].append(self._energy_function.shortname())
+        self.history[1].append(energy)
         return "{}: {:10.3f}".format(self._energy_function.shortname(), energy)
     @property
     def header_str(self):
         return "Tracked Energy"
 
+class EnergyMeasure(StatisticsCollector):
+    """
+    After every step, log the last accepted measure of the energy. Does not call eval_energy!
+    """
+    def __init__(self, energy_function):
+        """
+        :param energy_function: The energy function from which the last measure will be logged.
+        """
+        super(EnergyMeasure, self).__init__()
+        self._energy_function = energy_function
+        self.header = [ "measure_of_"+self._energy_function.shortname() ]
+        self.history = [ [] ]
+    def update(self, sm, step):
+        measure=self._energy_function.accepted_measures[-1]
+        self.history[0].append(measure)
+        return "{:10.3f}".format(measure)
+        
 class ShowTime(StatisticsCollector):
     """
     After every step, show the elapsed time (since start_time)
@@ -236,7 +259,7 @@ class Delimitor(StatisticsCollector):
 _statisticsDefaultOptions={
     "showtime": "now",
     "rmsd":True,
-    "mcc":True,
+    "acc":True,
     "rog":True,
     "name": True,
     "length": True,
@@ -249,7 +272,8 @@ _statisticsDefaultOptions={
     "history": "all",
     "step_save": 0,
     "save_n_best": 0,
-    "save_min_rmsd": 0
+    "save_min_rmsd": 0,
+    "measure" : []
 }
 
 
@@ -310,6 +334,9 @@ class SamplingStatistics:
                             Save the n structures with lowest energy
                       * `"save_min_rmsd": INT`:
                             Save the n structures with lowest RMSD.
+                      * `"measure": [energy_function, ...]
+                            For the energy functions in the list, print the measure (not the enrgy).
+                            This is useful for energies with a background.
         """
         self.collector=None
         self.step = 0
@@ -327,13 +354,21 @@ class SamplingStatistics:
 
 
         if self.options["rog"]: collectors.append(ROGStatistics())
-        if self.options["mcc"]: collectors.append(MCCStatistics(sm_orig))
+        if self.options["acc"]: collectors.append(ACCStatistics(sm_orig))
         if self.options["rmsd"]:
             r_col=RMSDStatistics(sm_orig, show_min_max = self.options["extreme_rmsd"],
                                  save_n_best=self.options["save_min_rmsd"])
             if not r_col.silent:
                 collectors.append(Delimitor())
                 collectors.append(r_col)
+
+        if self.options["drmsd"]:
+            dr_col=RMSDStatistics(sm_orig, show_min_max = False,
+                                  mode="dRMSD")
+            if not dr_col.silent:
+                collectors.append(Delimitor())
+                collectors.append(dr_col)
+                
         collectors.append(Delimitor())
 
         for ef in energy_functions:
@@ -341,6 +376,9 @@ class SamplingStatistics:
         if energy_functions:
             collectors.append(Delimitor())
 
+        for m in self.options["measure"]: #This has to be AFTER tracking energies!
+            collectors.append(EnergyMeasure(m))
+            
         if self.options["showtime"] is not False:
             collectors.append(ShowTime(self.options["showtime"]))
         
