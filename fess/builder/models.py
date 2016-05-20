@@ -197,8 +197,8 @@ def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chain, stem_library=d
     '''
     Reconstruct a particular stem.
     '''
-    pdb_filename = op.expanduser(op.join('~/doarse/', stem_def.pdb_name, "temp.pdb"))
-    cg_filename = op.expanduser(op.join('~/doarse/', stem_def.pdb_name, "temp.cg"))
+    pdb_filename = op.expanduser(op.join('/home/mescalin/pkerp/doarse/', stem_def.pdb_name, "temp.pdb"))
+    cg_filename = op.expanduser(op.join('/home/mescalin/pkerp/doarse/', stem_def.pdb_name, "temp.cg"))
 
     cg = ftmc.CoarseGrainRNA(cg_filename)
     sd = cg.get_node_from_residue_num(stem_def.define[0])
@@ -736,9 +736,9 @@ class SpatialModel:
             if self.junction_constraint_energy is not None and fast:
                 #Make sure, the sampled Multiloop segments fulfill the energy constraints.
                 assert self.junction_constraint_energy.eval_energy(self, nodes=nodes)==0., ("Multiloop"
-                            " does not fulfill the constraints: {}, i={},. buld_order[i]={};"
-                            " Sampled as {}".format(self.junction_constraint_energy.bad_bulges,
-                            i, build_order[i], self.elem_defs[build_order[i][1]]) )
+                            " does not fulfill the constraints: {}, i={},. build_order[i]={};"
+                            " Sampled as {}. Energy {}".format(self.junction_constraint_energy.bad_bulges,
+                            i, build_order[i], self.elem_defs[build_order[i][1]], self.junction_constraint_energy))
 
                 # Add all multiloop segments that are already determined at the current 
                 # build-step to the list of nodes for energy evaluation.

@@ -3,8 +3,8 @@
 import sys
 from optparse import OptionParser
 
-from borgy.utilities.vector import normalize, rotation_matrix_weave
-from borgy.utilities.vector import vec_angle, magnitude
+from forgi.threedee.utilities.vector import normalize, rotation_matrix_weave
+from forgi.threedee.utilities.vector import vec_angle, magnitude
 
 from numpy import array, dot, cross, allclose, eye, ones
 from numpy.random import random

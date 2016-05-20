@@ -66,7 +66,8 @@ def reconstruct_stems(sm, stem_library=dict()):
     #sm.traverse_and_build()
     new_chain = bpdbc.Chain(' ')
 
-    for stem_name in sm.stem_defs.keys():
+    for stem_name in sm.elem_defs.keys():
+        if stem_name[0]!="s": continue
         models.reconstruct_stem(sm, stem_name, new_chain, stem_library)
 
     return new_chain
@@ -1147,13 +1148,7 @@ def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict(), move
     @param ld: The name of the loop to reconstruct.
     '''
 
-    #find some potential sides
-    #both ways should work
-    #i.e. if [0][1] is present, [0][1] should also be present
-    for key1 in sm.angle_defs[ld].keys():
-        break
-
-    angle_def = sm.angle_defs[ld][key1]
+    angle_def = sm.elem_defs[ld]
 
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (angle_def.pdb_name, "_".join(map(str, angle_def.define)))
@@ -1193,7 +1188,7 @@ def reconstruct_loop_with_fragment(chain, sm, ld, fragment_library=dict()):
     @param ld: The name of the loop to reconstruct.
     '''
 
-    loop_def = sm.loop_defs[ld]
+    loop_def = sm.elem_defs[ld]
     angle_def = loop_def
 
     if loop_def.define[1] - loop_def.define[0] == 1:
@@ -1244,7 +1239,7 @@ def reconstruct_fiveprime_with_fragment(chain, sm, ld, fragment_library=dict()):
     '''
 
     try:
-        fiveprime_def = sm.fiveprime_defs[ld]
+        fiveprime_def = sm.elem_defs[ld]
     except:
         reconstruct_loop(chain, sm, ld)
         return
@@ -1292,7 +1287,7 @@ def reconstruct_threeprime_with_fragment(chain, sm, ld, fragment_library=dict())
     @param ld: The name of the loop to reconstruct.
     '''
 
-    threeprime_def = sm.threeprime_defs[ld]
+    threeprime_def = sm.elem_defs[ld]
 
     # the file containing the pdb coordinates of this fragment
     filename = '%s_%s.pdb' % (threeprime_def.pdb_name, "_".join(map(str, threeprime_def.define)))
@@ -1425,23 +1420,16 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
     #i.e. if [0][1] is present, [0][1] should also be present
     reverse = False
 
-    if ld in sm.angle_defs:
-        for key1 in sm.angle_defs[ld].keys():
-            break
-
-        angle_def = sm.angle_defs[ld][key1]
-    elif ld in sm.loop_defs:
-        angle_def = sm.loop_defs[ld]
-    elif ld in sm.fiveprime_defs:
-        angle_def = sm.fiveprime_defs[ld]
+    if ld in sm.elem_defs:
+        angle_def = sm.angle_defs[ld]
+    if ld[0]=="f":
         close_loop = False
         reverse=True
-    elif ld in sm.threeprime_defs:
-        angle_def = sm.threeprime_defs[ld]
+    elif ld[0]=="t":
         close_loop = False
 
-    cg_filename = op.expanduser(op.join("~/doarse/", angle_def.pdb_name, "temp.cg"))
-    pdb_filename = op.expanduser(op.join("~/doarse/", angle_def.pdb_name, "temp.pdb"))
+    cg_filename = op.expanduser(op.join("/home/mescalin/pkerp/doarse/", angle_def.pdb_name, "temp.cg"))
+    pdb_filename = op.expanduser(op.join("/home/mescalin/pkerp/doarse/", angle_def.pdb_name, "temp.pdb"))
 
     cg_to = sm.bg
     cg_from = ftmc.CoarseGrainRNA(cg_filename) 

@@ -69,6 +69,44 @@ def load_local_data(filename):
     return StringIO.StringIO(data)
 
 
+class DistanceIterator:
+    '''
+    A class for iterating over the elements that are a certain
+    distance from each other.
+
+    '''
+    def __init__(self, min_distance=0., max_distance=sys.float_info.max):
+        '''
+        @param min_distance: The minimum distance for an interaction.
+        @param max_distance: The maximum distance for an interaction.
+        '''
+        self.min_distance = min_distance
+        self.max_distance = max_distance
+
+    def iterate_over_interactions(self, bg):
+        '''
+        Iterate over the list of elements in a structure that interact
+        based on the distance criteria below.
+
+        @param bg: The coarse grain representation of a structure.
+        @return: (d1,d2) where d1 and d2 are two interacting elements.
+        '''
+        keys = bg.defines.keys()
+
+        for i in range(len(keys)):
+            for j in range(i + 1, len(keys)):
+                d1 = keys[i]
+                d2 = keys[j]
+
+                point1 = bg.get_point(d1)
+                point2 = bg.get_point(d2)
+
+                dist = ftuv.vec_distance(point1, point2)
+
+                #if dist > 6.0 and dist < 25.0:
+                if dist > self.min_distance and dist < self.max_distance:
+                    yield tuple(sorted([d1, d2]))
+
 class EnergyFunction(object):
     '''
     The base class for energy functions.
@@ -145,78 +183,28 @@ class EnergyFunction(object):
                 f.write(" ".join(map("{:.2f}".format,self.accepted_measures)))
                 f.write("\n")
 
-class HausdorffEnergy(EnergyFunction):
-    def __init__(self, img, scale, prefactor):
-        """
-        :param img: A boolean, square 2D numpy.array
-        :param scale: Int or float. How many Angstrom the side length of the image is.
-        :param prefactor: Multiply the pseudo-energy with this value.
-        """
-        super(HausdorffEnergy, self).__init__()        
-        self.prefactor=prefactor
-        self.ref_img=img
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self.ref_quarter=(scipy.ndimage.zoom(img, 0.3)>150)
-        except RuntimeError:
-            print("IMG WAS ", img)
-            print( "Min is {}, max is {}".format(img.min(), img.max()))
-            raise
-        self.get_refimg_longest_axis()
-        self.scale=scale
-        self.last_dir=None
-        self.accepted_projDir=None
-        self.last_img=None
-        self.accepted_img=None
-    def get_refimg_longest_axis(self):
-        max_sdist=0
-        best_points=None
-        for p1, p2 in it.combinations(np.transpose(np.where(self.ref_img)),2):
-            if (p2[0]-p1[0])**2+(p2[1]-p1[1])**2>max_sdist:
-                max_sdist=(p2[0]-p1[0])**2+(p2[1]-p1[1])**2
-                best_points=(p1,p2)
-        deg=math.degrees(math.atan2(best_points[1][0]-best_points[0][0], 
-                                    best_points[1][1]-best_points[0][1]))
-        deg=90-deg
-        self.initial_degrees=[deg%360, (deg+180)%360]
-    def shortname(self):
-        return "HDE"
-    def get_name(self):
-        return "Hausdorff-Energy"
-    def eval_energy(self, sm, background=None, nodes=None):
+class ConstantEnergy(EnergyFunction):
+    '''
+    An energy function that always just returns a constant value (0.).
+    '''
+    def __init__(self):
+        super(ConstantEnergy, self).__init__()
 
-        s, i, params = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg,  
-                                                          start_points=40, 
-                                                          starting_rotations=self.initial_degrees,
-                                                          virtual_atoms=False)         
-        score, img, params = fph.locally_minimal_distance(self.ref_img, self.scale, sm.bg, 
-                                                          params[1], params[2], params[0], 
-                                                          maxiter=200)
-        self.last_dir=params[0]
-        self.measures.append(score)
-        #import matplotlib.pyplot as plt
-        #fig, ax=plt.subplots(2)
-        #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
-        #ax[1].imshow(img>0, interpolation="none", cmap='gray')
-        #ax[0].set_title("Final Opt Reference")
-        #ax[1].set_title("{} distance".format(score))
-        #plt.show()
-        return self.prefactor*score
+    
+    def eval_energy(self, sm, background=True, nodes=None):
+        return 0.
 
-    def accept_last_measure(self):
-        super(HausdorffEnergy, self).accept_last_measure()
-        self.accepted_projDir=fph.from_polar([1,self.last_dir[0], self.last_dir[1]])
-        self.accepted_img = self.last_img
-        
-    def dump_measures(self, base_directory, iteration=None):
-        '''
-        Dump all of the coarse grain measures collected so far
-        to a file.
-        '''
-        super(HausdorffEnergy, self).dump_measures(base_directory, iteration)
-        image_file = op.join(base_directory, "HDE_image."+iteration+".png")
-        scipy.misc.imsave(image_file, self.accepted_img)
+class RandomEnergy(EnergyFunction):
+    '''
+    An energy function that always just returns a random value.
+    '''
+    def __init__(self):
+        super(RandomEnergy, self).__init__()
+
+    
+    def eval_energy(self, sm, background=True, nodes=None):
+        return rand.uniform(-5, 3)
+
 
 class ProjectionMatchEnergy(EnergyFunction):
     def __init__(self, distances={}, prefactor=1):
@@ -338,199 +326,6 @@ class ProjectionMatchEnergy(EnergyFunction):
         super(ProjectionMatchEnergy, self).accept_last_measure()
         self.accepted_projDir=self.projDir
     
-
-class CoarseGrainEnergy(EnergyFunction):
-    def __init__(self, energy_prefactor=10):
-        """
-        A base class for Energy functions that use a background distribution.
-        """
-        super(CoarseGrainEnergy, self).__init__()
-
-        self.real_kdes = dict()
-        self.sampled_kdes = dict()
-
-        self.flocs = []
-        self.fscales = []
-        self.vals = []
-        self.dists = []
-
-        self.dist_type = "kde"
-
-        self.measures = []
-        self.prev_energy = 0.
-
-        self.energy_prefactor = energy_prefactor
-
-        self.adjustment=1.0
-
-        self.adjustment_stepwidth=0
-        self.adjustment_steps_per_value=float("inf")
-        self.current_adjustment_step=0
-
-    def set_dynamic_adjustment(self, step, steps_per_value):
-        self.adjustment_stepwidth=step
-        self.adjustment_steps_per_value=steps_per_value
-    def set_next_adjustment(self, cg):
-        del self.real_kdes[self.measure_category(cg)]
-        self.adjustment+=self.adjustment_stepwidth
-        self.current_adjustment_step+=1
-    def update_adjustment(self, step, cg):
-        if step>self.adjustment_steps_per_value*(1+self.current_adjustment_step):
-            self.set_next_adjustment(cg)
-    def resample_background_kde(self, struct):
-        values = self.accepted_measures
-
-        if len(values) > 100:
-            #print("RESAMPLING OF BACKGROUND")
-            #print(self, values)
-            new_kde = self.get_distribution_from_values(values)
-
-            if new_kde is not None:
-                self.sampled_kdes[self.measure_category(struct)] = new_kde
-            else:
-                #print ("skipping this time...", file=sys.stderr)
-                pass
-
-            #self.vals[1] = values
-
-    def get_distribution_from_values(self, values):
-        '''
-        Return a probability distribution from the given values.
-
-        @param values: The values to fit a distribution to.
-        @return: A probability distribution fit to the values.
-        '''
-        floc = -0.1
-        fscale =  1.5 * max(values)
-
-        if self.dist_type == "kde":
-            try:
-                k = ss.gaussian_kde(values)
-            except np.linalg.linalg.LinAlgError:
-                return None
-        else:
-            f = ss.beta.fit(values, floc=floc, fscale=fscale)
-            k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
-
-        '''
-        self.flocs += [floc]
-        self.fscales += [fscale]
-        self.vals += [values]
-        self.dists += [k]
-        '''
-
-        return k
-
-    def measure_category(self, cg):
-        '''
-        Decide which target function we should use for this structure.
-
-        @param cg: The CoarseGrain graph
-        @return: Some sort of identifier to determine which energy distribution
-                 to use.
-        '''
-        return cg.seq_length
-
-    def eval_energy(self, sm, background=True, nodes=None):
-        '''
-        A generic function which simply evaluates the energy based on the
-        previously calculated probability distributions.
-        '''
-        cg = sm.bg
-
-        if self.measure_category(cg) not in self.real_kdes.keys():
-            try:
-                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
-                                                                                             self.measure_category(cg), adjust=self.adjustment)
-            except: 
-                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
-                                                                                             self.measure_category(cg))
-        if self.measure_category(cg) not in self.sampled_kdes.keys():
-            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, 
-                                                                                             self.measure_category(cg))
-            self.accepted_measures = self.measures[:]
-
-        kr = self.real_kdes[self.measure_category(cg)]
-        ks = self.sampled_kdes[self.measure_category(cg)]
-        m = self.get_cg_measure(sm)
-        self.measures.append(m)
-        
-
-        if background:
-            energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
-            self.prev_energy = energy
-            self.prev_cg = m
-            #if isinstance(self, ShortestLoopDistancePerLoop):
-            #    print("Measure {}, energy {}.".format(m, (-1 * self.energy_prefactor * energy)[0]))
-            #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
-            return -1 * self.energy_prefactor * energy
-        else:
-            energy = np.log(kr(m))
-            return -energy
-
-
-class ConstantEnergy(EnergyFunction):
-    '''
-    An energy function that always just returns a constant value (0.).
-    '''
-    def __init__(self):
-        super(ConstantEnergy, self).__init__()
-
-    
-    def eval_energy(self, sm, background=True, nodes=None):
-        return 0.
-
-class RandomEnergy(EnergyFunction):
-    '''
-    An energy function that always just returns a random value.
-    '''
-    def __init__(self):
-        super(RandomEnergy, self).__init__()
-
-    
-    def eval_energy(self, sm, background=True, nodes=None):
-        return rand.uniform(-5, 3)
-
-
-class DistanceIterator:
-    '''
-    A class for iterating over the elements that are a certain
-    distance from each other.
-
-    '''
-    def __init__(self, min_distance=0., max_distance=sys.float_info.max):
-        '''
-        @param min_distance: The minimum distance for an interaction.
-        @param max_distance: The maximum distance for an interaction.
-        '''
-        self.min_distance = min_distance
-        self.max_distance = max_distance
-
-    def iterate_over_interactions(self, bg):
-        '''
-        Iterate over the list of elements in a structure that interact
-        based on the distance criteria below.
-
-        @param bg: The coarse grain representation of a structure.
-        @return: (d1,d2) where d1 and d2 are two interacting elements.
-        '''
-        keys = bg.defines.keys()
-
-        for i in range(len(keys)):
-            for j in range(i + 1, len(keys)):
-                d1 = keys[i]
-                d2 = keys[j]
-
-                point1 = bg.get_point(d1)
-                point2 = bg.get_point(d2)
-
-                dist = ftuv.vec_distance(point1, point2)
-
-                #if dist > 6.0 and dist < 25.0:
-                if dist > self.min_distance and dist < self.max_distance:
-                    yield tuple(sorted([d1, d2]))
-
-
 class CombinedEnergy:
     def __init__(self, energies=None, uncalibrated_energies=None):
         if energies is not None:
@@ -542,6 +337,7 @@ class CombinedEnergy:
         else:
             self.uncalibrated_energies=[]
         self.bad_bulges = []
+        self.accepted_measures=[float("nan")]
     def uses_background(self):
         for e in it.chain(self.energies, self.uncalibrated_energies):
             if hasattr(e, "sampled_kdes"):
@@ -600,13 +396,22 @@ class CombinedEnergy:
             e.dump_measures(base_directory, iteration)
 
     def eval_energy(self, sm, verbose=False, background=True,
-                    nodes=None):
+                    nodes=None, use_accepted_measure=False):
         total_energy = 0.
         self.bad_bulges = []
         self.constituing_energies=[]
         for energy in self.uncalibrated_energies:
-            contrib = energy.eval_energy(sm, background=background,
-                                               nodes=nodes)
+            contrib=None
+            if use_accepted_measure:
+                try:
+                    contrib = energy.eval_energy(sm, background=background,
+                                                 nodes=nodes, use_accepted_measure=use_accepted_measure)
+                except TypeError:
+                    pass
+            if contrib is None: #In case of TypeError or use_accepted_measure is False
+                contrib = energy.eval_energy(sm, background=background,
+                                             nodes=nodes)
+
             if np.isscalar(contrib):
                 contrib=np.array([contrib])
             self.constituing_energies.append((energy.shortname(), contrib[0]))
@@ -618,7 +423,16 @@ class CombinedEnergy:
                 print (energy.__class__.__name__, contrib)
 
         for energy in self.energies:
-            contrib = energy.eval_energy(sm, background=background, nodes=nodes)
+            contrib=None
+            if use_accepted_measure:
+                try:
+                    contrib = energy.eval_energy(sm, background=background,
+                                                 nodes=nodes, use_accepted_measure=use_accepted_measure)
+                except TypeError:
+                    pass
+            if contrib is None: #In case of TypeError or use_accepted_measure is False
+                contrib = energy.eval_energy(sm, background=background,
+                                             nodes=nodes)
             sn=energy.shortname()
             self.constituing_energies.append((sn, contrib))
             #try: print(energy.shortname(), " contributes ",contrib ,"to the combined energy")
@@ -948,6 +762,240 @@ class DistanceExponentialEnergy(EnergyFunction):
         energy = -np.log(self.expon.pdf(closest_distance)) * 10.
 
         return energy
+
+class CoarseGrainEnergy(EnergyFunction):
+    def __init__(self, energy_prefactor=10):
+        """
+        A base class for Energy functions that use a background distribution.
+        """
+        super(CoarseGrainEnergy, self).__init__()
+
+        self.real_kdes = dict()
+        self.sampled_kdes = dict()
+
+        self.flocs = []
+        self.fscales = []
+        self.vals = []
+        self.dists = []
+
+        self.dist_type = "kde"
+
+        self.measures = []
+        self.prev_energy = 0.
+
+        self.energy_prefactor = energy_prefactor
+
+        self.adjustment=1.0
+
+        self.adjustment_stepwidth=0
+        self.adjustment_steps_per_value=float("inf")
+        self.current_adjustment_step=0
+
+    def set_dynamic_adjustment(self, step, steps_per_value):
+        self.adjustment_stepwidth=step
+        self.adjustment_steps_per_value=steps_per_value
+    def set_next_adjustment(self, cg):
+        del self.real_kdes[self.measure_category(cg)]
+        self.adjustment+=self.adjustment_stepwidth
+        self.current_adjustment_step+=1
+    def update_adjustment(self, step, cg):
+        if step>self.adjustment_steps_per_value*(1+self.current_adjustment_step):
+            self.set_next_adjustment(cg)
+    def resample_background_kde(self, struct):
+        values = self.accepted_measures
+
+        if len(values) > 100:
+            #print("RESAMPLING OF BACKGROUND")
+            #print(self, values)
+            new_kde = self.get_distribution_from_values(values)
+
+            if new_kde is not None:
+                self.sampled_kdes[self.measure_category(struct)] = new_kde
+            else:
+                #print ("skipping this time...", file=sys.stderr)
+                pass
+
+            #self.vals[1] = values
+
+    def get_distribution_from_values(self, values):
+        '''
+        Return a probability distribution from the given values.
+
+        @param values: The values to fit a distribution to.
+        @return: A probability distribution fit to the values.
+        '''
+        floc = -0.1
+        fscale =  1.5 * max(values)
+
+        if self.dist_type == "kde":
+            try:
+                k = ss.gaussian_kde(values)
+            except np.linalg.linalg.LinAlgError:
+                return None
+        else:
+            f = ss.beta.fit(values, floc=floc, fscale=fscale)
+            k = lambda x: ss.beta.pdf(x, f[0], f[1], f[2], f[3])
+
+        '''
+        self.flocs += [floc]
+        self.fscales += [fscale]
+        self.vals += [values]
+        self.dists += [k]
+        '''
+
+        return k
+
+    def measure_category(self, cg):
+        '''
+        Decide which target function we should use for this structure.
+
+        @param cg: The CoarseGrain graph
+        @return: Some sort of identifier to determine which energy distribution
+                 to use.
+        '''
+        return cg.seq_length
+
+    def eval_energy(self, sm, background=True, nodes=None, use_accepted_measure=False):
+        '''
+        A generic function which simply evaluates the energy based on the
+        previously calculated probability distributions.
+        '''
+        cg = sm.bg
+
+        if self.measure_category(cg) not in self.real_kdes.keys():
+            try:
+                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+                                                                                             self.measure_category(cg), adjust=self.adjustment)
+            except: 
+                (self.real_kdes[self.measure_category(cg)], x) = self.get_distribution_from_file(self.real_stats_fn, 
+                                                                                             self.measure_category(cg))
+        if self.measure_category(cg) not in self.sampled_kdes.keys():
+            (self.sampled_kdes[self.measure_category(cg)], self.measures) = self.get_distribution_from_file(self.sampled_stats_fn, 
+                                                                                             self.measure_category(cg))
+            self.accepted_measures = self.measures[:]
+
+        kr = self.real_kdes[self.measure_category(cg)]
+        ks = self.sampled_kdes[self.measure_category(cg)]
+        if use_accepted_measure:
+            m=self.accepted_measures[-1]
+        else:
+            m = self.get_cg_measure(sm)
+
+        print("Measure is {:1.4f}".format(m))
+        self.measures.append(m)
+        
+        if background:
+            energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
+            self.prev_energy = energy
+            self.prev_cg = m
+            #if isinstance(self, ShortestLoopDistancePerLoop):
+            #    print("Measure {}, energy {}.".format(m, (-1 * self.energy_prefactor * energy)[0]))
+            #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
+            return -1 * self.energy_prefactor * energy
+        else:
+            energy = np.log(kr(m))
+            return -energy
+
+
+class HausdorffEnergy(CoarseGrainEnergy):
+    def __init__(self, img, scale, prefactor):
+        """
+        :param img: A boolean, square 2D numpy.array
+        :param scale: Int or float. How many Angstrom the side length of the image is.
+        :param prefactor: Multiply the pseudo-energy with this value.
+        """
+        super(HausdorffEnergy, self).__init__()        
+        self.prefactor=prefactor
+        self.ref_img=img
+
+        self.sampled_stats_fn = 'stats/hausdorff_sampled.csv'
+        self.sampled_stats_fn = op.expanduser(self.sampled_stats_fn)
+
+        self.real_stats_fn = 'stats/hausdorff.csv'
+        self.real_stats_fn = op.expanduser(self.real_stats_fn)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.ref_quarter=(scipy.ndimage.zoom(img, 0.3)>150)
+        except RuntimeError:
+            print("Image {} could not be read properly ".format(img), file=sys.stderr)
+            print("Make sure, it has the right type (Ideally 8 bit WITHOUT alpha)", file=sys.stderr)
+            raise
+        self.get_refimg_longest_axis()
+        self.scale=scale
+        self.last_dir=None
+        self.accepted_projDir=None
+        self.last_img=None
+        self.accepted_img=None
+
+    def get_distribution_from_file(self, filename, length, adjust=1.):
+        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+        data=np.array([adjust*i for i in data])
+        return (self.get_distribution_from_values(data), list(data))
+        
+    def get_refimg_longest_axis(self):
+        max_sdist=0
+        best_points=None
+        for p1, p2 in it.combinations(np.transpose(np.where(self.ref_img)),2):
+            if (p2[0]-p1[0])**2+(p2[1]-p1[1])**2>max_sdist:
+                max_sdist=(p2[0]-p1[0])**2+(p2[1]-p1[1])**2
+                best_points=(p1,p2)
+        deg=math.degrees(math.atan2(best_points[1][0]-best_points[0][0], 
+                                    best_points[1][1]-best_points[0][1]))
+        deg=90-deg
+        self.initial_degrees=[deg%360, (deg+180)%360]
+    def shortname(self):
+        return "HDE"
+    def get_name(self):
+        return "Hausdorff-Energy"
+    def get_cg_measure(self, sm):
+        for residuePos in range(1,sm.bg.total_length()):
+            residue=sm.bg.virtual_atoms(residuePos) #To remove this from the profiling of rasterization
+        st=time.time()
+        if len(np.where(self.ref_quarter)[0])>100: #Only use ref_quarter, if it has enough white.
+            print("Using refQuarter")
+            s, i, params = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg,  
+                                                          start_points=20, 
+                                                          starting_rotations=self.initial_degrees,
+                                                          virtual_atoms=False)#, distance=fph.modified_hausdorff_distance)         
+            score, img, params = fph.locally_minimal_distance(self.ref_img, self.scale, sm.bg, 
+                                                          params[1], params[2], params[0], 
+                                                          maxiter=200)#, distance=fph.modified_hausdorff_distance)
+        else:
+            print("Using Full Resolution")
+            s, i, params = fph.globally_minimal_distance(self.ref_img, self.scale, sm.bg,  
+                                                          start_points=20,
+                                                          starting_rotations=self.initial_degrees,
+                                                          virtual_atoms="selected", distance=fph.tp_fp_distance, use_heuristic=False)         
+            score, img, params = fph.locally_minimal_distance(self.ref_img, self.scale, sm.bg, 
+                                                          params[1], params[2], params[0], 
+                                                          maxiter=200, distance=fph.tp_fp_distance)
+        self.last_dir=params[0]
+        self.measures.append(score)
+        #import matplotlib.pyplot as plt
+        #fig, ax=plt.subplots(2)
+        #ax[0].imshow(self.ref_img, interpolation="none", cmap='gray')
+        #ax[1].imshow(img, interpolation="none", cmap='gray')
+        #ax[0].set_title("Final Opt Reference")
+        #ax[1].set_title("{} distance".format(score))
+        #plt.show()
+        print("Time was {:2.2f}".format(time.time()-st))
+        return score
+
+    def accept_last_measure(self):
+        super(HausdorffEnergy, self).accept_last_measure()
+        self.accepted_projDir=fph.from_polar([1,self.last_dir[0], self.last_dir[1]])
+        self.accepted_img = self.last_img
+        
+    def dump_measures(self, base_directory, iteration=None):
+        '''
+        Dump all of the coarse grain measures collected so far
+        to a file.
+        '''
+        super(HausdorffEnergy, self).dump_measures(base_directory, iteration)
+        image_file = op.join(base_directory, "HDE_image."+iteration+".png")
+        scipy.misc.imsave(image_file, self.accepted_img)
+
 
 class CylinderIntersectionEnergy(CoarseGrainEnergy):
     def __init__(self):

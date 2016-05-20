@@ -167,7 +167,7 @@ class EnergyTracking(StatisticsCollector):
     """
     After every step, evaluate an energy not used for sampling
     """
-    def __init__(self, energy_function, background):
+    def __init__(self, energy_function, background=False):
         """
         :param energy_function: The energy function which will be evaluated in every update step.
         :param background: Bool. If true, call eval_energy with background=True and 
@@ -180,15 +180,19 @@ class EnergyTracking(StatisticsCollector):
         self._energy_function = energy_function
         self._background = background
         self.header = [ "Energy-Name", "Energy" ]
-        self.hiostory = [ [], [] ]
+        self.history = [ [], [] ]
     def update(self, sm, step):
         if self._background:
             energy=self._energy_function.eval_energy(sm, background=True)
             self._energy_function.accept_last_measure()
         else:
             energy=self._energy_function.eval_energy(sm)
-        self.history[0].append(energy)
-        return "{}: {:10.3f}".format(self._energy_function.shortname(), energy)
+        self.history[0].append(self._energy_function.shortname())
+        self.history[1].append(energy)
+        if hasattr(self._energy_function, "accepted_measure"):
+            return "{}: {} ( {} )".format(self._energy_function.shortname(), energy, self._energy_function.accepted_measures[-1])
+        else:
+            return "{}: {}".format(self._energy_function.shortname(), energy)
     @property
     def header_str(self):
         return "Tracked Energy"

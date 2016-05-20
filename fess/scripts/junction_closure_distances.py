@@ -73,8 +73,8 @@ def construct_test_graph(s1_stats, s2_stats, ang_stat, link_length):
     seq = fus.gen_random_sequence(len(dotbracket))
     cg_db = ftmc.CoarseGrainRNA(dotbracket_str=dotbracket,
                                seq=seq)
-    cud.pv('cg_db.to_bg_string()')
-    cud.pv('cg_db.get_bulge_dimensions("m0")')
+    #cud.pv('cg_db.to_bg_string()')
+    #cud.pv('cg_db.get_bulge_dimensions("m0")')
 
     return cg_db
 
@@ -182,12 +182,9 @@ def main():
             # Indiciate which statistics to use for the 3D model construction
             sm.sample_stats()
 
-            sm.stem_defs['s0'] = s1
-            sm.stem_defs['s1'] = s2
-            sm.angle_defs['m0'][2] = ang_stat
-            sm.angle_defs['m0'][4] = ang_stat
-            sm.angle_defs['m0'][5] = ang_stat
-            sm.angle_defs['m0'][6] = ang_stat
+            sm.elem_defs['s0'] = s1
+            sm.elem_defs['s1'] = s2
+            sm.elem_defs['m0'] = ang_stat
 
             # Create the model
             sm.traverse_and_build()
@@ -214,6 +211,7 @@ def main():
                 dist2 = bulge_virtual_residue_distance(bg, 'm0')
                 dist3 = bulge_virtual_atom_distance(bg, 'm0')
 
+                output.write("Key, bulge_length, virtual_residue_dist, virtual_atom_dist, min_dist")
                 output.write("%d %f %f %f %f\n" % (k, dist1, dist2, dist3, min_dist))
                 output.flush()
                 #print k, dist1, dist2, dist3, min_dist

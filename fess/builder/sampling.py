@@ -531,13 +531,13 @@ class MCMCSampler:
             pass
         #Accept the measure of the initial structure.
         #This is required so reject_last_measure does not accept the last measure from the 
-        #file a second time.
+        #file a second time. And for the use_accepted_measure flag of eval_energy
         self.energy_function.accept_last_measure()
         sm.get_sampled_bulges()
         if isinstance(stats, sstats.SamplingStatistics):
             self.stats.print_header()
 
-    @profile
+    #@profile
     def change_elem(self):
         '''
         Change a random element and accept the change with a probability
@@ -556,8 +556,7 @@ class MCMCSampler:
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
         if self.resampled_energy and self.energy_function.uses_background():
-            #print("CHANGE ELEMENT: EVALUATING PREVIOUS ENERGY FOR self.energy_function")
-            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True)
+            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True, use_accepted_measure=True)
             try:
                 self.prev_constituing =  self.energy_function.constituing_energies
             except AttributeError: pass
