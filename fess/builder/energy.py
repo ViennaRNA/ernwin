@@ -45,7 +45,7 @@ import time, random
 #from fess.builder.watcher import watcher
 import functools
 import os
-import psutil
+
 
 distribution_upper_bound = 1.0
 distribution_lower_bound = 1.0
