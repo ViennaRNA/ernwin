@@ -15,7 +15,7 @@ from . import samplingStatisticsNew2 as sstats
 from . import config as cbc
 from . import energy as fbe
 import forgi.threedee.model.comparison as ftme
-import forgi.threedee.model.stats as cbs
+import forgi.threedee.model.stats as ftms
 
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
@@ -476,9 +476,9 @@ class MCMCSampler:
         '''
         #BT: Seems to be not in used
         #if stats_type == 'continuous':
-        #    self.cont_stats = cbs.ContinuousAngleStats(cbs.get_angle_stats())
+        #    self.cont_stats = ftms.ContinuousAngleStats(ftms.get_angle_stats())
         #elif stats_type == 'random':
-        #    self.cont_stats = cbs.RandomAngleStats(cbs.get_angle_stats())
+        #    self.cont_stats = ftms.RandomAngleStats(ftms.get_angle_stats())
         #else:
         #    self.cont_stats = None
         
@@ -543,11 +543,12 @@ class MCMCSampler:
         Change a random element and accept the change with a probability
         proportional to the energy function.
         '''
+        movestring=[]
         # pick a random element and get a new statistic for it
         possible_elements=list(self.sm.bg.get_mst())
         pe=set(possible_elements)
         d = random.choice(possible_elements)
-
+        movestring.append(d+":")
         #import pdb
         #pdb.set_trace()
         possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
@@ -563,16 +564,26 @@ class MCMCSampler:
             self.resampled_energy = False
 
         prev_stat = self.sm.elem_defs[d]
-
-
+        movestring.append(hex(hash(prev_stat)))
+        movestring.append("->")
+        movestring.append(hex(hash(new_stat)))
+        movestring.append(";")
+        if isinstance(new_stat, ftms.AngleStat) and isinstance(self.sm.conf_stats.angle_stats, ftms.ClusteredAngleStats):
+            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(prev_stat)))
+            movestring.append("->")
+            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
+            movestring.append(";")
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
         energy = self.energy_function.eval_energy(self.sm, background=True)
 
-        # self.stats.sampled_energy = energy
+        movestring.append("{:.3f}".format(self.prev_energy[0]))
+        movestring.append("->")
+        movestring.append("{:.3f}".format(energy[0]))
 
         #print("Energy is {}, prev_energy is {} ...".format(energy, self.prev_energy), end="\n")
         if energy < self.prev_energy:
+            movestring.append("A")
             # lower energy means automatic acceptance accordint to the
             # metropolis hastings criterion
             self.prev_energy = energy
@@ -585,6 +596,7 @@ class MCMCSampler:
             # calculate a probability
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
+                movestring.append("R")
                 # reject the sampled statistic and replace it the old one
                 self.sm.elem_defs[d] = prev_stat
                 self.sm.traverse_and_build(start='start')
@@ -592,6 +604,7 @@ class MCMCSampler:
                 self.energy_function.reject_last_measure()
                 #print ("...rejecting")
             else:
+                movestring.append("A")
                 # accept the new statistic
                 self.prev_energy = energy
                 try:
@@ -599,11 +612,11 @@ class MCMCSampler:
                 except AttributeError: pass
                 self.energy_function.accept_last_measure()
                 #print ("...still accepting")
-
+        return "".join(movestring)
 
     def step(self):
     
-        self.change_elem()
+        movestring=self.change_elem()
         if isinstance(self.energy_function, fbe.CombinedEnergy):
             for e in self.energy_function.iterate_energies():
                 if hasattr(e, "accepted_projDir"):
@@ -620,7 +633,7 @@ class MCMCSampler:
 
         self.step_counter += 1
         if isinstance(self.stats, sstats.SamplingStatistics):
-            self.stats.update_statistics( self.sm, self.prev_energy[0], self.prev_constituing )
+            self.stats.update_statistics( self.sm, self.prev_energy[0], self.prev_constituing, movestring )
 
         self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
 
@@ -657,8 +670,8 @@ class GibbsBGSampler:
         dims = self.sm.bg.get_bulge_dimensions(bulge)
         
         # What are the potential angle statistics for it
-        (dist, size1, size2, type1) = cbs.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
-        possible_angles = cbs.get_angle_stats()[(size1, size2, ang_type1)]
+        (dist, size1, size2, type1) = ftms.get_angle_stat_dims(dims[0], dims[1], ang_type1)[0]
+        possible_angles = ftms.get_angle_stats()[(size1, size2, ang_type1)]
 
         # only choose 10 possible angles
         if len(possible_angles) > self.angles_to_sample:

@@ -9,6 +9,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 
 import argparse, sys, warnings, copy, os, random, math
 import os.path
+import subprocess as spr
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
@@ -84,6 +85,25 @@ def get_parser():
     parser.add_argument('-o', '--output-dir-suffix', action='store', type=str, 
                         default="", help="Suffix attached to the name from the fasta-file, \n"
                                          "used as name for the subfolder with all structures.")
+    #Controll Stats for sampling
+    parser.add_argument('--stats-file', type=str, default=data_file("stats/all.stats"),
+                        help= "A filename.\n"
+                              "A file containing all the stats to sample from\n"
+                              " for all coarse grained elements")
+    parser.add_argument('--clustered-angle-stats', type=str, action="store",
+                        help= "A filename.\n"
+                              "If given, use this instead of --stats-file for the\n"
+                              " angle stats (interior and multi loops).\n" 
+                              "A clustered stats file can be created with scrips/cluster_stats.py\n"
+                              "This is used to sample equally from all CLUSTERS of angle stats.\n"
+                              "And is used to compensate for unequally populated clusters.\n"
+                              "The statistical bias introduced by this file can be compensated\n"
+                              " for with the SBC (Stats bias compensation energy) [TODO]")
+    parser.add_argument('--jar3d-dir', type=str, help="The base dir of your JAR3D (Motiv atlas) installation.\n"
+                                                      "It should contain the 'JAR3D' subdirectory and \n"
+                                                      "the file 'scripts/annotate_structure.py'\n"
+                                                      "JAR3D is available at 'https://github.com/BGSU-RNA/JAR3D'\n"
+                                                      "or 'http://rna.bgsu.edu/jar3d'")
     #Choose energy function(s)
     parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, 
                                     help="The type of constraint energy to use. \n"
@@ -159,7 +179,7 @@ def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
     for hloop in cg.hloop_iterator():
         energies+= [fbe.ShortestLoopDistancePerLoop(hloop, prefactor)]
     return energies
-def getAMinorEnergies(pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
+def getAMinorEnergies(cg, pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
     """
     Get the A-minor energies for h- and i-loops.
     
@@ -168,8 +188,14 @@ def getAMinorEnergies(pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
 
     :returns: A list of energies
     """
-    return [fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj) ,
-            fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)]
+    ame1 = fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj)
+    ame2 = fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)
+    energies = []
+    if ame1.get_num_loops(cg)>0:
+        energies.append(ame1)
+    if ame2.get_num_loops(cg)>0:
+        energies.append(ame2)
+    return energies
 
 def getDefaultEnergies(cg):
     """
@@ -183,9 +209,11 @@ def getDefaultEnergies(cg):
     energies.append(fbe.RadiusOfGyrationEnergy(energy_prefactor=DEFAULT_ENERGY_PREFACTOR,
                                                adjustment=1.0))
     #Shortest loop distance per loop
-    energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg) ) ]
+    sld = getSLDenergies(cg)
+    if sld:
+        energies+=[ fbe.CombinedEnergy([],  sld , normalize=True) ]
     #A-minor energies
-    energies += getAMinorEnergies()
+    energies += getAMinorEnergies(cg)
     return energies
 
 def getPROenergy(proj_dist_str, prefactor):
@@ -204,7 +232,7 @@ def getHDEenergy(hde_image, scale, pre):
     img=scipy.ndimage.imread(hde_image)
     return fbe.HausdorffEnergy(img, scale, pre)
 
-def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image, reference_cg, stats_options):
+def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image, reference_cg):
     """
     Parses an energy string, as used for the --energy commandline option
 
@@ -230,7 +258,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
             energies.append(e)
         elif "AME" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "AME")
-            es=getAMinorEnergies(pre, adj[0])
+            es=getAMinorEnergies(cg, pre, adj[0])
             if adj[1]:
                 for e in es:
                     e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
@@ -242,7 +270,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                               "ShortestLoopdistancePerLoop energy!".format(adj))            
             if pre=="": pre=DEFAULT_ENERGY_PREFACTOR
             else: pre=int(pre)
-            energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg, pre) ) ]
+            energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg, pre), normalize=True ) ]
         elif "PRO" in contrib:
             pre,_, adj=contrib.partition("PRO")
             if adj!="":
@@ -261,12 +289,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                 pre=int(pre)
             else:
                 pre=DEFAULT_ENERGY_PREFACTOR
-            e=getHDEenergy(hde_image, scale, pre)
-            energies.append(e)
-            if "measure" in stats_options:
-              stats_options["measure"].append(e)
-            else:
-              stats_options["measure"]=[e]
+            energies.append(getHDEenergy(hde_image, scale, pre))
         elif "CHE" in contrib:
             pre,_, adj=contrib.partition("CHE")
             if pre!="" or adj!="":
@@ -359,7 +382,7 @@ def parseEnergyContributionString(contrib, sep):
 
 
 
-def setup_deterministic(args, stats_options):
+def setup_deterministic(args):
     """
     The part of the setup procedure that does not use any call to the random number generator.
 
@@ -381,21 +404,6 @@ def setup_deterministic(args, stats_options):
     else:
         cg = ftmc.CoarseGrainRNA(rnafile)
 
-    #Initialize the spatial model
-    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(data_file("stats/all.stats")))
-    
-    #Load the reference sm (if given)
-    if args.rmsd_to:
-        if args.rmsd_to.ends_with(".pdb"):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
-                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
-        else:
-            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
-    else:
-        original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
-        
     #Output file and directory        
     ofilename=None
     if not args.eval_energy:
@@ -411,6 +419,47 @@ def setup_deterministic(args, stats_options):
         if args.output_file:
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
+
+    #Initialize the spatial model
+    if args.clustered_angle_stats and args.jar3d_dir:
+        print("ERROR: --clustered-angle-stats and --jar3d-dir are mutually exclusive!", file=sys.stderr)
+        sys.exit(1)
+    if args.clustered_angle_stats:
+        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file, args.clustered_angle_stats))
+    elif args.jar3d_dir:
+        jared_script = op.join(options.jared_dir, 'scripts/annotate_structure.py')
+        jared_data   = op.join(options.jared_dir, 'JAR3D')
+        jared_out    = op.join(config.Configuration.sampling_output_dir, filtered_stats)
+        
+        cmd = ['python', jared_script, options.bg_filename, '-o', jared_data,
+               '-m', '-e', '-d', jared_data]
+
+        p = spr.Popen(cmd, stdout=spr.PIPE)
+        out, err = p.communicate()
+
+        with open(jared_out, 'w') as filtered_out:
+            filtered_out.write(out)
+
+        filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
+                                                        filter_filename=jared_out)
+        ftms.set_conformation_stats(filtered_stats)
+        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats())
+    else:
+        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file))
+    #Load the reference sm (if given)
+    if args.rmsd_to:
+        if args.rmsd_to.endswith(".pdb"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
+                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
+        else:
+            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
+    else:
+        original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
+        
+
+
     #Initialize the requested energies
     
     if args.energy=="D":
@@ -418,7 +467,7 @@ def setup_deterministic(args, stats_options):
     else:
         energy=parseCombinedEnergyString(args.energy, cg, args.iterations,
                                          args.projected_dist,args.scale,
-                                         args.ref_img, original_sm.bg, stats_options)
+                                         args.ref_img, original_sm.bg)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -429,7 +478,7 @@ def setup_deterministic(args, stats_options):
             else:
                 energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
                                          args.iterations, args.projected_dist, args.scale,
-                                         args.ref_img), stats_options)
+                                         args.ref_img, original_sm.bg))
 
 
     #Initialize the Constraint energies
@@ -441,7 +490,7 @@ def setup_deterministic(args, stats_options):
         sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
     return sm, original_sm, ofilename, energy, energies_to_track
 
-def setup_stat(out_file, sm, args, energies_to_track, original_sm, options):
+def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     """
     Setup the stat object used for logging/ output.
 
@@ -459,8 +508,11 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, options):
     #                                  save_iterative_cg_measures=args.save_iterative_cg_measures, 
     #                                  no_rmsd = args.no_rmsd)
     #stat.step_save = args.step_save
+    options={}
     if args.no_rmsd:
         options["rmsd"] = False
+    if not args.start_from_scratch and not args.rmsd_to:
+        options["extreme_rmsd"] = "max" #We start at 0 RMSD. Saving the min RMSD is useless.
     options[ "step_save" ] = args.step_save 
     options[ "save_n_best" ] = args.save_n_best 
     options[ "save_min_rmsd" ] = args.save_min_rmsd 
@@ -474,10 +526,10 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, options):
 parser = get_parser()
 if __name__=="__main__":
     args = parser.parse_args()
-    stats_options = {}
+
     #Setup that does not use the random number generator.
     randstate=random.getstate()#Just for verification purposes
-    sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args, stats_options)
+    sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args)
     assert randstate==random.getstate()#Just for verification purposes
     fud.pv("energies_to_track")
     #Eval-energy mode
@@ -502,9 +554,14 @@ if __name__=="__main__":
     #Main function, dependent on random.seed        
     plter=None #fbs.StatisticsPlotter()
     with open_for_out(ofilename) as out_file:
-        stat=setup_stat(out_file, sm, args, energies_to_track, original_sm, stats_options)
+        if isinstance(energy, fbe.CombinedEnergy):
+            energies_to_track+=energy.uncalibrated_energies
+        elif isinstance(energy, fbe.CoarseGrainEnergy):
+            energies_to_track+=[energy]
+        stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
+            print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
             sampler = fbs.MCMCSampler(sm, energy, stat, start_from_scratch=args.start_from_scratch,
                                       dump_measures=args.dump_energies)
             for i in range(args.iterations):

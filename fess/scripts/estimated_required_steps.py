@@ -10,19 +10,24 @@ import fess.builder.models as fbm
 import fess.builder.energy as fbe
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
+import forgi.threedee.utilities.rmsd as ftur
 import forgi.threedee.utilities.graph_pdb as ftug
 from fess import data_file
 import numpy as np
 import scipy.cluster.hierarchy as hcluster
 import matplotlib.pyplot as plt
+import copy
+import collections as col
+import sklearn.cluster
 
 def generateParser():
     parser=argparse.ArgumentParser( description="Estimate the size of the solution space "
                                                 "for the sampling of a coarse grained structure.")
     parser.add_argument("cg", type=str, action="store", help="A cg file")
-    parser.add_argument("--stats-file", type=str, help="What stats file to use", default="stats/all_filtered.stats")
+    parser.add_argument("--stats-file", type=str, help="What stats file to use", default=data_file("stats/all.stats"))
     parser.add_argument("-t", "--tolerance", type=float, help="Element-wise relative tolerance of r,u, v and t for considering two stats as equal.", default=0.1)
-    parser.add_argument("-c", "--cluster", action="store_true", help="Cluster the angle stats")
+    parser.add_argument("-r", "--rmsd", action="store_true", help="Use RMSD of whole structure to identify similar stats for individual coarse grain elements (takes more time)")
+    parser.add_argument("-c", "--cluster", action="store_true", help="Calculate pairwise distances of stats for clustering")
     return parser
 
 
@@ -43,42 +48,70 @@ def is_similar(stat1, stat2, cutoff=0.1):
         return False
 
     return True
+
+class Comparison(object):
+    def __init__(self, reference_cg, tolerance=0.1, rmsd=False):
+        self.tol=tolerance
+        self.rmsd=rmsd
+        self.restore_cg(reference_cg)
+    def restore_cg(self, reference_cg):
+        self.ref_sm = fbm.SpatialModel(copy.deepcopy(reference_cg))
+        self.ref_sm.load_sampled_elems()
+        self.ref_vress = self.ref_sm.bg.get_ordered_virtual_residue_poss()
+    def compare(self, d, other_stats):
+        if not self.rmsd:
+            stats = self.ref_sm.elem_defs[d]
+            return is_similar(stats, other_stats, self.tol)
+        else:
+            self.ref_sm.elem_defs[d]=other_stats
+            self.ref_sm.traverse_and_build(start=d)
+            curr_vress=self.ref_sm.bg.get_ordered_virtual_residue_poss()
+            rmsd=ftur.rmsd(self.ref_vress, curr_vress)
+            return rmsd<self.tol
+
 parser=generateParser()
 if __name__=="__main__":
     args = parser.parse_args()
     cg=ftmc.CoarseGrainRNA(args.cg)
-    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(data_file(args.stats_file)))
+    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file))
     sm.load_sampled_elems()
     maxNum=0
     maxLoop=0
     sumStats=0
-
+    comp = Comparison(sm.bg, args.tolerance, args.rmsd)
     for define in cg.defines:
         similar_stats=0
         allstats = sm.conf_stats.sample_stats(cg, define)
         numStats = len(allstats)
-        if define[0] in "mi" and numStats:
+        if define[0] in "mi" and numStats:        
             if args.cluster:
-                allstatsvec = np.array([ [ stats.u, stats.v, stats.t, stats.r1, stats.u1, stats.v1 ] 
-                                                                         for stats in allstats])
-                mean=np.mean(np.abs(allstatsvec), 0)
-                allstatsvec=allstatsvec/mean
-                thresh = 1
-                clusters = hcluster.fclusterdata(allstatsvec, thresh)
-                print (np.max(clusters), "Clusters")
-            for stat in allstats:
-                if is_similar(stat, sm.elem_defs[define], args.tolerance):
+                distance=np.full((len(allstats),len(allstats)),np.NAN)
+            for i, stat in enumerate(allstats):
+                if args.cluster:
+                    for j, stat2 in enumerate(allstats):
+                       distance[i,j]=stat.diff(stat2) 
+                if comp.compare(define, stat):
                     similar_stats+=1
+            if args.cluster:
+                np.savetxt(define+'.distances.out', distance, delimiter='\t', header="\t".join(s.pdb_name+",{},{}".format(s.r1, s.u1) for s in allstats ))
+                db = sklearn.cluster.DBSCAN(metric="precomputed", eps=2.1, min_samples=2).fit(distance)
+                labels = db.labels_
+                n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+                n_outliers = len([x for x in labels if x==-1])
+                n_largest_clust = col.Counter(labels).most_common(1)
+                print ("DBSCAN clustering: {} clusters, {} outliers, {} in largest cluster".format(n_clusters, n_outliers, n_largest_clust[0][1]))
             effectiveNum = numStats/similar_stats
             print ("{}: {} different stats, 1/{} success rate".format(define, numStats, effectiveNum))
+            comp.restore_cg(sm.bg)
         else:
-            effectiveNum == numStats
+            effectiveNum = numStats
             print ("{}: {} different stats".format(define, numStats))
         sumStats+=numStats
         if numStats>maxNum:
             maxNum=numStats
         if define[0] in ["m","i"] and effectiveNum>maxLoop:
             maxLoop=effectiveNum
+
     # The minimal number of sampling steps needed is estimated as follows:
     # The expectation value for the coverage of sampling with replacement is n*(1-(1-1/n)**x) where
     # n is the size of the set drawn from and x is the number of draws.

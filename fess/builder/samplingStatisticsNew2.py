@@ -12,7 +12,7 @@ from . import config as conf
 from . import energy as fbe
 import sys, time, copy
 import os.path
-
+import numpy as np
 from ..aux.SortedCollection import SortedCollection
 
 
@@ -133,7 +133,11 @@ class RMSDStatistics(StatisticsCollector):
             self.history=None
         else:
             self._showMinMax=show_min_max
-            if show_min_max:
+            if show_min_max=="max":
+                self.header = [ mode, "max"+mode ]
+                self.history= [ [],[] ]
+                self._maxRMSD = float("-inf")
+            elif show_min_max:
                 self.header = [ mode, "min"+mode, "max"+mode ]
                 self.history= [ [],[],[] ]
                 self._minRMSD = float("inf")
@@ -156,12 +160,16 @@ class RMSDStatistics(StatisticsCollector):
             if self._showMinMax:
                 if rmsd>self._maxRMSD:
                     self._maxRMSD=rmsd
-                if rmsd<self._minRMSD:
-                    self._minRMSD=rmsd
+                if self._showMinMax==True:
+                    if rmsd<self._minRMSD:
+                        self._minRMSD=rmsd                
+                    self.history[1].append( self._minRMSD )
                 self.history[0].append( rmsd )
-                self.history[1].append( self._minRMSD )
-                self.history[2].append( self._maxRMSD )
-                return "{:6.3f} A\t{:6.3f} A\t{:6.3f} A".format(rmsd, self._minRMSD, self._maxRMSD)
+                self.history[-1].append( self._maxRMSD )
+                if self._showMinMax=="max":
+                      return "{:6.3f} A\t{:6.3f} A".format(rmsd, self._maxRMSD)
+                else:
+                    return "{:6.3f} A\t{:6.3f} A\t{:6.3f} A".format(rmsd, self._minRMSD, self._maxRMSD)
             else:
                 self.history[0].append( rmsd )
                 return "{:6.3f} A".format(rmsd)
@@ -194,7 +202,14 @@ class EnergyTracking(StatisticsCollector):
             energy=self._energy_function.eval_energy(sm)
         self.history[0].append(self._energy_function.shortname())
         self.history[1].append(energy)
-        return "{}: {}".format(self._energy_function.shortname(), energy)
+        if isinstance(energy, np.ndarray) and len(energy)==1:
+            energy="{:10.3f}".format(energy[0])
+        elif isinstance(energy, float):
+            energy="{:10.3f}".format(energy)
+        sn = self._energy_function.shortname()
+        if sn=="":
+            sn = self._energy_function.get_name()
+        return "{}: {}".format(sn, energy)
     @property
     def header_str(self):
         return "Tracked Energy"
@@ -259,6 +274,7 @@ class Delimitor(StatisticsCollector):
 _statisticsDefaultOptions={
     "showtime": "now",
     "rmsd":True,
+    "drmsd":False,
     "acc":True,
     "rog":True,
     "name": True,
@@ -306,7 +322,7 @@ class SamplingStatistics:
                             Root Mean Square Deviation to sm_orig
                             If sm_orig is missing 3D coordinates, 
                             this will always be false.                       
-                      * `"extreme_rmsd": TRUE | FALSE`
+                      * `"extreme_rmsd": TRUE | FALSE | "max"`
                             Whether to show the minimal and maximal RMSD.
 
                       * `"name": True|False`:
@@ -406,9 +422,10 @@ class SamplingStatistics:
         if self.options["constituing_energies"]:
             contribs.append("( Constituing_Energies )")
         contribs.append(self.collector.header_str)
+        contribs.append("Sampling Move")
         self.printline("\t".join(contribs))
 
-    def update_statistics(self, sm, energy, member_energies=[]):
+    def update_statistics(self, sm, energy, member_energies=[], change=""):
         """
         Add a new structure to the statistics.
       
@@ -426,6 +443,7 @@ class SamplingStatistics:
         line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies 
                                       if x[0] not in ignore_names)+" )")
         line.append(self.collector.update(sm, self.step))
+        line.append(change)
         self.printline("\t".join(line))
         
         #The deepcopy might be too expensive if the energy is too high and the bg will not used.

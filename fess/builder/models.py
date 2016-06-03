@@ -677,7 +677,7 @@ class SpatialModel:
         Build a 3D structure from the graph in self.bg.
         '''
         build_order = self.bg.traverse_graph()
-        
+
         def buildorder_of(stemid):
             """
             Returns the buildorder of the multi-/ interior loop before the stem with stemid.

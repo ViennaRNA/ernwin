@@ -327,7 +327,10 @@ class ProjectionMatchEnergy(EnergyFunction):
         self.accepted_projDir=self.projDir
     
 class CombinedEnergy:
-    def __init__(self, energies=None, uncalibrated_energies=None):
+    def __init__(self, energies=None, uncalibrated_energies=None, normalize=False):
+        """
+        :param normalize: Divide the resulting energy by the numbers of contributions
+        """
         if energies is not None:
             self.energies = energies
         else:
@@ -338,6 +341,7 @@ class CombinedEnergy:
             self.uncalibrated_energies=[]
         self.bad_bulges = []
         self.accepted_measures=[float("nan")]
+        self.normalize=normalize
     def uses_background(self):
         for e in it.chain(self.energies, self.uncalibrated_energies):
             if hasattr(e, "sampled_kdes"):
@@ -400,6 +404,7 @@ class CombinedEnergy:
         total_energy = 0.
         self.bad_bulges = []
         self.constituing_energies=[]
+        num_contribs=0
         for energy in self.uncalibrated_energies:
             contrib=None
             if use_accepted_measure:
@@ -418,9 +423,10 @@ class CombinedEnergy:
             #try: print("uncalibrated ",energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print("uncalibrated ",energy, " contributes ",contrib ,"to the combined energy")
             total_energy += contrib
+            num_contribs +=1
             self.bad_bulges += energy.bad_bulges
             if verbose:
-                print (energy.__class__.__name__, contrib)
+                print (energy.__class__.__name__, energy.shortname(), contrib)
 
         for energy in self.energies:
             contrib=None
@@ -439,9 +445,12 @@ class CombinedEnergy:
             #except Exception: print(energy, " contributes ",contrib ,"to the combined energy")
             self.bad_bulges += energy.bad_bulges
             total_energy += contrib
-
+            num_contribs +=1
             if verbose:
-                print (energy.__class__.__name__, contrib)
+                print (energy.__class__.__name__, energy.shortname(), contrib)
+
+        if self.normalize:
+            total_energy=total_energy/num_contribs
 
         if verbose:
             print ("--------------------------")
@@ -881,7 +890,20 @@ class CoarseGrainEnergy(EnergyFunction):
         else:
             m = self.get_cg_measure(sm)
 
-        print("Measure is {:1.4f}".format(m))
+        if False: #For debuging
+            import matplotlib.pyplot as plt
+            xs=np.linspace(0, 200, 2000)
+            fig,ax1 = plt.subplots()
+            ax2 = ax1.twinx()
+            ax1.plot(xs, ks(xs), label="sampled")
+            ax1.plot(xs, kr(xs), label="reference")
+            ax2.plot(xs, -(np.log(kr(xs) + 0.00000001 * ks(xs)) - np.log(ks(xs))), label="energy", color="red")
+            plt.title(self.shortname())
+            ax1.legend(loc="lower left")
+            ax2.legend()
+            plt.show()
+
+        #print("Measure is {:1.4f}".format(m))
         self.measures.append(m)
         
         if background:
@@ -952,7 +974,7 @@ class HausdorffEnergy(CoarseGrainEnergy):
         for residuePos in range(1,sm.bg.total_length()):
             residue=sm.bg.virtual_atoms(residuePos) #To remove this from the profiling of rasterization
         st=time.time()
-        if len(np.where(self.ref_quarter)[0])>100: #Only use ref_quarter, if it has enough white.
+        if False: #len(np.where(self.ref_quarter)[0])>100: #Only use ref_quarter, if it has enough white.
             print("Using refQuarter")
             s, i, params = fph.globally_minimal_distance(self.ref_quarter, self.scale, sm.bg,  
                                                           start_points=20, 
@@ -962,7 +984,7 @@ class HausdorffEnergy(CoarseGrainEnergy):
                                                           params[1], params[2], params[0], 
                                                           maxiter=200)#, distance=fph.modified_hausdorff_distance)
         else:
-            print("Using Full Resolution")
+            #print("Using Full Resolution")
             s, i, params = fph.globally_minimal_distance(self.ref_img, self.scale, sm.bg,  
                                                           start_points=20,
                                                           starting_rotations=self.initial_degrees,
@@ -979,7 +1001,7 @@ class HausdorffEnergy(CoarseGrainEnergy):
         #ax[0].set_title("Final Opt Reference")
         #ax[1].set_title("{} distance".format(score))
         #plt.show()
-        print("Time was {:2.2f}".format(time.time()-st))
+        #print("Time was {:2.2f}".format(time.time()-st))
         return score
 
     def accept_last_measure(self):
@@ -1186,14 +1208,15 @@ class CheatingEnergy(EnergyFunction):
         self.real_residues = cgg.bg_virtual_residues(self.real_bg)
 
     def eval_energy(self, sm, background=True, nodes=None):
-	'''
-	@param sm: A SpatialModel, which contains a coarse grain model (sm.bg)
-	'''
+        '''
+        @param sm: A SpatialModel, which contains a coarse grain model (sm.bg)
+        '''
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
-        return  cbr.centered_rmsd(self.real_residues, new_residues)
+        return  cbr.centered_rmsd(self.real_residues, new_residues)*30
     def shortname(self):
         return "CHE"
+
 def length_and_rog(cg):
     coords = cg.get_ordered_stem_poss()
     rog = ftur.radius_of_gyration(coords)
@@ -1369,13 +1392,16 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
     def get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
         if filename == self.sampled_stats_fn:
-            rogs=np.linspace(5, 200, num=40)
-            data=np.concatenate([data, rogs])
+            rogs=np.linspace(3, 300, num=30)
+            data=np.concatenate([data, data,data,rogs])
+        else:
+            rogs=np.linspace(3, 300, num=15)
+            data=np.concatenate([data, data,data,rogs])
         rogs = data
         return (self.get_distribution_from_values(rogs), list(rogs))
 
     def get_cg_measure(self, sm):
-        min_dist = 10000.
+        min_dist = float("inf")
 
         cg = sm.bg
         for h in cg.hloop_iterator():
@@ -1416,8 +1442,7 @@ class ShortestLoopDistancePerLoop(ShortestLoopDistanceEnergy):
                                                                          nodes)
             except DoNotContribute:
               energy=0
-            # We only consider stems that are close enough to other stems to have an interaction.
-            return min(energy, 0)
+            return energy
 
 
 
@@ -1561,6 +1586,8 @@ class AMinorEnergy(CoarseGrainEnergy):
         """AMinor.rejectLastMeasure"""
         if len(self.accepted_measures) > 0 and self.num_loops>0:
             self.accepted_measures += self.accepted_measures[-self.num_loops:]
+    def get_num_loops(self, cg):
+        return len([d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))])
     def eval_energy(self, sm, background=True, nodes=None):
         cg = sm.bg
         if self.measure_category(cg) not in self.real_kdes.keys():
@@ -1574,7 +1601,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         energy = 0
 
         if self.num_loops is None:
-            self.num_loops=len([d for d in sm.bg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(sm.bg.get_define_seq_str(d))])
+            self.num_loops=self.get_num_loops(sm.bg)
         for d in sm.bg.defines.keys():
 
             # the loop type is encoded as an integer so that the stats file can be 
@@ -1592,6 +1619,19 @@ class AMinorEnergy(CoarseGrainEnergy):
                 energy +=  -1 * self.energy_prefactor * prev_energy                
             else:
                 energy +=  -np.log(kr(m))
+        if False: #For debuging
+                import matplotlib.pyplot as plt
+                xs=np.linspace(0, 1, 500)
+                fig,ax1 = plt.subplots()
+                ax2 = ax1.twinx()
+                ax1.plot(xs, ks(xs), label="sampled")
+                ax1.plot(xs, kr(xs), label="reference")
+                ax2.plot(xs, -(np.log(kr(xs) + 0.00000001 * ks(xs)) - np.log(ks(xs))), label="energy", color="red")
+                ax1.plot(self.measures, [1]*len(self.measures), "o", label="Measures")
+                plt.title(self.shortname())
+                ax1.legend(loc="lower left")
+                ax2.legend()
+                plt.show()
         return energy
 
 """
