@@ -693,7 +693,7 @@ class SpatialModel:
                   if stemid==stem_loop_stem[1]:
                       return i
             raise ValueError("{} not found in {}.".format(stemid,build_order))
-            return -1
+
             
         # add the first stem in relation to a non-existent stem
         self.stems['s0'] = self.add_stem('s0', self.elem_defs['s0'], StemModel(), 
@@ -703,6 +703,7 @@ class SpatialModel:
         i = 0
         while i < len(build_order):
             (s1, l, s2) = build_order[i]
+            #print(i, "<", len(build_order), l)
             prev_stem = self.stems[s1]
             angle_params = self.elem_defs[l]
             stem_params = self.elem_defs[s2]
@@ -743,13 +744,15 @@ class SpatialModel:
                 # Add all multiloop segments that are already determined at the current 
                 # build-step to the list of nodes for energy evaluation.
                 ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
-                ml_nodes=ml_nodes-set(it.chain(*[bo for bo in build_order]))
+                broken_multiloops = ml_nodes-set(it.chain(*[bo for bo in build_order]))
                 newnodes=set()
-                for n in ml_nodes:
+                for n in broken_multiloops:
                     loop=set(self.bg.find_bulge_loop(n, 200))
-                    if loop and loop<=(nodes|set([n])): #loop is empty for ml at 3'/ 5' end.
-                        newnodes.add(n)
+                    if loop: #loop is empty for ml at 3'/ 5' end.
+                        if loop <= ( nodes | broken_multiloops ):
+                            newnodes.add(n)
                 #See if the determined (not sampled) multiloop segments fulfill the constraints.
+                #print ("Checking junction energy for {}".format((newnodes | nodes)))
                 ej = self.junction_constraint_energy.eval_energy( self, nodes=(newnodes | nodes) )             
                 if ej>0.:
                     bad_loops=self.junction_constraint_energy.bad_bulges
@@ -805,11 +808,15 @@ class SpatialModel:
             if self.constraint_energy is not None:
                 assert self.constraint_energy.eval_energy(self, nodes=nodes) == 0, "i={}".format(i)
         if self.junction_constraint_energy is not None and fast: #Checking for logical bugs.
-            assert self.junction_constraint_energy.eval_energy(self)==0., ("bad_bulges={}".format(
-                                                      self.junction_constraint_energy.bad_bulges))
+            assert self.junction_constraint_energy.eval_energy(self)==0., (
+                        "bad_bulges={}\n{} define is {}. Buildorder {}".format(
+                                self.junction_constraint_energy.bad_bulges, 
+                                self.junction_constraint_energy.bad_bulges[-1],
+                                repr(self.bg.defines[self.junction_constraint_energy.bad_bulges[-1]]),
+                                buildorder_of(self.junction_constraint_energy.bad_bulges[-1])))
         if self.constraint_energy is not None:
             c_energy=self.constraint_energy.eval_energy(self)
-            assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}".format(c_energy, self.constraint_energy.bad_bulges)
+            assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}.".format(c_energy, self.constraint_energy.bad_bulges)
         self.finish_building()
     """
     def __deepcopy__(self, memo={}):

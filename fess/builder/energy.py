@@ -1299,6 +1299,46 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         print("Radii of gyration [{}, {}]: min-median-max: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)), file=sys.stderr)
         return (self.get_distribution_from_values(rogs), list(rogs))
 
+class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
+    def __init__(self, dist_type="kde", adjustment=1., energy_prefactor=DEFAULT_ENERGY_PREFACTOR):
+        """
+        A Subclass of the Radius of Gyration energy with a normal distributed target distribution.
+
+        The adjustment is treated as the estimated perimeter of the RNA. Thus the target distribution
+        is a normal distribution with mean=0.77*ADJ and STDDEV=0.23*ADJ.
+        
+        Remember that the ROG for polymers is defined as:
+        ROG=SQRT(1/N*Sum(r)) for N points with the mean in the origin.
+  
+        0.77 is roughly SQRT(3/5), which is the limes of the rog for m->inf many points
+        in a 3D unit sphere with the nth point placed at radius (n/m)**1/3
+        0.77-0.23 is roughly 1/SQRT(3), which is the limes of the rog for m->inf many points
+        equally distributed along one or more diameters (in a star-like fashion)
+        0.77+0.23 is 1, corresponding to all points on the surface of the sphere.
+
+        If the perimeter is estimated from electron microscopy data, 
+        it is potentially smaller than the perimeter in 3D space if the shape of the RNA
+        is not a perfect sphere.
+        This effect is accounted for by allowing values greater than 1*ADJ with a 
+        non-neglectable probability
+        """
+        super(NormalDistributedRogEnergy, self).__init__(dist_type, adjustment, energy_prefactor)
+        self.real_stats_fn = None
+    def get_distribution_from_file(self, filename, length, adjust=1.):
+        if filename is None:
+            return stats.norm(loc=0.77*adjust, scale=0.23*adjust).pdf, None
+        else:
+            return super(NormalDistributedRogEnergy, self).get_distribution_from_file(filename, length, adjust)
+    def shortname(self):
+        if self.energy_prefactor==DEFAULT_ENERGY_PREFACTOR:
+            pre=""
+        else:
+            pre=self.energy_prefactor
+        if self.adjustment==1.0:
+            adj=""
+        else:
+            adj=self.adjustment
+        return "{}NDR{}".format(pre,adj)
 
 class ShortestLoopDistanceEnergy(RadiusOfGyrationEnergy):
     def __init__(self):

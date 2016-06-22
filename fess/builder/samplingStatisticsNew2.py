@@ -14,7 +14,7 @@ import sys, time, copy
 import os.path
 import numpy as np
 from ..aux.SortedCollection import SortedCollection
-
+import warnings
 
 __metaclass__=type
 
@@ -98,8 +98,9 @@ class ACCStatistics(StatisticsCollector):
     def __init__(self, reference_sm):
         super(ACCStatistics, self).__init__()
         try:
-            self._cm_calc = ftme.AdjacencyCorrelation(sm_orig.bg)
-        except:
+            self._cm_calc = ftme.AdjacencyCorrelation(reference_sm.bg)
+        except Exception as e:
+            warnings.warn("Cannot report ACC. {} in reference SM: {}".format(type(e), str(e)))
             self.silent = True
             self.history=None
         else:
@@ -109,9 +110,9 @@ class ACCStatistics(StatisticsCollector):
         if self.silent:
             return
         else:
-            acc = self._cm_calc.evaluate(sm.bg)
+            acc = ftme.mcc(self._cm_calc.evaluate(sm.bg))
             self.history[0].append(acc)
-        return "{:5.3f}".format(rog)
+        return "{:5.3f}".format(acc)
 
 class RMSDStatistics(StatisticsCollector):
     """
@@ -152,7 +153,8 @@ class RMSDStatistics(StatisticsCollector):
               rmsd=ftur.rmsd(self._reference, curr_vress)
             elif self.mode=="dRMSD":
               rmsd=ftur.drmsd(self._reference, curr_vress)
-            self.best_cgs.insert((copy.deepcopy(sm.bg),rmsd))
+            if self.best_cgs.can_insert((sm.bg,rmsd)):
+                self.best_cgs.insert((copy.deepcopy(sm.bg),rmsd))
             if step % 10 == 0:
                 for i, bg in enumerate(self.best_cgs):
                     bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
@@ -446,8 +448,8 @@ class SamplingStatistics:
         line.append(change)
         self.printline("\t".join(line))
         
-        #The deepcopy might be too expensive if the energy is too high and the bg will not used.
-        self.best_cgs.insert((copy.deepcopy(sm.bg), energy))
+        if self.best_cgs.can_insert((sm.bg, energy)):
+            self.best_cgs.insert((copy.deepcopy(sm.bg), energy))
         
         if self.step % 10 == 0:
             for i, bg in enumerate(self.best_cgs):

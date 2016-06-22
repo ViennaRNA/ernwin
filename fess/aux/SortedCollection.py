@@ -82,14 +82,14 @@ class SortedCollection(object):
 
     def __init__(self, iterable=(), key=None, maxlen=None):
         self._given_key = key
-        key = (lambda x: x) if key is None else key
+        _key = (lambda x: x) if key is None else key
         decorated = sorted((key(item), item) for item in iterable)
         if maxlen is not None:
             decorated = decorated[:maxlen]
         self._maxlen=maxlen
         self._keys = [k for k, item in decorated]
         self._items = [item for k, item in decorated]
-        self._key = key
+        self._key = _key
         
     @property
     def maxlen(self):
@@ -166,6 +166,24 @@ class SortedCollection(object):
         j = bisect_right(self._keys, k)
         return self._items[i:j].count(item)
 
+    def can_insert(self, item):
+        """Whether the item would be inserted in a position before maxlen"""
+        if self._maxlen is None:
+            return True
+        k = self._key(item)
+        if len(self._keys)==self._maxlen and k>self._keys[-1]:
+            return False
+        return True
+
+    def can_insert_right(self, item):
+        """Whether the item would be inserted in a position before maxlen using insert_right"""
+        if self._maxlen is None:
+            return True
+        k = self._key(item)
+        if len(self._keys)==self._maxlen and k>=self._keys[-1]:
+            return False
+        return True
+
     def insert(self, item):
         'Insert a new item.  If equal keys are found, add to the left'
         k = self._key(item)
@@ -184,7 +202,7 @@ class SortedCollection(object):
         self._keys.insert(i, k)
         self._items.insert(i, item)
         if self._maxlen is not None:
-            while len(self._keys)>maxlen:
+            while len(self._keys)>self._maxlen:
                 self._keys.pop()
                 self._items.pop()
                 

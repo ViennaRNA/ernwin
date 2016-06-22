@@ -1,5 +1,11 @@
 #!/usr/bin/python
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import (ascii, bytes, chr, dict, filter, hex, input,
+                      int, map, next, oct, open, pow, range, round,
+                      str, super, zip)
+from future.builtins.disabled import (apply, cmp, coerce, execfile,
+                             file, long, raw_input, reduce, reload,
+                             unicode, xrange, StandardError)
 
 import collections as c
 import sys, random, copy
@@ -464,7 +470,7 @@ class SamplingStatistics:
         print ("-------------------------")
         
 
-class MCMCSampler:
+class MCMCSampler(object):
     '''
     Sample using tradition accept/reject sampling.
     '''
@@ -491,6 +497,7 @@ class MCMCSampler:
         self.prev_energy = 100000000000.
         self.dump_measures = dump_measures
         self.resampled_energy = True
+        self.prev_stats={}
 
         print("INFO: Trying to load sampled elements.", file=sys.stderr)
         try:
@@ -543,44 +550,21 @@ class MCMCSampler:
         Change a random element and accept the change with a probability
         proportional to the energy function.
         '''
-        movestring=[]
+
         # pick a random element and get a new statistic for it
         possible_elements=list(self.sm.bg.get_mst())
         pe=set(possible_elements)
         d = random.choice(possible_elements)
-        movestring.append(d+":")
-        #import pdb
-        #pdb.set_trace()
-        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
-        new_stat = random.choice(possible_stats)
+        movestring =  self.change_one_element(d)
+        return movestring + self.accept_reject()
 
-        # we have to replace the energy because we've probably re-calibrated
-        # the energy function
-        if self.resampled_energy and self.energy_function.uses_background():
-            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True, use_accepted_measure=True)
-            try:
-                self.prev_constituing =  self.energy_function.constituing_energies
-            except AttributeError: pass
-            self.resampled_energy = False
-
-        prev_stat = self.sm.elem_defs[d]
-        movestring.append(hex(hash(prev_stat)))
-        movestring.append("->")
-        movestring.append(hex(hash(new_stat)))
-        movestring.append(";")
-        if isinstance(new_stat, ftms.AngleStat) and isinstance(self.sm.conf_stats.angle_stats, ftms.ClusteredAngleStats):
-            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(prev_stat)))
-            movestring.append("->")
-            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
-            movestring.append(";")
-        self.sm.elem_defs[d] = new_stat
-        self.sm.traverse_and_build(start=d)
+    def accept_reject(self):
+        movestring=[]
         energy = self.energy_function.eval_energy(self.sm, background=True)
 
         movestring.append("{:.3f}".format(self.prev_energy[0]))
         movestring.append("->")
-        movestring.append("{:.3f}".format(energy[0]))
-
+        movestring.append("{:.3f};".format(energy[0]))
         #print("Energy is {}, prev_energy is {} ...".format(energy, self.prev_energy), end="\n")
         if energy < self.prev_energy:
             movestring.append("A")
@@ -598,11 +582,11 @@ class MCMCSampler:
             if r > math.exp(self.prev_energy - energy):
                 movestring.append("R")
                 # reject the sampled statistic and replace it the old one
-                self.sm.elem_defs[d] = prev_stat
-                self.sm.traverse_and_build(start='start')
-                # self.stats.sampled_energy = self.prev_energy
-                self.energy_function.reject_last_measure()
+                for d, stats in self.prev_stats.items():
+                    self.sm.elem_defs[d] = stats
+                self.sm.traverse_and_build(start='start') #Why do we not start at d, if only one d???
                 #print ("...rejecting")
+                self.energy_function.reject_last_measure()
             else:
                 movestring.append("A")
                 # accept the new statistic
@@ -612,6 +596,45 @@ class MCMCSampler:
                 except AttributeError: pass
                 self.energy_function.accept_last_measure()
                 #print ("...still accepting")
+        return "".join(movestring)
+
+
+    def change_one_element(self, d):
+        """
+        Change the stats for the selected define and accept or 
+        reject the new structure based on the energy.
+
+        :param d: The define to change.
+        """
+        d
+        movestring=[]
+        movestring.append(d+":")
+        #import pdb
+        #pdb.set_trace()
+        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
+        new_stat = random.choice(possible_stats)
+
+        # we have to replace the energy because we've probably re-calibrated
+        # the energy function
+        if self.resampled_energy and self.energy_function.uses_background():
+            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True, use_accepted_measure=True)
+            try:
+                self.prev_constituing =  self.energy_function.constituing_energies
+            except AttributeError: pass
+            self.resampled_energy = False
+
+        self.prev_stats={d: self.sm.elem_defs[d]}
+        movestring.append(hex(hash(self.prev_stats[d])))
+        movestring.append("->")
+        movestring.append(hex(hash(new_stat)))
+        movestring.append(";")
+        if isinstance(new_stat, ftms.AngleStat) and isinstance(self.sm.conf_stats.angle_stats, ftms.ClusteredAngleStats):
+            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(self.prev_stats[d])))
+            movestring.append("->")
+            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
+            movestring.append(";")
+        self.sm.elem_defs[d] = new_stat
+        self.sm.traverse_and_build(start=d)
         return "".join(movestring)
 
     def step(self):
@@ -637,6 +660,131 @@ class MCMCSampler:
 
         self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
 
+class ImprovedMultiloopMCMC(MCMCSampler):
+    """
+    This Sampler is like the MCMCSampler except for multiloops.
+
+    If a multiloop segment is picked, a different move step is used:
+    After changing the stats for the selected multiloop segment, 
+    the loop closure energy is evaluated.
+    If it is >0, OTHER multiloop segments are changed, 
+    until a certain number of tries was performed or the multiloop fulfills the constraints.
+    
+    Stats that lead to a lot of clashes are picked less often for the first multiloop segment, to
+    avoid introducing a statistical bias.
+    """
+    def __init__(self, sm, energy_function, stats, start_from_scratch=False, dump_measures=False):        
+        self.junction_energy = sm.junction_constraint_energy
+        super(ImprovedMultiloopMCMC, self).__init__(sm, energy_function, stats, start_from_scratch, dump_measures)
+        #: A dict of the form `{ define : { stat : [#choosen, #rejects ] }}`
+        self.stats_weights = c.defaultdict(lambda : c.defaultdict(lambda: [0,0]))
+
+        self.prev_stats={}
+    def change_elem(self):
+        #from ..scripts import report_coaxial_stacking as rcs
+        # pick a random element and get a new statistic for it
+        possible_elements=list(self.sm.bg.get_mst())
+        pe=set(possible_elements)
+        d = random.choice(possible_elements)        
+        self.prev_stats={}
+        if d[0]!="m":
+            movestring=self.change_one_element(d) #Use the superclass method.
+            return movestring + self.accept_reject()
+
+
+        # we have to replace the energy because we've probably re-calibrated
+        # the energy function
+        if self.resampled_energy and self.energy_function.uses_background():
+            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True, use_accepted_measure=True)
+            try:
+                self.prev_constituing =  self.energy_function.constituing_energies
+            except AttributeError: pass
+            self.resampled_energy = False
+
+        movestring=[]
+        movestring.append(d+":")
+        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
+        random.shuffle(list(possible_stats))
+      
+        searching=True
+        #For this multiloop segment, pick stats that have fewer rejects more often!
+        xth_try=0
+        while searching:
+            xth_try+=1
+            for newstat in possible_stats:
+                r = random.random()
+                if self.stats_weights[d][newstat][0] == 0:
+                    weight=1
+                else:
+                    weight=1-self.stats_weights[d][newstat][1]/(self.stats_weights[d][newstat][0])
+                if r < weight:
+                    searching=False
+                    break
+        self.stats_weights[d][newstat][0]+=1
+        movestring.append("ST{};".format(xth_try))
+        junction_nodes = set( x for x in self.sm.bg.find_bulge_loop(d, 200) if x[0]=="m" )
+        defined_junction_nodes = junction_nodes &  pe
+        for node in defined_junction_nodes: #self.prev_stats was emptied earlier in this function
+            self.prev_stats[node]= self.sm.elem_defs[node]
+        if not defined_junction_nodes: #Open multiloop (at terminus), not a cycle
+            self.prev_stats[d]= self.sm.elem_defs[d]
+        assert d in self.prev_stats
+        #print ("First changing {}".format(d), file=sys.stderr)
+        self.sm.elem_defs[d] = newstat
+        self.sm.traverse_and_build(start=d)
+        energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
+        num_tries=0
+        if len(defined_junction_nodes)>1: #If pseudoknots are allowed, more than one multiloop segment can be broken.
+            #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
+            while energy>0:
+                #The previous attempt is failed!
+                self.stats_weights[d][newstat][1]+=1
+                num_tries+=1
+                if num_tries>10000:
+                    #There might not be any conformation possible for this stat.
+                    #Just return a wrong conformation and let the energy function take care of it.
+                    break 
+                #We give it another try. Next attempt
+                self.stats_weights[d][newstat][0]+=1
+                other_d = random.choice(list(set(defined_junction_nodes)-set([d])))
+                #print ("... now changing {}".format(other_d), file=sys.stderr)
+                assert other_d in self.prev_stats
+                self.sm.elem_defs[other_d] = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, other_d))
+                self.sm.traverse_and_build(start=other_d)
+                #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
+                energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
+        movestring.append("TRIES{};".format(num_tries))
+        movestring.append(self.accept_reject())
+        return "".join(movestring)
+
+class ExhaustiveExplorer(MCMCSampler):
+    def __init__(self, sm, energy_function, stats, loop_of_interest, start_from_scratch = True):
+        super(ExhaustiveExplorer, self).__init__(sm, energy_function, stats)
+        self.num_choices=len(self.sm.conf_stats.sample_stats(self.sm.bg, loop_of_interest))
+        self.loop_of_interest=loop_of_interest
+        self._to_choose=[]
+    def next_choice(self):
+        while True:
+            self.to_choose=list(range(self.num_choices))
+            random.shuffle(self.to_choose)
+            for choice in self.to_choose:
+                yield choice
+    def change_elem(self):
+        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, self.loop_of_interest)
+        c=next(self.next_choice())
+        #print(c)
+        new_stat = possible_stats[c]
+        self.sm.elem_defs[self.loop_of_interest] = new_stat
+        self.sm.traverse_and_build(start=self.loop_of_interest)
+        self.sm.bg.infos["sampledFromExhaustive"]=["{} {}".format(self.loop_of_interest,c)]
+        #Calculate the enrgy, but always accept
+        energy = self.energy_function.eval_energy(self.sm, background=True)
+        self.prev_energy = energy
+        try:
+            self.prev_constituing =  self.energy_function.constituing_energies
+        except AttributeError: pass
+        self.energy_function.accept_last_measure()
+        return str(c)
 
 class GibbsBGSampler:
     '''

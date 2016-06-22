@@ -58,6 +58,10 @@ def get_parser():
                              'exit without sampling.')
     parser.add_argument('--seed', action='store', help="Seed for the random number generator.",
                         type=int)
+    parser.add_argument('--exhaustive', type=str, help="A STRING describing the coarse grained element (e.g. i2)\n"
+                                                       "Instead of the MCMC sampling algorithm, use a sampler \n"
+                                                       "that tries every stat for the given coarse grain element.")
+    parser.add_argument('--new-ml', action="store_true", help="Experimental")
     #Controll output
     parser.add_argument('--save-n-best', default=3, 
                         help='Save the best (lowest energy) n structures.', type=int)
@@ -66,7 +70,7 @@ def get_parser():
     parser.add_argument('--step-save', default=0, help="Save the structure at every n'th step.",
                          type=int)
     parser.add_argument('--dump-energies', default=False, action='store_true', 
-                        help='Dump the measures used for energy calculation to file')
+                        help='Dump the measures used for energy calculation to file') #UNUSED OPTION. REMOVE
     parser.add_argument('--no-rmsd', default=False, 
                         help='Refrain from trying to calculate the rmsd.', action='store_true')
     parser.add_argument('--rmsd-to', action='store', type=str, 
@@ -126,6 +130,11 @@ def get_parser():
                               "     depending on the difference between START and END.\n"
                               "TYP: one of the following\n"
                               "       ROG:  Radius of gyration energy\n"
+                              "       NDR:  Normal Distributed Radius of Gyration energy.\n"
+                              "             Use a normal distribution for the target ROG\n"
+                              "             With 0.77*ADJ as mean and 0.23*ADJ stddev\n."
+                              "             [0.77 is a rough estimate for the relation between\n"
+                              "             perimeter and radius of gyration]\n"
                               "       SLD:  shortest loop distance per loop\n"
                               "       AME:  A-Minor energy\n"
                               "       PRO:  Match Projection distances. \n"
@@ -253,6 +262,12 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
         elif "ROG" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "ROG")
             e = fbe.RadiusOfGyrationEnergy( energy_prefactor=pre, adjustment=adj[0])
+            if adj[1]:
+                e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
+            energies.append(e)
+        elif "NDR" in contrib:
+            pre, adj=parseEnergyContributionString(contrib, "NDR")
+            e = fbe.NormalDistributedRogEnergy( energy_prefactor=pre, adjustment=adj[0])
             if adj[1]:
                 e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
             energies.append(e)
@@ -386,9 +401,6 @@ def setup_deterministic(args):
     """
     The part of the setup procedure that does not use any call to the random number generator.
 
-    @TESTS: Verify that subsequent calls to this function with the same input lead to the 
-            same output. (TODO)
-
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
     #Load the RNA from file
@@ -511,11 +523,17 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     options={}
     if args.no_rmsd:
         options["rmsd"] = False
+        options["acc"]  = False
     if not args.start_from_scratch and not args.rmsd_to:
         options["extreme_rmsd"] = "max" #We start at 0 RMSD. Saving the min RMSD is useless.
     options[ "step_save" ] = args.step_save 
     options[ "save_n_best" ] = args.save_n_best 
-    options[ "save_min_rmsd" ] = args.save_min_rmsd 
+    options[ "save_min_rmsd" ] = args.save_min_rmsd
+    options[ "measure" ]=[]
+    for energy in energies_to_track:
+        if  (isinstance(energy, fbe.ProjectionMatchEnergy) or
+            isinstance(energy, fbe.HausdorffEnergy)):
+                options[ "measure" ].append(energy)
     stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
                                      output_file=out_file, options=options)
     return stat
@@ -562,8 +580,16 @@ if __name__=="__main__":
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
-            sampler = fbs.MCMCSampler(sm, energy, stat, start_from_scratch=args.start_from_scratch,
-                                      dump_measures=args.dump_energies)
+            if args.exhaustive:
+                sampler = fbs.ExhaustiveExplorer(sm, energy, stat, args.exhaustive, args.start_from_scratch)
+            elif args.new_ml:
+                sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, 
+                                          start_from_scratch=args.start_from_scratch,
+                                          dump_measures=args.dump_energies)
+            else:
+                sampler = fbs.MCMCSampler(sm, energy, stat, 
+                                          start_from_scratch=args.start_from_scratch,
+                                          dump_measures=args.dump_energies)
             for i in range(args.iterations):
                 sampler.step()            
             #plter.finish()

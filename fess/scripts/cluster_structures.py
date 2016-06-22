@@ -3,15 +3,12 @@
 import collections as col
 import itertools as it
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import random
 import scipy.spatial.distance as ssd
 import scipy.cluster.hierarchy as sch
 import sys
 from optparse import OptionParser
-
 import forgi.threedee.utilities.rmsd as ftur
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.utilities.debug as fud
@@ -19,34 +16,51 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.rmsd as ftur
 import forgi.threedee.utilities.vector as ftuv
 
-import Pycluster as pc
+import sklearn.cluster
+
+#import Pycluster as pc
 
 import scipy.cluster.vq as scv
 
 def cluster_hierarchical(coords, matrix=None):
+    # scipy hierarchical is explained in: 
+    # https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/
     dists = np.zeros((len(coords), len(coords)))
     for i,j in it.combinations(range(len(coords)), r=2):
-        dists[i][j] = ftur.centered_drmsd(coords[i], coords[j])
-        dists[j][i] = dists[i][j]
+        dists[i,j] = ftur.drmsd(coords[i], coords[j])
+        dists[j,i] = dists[i,j]
+    z = sch.linkage(dists, method='complete')
+    
+    
+    print(dists)
+    print (z)
+    fig, ax = plt.subplots()
+    ax.set_title('Hierarchical Clustering Dendrogram')
+    ax.set_xlabel('sample index')
+    ax.set_ylabel('distance')
+    sch.dendrogram(
+        z,
+        leaf_rotation=90.,  # rotates the x axis labels
+        leaf_font_size=8.,  # font size for the x axis labels
+        ax = ax,
+        color_threshold = 10,
+    )
+    plt.axhline(y=10, c='k')
 
     #fud.pv('dists')
     if matrix is not None:
         np.savetxt(matrix, dists, delimiter=' ', fmt="%.3f")
 
-    coords = np.array(coords)
-    cl = sch.linkage(dists)
-
-    #fud.pv('dists')
-    '''
-    for i,a in enumerate(args):
-        print i, a
-    '''
-    sch.dendrogram(cl)
-    np.set_printoptions(precision=3, suppress=True)
-    #fud.pv('cl')
+    ax.set_yscale("symlog", nonposx='clip')
     plt.show()
-
-    return cl
+    #connectivity=(dists<10)
+    #print(dists)
+    #print(connectivity)
+    #agglo = sklearn.cluster.AgglomerativeClustering(affinity='precomputed', linkage="complete", memory="tmp", connectivity=connectivity, n_clusters=1)
+    #labels = agglo.fit_predict(dists)
+    #print(dists.shape)
+    #print(labels)
+    
 
 def distances(s):
     '''
