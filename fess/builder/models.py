@@ -566,8 +566,8 @@ class SpatialModel:
         if report_changes:
             if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
                 print("Changing stem", stem, ":", self.bg.coords[stem], "!=", (sm.mids[0], sm.mids[1]))
-        self.bg.coords[stem] = (sm.mids[0], sm.mids[1])
-        self.bg.twists[stem] = (sm.twists[0], sm.twists[1])
+        self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
+        self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
         if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
             print("Changing stem twist", stem, ":", self.bg.twists[stem], "!=", (sm.twists[0], sm.twists[1]))
         '''
