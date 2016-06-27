@@ -107,12 +107,15 @@ class ACCStatistics(StatisticsCollector):
             self.header=[ "ACC" ]
 
     def update(self, sm, step):
-        if self.silent:
-            return
-        else:
-            acc = ftme.mcc(self._cm_calc.evaluate(sm.bg))
-            self.history[0].append(acc)
-        return "{:5.3f}".format(acc)
+        try:
+            if self.silent:
+                return
+            else:
+                acc = ftme.mcc(self._cm_calc.evaluate(sm.bg))
+                self.history[0].append(acc)
+            return "{:5.3f}".format(acc)
+        except ZeroDivisionError:
+            return "{:5.3f}".format(float("nan"))
 
 class RMSDStatistics(StatisticsCollector):
     """

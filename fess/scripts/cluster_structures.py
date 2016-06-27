@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from __future__ import print_function, division
 
 import collections as col
 import itertools as it
@@ -22,18 +23,76 @@ import sklearn.cluster
 
 import scipy.cluster.vq as scv
 
-def cluster_hierarchical(coords, matrix=None):
+def cluster_hierarchical(coords, matrix=None, use_heuristic=True):
     # scipy hierarchical is explained in: 
     # https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/
     dists = np.zeros((len(coords), len(coords)))
+    rmsds = np.zeros((len(coords), len(coords)))
+    rogs= np.zeros((len(coords)))
+    maxgoodrog=float("inf")
+    calc=0
+    heur=0
+    HEUR_FILENUM=50 #If more then this number of files are present and use_heuristic is true, then use a heuristic
+    MAX_RMSD=10 #Max RMSD to be considered in a cluster.
+    MAX_DRMSD=10 #Max DRMSD to be considered in a cluster.
+    print("{} Files".format(len(coords)))
+    if use_heuristic and len(coords)>HEUR_FILENUM: #Need to use ROG as heuristic
+        for i, c in enumerate(coords):
+            rogs[i]=ftur.radius_of_gyration(c)
+        for i,j in it.combinations(range(HEUR_FILENUM), r=2):
+            dists[i,j] = ftur.drmsd(coords[i], coords[j])
+            dists[j,i] = dists[i,j]
+            rmsds[i,j] = ftur.rmsd(coords[i], coords[j])
+            rmsds[j,i] = rmsds[i,j]
+        goodrogs=[abs(rogs[i]-rogs[j]) for  i,j in it.combinations(range(HEUR_FILENUM), 2) if not (dists[i,j]>MAX_DRMSD or rmsds[i,j]>MAX_RMSD)]
+        if len(goodrogs)<len(rogs): #We can estimate our heuristic cutoff!
+            maxgoodrog=max(abs(rogs[i]-rogs[j]) for  i,j in it.combinations(range(HEUR_FILENUM), 2) if not (dists[i,j]>MAX_DRMSD or rmsds[i,j]>MAX_RMSD))
     for i,j in it.combinations(range(len(coords)), r=2):
-        dists[i,j] = ftur.drmsd(coords[i], coords[j])
-        dists[j,i] = dists[i,j]
+        if dists[i,j]>0:
+            continue #Already calculated when estimating the heuristic parameter
+        if abs(rogs[i]-rogs[j])>maxgoodrog:
+            dists[i,j] = 2*MAX_DRMSD
+            dists[j,i] = 2*MAX_DRMSD
+            rmsds[i,j] = 2*MAX_RMSD
+            rmsds[j,i] = 2*MAX_RMSD
+            heur+=1
+        else:
+            dists[i,j] = ftur.drmsd(coords[i], coords[j])
+            dists[j,i] = dists[i,j]
+            rmsds[i,j] = ftur.rmsd(coords[i], coords[j])
+            rmsds[j,i] = rmsds[i,j]
+            calc+=1
+    fig, ax = plt.subplots(2,2)
+    flatdists=np.array([dists[i,j] for i,j in it.combinations(range(len(coords)), 2)])
+    flatrogs=np.array([ abs(rogs[i]-rogs[j]) for  i,j in it.combinations(range(len(coords)), 2)])
+    flatrmsds=np.array([ abs(rmsds[i,j]) for  i,j in it.combinations(range(len(coords)), 2)])
+    cutdists=np.array([dists[i,j] for i,j in it.combinations(range(len(coords)), 2) if dists[i,j]>MAX_DRMSD and rmsds[i,j]>MAX_RMSD])
+    cutrogs=np.array([ abs(rogs[i]-rogs[j]) for  i,j in it.combinations(range(len(coords)), 2) if dists[i,j]>MAX_DRMSD and rmsds[i,j]>MAX_RMSD])
+    cutrmsds=np.array([ abs(rmsds[i,j]) for  i,j in it.combinations(range(len(coords)), 2) if dists[i,j]>MAX_DRMSD and rmsds[i,j]>MAX_RMSD])
+    heurdists=np.array([dists[i,j] for i,j in it.combinations(range(len(coords)), 2) if abs(rogs[i]-rogs[j])>maxgoodrog ])
+    heurrogs=np.array([ abs(rogs[i]-rogs[j]) for  i,j in it.combinations(range(len(coords)), 2) if abs(rogs[i]-rogs[j])>maxgoodrog ])
+    heurrmsds=np.array([ abs(rmsds[i,j]) for  i,j in it.combinations(range(len(coords)), 2) if abs(rogs[i]-rogs[j])>maxgoodrog ])
+
+    ax[0,0].plot(flatdists, flatrogs, "o")
+    ax[1,0].plot(flatrmsds, flatrogs, "o")
+    ax[0,1].plot(flatdists, flatrmsds, "o")
+    ax[0,0].plot(cutdists, cutrogs, "o")
+    ax[1,0].plot(cutrmsds, cutrogs, "o")
+    ax[0,1].plot(cutdists, cutrmsds, "o")
+    ax[0,0].plot(heurdists, heurrogs, "o")
+    ax[1,0].plot(heurrmsds, heurrogs, "o")
+    ax[0,1].plot(heurdists, heurrmsds, "o")
+    ax[0,0].set_xlabel("drmsd")
+    ax[0,0].set_ylabel("delta rog")
+    ax[0,1].set_xlabel("drmsd")
+    ax[0,1].set_ylabel("RMSDS")
+    ax[1,0].set_xlabel("RMSDS")
+    ax[1,0].set_ylabel("delta rog")
+    plt.show()
+    print ("Heuristic: {}, Calculated: {}, Percent Heur: {}".format(heur, calc, heur/(heur+calc)))
     z = sch.linkage(dists, method='complete')
-    
-    
-    print(dists)
-    print (z)
+    #print(dists)
+    #print (z)
     fig, ax = plt.subplots()
     ax.set_title('Hierarchical Clustering Dendrogram')
     ax.set_xlabel('sample index')
@@ -53,13 +112,12 @@ def cluster_hierarchical(coords, matrix=None):
 
     ax.set_yscale("symlog", nonposx='clip')
     plt.show()
-    #connectivity=(dists<10)
-    #print(dists)
-    #print(connectivity)
-    #agglo = sklearn.cluster.AgglomerativeClustering(affinity='precomputed', linkage="complete", memory="tmp", connectivity=connectivity, n_clusters=1)
-    #labels = agglo.fit_predict(dists)
-    #print(dists.shape)
-    #print(labels)
+    flat_clust = sch.fcluster(z, MAX_DRMSD, "distance")
+    print(len(set(flat_clust)), "flat clusters")
+    print(flat_clust)
+    return flat_clust, dists
+    
+    
     
 
 def distances(s):
@@ -87,7 +145,7 @@ def cluster_kmeans(coords, names, topn=0, num_clusters=8):
 
     for l, n in zip(labels, names):
         if l == sorted_labels[topn]:
-            print n
+            print (n)
 
 def cg_fns_to_coords(args):
     structs = []
@@ -96,7 +154,7 @@ def cg_fns_to_coords(args):
     for arg in args:
         structs += [ftmc.CoarseGrainRNA(arg)]
         coords += [cgg.bg_virtual_residues(structs[-1])]
-    return coords
+    return coords, structs
 
 
 def main():
@@ -126,17 +184,37 @@ def main():
     if options.num_structs is not None:
         args = args[:options.num_structs]
 
-    coords = cg_fns_to_coords(args)
+    coords, structs = cg_fns_to_coords(args)
 
     if options.args is not None:
         with open(options.args, 'w') as f:
             f.write(" ".join(args))
     
     if options.hierarchical:
-        cluster_hierarchical(coords, options.matrix)
+        clusters, dists = cluster_hierarchical(coords, options.matrix)
     else:
         cluster_kmeans(coords, args, options.topn, 
                        num_clusters=options.num_clusters)
+    clustered_filenames=col.defaultdict(list)
+    for i, filename in enumerate(args):
+        clustered_filenames[clusters[i]].append((filename,i))
+    for key in sorted(clustered_filenames.keys(), key=lambda x: -len(clustered_filenames[x])):
+        print ("CLUSTER {} with {} members".format(key, len(clustered_filenames[key])))
+        bestscore=float("inf")
+        bestfn = None
+        for i, fn in enumerate(clustered_filenames[key]):
+            print("\t", fn[0])
+            score=0
+            for j, fn2 in enumerate(clustered_filenames[key]):
+                if i!=j:
+                    score+=dists[fn[1],fn2[1]]
+            if score<bestscore:
+                bestscore=score
+                bestfn=fn[0]
+        print("\t REPRESENTATIVE: ", bestfn)
+        
+        
+            
 
 if __name__ == '__main__':
     main()

@@ -293,14 +293,21 @@ class SpatialModel:
                    elements and how they are connected.
 
 
-        '''
-
+        '''        
         self.stems = dict()
         self.bulges = dict()
+
+
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
         self.constraint_energy = None
         self.junction_constraint_energy = None
+
+        # We probably do not need the following 2:
+        self.closed_bulges = []
+        self.newly_added_stems = []
+
+
 
         self.elem_defs = None
 
@@ -422,7 +429,6 @@ class SpatialModel:
         Save the information about all of the sampled elements.
         '''
         for d,ed in self.elem_defs.items():
-            #print (ed, "\n", repr(ed))  
             self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
   
     def load_sampled_elems(self):
@@ -442,7 +448,7 @@ class SpatialModel:
                 stat=self.bg.get_stem_stats(d)
             elif d[0] in ("h","f","t"):
                 stat=self.bg.get_loop_stat(d)
-                stat.define=self.bg.defines[d]
+                #stat.define=self.bg.defines[d]
             elif d[0] in ("m", "i"):
                 stat=ftms.AngleStat()
                 #load angle_stats in direction of build order!
@@ -450,9 +456,16 @@ class SpatialModel:
                     if bo[1]==d:
                         stat=self.bg.get_bulge_angle_stats_core(d,(bo[0],bo[2]))
                         break
-            if line:
+            if line: #Use original define and pdb_name.
                 stat.pdb_name=line[0]
-            self.elem_defs[d]=stat
+                stat.define = line[2:]
+                #print(d,"DEFINE",  stat.define)
+            else: 
+                pass
+                #print("MISSING, ", d)
+            #print("mst",  self.bg.mst)
+            if d in self.bg.mst or d[0] in ["t", "f", "h"]:
+                self.elem_defs[d]=stat
 
     def get_transform(self, edge):
         '''
@@ -538,8 +551,6 @@ class SpatialModel:
             if d[0] != 's':
                 if d in loops:
                     self.add_loop(d, list(self.bg.edges[d])[0])
-                     #add loop
-                    pass
                 elif d in fiveprime:
                     self.add_loop(d, list(self.bg.edges[d])[0])
                 elif d in threeprime:
@@ -566,15 +577,12 @@ class SpatialModel:
         if report_changes:
             if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
                 print("Changing stem", stem, ":", self.bg.coords[stem], "!=", (sm.mids[0], sm.mids[1]))
+            if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
+                print("Changing stem twist", stem, ":", self.bg.twists[stem], "!=", (sm.twists[0], sm.twists[1]))
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
-        if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
-            print("Changing stem twist", stem, ":", self.bg.twists[stem], "!=", (sm.twists[0], sm.twists[1]))
-        '''
-        for edge in self.bg.edges[stem]:
-            if self.bg.weights[edge] == 2:
-                cgg.add_virtual_residues(self.bg, edge)
-        '''
+
+
 
         cgg.add_virtual_residues(self.bg, stem)
 
@@ -595,8 +603,9 @@ class SpatialModel:
 
         for bulge in self.bulges.keys():
             bm = self.bulges[bulge]
-
-            self.bg.coords[bulge] = (bm.mids[0], bm.mids[1])
+            #if not np.allclose(self.bg.coords[bulge], np.array([bm.mids[0], bm.mids[1]])):
+            #    print("BULGE changes: {} from {} to {}".format(bulge, self.bg.coords[bulge], np.array([bm.mids[0], bm.mids[1]])))
+            self.bg.coords[bulge] = np.array([bm.mids[0], bm.mids[1]])
 
     def get_sampled_bulges(self):
         '''

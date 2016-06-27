@@ -7,6 +7,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
+from deepdiff import DeepDiff #Use fork from git@github.com:Bernhard10/deepdiff.git
 import collections as c
 import sys, random, copy
 import numpy as np
@@ -498,7 +499,7 @@ class MCMCSampler(object):
         self.dump_measures = dump_measures
         self.resampled_energy = True
         self.prev_stats={}
-
+        self.prev_mst = None #Used only in Subclass!
         print("INFO: Trying to load sampled elements.", file=sys.stderr)
         try:
             sm.load_sampled_elems()
@@ -581,10 +582,42 @@ class MCMCSampler(object):
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
                 movestring.append("R")
-                # reject the sampled statistic and replace it the old one
+                # reject the sampled statistic and replace it the old one                
+                if self.prev_mst is not None:
+                    self.sm.bg.mst=self.prev_mst
+                    self.sm.bg.build_order = None #No longer valid
+                    self.sm.bg.ang_types = None
+                    self.sm.bg.sampled = dict()
+                    missing_nodes = set(self.sm.bg.defines.keys()) - self.sm.bg.mst
+                    for node in missing_nodes:
+                        if node[0]=="m":
+                            print("REMOVING", node)
+                            del self.sm.elem_defs[node]
                 for d, stats in self.prev_stats.items():
-                    self.sm.elem_defs[d] = stats
-                self.sm.traverse_and_build(start='start') #Why do we not start at d, if only one d???
+                    self.sm.elem_defs[d] = stats                
+                self.sm.traverse_and_build(start='start')
+                """for key in self.bg1.__dict__:
+                    try:
+                        if self.bg1.__dict__[key] != self.sm.bg.__dict__[key]:
+                            if not self.sm.bg.__dict__[key]:
+                                print(key, "evaluates to False")
+                            else:
+                                print(key, "DIFF:", DeepDiff(self.bg1.__dict__[key], self.sm.bg.__dict__[key]))
+                    except:
+                        if key=="twists" or key=="":
+                            for k in self.bg1.__dict__[key]:
+                                if not np.allclose(self.bg1.__dict__[key][k][0], self.sm.bg.__dict__[key][k][0]) or not np.allclose(self.bg1.__dict__[key][k][1], self.sm.bg.__dict__[key][k][1]):
+                                    print(key, " are not equal!", k)
+                        else:
+                            if not np.array_equal(self.bg1.__dict__[key], self.sm.bg.__dict__[key]):                            
+                                if not self.sm.bg.__dict__[key]:
+                                    print(key, "evaluates to False")
+                                else:
+                                    print(key, "DIFF:", DeepDiff(self.bg1.__dict__[key], self.sm.bg.__dict__[key]))
+
+
+                print("============")"""
+
                 #print ("...rejecting")
                 self.energy_function.reject_last_measure()
             else:
@@ -638,7 +671,8 @@ class MCMCSampler(object):
         return "".join(movestring)
 
     def step(self):
-    
+        self.bg1=copy.deepcopy(self.sm.bg)
+        self.sm1=copy.deepcopy(self.sm)
         movestring=self.change_elem()
         if isinstance(self.energy_function, fbe.CombinedEnergy):
             for e in self.energy_function.iterate_energies():
@@ -680,17 +714,48 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         self.stats_weights = c.defaultdict(lambda : c.defaultdict(lambda: [0,0]))
 
         self.prev_stats={}
+        self.prev_mst=None
     def change_elem(self):
         #from ..scripts import report_coaxial_stacking as rcs
         # pick a random element and get a new statistic for it
-        possible_elements=list(self.sm.bg.get_mst())
+        possible_elements=list(self.sm.bg.mst)
         pe=set(possible_elements)
-        d = random.choice(possible_elements)        
+        d = random.choice(possible_elements)
         self.prev_stats={}
+        self.prev_mst=None
         if d[0]!="m":
             movestring=self.change_one_element(d) #Use the superclass method.
             return movestring + self.accept_reject()
 
+        junction_nodes = set( x for x in self.sm.bg.find_bulge_loop(d, 200) if x[0]=="m" )
+
+        print("none=", hex(hash(None)))
+        for node in junction_nodes:
+            print(node, self.sm.bg.get_node_dimensions(node), self.sm.bg.get_angle_type(node), "\t", hex(hash(self.sm.elem_defs.get(node))))
+        missing_nodes = junction_nodes - pe
+        defined_junction_nodes = junction_nodes &  pe
+  
+        for node in defined_junction_nodes: #self.prev_stats was emptied earlier in this function
+            self.prev_stats[node]= self.sm.elem_defs[node]
+        if not defined_junction_nodes: #Open multiloop (at terminus), not a cycle
+            self.prev_stats[d]= self.sm.elem_defs[d]
+        assert d in self.prev_stats
+        # Break another multiloop segment and sample stats for this segment!
+        if len(missing_nodes)==1: #Can be higher in case of pseudoknots
+            self.prev_mst = copy.copy(self.sm.bg.mst)
+            self.sm.bg.mst.remove(d)
+            self.sm.bg.mst |= missing_nodes
+            self.sm.bg.build_order = None #No longer valid
+            self.sm.bg.ang_types = None
+            self.sm.bg.sampled = dict()
+            d, = missing_nodes
+            possible_elements=list(self.sm.bg.mst)
+            pe=set(possible_elements)
+            missing_nodes = junction_nodes - pe
+            defined_junction_nodes = junction_nodes &  pe
+        print(self.sm.bg.traverse_graph())
+        for node in junction_nodes:
+            print(node, self.sm.bg.get_node_dimensions(node), self.sm.bg.get_angle_type(node), "\t", hex(hash(self.sm.elem_defs.get(node))))
 
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
@@ -720,15 +785,11 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 if r < weight:
                     searching=False
                     break
+            if xth_try>10000:
+                break
         self.stats_weights[d][newstat][0]+=1
         movestring.append("ST{};".format(xth_try))
-        junction_nodes = set( x for x in self.sm.bg.find_bulge_loop(d, 200) if x[0]=="m" )
-        defined_junction_nodes = junction_nodes &  pe
-        for node in defined_junction_nodes: #self.prev_stats was emptied earlier in this function
-            self.prev_stats[node]= self.sm.elem_defs[node]
-        if not defined_junction_nodes: #Open multiloop (at terminus), not a cycle
-            self.prev_stats[d]= self.sm.elem_defs[d]
-        assert d in self.prev_stats
+
         #print ("First changing {}".format(d), file=sys.stderr)
         self.sm.elem_defs[d] = newstat
         self.sm.traverse_and_build(start=d)
