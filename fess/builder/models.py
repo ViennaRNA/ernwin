@@ -430,7 +430,94 @@ class SpatialModel:
         '''
         for d,ed in self.elem_defs.items():
             self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+    def change_mst(self, new_mst):
+        """
+        Set bg.mst to new_mst and recalculate invalid values.
   
+        Assumes new_mst is a valid minimal spanning tree.
+        """
+        old_only = self.bg.mst - new_mst
+        self.bg.mst = new_mst
+
+        self.bg.build_order = None #No longer valid
+        self.bg.ang_types = None
+        self.load_sampled_elems()
+
+
+    def set_multiloop_break_segment(self, d):
+        """
+        Change the minimum spanning tree of the Coarse grain RNA in a way that
+        *  The multiloop segment d is broken.
+        *  The mst is still connected.
+        *  The coordinates of all coarse grain elements are not chenged if `self.traverse_and_build` is called.
+  
+        :param d: The ML segment that should be broken. E.g. "m1"
+        :returns: The ML segment that was broken before but now was added to the build_order.
+        """
+        junction_nodes = set( x for x in self.bg.find_bulge_loop(d, 200) if x[0]=="m" )
+        missing_nodes = junction_nodes - self.bg.mst
+        if d in missing_nodes:
+            return None #The specified cg element is already a breaking point.
+        if len(missing_nodes)==1: #The easy case. Just exchange the two ml segments
+            self.bg.mst.remove(d)
+            self.bg.mst|=missing_nodes
+            self.bg.build_order = None #No longer valid
+            self.bg.ang_types = None
+            del self.elem_defs[d]
+            self.bg.traverse_graph()
+            self.load_sampled_elems()
+            new_node, = missing_nodes
+            return new_node
+        elif len(missing_nodes)==2:
+            #Delete requested Edge
+            self.bg.mst.remove(d)
+          
+            #Find connected parts of the structure.
+            forest = []
+            print("MST", self.bg.mst)
+            for m in self.bg.mst:                
+                neighbors = list(self.bg.edges[m])
+                m_and_s = [m]
+                for n in neighbors:
+                    if n in self.bg.mst:
+                        m_and_s.append(n)
+                for tree in forest:
+                    if any(loop in tree for loop in m_and_s):
+                        tree |= set(m_and_s)
+                        break
+                else:
+                    forest.append(set(m_and_s))
+                while True: #I do not know if a loop+2 stems can ever connect more than 2 trees. Maybe not needed????
+                    for t1, t2 in it.combinations(forest, 2):
+                        if len(t1 & t2) > 0: #Non-empty intersection
+                            print("t1&t2:", t1, t2, t1&t2)
+                            new_tree = t1 | t2 #Union Tree
+                            forest.remove(t1)
+                            forest.remove(t2)
+                            forest.append(new_tree)
+                            break
+                    else:
+                        break
+            assert len(forest)==2
+            for missing_node in missing_nodes:
+                neighbors = list(self.bg.edges[missing_node])
+                if set(neighbors) & forest[0] and set(neighbors) & forest[1]:
+                    self.bg.mst.add(missing_node)
+                    new_node=missing_node      
+                    break
+            else:
+                raise ValueError("Cannot break loop {:0}. Cannot connect RNA if {:0} is broken.".format(d))
+            self.bg.build_order = None #No longer valid
+            self.bg.ang_types = None
+            del self.elem_defs[d]
+            self.bg.traverse_graph()
+            self.load_sampled_elems()
+            return new_node
+        elif len(missing_nodes)==1:
+            raise ValueError("Cannot break loop {}. This multi loop is not cyclic and thus has no broken fragment.".format(d))
+        else:
+            assert False #len(missing_nodes)>=3 should never happen, I think.
+
     def load_sampled_elems(self):
         '''
         Load information from the CoarseGrainRNA into self.elem_defs

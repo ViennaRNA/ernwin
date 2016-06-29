@@ -566,7 +566,7 @@ class MCMCSampler(object):
         movestring.append("{:.3f}".format(self.prev_energy[0]))
         movestring.append("->")
         movestring.append("{:.3f};".format(energy[0]))
-        #print("Energy is {}, prev_energy is {} ...".format(energy, self.prev_energy), end="\n")
+
         if energy < self.prev_energy:
             movestring.append("A")
             # lower energy means automatic acceptance accordint to the
@@ -576,7 +576,9 @@ class MCMCSampler(object):
                 self.prev_constituing =  self.energy_function.constituing_energies
             except AttributeError: pass
             self.energy_function.accept_last_measure()
-            #print ("...accepting")
+            for d in self.prev_stats:
+                if d[0] =="m" and d not in self.sm.bg.mst:
+                    if d in self.sm.bg.sampled: del self.sm.bg.sampled[d]
         else:
             # calculate a probability
             r = random.random()
@@ -584,41 +586,15 @@ class MCMCSampler(object):
                 movestring.append("R")
                 # reject the sampled statistic and replace it the old one                
                 if self.prev_mst is not None:
-                    self.sm.bg.mst=self.prev_mst
-                    self.sm.bg.build_order = None #No longer valid
-                    self.sm.bg.ang_types = None
-                    self.sm.bg.sampled = dict()
-                    missing_nodes = set(self.sm.bg.defines.keys()) - self.sm.bg.mst
-                    for node in missing_nodes:
-                        if node[0]=="m":
-                            print("REMOVING", node)
-                            del self.sm.elem_defs[node]
+                    oldonly = self.prev_mst - self.sm.bg.mst
+                    self.sm.change_mst(self.prev_mst)
+                    for m in oldonly:
+                        if m[0]!="m": continue
+                        if m in self.sm.bg.sampled:
+                            del self.sm.bg.sampled[m]
                 for d, stats in self.prev_stats.items():
-                    self.sm.elem_defs[d] = stats                
+                    self.sm.elem_defs[d] = stats
                 self.sm.traverse_and_build(start='start')
-                """for key in self.bg1.__dict__:
-                    try:
-                        if self.bg1.__dict__[key] != self.sm.bg.__dict__[key]:
-                            if not self.sm.bg.__dict__[key]:
-                                print(key, "evaluates to False")
-                            else:
-                                print(key, "DIFF:", DeepDiff(self.bg1.__dict__[key], self.sm.bg.__dict__[key]))
-                    except:
-                        if key=="twists" or key=="":
-                            for k in self.bg1.__dict__[key]:
-                                if not np.allclose(self.bg1.__dict__[key][k][0], self.sm.bg.__dict__[key][k][0]) or not np.allclose(self.bg1.__dict__[key][k][1], self.sm.bg.__dict__[key][k][1]):
-                                    print(key, " are not equal!", k)
-                        else:
-                            if not np.array_equal(self.bg1.__dict__[key], self.sm.bg.__dict__[key]):                            
-                                if not self.sm.bg.__dict__[key]:
-                                    print(key, "evaluates to False")
-                                else:
-                                    print(key, "DIFF:", DeepDiff(self.bg1.__dict__[key], self.sm.bg.__dict__[key]))
-
-
-                print("============")"""
-
-                #print ("...rejecting")
                 self.energy_function.reject_last_measure()
             else:
                 movestring.append("A")
@@ -628,6 +604,9 @@ class MCMCSampler(object):
                     self.prev_constituing =  self.energy_function.constituing_energies
                 except AttributeError: pass
                 self.energy_function.accept_last_measure()
+                for d in self.prev_stats:
+                    if d[0] =="m" and d not in self.sm.bg.mst:
+                        if d in self.sm.bg.sampled: del self.sm.bg.sampled[d]
                 #print ("...still accepting")
         return "".join(movestring)
 
@@ -671,8 +650,6 @@ class MCMCSampler(object):
         return "".join(movestring)
 
     def step(self):
-        self.bg1=copy.deepcopy(self.sm.bg)
-        self.sm1=copy.deepcopy(self.sm)
         movestring=self.change_elem()
         if isinstance(self.energy_function, fbe.CombinedEnergy):
             for e in self.energy_function.iterate_energies():
@@ -728,49 +705,34 @@ class ImprovedMultiloopMCMC(MCMCSampler):
             return movestring + self.accept_reject()
 
         junction_nodes = set( x for x in self.sm.bg.find_bulge_loop(d, 200) if x[0]=="m" )
-
-        print("none=", hex(hash(None)))
-        for node in junction_nodes:
-            print(node, self.sm.bg.get_node_dimensions(node), self.sm.bg.get_angle_type(node), "\t", hex(hash(self.sm.elem_defs.get(node))))
         missing_nodes = junction_nodes - pe
         defined_junction_nodes = junction_nodes &  pe
-  
+
         for node in defined_junction_nodes: #self.prev_stats was emptied earlier in this function
             self.prev_stats[node]= self.sm.elem_defs[node]
         if not defined_junction_nodes: #Open multiloop (at terminus), not a cycle
             self.prev_stats[d]= self.sm.elem_defs[d]
         assert d in self.prev_stats
-        # Break another multiloop segment and sample stats for this segment!
-        if len(missing_nodes)==1: #Can be higher in case of pseudoknots
-            self.prev_mst = copy.copy(self.sm.bg.mst)
-            self.sm.bg.mst.remove(d)
-            self.sm.bg.mst |= missing_nodes
-            self.sm.bg.build_order = None #No longer valid
-            self.sm.bg.ang_types = None
-            self.sm.bg.sampled = dict()
-            d, = missing_nodes
-            possible_elements=list(self.sm.bg.mst)
-            pe=set(possible_elements)
-            missing_nodes = junction_nodes - pe
-            defined_junction_nodes = junction_nodes &  pe
-        print(self.sm.bg.traverse_graph())
-        for node in junction_nodes:
-            print(node, self.sm.bg.get_node_dimensions(node), self.sm.bg.get_angle_type(node), "\t", hex(hash(self.sm.elem_defs.get(node))))
 
-        # we have to replace the energy because we've probably re-calibrated
-        # the energy function
-        if self.resampled_energy and self.energy_function.uses_background():
-            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True, use_accepted_measure=True)
-            try:
-                self.prev_constituing =  self.energy_function.constituing_energies
-            except AttributeError: pass
-            self.resampled_energy = False
+        # Break another multiloop segment and sample stats for this segment!
+        if len(missing_nodes)>0:
+            self.prev_mst = copy.copy(self.sm.bg.mst)
+            #print("Breaking {}".format(d))
+            d = self.sm.set_multiloop_break_segment(d) #This is done AFTER prev_stats are saved!
+            #print("Closed {}".format(d))
+
+        #Update defined_junction_nodes
+        defined_junction_nodes = junction_nodes & self.sm.bg.mst
+
+        #print(self.sm.bg.traverse_graph())
+        #for node in junction_nodes:
+        #    print(node, self.sm.bg.get_node_dimensions(node), self.sm.bg.get_angle_type(node), "\t", hex(hash(self.sm.elem_defs.get(node))))
 
         movestring=[]
         movestring.append(d+":")
         possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
         random.shuffle(list(possible_stats))
-      
+
         searching=True
         #For this multiloop segment, pick stats that have fewer rejects more often!
         xth_try=0
@@ -790,7 +752,6 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         self.stats_weights[d][newstat][0]+=1
         movestring.append("ST{};".format(xth_try))
 
-        #print ("First changing {}".format(d), file=sys.stderr)
         self.sm.elem_defs[d] = newstat
         self.sm.traverse_and_build(start=d)
         energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
@@ -810,7 +771,8 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 other_d = random.choice(list(set(defined_junction_nodes)-set([d])))
                 #print ("... now changing {}".format(other_d), file=sys.stderr)
                 assert other_d in self.prev_stats
-                self.sm.elem_defs[other_d] = random.choice(self.sm.conf_stats.sample_stats(self.sm.bg, other_d))
+                possible_other_stats = self.sm.conf_stats.sample_stats(self.sm.bg, other_d)
+                self.sm.elem_defs[other_d] = random.choice(possible_other_stats)
                 self.sm.traverse_and_build(start=other_d)
                 #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
                 energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
