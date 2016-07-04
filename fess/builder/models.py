@@ -449,11 +449,13 @@ class SpatialModel:
         Change the minimum spanning tree of the Coarse grain RNA in a way that
         *  The multiloop segment d is broken.
         *  The mst is still connected.
-        *  The coordinates of all coarse grain elements are not chenged if `self.traverse_and_build` is called.
+        *  The coordinates of all coarse grain elements are not changed if `self.traverse_and_build` is called.
   
         :param d: The ML segment that should be broken. E.g. "m1"
         :returns: The ML segment that was broken before but now was added to the build_order.
         """
+        if self.bg.mst is None:
+            sm.bg.traverse_graph()
         junction_nodes = set( x for x in self.bg.find_bulge_loop(d, 200) if x[0]=="m" )
         missing_nodes = junction_nodes - self.bg.mst
         if d in missing_nodes:
@@ -463,7 +465,8 @@ class SpatialModel:
             self.bg.mst|=missing_nodes
             self.bg.build_order = None #No longer valid
             self.bg.ang_types = None
-            del self.elem_defs[d]
+            if self.elem_defs and d in self.elem_defs:
+                del self.elem_defs[d]
             self.bg.traverse_graph()
             self.load_sampled_elems()
             new_node, = missing_nodes
@@ -509,7 +512,8 @@ class SpatialModel:
                 raise ValueError("Cannot break loop {:0}. Cannot connect RNA if {:0} is broken.".format(d))
             self.bg.build_order = None #No longer valid
             self.bg.ang_types = None
-            del self.elem_defs[d]
+            if self.elem_defs and d in self.elem_defs:
+                del self.elem_defs[d]
             self.bg.traverse_graph()
             self.load_sampled_elems()
             return new_node

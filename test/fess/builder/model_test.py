@@ -374,7 +374,25 @@ class TestModifyingMST(unittest.TestCase):
         self.assertNotIn( "m3", sm.elem_defs)
         sm.traverse_and_build(start="start")
         assertModelsEqual(sm_copy, sm, 11, ignore_keys=["build_order", "mst", "sampled", "elem_defs"]) #sm has different mst and the stats for the missing element from the new mst
-
+class TestModifyingMSTWithoutLoadSampledElements(unittest.TestCase):
+    """Additional tests for changing the minimum spanning tree."""
+    def setUp(self):
+        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4way.cg'))
+        self.sm_zero_hairpin = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg'))
+        self.sm_pseudoknot = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/pseudoknot.cg'))
+        self.example_angle_stat=ftms.AngleStat("angle exampleStat 0 1000 1.69462078307 0.313515399557 0.165804917419 5.08692965666 1.04129866007 0.717061903121 3  CC")
+    def test_set_multiloop_break_segment_4way(self):
+        self.use_sm_set_multiloop_break_segment_without_loading_sampled_elems(self.sm)
+    def test_set_multiloop_break_segment_sm_pseudoknot(self):
+        self.use_sm_set_multiloop_break_segment_without_loading_sampled_elems(self.sm_pseudoknot)
+    def test_set_multiloop_break_segment_sm_zero_hairpin(self):
+        self.use_sm_set_multiloop_break_segment_without_loading_sampled_elems(self.sm_zero_hairpin)
+    def use_sm_set_multiloop_break_segment_without_loading_sampled_elems(self, sm):
+        sm.set_multiloop_break_segment("m3")
+        assert_connected_graph(sm.bg) #The graph remains connected.
+        self.assertNotIn( "m3", sm.bg.mst) #We managed to break the ML at the desired position
+        self.assertNotIn( "m3", sm.elem_defs)
+        
 class TestModel(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
