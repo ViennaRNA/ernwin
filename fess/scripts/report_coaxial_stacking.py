@@ -26,6 +26,7 @@ def generateParser():
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument("-p", "--plot", action="store_true", help="Plot occurrence of coaxial stacking over time.")
     parser.add_argument("-m", "--per-multiloop", action="store_true", help="Print statistics per multiloop.")
+    parser.add_argument("-r", "--per-residue", action="store_true", help="Report stacking residues.")
     return parser
 
 def is_close(coords1, coords2, cutoff=14, verbose=False):
@@ -151,7 +152,7 @@ def report_stacks_per_multiloop(cgs):
             for i, l in enumerate(defines):
                 stem1, stem2 = cg.connections(l)                    
                 key=(degree, i, tuple(lengths), tuple(connections))
-                if is_stacking(stem1, stem2, cg):
+                if cg.is_stacking(l):
                     stack_type.append(connections[i])
                     stacks[key]+=1
                 else:
@@ -227,6 +228,17 @@ if __name__=="__main__":
         print("Without linker-length classification:")
         for mlt in sorted(m3):
             print("   stacking {}: {} ({}%)".format(mlt ,m3[mlt],(100* m3[mlt]/sum(m3.values()))))
+    elif args.per_residue:
+        for filename in args.files:
+            cg = ftmc.CoarseGrainRNA(filename)
+            print(cg.name)
+            for d in cg.defines:
+                if d[0] in "mi":
+                    if cg.is_stacking(d):
+                        stem1, stem2 = cg.connections(d)
+                        side_nts = cg.get_connected_residues(stem1, stem2, d)
+                        for nts in side_nts:
+                            print ("{} and {} are stacking".format(cg.seq_ids[nts[0]-1], cg.seq_ids[nts[1]-1]))
     else:
         stacks=[]
         not_close=0
