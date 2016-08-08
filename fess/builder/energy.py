@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 
 import StringIO
@@ -28,6 +28,7 @@ import fess.builder.models as cbm
 import forgi.utilities.debug as fud
 import forgi.threedee.utilities.rmsd as cbr
 import forgi.projection.hausdorff as fph
+import forgi.projection.projection2d as fpp
 import forgi.threedee.utilities.rmsd as ftur
 
 from . import config
@@ -325,7 +326,93 @@ class ProjectionMatchEnergy(EnergyFunction):
     def accept_last_measure(self):
         super(ProjectionMatchEnergy, self).accept_last_measure()
         self.accepted_projDir=self.projDir
-    
+
+
+class FPPEnergy(EnergyFunction):
+    def __init__(self, pre, landmarks, scale, ref_image):
+        super(FPPEnergy, self).__init__()
+        self.prefactor = pre
+        self.landmarks = landmarks
+        self.scale = scale
+        self.ref_image = fpp.to_grayscale(scipy.ndimage.imread(ref_image))
+    def eval_energy(self, sm, background=True, nodes=None):
+        steplength = self.scale/self.ref_image.shape[0]
+        ### Step 1: Calculate projection direction:
+        vectors3d, angles, penalties = self.generate_equations(sm)
+        a = np.array(vectors3d[:3])
+        b = np.array(angles[:3])
+        #Solve the equation system ax = b
+        try:
+            projection_direction = np.linalg.solve(a, b)
+        except Exception as e: #Degenerate equations. Estimate the solution from full set of equations
+            print(e, "USING LSTSQ")
+            projection_direction = np.linalg.lstsq(np.array(vectors3d), np.array(angles))[0] #lstsq instead of solve, because system may be underdetermined
+        sm.bg.project_from = ftuv.normalize(projection_direction)
+        ### Step 2: Find out offset and rotation.
+        proj = fpp.Projection2D(sm.bg, project_virtual_residues = [ x[0] for x in self.landmarks], project_virtual_atoms = True)
+        target = []
+        current = []
+        for l in self.landmarks:
+            target.append(np.array([l[2], l[1]])*steplength)
+            current.append(proj.get_vres_by_position(l[0]))
+
+        # The rotation (from optimal superposition)
+        target = np.array(target)
+        current = np.array(current)    
+        rotationMatrix = ftur.optimal_superposition(current, target)
+        c_rot = np.dot(current, rotationMatrix)
+        bs = fph.get_box(proj, self.scale)
+        offset_centroid = target - c_rot + np.array((bs[0],bs[2]))
+        offset_centroid = ftuv.get_vector_centroid(offset_centroid)
+        #The rotation angle in rad"""
+        angle = math.atan2(rotationMatrix[1,0], rotationMatrix[0,0])        
+
+        #Calculate the bounding square using the offset.
+        bs = fph.get_box(proj, self.scale, -offset_centroid)
+
+        #Control
+        img1, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angle), warn = False)
+         
+        score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
+                                                          math.degrees(angle), -offset_centroid, None, 
+                                                          maxiter=200)
+        #import matplotlib.pyplot as plt
+        #fig, ax  = plt.subplots(2,2)
+        #ax[0,0].imshow(self.ref_image, interpolation="none")
+        #ax[1,0].imshow(img1, interpolation="none")
+        #ax[1,1].imshow(img, interpolation="none")
+        #ax[1,1].set_title(score)
+        #plt.show()
+        return score
+        
+
+
+    def generate_equations(self, sm):
+        penalty = 0
+        #Preprocess: Calculate the projection angles for the shorthening of 
+        # the 3 pairwise distances between landmarks.
+        angles = []
+        vectors3d = []
+        for i, (l0, l1) in enumerate(it.combinations(self.landmarks, 2)):
+            vec = sm.bg.get_virtual_residue(l1[0], True) - sm.bg.get_virtual_residue(l0[0], True)
+            vectors3d.append(vec)
+            distance3d = ftuv.magnitude(vec)
+            distance2d = ftuv.vec_distance(np.array([l0[1], l0[2]]), np.array([l1[1], l1[2]]))
+            #print ("distance2d = ",distance2d ,"*", self.scale,"/", self.ref_image.shape[0])
+            distance2d = distance2d * self.scale/self.ref_image.shape[0] #- (0.5*self.scale/self.ref_image.shape[0])
+            try:
+                theta = math.acos(distance2d/distance3d)
+            except ValueError:
+                if distance2d>distance3d:
+                    #Projected distance > real distance
+                    theta = 0
+                    penalty += distance2d-distance3d
+                else:
+                    raise
+            phi = math.pi / 2 - theta # The angle between the proj.-plane normal and the 3D vector
+            #print ("distance3d {}, distance 2d {}, phi {}".format(distance3d, distance2d, math.degrees(phi)))
+            angles.append(math.cos(phi))
+        return vectors3d, angles, penalty
 class CombinedEnergy:
     def __init__(self, energies=None, uncalibrated_energies=None, normalize=False):
         """
@@ -1017,6 +1104,7 @@ class HausdorffEnergy(CoarseGrainEnergy):
         super(HausdorffEnergy, self).dump_measures(base_directory, iteration)
         image_file = op.join(base_directory, "HDE_image."+iteration+".png")
         scipy.misc.imsave(image_file, self.accepted_img)
+
 
 
 class CylinderIntersectionEnergy(CoarseGrainEnergy):

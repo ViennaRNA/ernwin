@@ -148,6 +148,8 @@ def get_parser():
                               "             (at 15 Angstrom) with an exponential energy. \n"
                               "             The prefactor is used as scale (default 1).\n"
                               "             Requires the --clamp option\n"
+                              "       FPP:  4 point projection energy.\n"
+                              "             Select 4 landmarks in the projected image.\n"
                               "Example: ROG10,SLD,AME")
     parser.add_argument('--track-energies', action='store', type=str, default="",
                         help= "A ':' seperated list of combined energies.\n"
@@ -161,6 +163,12 @@ def get_parser():
                               "Where dist is the projected distance in the image \n"
                               "in Angstrom.\n"
                               "Example: 's1,h3,10:s2,h3,12'")
+    parser.add_argument('--fpp-landmarks', action='store', type=str, default="",
+                        help= "A ':' seperated list of tripels: \n"
+                              "nucleotide-pos, x, y\n"
+                              "Where 0,0 is the upperleft corner of the image\n"
+                              "And the coordinates are in pixels\n"
+                              "Example: '123,3,5'")
     parser.add_argument('--ref-img', action='store', type=str, default="",
                         help= "A black and white square image (e.g. in png format)\n"
                               "as a reference projection for the Hausdorff Energy.\n"
@@ -241,13 +249,172 @@ def getHDEenergy(hde_image, scale, pre):
     img=scipy.ndimage.imread(hde_image)
     return fbe.HausdorffEnergy(img, scale, pre)
 
-def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image, reference_cg):
+def getFPPEnergy(cg, pre, args):
+    print ("GET FPP ENERGY")
+    if not (args.ref_img and args.scale and args.fpp_landmarks):
+        import Tkinter as tk
+        from tkFileDialog import askopenfilename
+        import tkMessageBox
+        def on_closing():
+            if tkMessageBox.askokcancel("Quit", "This will exit the complete ernwin script. Proceed?"):
+                root.destroy()
+                sys.exit(2)
+        root = tk.Tk()
+        root.protocol("WM_DELETE_WINDOW", on_closing)
+    if args.ref_img:
+        ref_image=args.ref_img
+    else:
+        # We open a file dialogue
+        ref_image = askopenfilename(parent=root, title='Please choose the reference projection'
+                                                       ' image for the FPP energy.',
+                                    filetypes = [("Image Files", ("*.jpg", "*.png", "*.bmp")), 
+                                                 ("All", "*")])
+    if not ref_image:
+        print("No reference image selected. Aborting", file=sys.stderr)
+        sys.exit(2)
+    if args.scale:
+        scale = args.scale
+    else:
+        lab = tk.Label(root, text="How many Angstrom is the width of the image?:")
+        lab.pack()
+        ent = tk.Entry(root)
+        ent.pack()
+        ent.focus_set()
+        n={} #A workaround for the missing nonlocal statement in python 2
+        def submit():
+            s=ent.get()
+            try:
+              s=int(s)
+            except:
+              lab2 = tk.Label(root, text="Please use an integer value!")
+              lab2.pack()
+              ent.focus_set()
+            else:
+              n["scale"]=s
+              root.destroy()
+        b = tk.Button(root, text="OK", command=submit)
+        b.pack()
+        root.mainloop()
+        
+        scale = n["scale"]
+    if args.fpp_landmarks:
+        landmarks=args.fpp_landmarks.split(":")
+        landmarks=[tuple(map(int, x.split(","))) for x in landmarks]
+    else:
+        from PIL import Image, ImageTk
+        root.destroy() #In case the --scale was given.
+        root = tk.Tk()
+        root.title("Please select 3 landmarks")
+        root.protocol("WM_DELETE_WINDOW", on_closing)
+        ##### The image
+        originalImg = Image.open(ref_image)
+        if originalImg.size[0] != originalImg.size[1]:
+            raise NotImplementedError("Non-square images are currently not supported. "
+                                      "TODO: Make the image square by filling in black!")
+        if (originalImg.mode != "L"):
+            originalImg = originalImg.convert("L")       
+        #Scale columns to fit the maximally zoomed image size
+        root.columnconfigure(0, minsize = min(int(originalImg.size[0]*7.5+1), 400))
+        root.columnconfigure(1, minsize = min(int(originalImg.size[0]*7.5+1), 400))
+        root.rowconfigure(3, minsize = min(int(originalImg.size[1]*15+2), 200))
+        img = ImageTk.PhotoImage(originalImg)
+        imgDisplay = tk.Label(root, image = img)
+        imgDisplay.image = img
+        imgDisplay.grid(row = 3, column = 0, columnspan=2)
+        w = tk.Label(root, text = "Selected Projection Landmarks:")
+        w.grid(row=0, column=2, sticky="W")
+        #####        
+        selected={"x":None, "y":None, "nt_entry":None, "triples":[], "err":None} #Workaround for missing nonlocal in python 2
+        def submitSelected():
+            s=selected["nt_entry"].get()
+            try:
+                s=int(s)
+            except:
+                w = tk.Label(root, text="Please use an integer value!")
+                w.grid(row = 6, column = 1, sticky ="W")
+                selected["err"]=w
+                selected["nt_entry"].focus_set()
+            else:
+                if s<1 or s>len(cg.seq):
+                    w = tk.Label(root, text="The nucleotide position should be in "
+                                            "the interval 1-{}.".format(len(cg.seq)))
+                    w.grid(row = 6, column = 1, sticky ="W")
+                    selected["err"]=w
+                    selected["nt_entry"].focus_set()
+                else:
+                    selected["triples"].append((s, selected["x"], selected["y"]))
+                    if len(selected["triples"])>=4:
+                        root.destroy()
+                    else:
+                        w = tk.Label(root, text = "Nucleotide {} at {},{}".format(s, selected["x"], 
+                                                                                  selected["y"]))
+                        w.grid(column=2, row = len(selected["triples"]), sticky="E")
+        def updateImage():
+            if selected["err"]:
+                selected["err"].destroy()
+                selected["err"]=None
+            zoom = sc.get()               
+            newImg = originalImg.convert("RGB")
+            for nt, x, y in selected["triples"]:
+                try: #1.1.6 and above
+                    newImg[x,y] = (0,150,255*nt//len(cg.seq))
+                except:
+                    newImg.putpixel((x,y), (0,150,255*nt//len(cg.seq)))   
+            if selected["x"] and selected["y"]:   
+                x,y = selected["x"], selected["y"]    
+                try: #1.1.6 and above
+                    newImg[x,y] = (255,0,0)
+                except:
+                    newImg.putpixel((x,y), (255,0,0))
+                w = tk.Label(root, text="Selected coordinates: {},{}".format(x,y))
+                w.grid(row = 4, column = 0, sticky = "E")
+                w = tk.Label(root, text="Please choose corresponding nucleotide\n(1-based coordinates):")
+                w.grid(row = 5, column = 0, sticky = "E")
+                w = tk.Entry(root)
+                selected["nt_entry"] = w
+                w.grid(row = 5, column = 1, sticky = "W")
+                w.focus_set()
+                w = tk.Button(root, text="OK", command=submitSelected)
+                w.grid(row = 5, column = 1)
+
+
+            newsize = (originalImg.size[0]*int(zoom), originalImg.size[1]*int(zoom))
+            newImg = newImg.resize(newsize, Image.NEAREST)
+            img = ImageTk.PhotoImage(newImg)
+            imgDisplay.configure(image = img)
+            imgDisplay.image = img
+        ##### A slider for scaling the image
+        l = tk.Label(root, text="Zoom:")
+        l.grid(row = 0, column = 0, sticky = "E")        
+        def scale_img(zoom):
+            updateImage()
+        sc = tk.Scale(root, from_=1, to_=15, orient=tk.HORIZONTAL, command = scale_img)
+        sc.grid(row = 0, column = 1, sticky = "W")
+        if originalImg.size[0]<200:
+            initZoom = min(15, 400//originalImg.size[0])
+            sc.set(initZoom)
+            updateImage()
+        #The click handler for the image
+        def printcoords(event):
+            zoom = sc.get()
+            x = int(event.x/zoom)
+            y = int(event.y/zoom)
+            selected["x"]=x
+            selected["y"]=y
+            updateImage()
+        imgDisplay.bind("<Button-1>", printcoords)
+        root.mainloop()
+        ### We have all we need stored in selected.
+        landmarks = [ tuple(x) for x in selected["triples"] ]
+    return fbe.FPPEnergy(pre, landmarks, scale, ref_image)
+        
+def parseCombinedEnergyString(stri,  cg, reference_cg, args):
     """
     Parses an energy string, as used for the --energy commandline option
-
-    :param stri: The energy string
+    :param stri: The combined energy string.
+    :param args: The commandline arguments. A argparse.ArgumentParser instance
     :param cg: The coarse-grained RNA
-    :iterations: The number of iterations. This is used for adjustments that change during sampling
+    :param reference_cg: The r coarse-grained RNA (e.g. a deepcopy of cg)
     :returs: A combined energy
     """
     contributions=stri.split(",")
@@ -263,20 +430,20 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
             pre, adj=parseEnergyContributionString(contrib, "ROG")
             e = fbe.RadiusOfGyrationEnergy( energy_prefactor=pre, adjustment=adj[0])
             if adj[1]:
-                e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
+                e.set_dynamic_adjustment(adj[1],math.ceil(args.iterations/adj[2]))
             energies.append(e)
         elif "NDR" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "NDR")
             e = fbe.NormalDistributedRogEnergy( energy_prefactor=pre, adjustment=adj[0])
             if adj[1]:
-                e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
+                e.set_dynamic_adjustment(adj[1],math.ceil(args.iterations/adj[2]))
             energies.append(e)
         elif "AME" in contrib:
             pre, adj=parseEnergyContributionString(contrib, "AME")
             es=getAMinorEnergies(cg, pre, adj[0])
             if adj[1]:
                 for e in es:
-                    e.set_dynamic_adjustment(adj[1],math.ceil(iterations/adj[2]))
+                    e.set_dynamic_adjustment(adj[1],math.ceil(args.iterations/adj[2]))
             energies+=es
         elif "SLD" in contrib:
             pre,_, adj=contrib.partition("SLD")
@@ -295,7 +462,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                 pre=int(pre)
             else:
                 pre=1
-            energies.append(getPROenergy(proj_dist, pre))
+            energies.append(getPROenergy(args.projected_dist, pre))
         elif "HDE" in contrib:
             pre,_, adj=contrib.partition("HDE")
             if adj!="":
@@ -304,7 +471,7 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                 pre=int(pre)
             else:
                 pre=DEFAULT_ENERGY_PREFACTOR
-            energies.append(getHDEenergy(hde_image, scale, pre))
+            energies.append(getHDEenergy(args.ref_image, args.scale, pre))
         elif "CHE" in contrib:
             pre,_, adj=contrib.partition("CHE")
             if pre!="" or adj!="":
@@ -346,6 +513,15 @@ def parseCombinedEnergyString(stri, cg, iterations, proj_dist, scale, hde_image,
                     clamp+=[fbe.DistanceExponentialEnergy(e1,e2,15.,pre)]
             if clamp:
                 energies.append(fbe.CombinedEnergy([],clamp))
+        elif "FPP" in contrib:
+            pre,_, adj=contrib.partition("FPP")
+            if adj!="":
+                warnings.warn("Adjustment '{}' is ignored for FPP energy!".format(adj))
+            if pre:
+                pre=int(pre)
+            else:
+                pre=1
+            energies.append(getFPPEnergy(cg, pre, args))
         else:
             print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
             sys.exit(1)
@@ -477,9 +653,7 @@ def setup_deterministic(args):
     if args.energy=="D":
         energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
     else:
-        energy=parseCombinedEnergyString(args.energy, cg, args.iterations,
-                                         args.projected_dist,args.scale,
-                                         args.ref_img, original_sm.bg)
+        energy=parseCombinedEnergyString(args.energy, cg, original_sm.bg, args)
 
     #Initialize energies to track
     energies_to_track=[]
@@ -489,8 +663,7 @@ def setup_deterministic(args):
                 energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
             else:
                 energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
-                                         args.iterations, args.projected_dist, args.scale,
-                                         args.ref_img, original_sm.bg))
+                                         original_sm.bg, args))
 
 
     #Initialize the Constraint energies
@@ -580,6 +753,12 @@ if __name__=="__main__":
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
+            for e in energy.iterate_energies():
+                if isinstance(e, fbe.FPPEnergy):
+                    print("# Used FPP energy with options: --scale {} --ref-img {} "
+                          "--fpp-landmarks {}".format(e.scale, e.ref_image, 
+                                                      ":".join(",".join(map(str,x)) for x in e.landmarks)),
+                          file=out_file)
             if args.exhaustive:
                 sampler = fbs.ExhaustiveExplorer(sm, energy, stat, args.exhaustive, args.start_from_scratch)
             elif args.new_ml:
