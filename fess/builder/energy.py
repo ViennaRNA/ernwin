@@ -374,7 +374,8 @@ class FPPEnergy(EnergyFunction):
         img1, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angle), warn = False)
          
         score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
-                                                          math.degrees(angle), -offset_centroid, None, 
+                                                          math.degrees(angle), -offset_centroid, 
+                                                          None, distance=fph.tp_fp_distancel,
                                                           maxiter=200)
         #import matplotlib.pyplot as plt
         #fig, ax  = plt.subplots(2,2)
