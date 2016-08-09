@@ -347,6 +347,53 @@ class FPPEnergy(EnergyFunction):
         except Exception as e: #Degenerate equations. Estimate the solution from full set of equations
             print(e, "USING LSTSQ")
             projection_direction = np.linalg.lstsq(np.array(vectors3d), np.array(angles))[0] #lstsq instead of solve, because system may be underdetermined
+
+        ###
+        sm.bg.project_from = ftuv.normalize(-projection_direction)
+        proj =  fpp.Projection2D(sm.bg, project_virtual_atoms = True)
+        orig_img, _ = proj.rasterize(self.ref_image.shape[0], warn = False)
+        proj, angleA, offset_centroidA, bs = self.find_offset(sm, projection_direction, mirror = True)
+        img1, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angleA), warn = False, virtual_residues = False)
+        
+        scoreA = fph.combined_distance(img1, self.ref_image)
+        proj, angleB, offset_centroidB, bs = self.find_offset(sm, projection_direction, mirror = False)        
+        img2, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angleB), warn = False, virtual_residues = False)
+        scoreB = fph.combined_distance(img2, self.ref_image)
+        if scoreA<scoreB:
+            sm.bg.project_from = ftuv.normalize(-projection_direction)
+            score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
+                                                          math.degrees(angleA), offset_centroidA, 
+                                                          None, distance=fph.combined_distance,
+                                                          maxiter=200)
+        else:
+           score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
+                                                         math.degrees(angleB), offset_centroidB, 
+                                                         None, distance=fph.combined_distance,
+                                                         maxiter=200)
+        #lmimg = np.zeros_like(img)
+        #for l in self.landmarks:
+        #    lmimg[l[2],l[1]]=1
+        #import matplotlib.pyplot as plt
+        #fig, ax  = plt.subplots(2,3)
+        #ax[0,0].imshow(self.ref_image, interpolation="none")
+        #ax[0,0].set_title("Reference")
+        #ax[1,0].imshow(lmimg, interpolation="none")
+        #ax[1,0].set_title("Landmarks:")
+        #ax[0,1].imshow(img1, interpolation="none")
+        #ax[0,1].set_title("IntermediateA {}".format(scoreA))
+        #ax[1,1].imshow(img2, interpolation="none")
+        #ax[1,1].set_title("IntermediateB {}".format(scoreB))
+        #ax[0,2].imshow(img, interpolation="none")
+        #ax[0,2].set_title("Final {}".format(score))
+        #ax[1,2].imshow(orig_img, interpolation="none")
+        #ax[1,2].set_title("Rot/ offset unknown")
+
+        #plt.show()
+        return score
+        
+    def find_offset(self, sm, projection_direction, mirror = False):
+        if mirror: projection_direction = -projection_direction
+        steplength = self.scale/self.ref_image.shape[0]
         sm.bg.project_from = ftuv.normalize(projection_direction)
         ### Step 2: Find out offset and rotation.
         proj = fpp.Projection2D(sm.bg, project_virtual_residues = [ x[0] for x in self.landmarks], project_virtual_atoms = True)
@@ -360,6 +407,9 @@ class FPPEnergy(EnergyFunction):
         target = np.array(target)
         current = np.array(current)    
         rotationMatrix = ftur.optimal_superposition(current, target)
+        if mirror: 
+            rotationMatrix[0,1] = -rotationMatrix[0,1]
+            rotationMatrix[1,0] = -rotationMatrix[1,0] 
         c_rot = np.dot(current, rotationMatrix)
         bs = fph.get_box(proj, self.scale)
         offset_centroid = target - c_rot + np.array((bs[0],bs[2]))
@@ -370,23 +420,7 @@ class FPPEnergy(EnergyFunction):
         #Calculate the bounding square using the offset.
         bs = fph.get_box(proj, self.scale, -offset_centroid)
 
-        #Control
-        img1, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angle), warn = False)
-         
-        score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
-                                                          math.degrees(angle), -offset_centroid, 
-                                                          None, distance=fph.tp_fp_distancel,
-                                                          maxiter=200)
-        #import matplotlib.pyplot as plt
-        #fig, ax  = plt.subplots(2,2)
-        #ax[0,0].imshow(self.ref_image, interpolation="none")
-        #ax[1,0].imshow(img1, interpolation="none")
-        #ax[1,1].imshow(img, interpolation="none")
-        #ax[1,1].set_title(score)
-        #plt.show()
-        return score
-        
-
+        return proj, angle, -offset_centroid, bs
 
     def generate_equations(self, sm):
         penalty = 0
