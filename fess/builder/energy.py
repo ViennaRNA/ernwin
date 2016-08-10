@@ -48,6 +48,13 @@ import functools
 import os
 
 
+try:
+  profile  #The @profile decorator from line_profiler (kernprof)
+except:
+  def profile(x): 
+    return x
+
+
 distribution_upper_bound = 1.0
 distribution_lower_bound = 1.0
 
@@ -335,6 +342,7 @@ class FPPEnergy(EnergyFunction):
         self.landmarks = landmarks
         self.scale = scale
         self.ref_image = fpp.to_grayscale(scipy.ndimage.imread(ref_image))
+    @profile
     def eval_energy(self, sm, background=True, nodes=None):
         steplength = self.scale/self.ref_image.shape[0]
         ### Step 1: Calculate projection direction:
@@ -349,12 +357,11 @@ class FPPEnergy(EnergyFunction):
             projection_direction = np.linalg.lstsq(np.array(vectors3d), np.array(angles))[0] #lstsq instead of solve, because system may be underdetermined
 
         ###
-        sm.bg.project_from = ftuv.normalize(-projection_direction)
-        proj =  fpp.Projection2D(sm.bg, project_virtual_atoms = True)
-        orig_img, _ = proj.rasterize(self.ref_image.shape[0], warn = False)
+        #sm.bg.project_from = ftuv.normalize(-projection_direction)
+        #proj =  fpp.Projection2D(sm.bg, project_virtual_atoms = "selected")
+        #orig_img, _ = proj.rasterize(self.ref_image.shape[0], warn = False)
         proj, angleA, offset_centroidA, bs = self.find_offset(sm, projection_direction, mirror = True)
         img1, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angleA), warn = False, virtual_residues = False)
-        
         scoreA = fph.combined_distance(img1, self.ref_image)
         proj, angleB, offset_centroidB, bs = self.find_offset(sm, projection_direction, mirror = False)        
         img2, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angleB), warn = False, virtual_residues = False)
@@ -364,12 +371,12 @@ class FPPEnergy(EnergyFunction):
             score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
                                                           math.degrees(angleA), offset_centroidA, 
                                                           None, distance=fph.combined_distance,
-                                                          maxiter=200)
+                                                          maxiter=200, virtual_atoms="selected")
         else:
            score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, sm.bg, 
                                                          math.degrees(angleB), offset_centroidB, 
                                                          None, distance=fph.combined_distance,
-                                                         maxiter=200)
+                                                         maxiter=200, virtual_atoms="selected")
         #lmimg = np.zeros_like(img)
         #for l in self.landmarks:
         #    lmimg[l[2],l[1]]=1
@@ -390,13 +397,13 @@ class FPPEnergy(EnergyFunction):
 
         #plt.show()
         return score
-        
+    @profile
     def find_offset(self, sm, projection_direction, mirror = False):
         if mirror: projection_direction = -projection_direction
         steplength = self.scale/self.ref_image.shape[0]
         sm.bg.project_from = ftuv.normalize(projection_direction)
         ### Step 2: Find out offset and rotation.
-        proj = fpp.Projection2D(sm.bg, project_virtual_residues = [ x[0] for x in self.landmarks], project_virtual_atoms = True)
+        proj = fpp.Projection2D(sm.bg, project_virtual_residues = [ x[0] for x in self.landmarks], project_virtual_atoms = "selected")
         target = []
         current = []
         for l in self.landmarks:
@@ -421,7 +428,7 @@ class FPPEnergy(EnergyFunction):
         bs = fph.get_box(proj, self.scale, -offset_centroid)
 
         return proj, angle, -offset_centroid, bs
-
+    @profile
     def generate_equations(self, sm):
         penalty = 0
         #Preprocess: Calculate the projection angles for the shorthening of 

@@ -532,7 +532,11 @@ class MCMCSampler(object):
         sm.junction_constraint_energy = None
 
         sm.traverse_and_build()
+        print ("Adding virtual residues...", file=sys.stderr)
+        sm.bg.add_all_virtual_residues()
+        print ("Virtual residues added. Evaluating energy", file=sys.stderr)
         self.prev_energy = energy_function.eval_energy(sm)
+        print ("Energy was {}".format(self.prev_energy), file=sys.stderr)
         try:
             self.prev_constituing = self.energy_function.constituing_energies
         except AttributeError: 
