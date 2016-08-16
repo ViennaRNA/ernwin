@@ -18,6 +18,7 @@ import forgi.threedee.utilities.rmsd as ftur
 import forgi.threedee.utilities.vector as ftuv
 
 import sklearn.cluster
+import copy
 
 #import Pycluster as pc
 
@@ -33,8 +34,8 @@ def cluster_hierarchical(coords, matrix=None, use_heuristic=True):
     calc=0
     heur=0
     HEUR_FILENUM=50 #If more then this number of files are present and use_heuristic is true, then use a heuristic
-    MAX_RMSD=10 #Max RMSD to be considered in a cluster.
-    MAX_DRMSD=10 #Max DRMSD to be considered in a cluster.
+    MAX_RMSD=20 #Max RMSD to be considered in a cluster.
+    MAX_DRMSD=20 #Max DRMSD to be considered in a cluster.
     print("{} Files".format(len(coords)))
     if use_heuristic and len(coords)>HEUR_FILENUM: #Need to use ROG as heuristic
         for i, c in enumerate(coords):
@@ -119,6 +120,29 @@ def cluster_hierarchical(coords, matrix=None, use_heuristic=True):
     
     
     
+def fast_clustering(coords):
+    MAX_RMSD=30 #Max RMSD to be considered in a cluster.
+    for MAX_RMSD in [10,15,20,25,35,40,45,50,55,60,65,70,75,80,30]:
+        clusters = []
+        i_to_clust=[]
+        for i, coord in enumerate(coords):
+            for j, cluster in enumerate(clusters):
+                if ftur.rmsd(coord, coords[cluster[0]])<MAX_RMSD:
+                    cluster.append(i)
+                    i_to_clust.append(j)
+                    break
+            else:
+                clusters.append([i])
+                i_to_clust.append(len(clusters)-1)
+        print("{} maxRMSD, {} clusters".format(MAX_RMSD, len(clusters)))
+    print("Starting dists")
+    dists = np.zeros((len(coords), len(coords)))
+    for i,j in it.combinations(range(len(coords)),2):
+        if i_to_clust[i]==i_to_clust[j]:
+            dists[i,j]=ftur.rmsd(coords[i], coords[j])
+        else:
+            dists[i,j]= float('inf')
+    return i_to_clust, dists
 
 def distances(s):
     '''
@@ -152,10 +176,45 @@ def cg_fns_to_coords(args):
     coords = []
 
     for arg in args:
-        structs += [ftmc.CoarseGrainRNA(arg)]
-        coords += [cgg.bg_virtual_residues(structs[-1])]
-    return coords, structs
+        structs.append( ftmc.CoarseGrainRNA(arg) )
+        coords.append( structs[-1].get_coordinates_array() )
+    return np.array(coords), structs
 
+
+def consensus(coords, structs):
+    #structure 1 as reference:
+    directions =[]
+    for i in range(len(coords)):
+        directions.append(structs[i].coords_to_directions())
+    directions = np.array(directions)
+    new_directions = []
+
+    for i in range(len(directions[0])):
+        av_dir = np.zeros(3)
+        av_len = 0
+        for j in range(len(coords)):
+            av_dir+=directions[j,i]
+            av_len+=ftuv.magnitude(directions[j,i])
+        av_dir=ftuv.normalize(av_dir)
+        av_len/=len(coords)
+        new_directions.append(av_dir*av_len)
+    
+    flexibilities = []
+    for i in range(len(directions[0])):
+        flex = np.zeros(3)
+        for j in range(len(coords)):
+            flex+=(new_directions[i]-directions[j,i])**2
+        flex/=len(coords)
+        flexibilities.append(flex)
+    sorted_defines = sorted(structs[0].defines.keys())
+    for i,d in enumerate(sorted_defines):
+        print(d, new_directions[i], "+-", flexibilities[i])
+    
+    consensus = copy.copy(structs[0])
+    consensus.coords_from_directions(new_directions)
+    consensus.to_cg_file("consensus.coord")
+    print("File consensus.coord written") 
+    return consensus
 
 def main():
     usage = """
@@ -172,7 +231,8 @@ def main():
     parser.add_option('', '--args', dest='args', default=None, help='Arguments filename', type='str')
     parser.add_option('-n', '--num-structs', dest='num_structs', default=None, help='The number of structures to use', type=int)
     parser.add_option('', '--num-clusters', dest='num_clusters', default=8, help='The number of clusters to use for k-means', type=int)
-
+    parser.add_option('', '--fast', dest='fast', default=False, action = "store_true", help='Use a fast. home-brew algorithm')
+    parser.add_option('', '--consensus', dest='consensus', default=False, action = "store_true", help='Find consensus structure of all structures')
     (options, args) = parser.parse_args()
 
     if len(args) < num_args:
@@ -189,9 +249,14 @@ def main():
     if options.args is not None:
         with open(options.args, 'w') as f:
             f.write(" ".join(args))
-    
+
+    if options.consensus:
+        consensus(coords, structs)
+        sys.exit()
     if options.hierarchical:
         clusters, dists = cluster_hierarchical(coords, options.matrix)
+    elif options.fast:
+        clusters, dists = fast_clustering(coords)
     else:
         cluster_kmeans(coords, args, options.topn, 
                        num_clusters=options.num_clusters)

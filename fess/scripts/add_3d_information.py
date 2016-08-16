@@ -9,7 +9,7 @@ import borgy.graph.graph_pdb as cgg
 
 def newest_output_graph(bg, chain):
     cgg.add_stem_information_from_pdb_chain(bg, chain)
-    cgg.add_bulge_information_from_pdb_chain(bg, chain)
+    bg.add_bulge_coords_from_stems()
     cgg.add_loop_information_from_pdb_chain(bg, chain)
 
 
@@ -27,7 +27,7 @@ def main():
     bg = ttmc.CoarseGrainRNA(sys.argv[1])
 
     cgg.add_stem_information_from_pdb_chain(bg, chain)
-    cgg.add_bulge_information_from_pdb_chain(bg, chain)
+    bg.add_bulge_coords_from_stems()
     cgg.add_loop_information_from_pdb_chain(bg, chain)
 
     bg.dump()
