@@ -1758,7 +1758,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             self.accepted_measures += self.accepted_measures[-self.num_loops:]
     def get_num_loops(self, cg):
         return len([d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))])
-    def eval_energy(self, sm, background=True, nodes=None):
+    def eval_energy(self, sm, background=True, nodes=None): #@PROFILE: This takes >50% of the runtime with default energy
         cg = sm.bg
         if self.measure_category(cg) not in self.real_kdes.keys():
             (self.real_kdes[self.measure_category(cg)], self.real_measures) = self.get_distribution_from_file(self.real_stats_fn, self.measure_category(cg), adjust=self.adjustment)

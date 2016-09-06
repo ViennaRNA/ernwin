@@ -6,8 +6,8 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
-import forgi.threedee.utilities.rmsd as ftur
-import forgi.threedee.model.comparison as ftme
+import forgi.threedee.model.descriptors as ftur
+import forgi.threedee.model.similarity as ftme
 from . import config as conf
 from . import energy as fbe
 import sys, time, copy
@@ -153,15 +153,16 @@ class RMSDStatistics(StatisticsCollector):
         if not self.silent:
             curr_vress=sm.bg.get_ordered_virtual_residue_poss()
             if self.mode=="RMSD":
-              rmsd=ftur.rmsd(self._reference, curr_vress)
+              rmsd=ftme.rmsd(self._reference, curr_vress)
             elif self.mode=="dRMSD":
-              rmsd=ftur.drmsd(self._reference, curr_vress)
-            if self.best_cgs.can_insert((sm.bg,rmsd)):
-                self.best_cgs.insert((copy.deepcopy(sm.bg),rmsd))
+              rmsd=ftme.drmsd(self._reference, curr_vress)
+            if self.best_cgs.can_insert_right((None, rmsd)):
+                self.best_cgs.insert_right((sm.bg.to_cg_string(),rmsd))
             if step % 10 == 0:
                 for i, bg in enumerate(self.best_cgs):
-                    bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
-                              'best_rmsd{:d}.coord'.format(i)))
+                    with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                              'best_rmsd{:d}.coord'.format(i)), 'w') as f:
+                        f.write(bg[0])
             if self._showMinMax:
                 if rmsd>self._maxRMSD:
                     self._maxRMSD=rmsd
@@ -451,13 +452,14 @@ class SamplingStatistics:
         line.append(change)
         self.printline("\t".join(line))
         
-        if self.best_cgs.can_insert((sm.bg, energy)):
-            self.best_cgs.insert((copy.deepcopy(sm.bg), energy))
+        if self.best_cgs.can_insert_right((None, energy)):
+            self.best_cgs.insert_right((sm.bg.to_cg_string(), energy))
         
         if self.step % 10 == 0:
-            for i, bg in enumerate(self.best_cgs):
-                bg[0].to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
-                              'best{:d}.coord'.format(i)))
+            for i, cg_stri in enumerate(self.best_cgs):
+                with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                                      'best{:d}.coord'.format(i)), 'w') as f:
+                    f.write(cg_stri[0])
                               
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
             sm.bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
