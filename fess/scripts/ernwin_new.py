@@ -22,6 +22,13 @@ from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess import data_file
 import scipy.ndimage
+import numpy as np
+import itertools as it
+
+
+
+
+
 #Magic numbers
 DEFAULT_ENERGY_PREFACTOR=30
 
@@ -75,8 +82,16 @@ def get_parser():
                         help='Refrain from trying to calculate the rmsd.', action='store_true')
     parser.add_argument('--rmsd-to', action='store', type=str, 
                         help="A *.cg/ *.coord or *.pdb file.\n"
-                             "Calculate the RMSD and MCC relative to the structure in this file,\n"
-                             "not to the structure used as starting point for sampling.")
+                             "Calculate the RMSD and MCC relative to the structure\n"
+                             "in this file, not to the structure used as starting\n"
+                             "point for sampling.")
+    parser.add_argument('--dist', type=str, 
+                        help="One or more pairs of nucleotide positions.\n"
+                             "The distance between these nucleotifdes will be \n"
+                             "calculated.\n"
+                             "Example: '1,15:3,20..' will print the distance between\n"
+                             "          nucleoitide 1 and 15 and the distance \n"
+                             "          between nucleotide 3 and 20.")
     #Controll output files
     parser.add_argument('--output-file', action='store', type=str, default="out.log",
                         help="Filename for output (log). \n"
@@ -98,16 +113,16 @@ def get_parser():
                         help= "A filename.\n"
                               "If given, use this instead of --stats-file for the\n"
                               " angle stats (interior and multi loops).\n" 
-                              "A clustered stats file can be created with scrips/cluster_stats.py\n"
-                              "This is used to sample equally from all CLUSTERS of angle stats.\n"
-                              "And is used to compensate for unequally populated clusters.\n"
-                              "The statistical bias introduced by this file can be compensated\n"
-                              " for with the SBC (Stats bias compensation energy) [TODO]")
+                              "A clustered stats file can be created with\n"
+                              "scrips/cluster_stats.py\n"
+                              "This is used to sample equally from all CLUSTERS of\n"
+                              "angle stats and is used to compensate for unequally\n"
+                              "populated clusters.")
     parser.add_argument('--jar3d-dir', type=str, help="The base dir of your JAR3D (Motiv atlas) installation.\n"
                                                       "It should contain the 'JAR3D' subdirectory and \n"
                                                       "the file 'scripts/annotate_structure.py'\n"
-                                                      "JAR3D is available at 'https://github.com/BGSU-RNA/JAR3D'\n"
-                                                      "or 'http://rna.bgsu.edu/jar3d'")
+                                                      "JAR3D is available at https://github.com/BGSU-RNA/JAR3D\n"
+                                                      "or http://rna.bgsu.edu/jar3d")
     #Choose energy function(s)
     parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, 
                                     help="The type of constraint energy to use. \n"
@@ -130,9 +145,10 @@ def get_parser():
                               "     depending on the difference between START and END.\n"
                               "TYP: one of the following\n"
                               "       ROG:  Radius of gyration energy\n"
-                              "       NDR:  Normal Distributed Radius of Gyration energy.\n"
-                              "             Use a normal distribution for the target ROG\n"
-                              "             With 0.77*ADJ as mean and 0.23*ADJ stddev\n."
+                              "       NDR:  Normal Distributed ROG energy.\n"
+                              "             Use a normal distribution for the target\n"
+                              "             radius of gyration with 0.77*ADJ as mean \n"
+                              "             and 0.23*ADJ stddev\n."
                               "             [0.77 is a rough estimate for the relation between\n"
                               "             perimeter and radius of gyration]\n"
                               "       SLD:  shortest loop distance per loop\n"
@@ -140,12 +156,12 @@ def get_parser():
                               "       PRO:  Match Projection distances. \n"
                               "             Requires the --projected-dist option\n"
                               "       HDE:  Hausdorff distance based Energy \n"
-                              "             Requires the --ref-img and --scale  options.\n"
+                              "             Requires the --ref-img and --scale  options\n"
                               "       DEF:  add all default energies to the \n"
                               "             combined energy\n"
                               "       CHE:  Cheating Energy. Tries to minimize the RMSD\n"
                               "       CLA:  Clamp elements (not nucleotides) together \n"
-                              "             (at 15 Angstrom) with an exponential energy. \n"
+                              "             (at 15 Angstrom) with an exponential energy\n"
                               "             The prefactor is used as scale (default 1).\n"
                               "             Requires the --clamp option\n"
                               "       FPP:  4 point projection energy.\n"
@@ -180,9 +196,10 @@ def get_parser():
                               "of the image is")
     parser.add_argument('--clamp', action='store', type=str,
                         help= "Used for the CLA energy.\n"
-                              "A list `p1,p2:p3,p4:...` where p1 and p2 are clamped together\n"
-                              " and p3+p4 are clamped together. The pi are either emelents\n"
-                              " ('s1','i1',...) or integers (positions in the sequence).\n")
+                              "A list `p1,p2:p3,p4:...` where p1 and p2 are clamped\n"
+                              "together and p3+p4 are clamped together. \n"
+                              "The pi are either emelents ('s1','i1',...) or\n"
+                              " integers (positions in the sequence).\n")
     return parser
 
 def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
@@ -471,7 +488,7 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args):
                 pre=int(pre)
             else:
                 pre=DEFAULT_ENERGY_PREFACTOR
-            energies.append(getHDEenergy(args.ref_image, args.scale, pre))
+            energies.append(getHDEenergy(args.ref_img, args.scale, pre))
         elif "CHE" in contrib:
             pre,_, adj=contrib.partition("CHE")
             if pre!="" or adj!="":
@@ -703,6 +720,10 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     options[ "save_n_best" ] = args.save_n_best 
     options[ "save_min_rmsd" ] = args.save_min_rmsd
     options[ "measure" ]=[]
+    if args.dist:
+        options[ "distance" ] = list(map(str.split, args.dist.split(':'), it.repeat(","))) #map is from future!
+    else:
+        options[ "distance" ] = []
     for energy in energies_to_track:
         if  (isinstance(energy, fbe.ProjectionMatchEnergy) or
             isinstance(energy, fbe.HausdorffEnergy)):
@@ -712,12 +733,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     return stat
 
 
-# Parser is available even if __name__!="__main__", to allow for 
-# documentation with sphinxcontrib.autoprogram
-parser = get_parser()
-if __name__=="__main__":
-    args = parser.parse_args()
-
+def main(args):
     #Setup that does not use the random number generator.
     randstate=random.getstate()#Just for verification purposes
     sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args)
@@ -740,10 +756,10 @@ if __name__=="__main__":
     if args.seed:
         seed_num=args.seed
     else:
-        seed_num = random.randint(0, sys.maxint)            
+        seed_num = random.randint(0,4294967295) #sys.maxint) #4294967295 is maximal value for numpy
     random.seed(seed_num)
+    np.random.seed(seed_num)
     #Main function, dependent on random.seed        
-    plter=None #fbs.StatisticsPlotter()
     with open_for_out(ofilename) as out_file:
         if isinstance(energy, fbe.CombinedEnergy):
             energies_to_track+=energy.uncalibrated_energies
@@ -770,7 +786,14 @@ if __name__=="__main__":
                                           start_from_scratch=args.start_from_scratch,
                                           dump_measures=args.dump_energies)
             for i in range(args.iterations):
-                sampler.step()            
-            #plter.finish()
+                sampler.step()
         finally: #Clean-up 
             print("INFO: Random seed was {}".format(seed_num), file=sys.stderr)
+
+
+# Parser is available even if __name__!="__main__", to allow for 
+# documentation with sphinxcontrib.autoprogram
+parser = get_parser()
+if __name__=="__main__":
+    args = parser.parse_args()
+    main(args)

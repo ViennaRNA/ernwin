@@ -1,0 +1,18 @@
+* Create a release branch from develop. (Only bugfixes in release branch)
+* Increment version number in __init__.py
+* Run nose2
+* Update documentation
+* Build the documentation (`sphinx-build -a -E -W -b html doc compiledDoc` to build it)
+  Check all warnings during building of documentation
+* Make sure all authors of code parts are properly acknowledged and their license is compatible
+* Verify all issues on github are solved
+* Check whether relevant example scripts still work
+* Update setup.py to include all relevant subpackages and scripts
+* Check test coverage. Add tests if required.
+* Find dead code with `venv/bin/vulture forgi/ examples/ test/ ../ernwin/fess/ | less`, but manually check the results (vulture reports false positives)
+* Verify that all files are included in the git repo. Try fresh install on different machine
+* Write a change log to document API changes
+* Run nosetests again.
+* Merge into master and develop
+* Tag inside master
+* Upload the documentation to www.tbi.univie.ac.at/~thiel/ernwin

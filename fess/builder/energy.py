@@ -26,10 +26,10 @@ import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.aminor as fba
 import fess.builder.models as cbm
 import forgi.utilities.debug as fud
-import forgi.threedee.utilities.rmsd as cbr
 import forgi.projection.hausdorff as fph
 import forgi.projection.projection2d as fpp
-import forgi.threedee.utilities.rmsd as ftur
+import forgi.threedee.model.similarity as ftms
+import forgi.threedee.model.descriptors as ftmd
 
 from . import config
 
@@ -342,6 +342,7 @@ class FPPEnergy(EnergyFunction):
         self.landmarks = landmarks
         self.scale = scale
         self.ref_image = fpp.to_grayscale(scipy.ndimage.imread(ref_image))
+
     @profile
     def eval_energy(self, sm, background=True, nodes=None):
         steplength = self.scale/self.ref_image.shape[0]
@@ -413,7 +414,7 @@ class FPPEnergy(EnergyFunction):
         # The rotation (from optimal superposition)
         target = np.array(target)
         current = np.array(current)    
-        rotationMatrix = ftur.optimal_superposition(current, target)
+        rotationMatrix = ftms.optimal_superposition(current, target)
         if mirror: 
             rotationMatrix[0,1] = -rotationMatrix[0,1]
             rotationMatrix[1,0] = -rotationMatrix[1,0] 
@@ -1343,13 +1344,13 @@ class CheatingEnergy(EnergyFunction):
         '''
         new_residues = cgg.bg_virtual_residues(sm.bg)
 
-        return  cbr.centered_rmsd(self.real_residues, new_residues)*30
+        return  ftms.rmsd(self.real_residues, new_residues)*30
     def shortname(self):
         return "CHE"
 
 def length_and_rog(cg):
     coords = cg.get_ordered_stem_poss()
-    rog = ftur.radius_of_gyration(coords)
+    rog = ftmd.radius_of_gyration(coords)
     total_length = sum([len(list(cg.define_residue_num_iterator(d))) for d in cg.defines.keys()])
     
     return (total_length, rog)

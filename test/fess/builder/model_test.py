@@ -5,12 +5,12 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 
 import os.path as op
 from pprint import pprint, pformat
-import unittest, copy, warnings, nose, sys
+import unittest, copy, warnings, sys
 
 import fess.builder.energy as fbe
 
 import forgi.threedee.model.coarse_grain as ftmc
-import forgi.threedee.model.comparison as ftme
+import forgi.threedee.model.similarity as ftmsim
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
@@ -198,7 +198,7 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
             self.sm2.elem_defs[d] = self.sm1.elem_defs[d]
         self.sm2.traverse_and_build()
         self.sm1.traverse_and_build()
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         assertModelsEqual(self.sm1, self.sm2, 12)
     def test_extracting_stats_from_sm_after_building(self):
         self.sm1.load_sampled_elems()        
@@ -207,7 +207,7 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
         for d in "i0", "s0", "s1", "h0":
             self.sm2.elem_defs[d] = self.sm1.elem_defs[d]
         self.sm2.traverse_and_build()
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         assertModelsEqual(self.sm1, self.sm2, 12)
     def test_save_and_load_does_not_change_coords(self):
         self.sm1.load_sampled_elems()
@@ -218,7 +218,7 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
         bg_loaded.from_cg_string(cg2_str) 
         sm2_reloaded = fbm.SpatialModel( bg_loaded )
         sm2_reloaded.load_sampled_elems()        
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0)
         assertModelsEqual(self.sm2, sm2_reloaded, 12)
         assertModelsEqual(self.sm1, sm2_reloaded, 12)
 
@@ -233,7 +233,7 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
             self.sm2.elem_defs[d] = self.sm1.elem_defs[d]
         self.sm2.traverse_and_build()
         self.sm1.traverse_and_build()
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         assertModelsEqual(self.sm1, self.sm2, 12)
     def test_extracting_stats_from_sm_after_building(self):
         self.sm1.load_sampled_elems()        
@@ -242,14 +242,14 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
         for d in self.sm1.elem_defs:
             self.sm2.elem_defs[d] = self.sm1.elem_defs[d]
         self.sm2.traverse_and_build()
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         assertModelsEqual(self.sm1, self.sm2, 12)
     def test_building_does_not_change_structure(self):
         self.sm1.load_sampled_elems()
         self.sm2.load_sampled_elems()
         self.sm1.traverse_and_build()
-        print("RMSD", ftme.cg_rmsd(self.sm1.bg, self.sm2.bg))
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
+        print("RMSD", ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg))
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         assertModelsEqual(self.sm1, self.sm2, 12) #Note: Coords do change!!!
     def test_save_and_load_does_not_change_coords(self):
         self.sm1.load_sampled_elems()
@@ -260,7 +260,7 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
         bg_loaded.from_cg_string(cg2_str) 
         sm2_reloaded = fbm.SpatialModel( bg_loaded )
         sm2_reloaded.load_sampled_elems()        
-        self.assertAlmostEqual(ftme.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0)
         assertModelsEqual(self.sm2, sm2_reloaded, 12)
         assertModelsEqual(self.sm1, sm2_reloaded, 12)
 
@@ -298,6 +298,8 @@ class TestModifyingMST(unittest.TestCase):
         self.use_sm_set_multiloop_break_segment(self.sm_pseudoknot)
     def change_and_reset_mst(self, sm):
         sm_copy=copy.deepcopy(sm)
+        print("Original Bulges", np.array(sm.bulges["h1"]),"\n",
+              ".........Coords", sm.bg.coords["h1"])
         old_stats=sm.elem_defs["m1"]
         junction_nodes = set( x for x in sm.bg.find_bulge_loop("m1", 200) if x[0]=="m" )
         missing_nodes = junction_nodes - sm.bg.mst
@@ -309,8 +311,12 @@ class TestModifyingMST(unittest.TestCase):
         sm.bg.ang_types = None
         del sm.elem_defs["m1"]
         sm.load_sampled_elems()
+        print("Load sampled Elems Bulges", np.array(sm.bulges["h1"]),"\n",
+              "...................Coords", sm.bg.coords["h1"])
         sm.elem_defs[missing_node] = self.example_angle_stat 
         sm.traverse_and_build(start='start')
+        print("Traversed Bulges", np.array(sm.bulges["h1"]),"\n",
+              "..........Coords", sm.bg.coords["h1"])
         #Now change it back to the original state
         sm.bg.mst.remove(missing_node)
         sm.bg.mst |= set(["m1"])
@@ -318,9 +324,13 @@ class TestModifyingMST(unittest.TestCase):
         sm.bg.ang_types = None
         del sm.elem_defs[missing_node]
         del sm.bg.sampled[missing_node] #We need to delete this!
-        sm.load_sampled_elems()        
+        sm.load_sampled_elems()
+        print("Re-Loaded Original Bulges", np.array(sm.bulges["h1"]),"\n",
+              "...................Coords", sm.bg.coords["h1"])
         sm.elem_defs["m1"] = old_stats
         sm.traverse_and_build(start='start')
+        print("Built again Bulges", np.array(sm.bulges["h1"]),"\n",
+              "............Coords", sm.bg.coords["h1"])
         assertModelsEqual(sm_copy, sm, 12)
     def how_NOT_to_do_it_get_stats_from_broken_ml_segment(self, sm):
         """

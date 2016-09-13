@@ -455,7 +455,7 @@ class SpatialModel:
         :returns: The ML segment that was broken before but now was added to the build_order.
         """
         if self.bg.mst is None:
-            sm.bg.traverse_graph()
+            self.bg.traverse_graph()
         junction_nodes = set( x for x in self.bg.find_bulge_loop(d, 200) if x[0]=="m" )
         missing_nodes = junction_nodes - self.bg.mst
         if d in missing_nodes:
@@ -692,11 +692,19 @@ class SpatialModel:
         for stem in self.newly_added_stems:
             self.stem_to_coords(stem)
 
-        for bulge in self.bulges.keys():
-            bm = self.bulges[bulge]
-            #if not np.allclose(self.bg.coords[bulge], np.array([bm.mids[0], bm.mids[1]])):
-            #    print("BULGE changes: {} from {} to {}".format(bulge, self.bg.coords[bulge], np.array([bm.mids[0], bm.mids[1]])))
-            self.bg.coords[bulge] = np.array([bm.mids[0], bm.mids[1]])
+        self.bg.add_bulge_coords_from_stems()
+
+        for d in self.bg.hloop_iterator():
+            bm = self.bulges[d]
+            connected, =self.bg.edges[d]
+            assert np.array_equal(bm.mids[0], self.bg.coords[connected][1])
+            self.bg.coords[d] = np.array([bm.mids[0], bm.mids[1]])
+        for d in ["f1", "t1"]:
+            if d in self.bg.defines:
+                bm = self.bulges[d]
+                connected, =self.bg.edges[d]
+                assert np.array_equal(bm.mids[0], self.bg.coords[connected][0])
+                self.bg.coords[d] = np.array([bm.mids[0], bm.mids[1]])
 
     def get_sampled_bulges(self):
         '''

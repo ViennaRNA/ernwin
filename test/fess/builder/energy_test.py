@@ -27,7 +27,7 @@ class TestClashEnergy(unittest.TestCase):
         self.sm_clash= fbm.SpatialModel(cg_clash)
         self.sm_clash.load_sampled_elems()
         self.energy=fbe.StemVirtualResClashEnergy()
-    def test_stem_virtual_res_clash_energy(self):
+    def test_stem_virtual_res_clash_energy_with_nodes(self):
         self.assertEqual(self.energy.eval_energy(self.sm), 0.)
         nodes=['i0', 'i1', 'i10', 'i11', 'i12', 'i13', 'i14', 'i15', 'i16', 'i17', 'i18', 'i19', 
                'i2', 'i20', 'i21', 'i22', 'i23', 'i24', 'i25', 'i26', 'i27', 'i28', 'i29', 'i3', 
@@ -62,13 +62,11 @@ class TestClashEnergy(unittest.TestCase):
                     e_nodes=self.energy.eval_energy(sm, nodes=nodes)
                 except ValueError: #No stem in nodes
                     e_nodes=0
-                c1=self.energy.c
                 e=self.energy.eval_energy(sm)
-                c2=self.energy.c
                 np.set_printoptions(threshold=np.nan)
                 self.assertLessEqual(e_nodes, e, "{} is not <= {}. The clash energy should be "
                                      "smaller or the same, if nodes are used. Nodes used were {} "
-                                     "for spatial model {}. VRAS1 {}, VRAS2{}".format(e_nodes, e, nodes, i, c1, c2))
+                                     "for spatial model {}.".format(e_nodes, e, nodes, i))
 
 class TestProjectionMatchEnergySetup(unittest.TestCase):
     def test_ProjectionMatchEnergy_init(self):

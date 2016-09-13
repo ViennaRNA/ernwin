@@ -21,14 +21,14 @@ import scipy.stats as ss
 from . import samplingStatisticsNew2 as sstats
 from . import config as cbc
 from . import energy as fbe
-import forgi.threedee.model.comparison as ftme
+import forgi.threedee.model.similarity as ftme
 import forgi.threedee.model.stats as ftms
 
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
 
-import forgi.threedee.utilities.rmsd as cbr
+import forgi.threedee.model.descriptors as cbr
 import fess.builder.models as cbm
 
 #from guppy import hpy

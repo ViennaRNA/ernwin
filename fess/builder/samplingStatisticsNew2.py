@@ -8,6 +8,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 
 import forgi.threedee.model.descriptors as ftur
 import forgi.threedee.model.similarity as ftme
+import forgi.threedee.utilities.vector as ftuv
 from . import config as conf
 from . import energy as fbe
 import sys, time, copy
@@ -274,6 +275,21 @@ class Delimitor(StatisticsCollector):
     def update(self, sm, step):
         return self._delimitor
 
+class Distance(StatisticsCollector):
+    """
+    The distance between two nucleotides
+    """
+    def __init__(self, nuc1, nuc2):
+        super(Distance, self).__init__()
+        self._nuc1 = int(nuc1)
+        self._nuc2 = int(nuc2)
+        self.header=["Distance_{}-{}".format(self._nuc1, self._nuc2)]
+    def update(self, sm, step):
+        dist = ftuv.vec_distance(sm.bg.get_virtual_residue(self._nuc1, True), 
+                                 sm.bg.get_virtual_residue(self._nuc2, True))
+        self.history[0].append(dist)
+        return "{:6.2f} A".format(dist)
+
 ###################################################################################################
 ##########
 ###################################################################################################
@@ -295,7 +311,8 @@ _statisticsDefaultOptions={
     "step_save": 0,
     "save_n_best": 0,
     "save_min_rmsd": 0,
-    "measure" : []
+    "measure" : [],
+    "distance": []
 }
 
 
@@ -359,6 +376,8 @@ class SamplingStatistics:
                       * `"measure": [energy_function, ...]
                             For the energy functions in the list, print the measure (not the enrgy).
                             This is useful for energies with a background.
+                      * `"distance": A list of tuples of ints.
+                            Display the distance between these two nucleotides.
         """
         self.collector=None
         self.step = 0
@@ -390,7 +409,12 @@ class SamplingStatistics:
             if not dr_col.silent:
                 collectors.append(Delimitor())
                 collectors.append(dr_col)
-                
+        
+        if self.options["distance"]:
+            collectors.append(Delimitor())
+            for n1,n2 in self.options["distance"]:
+                collectors.append(Distance(n1,n2))
+
         collectors.append(Delimitor())
 
         for ef in energy_functions:
@@ -462,5 +486,7 @@ class SamplingStatistics:
                     f.write(cg_stri[0])
                               
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
-            sm.bg.to_cg_file(os.path.join(conf.Configuration.sampling_output_dir, 
-                              'step{:06d}.coord'.format(self.step)))
+            cg_stri = sm.bg.to_cg_string()
+            with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                              'step{:06d}.coord'.format(self.step)), "w") as f:
+                f.write(cg_stri)
