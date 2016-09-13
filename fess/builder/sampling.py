@@ -13,7 +13,7 @@ import sys, random, copy
 import numpy as np
 import math, os
 import time
-import psutil
+#import psutil
 
 import scipy.stats as ss
 
@@ -41,7 +41,7 @@ def sizeof_fmt(num, suffix='B'):
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
-def profile(fn):
+'''def profile(fn):
     #http://stackoverflow.com/a/16624539
     def wrapper(*args, **kwargs):
         process = psutil.Process(os.getpid())
@@ -51,7 +51,7 @@ def profile(fn):
         finally:
             end_rss, end_vms = process.memory_info()[:2]
             print(fn.__doc__[1:25], sizeof_fmt(end_rss - start_rss), sizeof_fmt(end_vms - start_vms), sizeof_fmt(end_rss), sizeof_fmt(end_vms))
-    return wrapper
+    return wrapper'''
 
 class StatisticsPlotter:
     '''
