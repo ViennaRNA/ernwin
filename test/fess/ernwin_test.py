@@ -7,6 +7,7 @@ import os.path as op
 import unittest, copy, warnings, sys
 from StringIO import StringIO
 
+#from pprint import pprint
 import fess.builder.energy as fbe
 
 import re
@@ -160,10 +161,18 @@ class ErnwinTestsMixin(object):
     def assertManyDifferentStatsFor(self, cgs, element, n):
         self.assertGreater(self.countDifferentStatsFor(cgs, element), n)
 
-class TestCommandLineUtilGeneralBehaviour(unittest.TestCase, ErnwinTestsMixin):
+class ErnwinTestBase(unittest.TestCase, ErnwinTestsMixin):
     def setUp(self):
         self.parser = ernwin.get_parser()
         self.longMessage = True
+        # We need to reset the stats in both setup and tearDown, 
+	# because tests from other files are not guaranteed to do the same.
+        ftms.ConstructionStats.angle_stats = None
+        ftms.ConstructionStats.stem_stats = None
+        ftms.ConstructionStats.loop_stats = None
+        ftms.ConstructionStats.fiveprime_stats = None
+        ftms.ConstructionStats.threeprime_stats = None
+        ftms.ConstructionStats.conf_stats = None
     def tearDown(self):
         ftms.ConstructionStats.angle_stats = None
         ftms.ConstructionStats.stem_stats = None
@@ -172,6 +181,7 @@ class TestCommandLineUtilGeneralBehaviour(unittest.TestCase, ErnwinTestsMixin):
         ftms.ConstructionStats.threeprime_stats = None
         ftms.ConstructionStats.conf_stats = None
 
+class TestCommandLineUtilGeneralBehaviour(ErnwinTestBase):
     def test_start_from_scratch(self):
         open_main, open_stats, stdout, stderr = self.runErnwin(
                               "python ernwin_new.py test/fess/data/1GID_A-structure1.coord -i 1 "
@@ -226,17 +236,7 @@ class TestCommandLineUtilGeneralBehaviour(unittest.TestCase, ErnwinTestsMixin):
                   "max(number of stats per element)/min(number of stats per element) is too high."
                   " We sample different multiloop segments not equally!")
 
-class TestCommandLineUtilOutputOptions(unittest.TestCase, ErnwinTestsMixin):
-    def setUp(self):
-        self.parser = ernwin.get_parser()
-        self.longMessage = True
-    def tearDown(self):
-        ftms.ConstructionStats.angle_stats = None
-        ftms.ConstructionStats.stem_stats = None
-        ftms.ConstructionStats.loop_stats = None
-        ftms.ConstructionStats.fiveprime_stats = None
-        ftms.ConstructionStats.threeprime_stats = None
-        ftms.ConstructionStats.conf_stats = None
+class TestCommandLineUtilOutputOptions(ErnwinTestBase):
     def test_dist(self):
         open_main, open_stats, stdout, stderr = self.runErnwin(
                 "python ernwin_new.py test/fess/data/1GID_A-structure1.coord -i 100 "
@@ -246,17 +246,7 @@ class TestCommandLineUtilOutputOptions(unittest.TestCase, ErnwinTestsMixin):
         d2 = np.array(self.getStatsFor(stdout, "Distance_2-21", True))
         np.testing.assert_almost_equal(d1,d2, decimal=0)
 
-class TestCommandLineUtilStats(unittest.TestCase, ErnwinTestsMixin):
-    def setUp(self):
-        self.parser = ernwin.get_parser()
-        self.longMessage = True
-    def tearDown(self):
-        ftms.ConstructionStats.angle_stats = None
-        ftms.ConstructionStats.stem_stats = None
-        ftms.ConstructionStats.loop_stats = None
-        ftms.ConstructionStats.fiveprime_stats = None
-        ftms.ConstructionStats.threeprime_stats = None
-        ftms.ConstructionStats.conf_stats = None
+class TestCommandLineUtilStats(ErnwinTestBase):
     def test_empty_stats_file(self):
         with self.assertRaises(LookupError):
             open_main, open_stats, stdout, stderr = self.runErnwin(
@@ -298,17 +288,7 @@ def patchSeed():
     return f
 
 
-class TestCommandLineUtilEnergyDefault(unittest.TestCase, ErnwinTestsMixin):
-    def setUp(self):
-        self.parser = ernwin.get_parser()
-        self.longMessage = True
-    def tearDown(self):
-        ftms.ConstructionStats.angle_stats = None
-        ftms.ConstructionStats.stem_stats = None
-        ftms.ConstructionStats.loop_stats = None
-        ftms.ConstructionStats.fiveprime_stats = None
-        ftms.ConstructionStats.threeprime_stats = None
-        ftms.ConstructionStats.conf_stats = None
+class TestCommandLineUtilEnergyDefault(ErnwinTestBase):
     def test_default(self):
         if True: #with patch('random.seed', side_effect=patchSeed(), autospec=True):
             open_main, open_stats, stdout, stderr = self.runErnwin(
@@ -328,17 +308,7 @@ class TestCommandLineUtilEnergyDefault(unittest.TestCase, ErnwinTestsMixin):
         # The out-file contains 1 line for the header and some comments plus one line per iteration
         self.assertOneWritePerIteration(open_main().write, 10)
 
-class TestCommandLineUtilEnergyOption(unittest.TestCase, ErnwinTestsMixin):
-    def setUp(self):
-        self.parser = ernwin.get_parser()
-        self.longMessage = True
-    def tearDown(self):
-        ftms.ConstructionStats.angle_stats = None
-        ftms.ConstructionStats.stem_stats = None
-        ftms.ConstructionStats.loop_stats = None
-        ftms.ConstructionStats.fiveprime_stats = None
-        ftms.ConstructionStats.threeprime_stats = None
-        ftms.ConstructionStats.conf_stats = None
+class TestCommandLineUtilEnergyOption(ErnwinTestBase):
     def test_energy_evaluation_DEF(self):
         open_main, open_stats, stdout, stderr = self.runErnwin(
                       "python ernwin_new.py test/fess/data/1GID_A-structure1.coord --eval-energy"
@@ -454,22 +424,13 @@ class TestCommandLineUtilEnergyOption(unittest.TestCase, ErnwinTestsMixin):
         new_cg = self.getSavedFile(open_stats, "1GID_A/step000200.coord")
         self.assertLess(ftmsim.cg_rmsd(new_cg, target_cg), ftmsim.cg_rmsd(new_cg, orig_cg))
 
-class TestCombinedOptions(unittest.TestCase, ErnwinTestsMixin):
-    def setUp(self):
-        self.parser = ernwin.get_parser()
-        self.longMessage = True
-    def tearDown(self):
-        ftms.ConstructionStats.angle_stats = None
-        ftms.ConstructionStats.stem_stats = None
-        ftms.ConstructionStats.loop_stats = None
-        ftms.ConstructionStats.fiveprime_stats = None
-        ftms.ConstructionStats.threeprime_stats = None
-        ftms.ConstructionStats.conf_stats = None
+class TestCombinedOptions(ErnwinTestBase):
     def test_clamp_with_dist(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1GID_A-structure1.coord")
         open_main, open_stats, stdout, stderr = self.runErnwin(
                 "python ernwin_new.py test/fess/data/1GID_A-structure1.coord -i 200 "
                 "--dist 65,136 --seed 1 --energy DEF,CLA --clamp 65,136")#Clamping h1 and h2
+
         dists = np.array(self.getStatsFor(stdout, "Distance_65-136", True))
         self.assertLess(np.mean(dists[100:]), np.mean(dists[:100])) #Decreasing dist
         self.assertLess(np.mean(dists[150:]), 25) # Minimal clamp energy is at 15A
