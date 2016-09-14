@@ -8,7 +8,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              unicode, xrange, StandardError)
 
 import argparse, sys, warnings, copy, os, random, math
-import os.path
+import os.path as op
 import subprocess as spr
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
@@ -118,11 +118,11 @@ def get_parser():
                               "This is used to sample equally from all CLUSTERS of\n"
                               "angle stats and is used to compensate for unequally\n"
                               "populated clusters.")
-    parser.add_argument('--jar3d-dir', type=str, help="The base dir of your JAR3D (Motiv atlas) installation.\n"
-                                                      "It should contain the 'JAR3D' subdirectory and \n"
-                                                      "the file 'scripts/annotate_structure.py'\n"
-                                                      "JAR3D is available at https://github.com/BGSU-RNA/JAR3D\n"
-                                                      "or http://rna.bgsu.edu/jar3d")
+    #parser.add_argument('--jar3d-dir', type=str, help="The base dir of your JAR3D (Motiv atlas) installation.\n"
+    #                                                  "It should contain the 'JAR3D' subdirectory and \n"
+    #                                                  "the file 'scripts/annotate_structure.py'\n"
+    #                                                  "JAR3D is available at https://github.com/BGSU-RNA/JAR3D\n"
+    #                                                  "or http://rna.bgsu.edu/jar3d")
     #Choose energy function(s)
     parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, 
                                     help="The type of constraint energy to use. \n"
@@ -626,29 +626,26 @@ def setup_deterministic(args):
 
 
     #Initialize the spatial model
-    if args.clustered_angle_stats and args.jar3d_dir:
-        print("ERROR: --clustered-angle-stats and --jar3d-dir are mutually exclusive!", file=sys.stderr)
-        sys.exit(1)
+    #if args.clustered_angle_stats and args.jar3d_dir:
+    #    print("ERROR: --clustered-angle-stats and --jar3d-dir are mutually exclusive!", file=sys.stderr)
+    #    sys.exit(1)
     if args.clustered_angle_stats:
         sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file, args.clustered_angle_stats))
-    elif args.jar3d_dir:
-        jared_script = op.join(options.jared_dir, 'scripts/annotate_structure.py')
-        jared_data   = op.join(options.jared_dir, 'JAR3D')
-        jared_out    = op.join(config.Configuration.sampling_output_dir, filtered_stats)
-        
-        cmd = ['python', jared_script, options.bg_filename, '-o', jared_data,
-               '-m', '-e', '-d', jared_data]
-
-        p = spr.Popen(cmd, stdout=spr.PIPE)
-        out, err = p.communicate()
-
-        with open(jared_out, 'w') as filtered_out:
-            filtered_out.write(out)
-
-        filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
-                                                        filter_filename=jared_out)
-        ftms.set_conformation_stats(filtered_stats)
-        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats())
+    #elif args.jar3d_dir:
+    #    jared_script = op.join(args.jar3d_dir, 'scripts/annotate_structure.py')
+    #    jared_data   = op.join(args.jar3d_dir, 'JAR3D')
+    #    jared_out    = op.join(config.Configuration.sampling_output_dir, "filtered_stats")
+    #    jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
+    #    cmd = [sys.executable, jared_script, rnafile, '-o', jared_tmp,
+    #           '-m', '-e', '-d', jared_data] 
+    #    p = spr.Popen(cmd, stdout=spr.PIPE)
+    #    out, err = p.communicate()
+    #    with open(jared_out, 'w') as filtered_out:
+    #        print(str(out), file=filtered_out)
+    #    filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
+    #                                                    filter_filename=jared_out)
+    #    ftms.set_conformation_stats(filtered_stats)
+    #    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats())
     else:
         sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file))
     #Load the reference sm (if given)

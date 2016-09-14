@@ -9,6 +9,6 @@ Therefore most files in fess/scripts are outdated and do not work.
 The only tested script is `ernwin_new.py`
 
 Changes from earlier versions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *  Use ernwin_new.py instead of ernwin_go.py
