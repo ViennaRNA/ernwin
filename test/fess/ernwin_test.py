@@ -279,6 +279,13 @@ class TestCommandLineUtilStats(ErnwinTestBase):
         if len(clusters)<4:
             raise WrongAssumptionAboutTestInput("Too high reject rate for m2. Expecting to see at least 4 different stats.")
         self.assertEqual(len(clusters), len(set(clusters)))
+    def test_jar3d(self):
+        cg = ftmc.CoarseGrainRNA("test/fess/data/1GID_A-structure1.coord")
+        open_main, open_stats, stdout, stderr = self.runErnwin(
+                "python ernwin_new.py test/fess/data/1GID_A-structure1.coord -i 100 "
+                "--jar3d --step-save 1")
+        cgs = self.allSavedFiles(open_stats, re.compile(".*\/step.*\.coord"))
+        self.assertEqual(self.countDifferentStatsFor(cgs, "i4"), 2, msg="2 stats: the original and only 1 jar3d hit")
 
 def patchSeed():
     original_seed = random.seed
@@ -435,5 +442,11 @@ class TestCombinedOptions(ErnwinTestBase):
         self.assertLess(np.mean(dists[100:]), np.mean(dists[:100])) #Decreasing dist
         self.assertLess(np.mean(dists[150:]), 25) # Minimal clamp energy is at 15A
         self.assertLess(np.mean(dists[180:]), 18) # Minimal clamp energy is at 15A
-
-
+    def test_jar3d_with_exhaustive(self):
+        cg = ftmc.CoarseGrainRNA("test/fess/data/1GID_A-structure1.coord")
+        open_main, open_stats, stdout, stderr = self.runErnwin(
+                "python ernwin_new.py test/fess/data/1GID_A-structure1.coord -i 10 "
+                "--jar3d --exhaustive i4")
+        print (stdout.getvalue())
+        rogs = np.array(self.getStatsFor(stdout, "ROG", True))
+        self.assertEqual(max(rogs[1:]), min(rogs[1:]))

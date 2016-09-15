@@ -21,6 +21,7 @@ from fess.builder import sampling as fbs
 from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess import data_file
+from fess.motif import annotate as fma
 import scipy.ndimage
 import numpy as np
 import itertools as it
@@ -118,12 +119,10 @@ def get_parser():
                               "This is used to sample equally from all CLUSTERS of\n"
                               "angle stats and is used to compensate for unequally\n"
                               "populated clusters.")
-    #parser.add_argument('--jar3d-dir', type=str, help="The base dir of your JAR3D (Motiv atlas) installation.\n"
-    #                                                  "It should contain the 'JAR3D' subdirectory and \n"
-    #                                                  "the file 'scripts/annotate_structure.py'\n"
-    #                                                  "JAR3D is available at https://github.com/BGSU-RNA/JAR3D\n"
-    #                                                  "or http://rna.bgsu.edu/jar3d")
-    #Choose energy function(s)
+    parser.add_argument('--jar3d', action="store_true", help="Use JAR3D to restrict the stats \n"
+                                                   "for interior loops to matching motifs.\n"
+                                                   "Requires the correct paths to jar3d to be set in\n "
+                                                   "fess.builder.config.py"   )
     parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, 
                                     help="The type of constraint energy to use. \n"
                                          "D=Default    clash- and junction closure energy\n"
@@ -626,26 +625,23 @@ def setup_deterministic(args):
 
 
     #Initialize the spatial model
-    #if args.clustered_angle_stats and args.jar3d_dir:
-    #    print("ERROR: --clustered-angle-stats and --jar3d-dir are mutually exclusive!", file=sys.stderr)
-    #    sys.exit(1)
+    if args.clustered_angle_stats and args.jar3d:
+        print("ERROR: --clustered-angle-stats and --jar3d are mutually exclusive!", file=sys.stderr)
+        sys.exit(1)
     if args.clustered_angle_stats:
         sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file, args.clustered_angle_stats))
-    #elif args.jar3d_dir:
-    #    jared_script = op.join(args.jar3d_dir, 'scripts/annotate_structure.py')
-    #    jared_data   = op.join(args.jar3d_dir, 'JAR3D')
-    #    jared_out    = op.join(config.Configuration.sampling_output_dir, "filtered_stats")
-    #    jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
-    #    cmd = [sys.executable, jared_script, rnafile, '-o', jared_tmp,
-    #           '-m', '-e', '-d', jared_data] 
-    #    p = spr.Popen(cmd, stdout=spr.PIPE)
-    #    out, err = p.communicate()
-    #    with open(jared_out, 'w') as filtered_out:
-    #        print(str(out), file=filtered_out)
-    #    filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
-    #                                                    filter_filename=jared_out)
-    #    ftms.set_conformation_stats(filtered_stats)
-    #    sm=fbm.SpatialModel(cg, ftms.get_conformation_stats())
+    elif args.jar3d:
+
+        jared_out    = op.join(config.Configuration.sampling_output_dir, "filtered_stats")
+        jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
+        motifs = fma.annotate_structure(cg, jared_tmp, cg.name.split('_')[0])
+        elems = fma.motifs_to_cg_elements(motifs, config.Configuration.sampling_output_dir)
+        with open(jared_out, 'w') as filtered_out:
+            print(str(elems), file=filtered_out)
+        filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
+                                                        filter_filename=jared_out)
+        ftms.set_conformation_stats(filtered_stats)
+        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats())
     else:
         sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file))
     #Load the reference sm (if given)
