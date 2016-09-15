@@ -20,5 +20,5 @@ setup(name='ernwin',
                              'stats/aminors_1jj2_sampled.csv',
 			     'stats/combined.stats',
                              'stats/all.stats']},
-      scripts=['fess/scripts/ernwin_new.py', 'annotate_structure.py']
+      scripts=['fess/scripts/ernwin_new.py']
      )
