@@ -27,10 +27,13 @@ class StatisticsCollector:
         """
         :var self.header: A list of strings to describe the fields of history collected.
         :var self.history: A list of lists.
+        :var self.silent: This is set to true, if a Collector cannot initialize itself properly.
+        :var self.display: If this is True, the collector will write to stdout.
         """
         self.header=[]
         self.history=[[]]
         self.silent = False
+        self.display=True
     @property
     def header_str(self):
         """
@@ -43,6 +46,7 @@ class StatisticsCollector:
         and return them as a string ready for printing to the screen.
         """
         raise NotImplementedError("Needs to be subclassed")
+            
 
 class CombinedStatistics(StatisticsCollector):
     def __init__(self, collectors, separator=""):
@@ -71,13 +75,33 @@ class CombinedStatistics(StatisticsCollector):
                  if member.history is not None and not member.silent ]
     @property
     def history(self):
+        hist = []
+        for member in self._members:
+            if member.history is None or member.silent:
+                continue
+            hist+=member.history
+        return hist
         return [ history for member in self._members for history in member.history if not member.silent and member.history is not None ]
     def update(self, sm, step):
         line=[]
         for member in self._members:
             if not member.silent:
-                line.append(member.update(sm, step))
+                fields = member.update(sm, step)
+                if member.display:
+                    line.append(fields)
         return self._joiner.join(line)
+
+    def to_file(self):
+        history=self.history
+        length = len(history[0])
+        with open(os.path.join(conf.Configuration.sampling_output_dir,"stats.txt"), "w") as f:
+            print("#"+self._joiner.join(h for member in self._members for h in member.header if not member.silent and member.history is not None ), file=f)
+            for i in range(length):
+                print( self._joiner.join(str(h[i]) for h in history), file=f)
+        
+                
+            
+
 
 class ROGStatistics(StatisticsCollector):
     """
@@ -199,7 +223,7 @@ class EnergyTracking(StatisticsCollector):
         super(EnergyTracking, self).__init__()
         self._energy_function = energy_function
         self._background = background
-        self.header = [ "Energy-Name", "Energy" ]
+        self.header = [ "Energy-Name", "Tracked-Energy" ]
         self.history = [ [], [] ]
     def update(self, sm, step):
         if self._background:
@@ -207,6 +231,7 @@ class EnergyTracking(StatisticsCollector):
             self._energy_function.accept_last_measure()
         else:
             energy=self._energy_function.eval_energy(sm)
+        energy,=energy #energy is an 1 element array for some reason
         self.history[0].append(self._energy_function.shortname())
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy)==1:
@@ -438,7 +463,7 @@ class SamplingStatistics:
     def printline(self, line):
         """Print to both STDOUT and the log file."""
         if self.output_file != sys.stdout and not self.options["silent"]:
-            print (line)
+            print (line.replace("\t", " ") )#Only replace tabs for stdout to make it take less space
 
         if self.output_file != None:
             print(line, file=self.output_file)

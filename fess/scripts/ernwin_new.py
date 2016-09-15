@@ -751,10 +751,11 @@ def main(args):
     np.random.seed(seed_num)
     #Main function, dependent on random.seed        
     with open_for_out(ofilename) as out_file:
-        if isinstance(energy, fbe.CombinedEnergy):
-            energies_to_track+=energy.uncalibrated_energies
-        elif isinstance(energy, fbe.CoarseGrainEnergy):
-            energies_to_track+=[energy]
+        #We log constituing energies already. No need to track
+        #if isinstance(energy, fbe.CombinedEnergy):
+        #    energies_to_track+=energy.uncalibrated_energies
+        #elif isinstance(energy, fbe.CoarseGrainEnergy):
+        #    energies_to_track+=[energy]
         stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
@@ -777,7 +778,8 @@ def main(args):
                                           dump_measures=args.dump_energies)
             for i in range(args.iterations):
                 sampler.step()
-        finally: #Clean-up 
+        finally: #Clean-up
+            stat.collector.to_file()
             print("INFO: Random seed was {}".format(seed_num), file=sys.stderr)
 
 
