@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os.path as op
 import os
 import subprocess as sp
@@ -73,7 +74,7 @@ def get_cg_from_pdb(pdb_file, chain_id, temp_dir=None, cg_filename=None):
     if temp_dir is not None:
         temp_dir = op.join(temp_dir, 'cg_temp')
 
-    print >>sys.stderr, "Creating CG RNA for:", pdb_file
+    print("Creating CG RNA for:", pdb_file, file=sys.stderr)
     cg = ftmc.from_pdb(pdb_file, chain_id=chain_id,
                       intermediate_file_dir=temp_dir,
                       remove_pseudoknots=False)
@@ -123,7 +124,7 @@ def get_coarse_grain_file(struct_name, chain_id, temp_dir=None):
         else:
             # take it from the top (the RCSB, of course)
             #print >>sys.stderr, "No pdb file found, downloading from the RCSB..."
-            print >>sys.stderr, "Downloading pdb for:", struct_name
+            print ("Downloading pdb for:", struct_name, file=sys.stderr)
             import urllib2
             response = urllib2.urlopen('http://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=pdb&compression=NO&structureId=%s' % (struct_name))
             html = response.read()
@@ -149,7 +150,7 @@ def get_coarse_grain_file(struct_name, chain_id, temp_dir=None):
             # return the CG representation
     
 
-def motifs_to_cg_elements(motifs, temp_dir=None):
+def motifs_to_cg_elements(motifs, temp_dir=None, filename=None):
     '''
     Convert all of the motif alignments to coarse-grain element names. This
     requires that the coarse grain representation of the pdb file from
@@ -193,19 +194,26 @@ def motifs_to_cg_elements(motifs, temp_dir=None):
                     element_id = list(iloop_elements)[0]
                     new_motifs[key] += [(alignment.struct, alignment_chain, 
                                          element_id, cg.defines[element_id])]
-    out=[]
+
+    if filename:    
+        if filename=="STDOUT":
+            print_motifs(new_motifs, motifs, sys.stdout)
+        if filename=="STDERR":
+            print_motifs(new_motifs, motifs, sys.stderr)
+        else:
+            with open(filename, "w") as file_:
+                print_motifs(new_motifs, motifs, file_)
+
+    return new_motifs
+    
+def print_motifs(new_motifs, motifs, file_):
     for key in new_motifs:
         for (pdb_name, chain_id, elem_name, define) in new_motifs[key]:
             if len(define) == 4:
-                out.append(" ".join(map(str,[key, pdb_name + "_" + chain_id, len(define), " ".join(map(str, [define[1] - define[0] + 1, define[3] - define[2] + 1])), " ".join(map(str, define)), '"' + motifs[key][0]['common_name'] + '"'])))
+                print(key, pdb_name + "_" + chain_id, len(define), " ".join(map(str, [define[1] - define[0] + 1, define[3] - define[2] + 1])), " ".join(map(str, define)), '"' + motifs[key][0]['common_name'] + '"', file=file_)
                 
             else:
-                out.append(" ".join(map(str, [key, pdb_name + "_" + chain_id, len(define), " ".join(map(str, [define[1] - define[0] + 1, 0])), " ".join(map(str, define)), '"' + motifs[key][0]['common_name'] + '"'])))
-
-    return "\n".join(out)
-    
-
-
+                print(key, pdb_name + "_" + chain_id, len(define), " ".join(map(str, [define[1] - define[0] + 1, 0])), " ".join(map(str, define)), '"' + motifs[key][0]['common_name'] + '"', file=file_)
 
 def cg_to_jared_input(cg):
     '''
@@ -285,7 +293,7 @@ def parse_jared_output(sequence_results, motif_atlas_file=None, exclude_structur
 
                     found_motifs[element_name] += [motif_entry]
             else:
-                print 'x', motif, motif_id, motif_entry['common_name'], motif_entry['alignment']
+                print ('x', motif, motif_id, motif_entry['common_name'], motif_entry['alignment'])
 
     
             # only return the top scoring motif

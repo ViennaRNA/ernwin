@@ -631,13 +631,10 @@ def setup_deterministic(args):
     if args.clustered_angle_stats:
         sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file, args.clustered_angle_stats))
     elif args.jar3d:
-
         jared_out    = op.join(config.Configuration.sampling_output_dir, "filtered_stats")
         jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
         motifs = fma.annotate_structure(cg, jared_tmp, cg.name.split('_')[0])
-        elems = fma.motifs_to_cg_elements(motifs, config.Configuration.sampling_output_dir)
-        with open(jared_out, 'w') as filtered_out:
-            print(str(elems), file=filtered_out)
+        elems = fma.motifs_to_cg_elements(motifs, config.Configuration.sampling_output_dir, filename = jared_out)
         filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
                                                         filter_filename=jared_out)
         ftms.set_conformation_stats(filtered_stats)
