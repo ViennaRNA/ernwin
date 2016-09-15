@@ -70,4 +70,20 @@ Parsing The Log File
 As ernwin runs, it outputs diagnostic information about the sampling procedure. 
 The same information can be found in the output folder in the ``out.log`` file
 
+Restricting possible conformations by motif search
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+You need to setup a main directory where you put your installation of JAR3D.
+
+You need to download the JAR3D `*.jar file, which currently is `jar3d_2014-12-11.jar`, from http://rna.bgsu.edu/data/jar3d/models/
+From the same url you also need to download the interior loop models, e.g. `IL_1.18_models.zip`, and unpack them into your main JAR3D directory.
+Finally, you need the Motif Atlas as json, which can be downloaded from http://rna.bgsu.edu/rna3dhub/motifs/release/il/current.
+
+Next you need to update the file `fess/builder/congif.py` to set the paths to the main JAR3D directory and the filenames of the 3 files downloaded as mentioned above, relative to this directory.
+
+After this preparation was done, simply run `ernwin_new.py --jar3d` to sample with interior loops constrained to motifs found in the motif atlas.
+
+.. warning::
+
+    This will create two directories, `cgs` and `pdbs` in your JAR3D directory, where it will download pdb files referenced in the found motifs.
+    These pdb and cg files will not be removed after a sampling run, because they might be useful for future simulations run with ernwin.
