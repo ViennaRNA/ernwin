@@ -12,7 +12,7 @@ import sys
 import forgi.graph.bulge_graph as fgb
 all = [ "annotate_structure" ]
 
-JARED_DIR = cbc.Configuration.jar3d_dir
+JARED_DIR = op.expanduser(cbc.Configuration.jar3d_dir)
 JARED_BIN = cbc.Configuration.jar3d_jar
 IL_FILE = cbc.Configuration.jar3d_IL #Download from http://rna.bgsu.edu/data/jar3d/models/ #Relative to JARED_DIR
 MOTIF_ATLAS_FILE = cbc.Configuration.jar3d_motif #Click Download at http://rna.bgsu.edu/rna3dhub/motifs/release/il/current# #Relative to JARED_DIR
