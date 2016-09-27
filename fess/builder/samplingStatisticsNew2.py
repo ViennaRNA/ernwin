@@ -173,7 +173,6 @@ class RMSDStatistics(StatisticsCollector):
                 self._maxRMSD = float("-inf")
             else:
                 self.header = [mode]
-
     def update(self, sm, step):
         if not self.silent:
             curr_vress=sm.bg.get_ordered_virtual_residue_poss()
@@ -463,7 +462,7 @@ class SamplingStatistics:
     def printline(self, line):
         """Print to both STDOUT and the log file."""
         if self.output_file != sys.stdout and not self.options["silent"]:
-            print (line.replace("\t", " ") )#Only replace tabs for stdout to make it take less space
+            print (line) #Only replace tabs for stdout to make it take less space
 
         if self.output_file != None:
             print(line, file=self.output_file)

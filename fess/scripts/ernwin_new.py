@@ -36,6 +36,7 @@ DEFAULT_ENERGY_PREFACTOR=30
 
 @contextlib.contextmanager
 def open_for_out(filename=None):
+    "From http://stackoverflow.com/a/17603000/5069869"
     if filename and filename != '-':
         fh = open(filename, 'w')
     else:
@@ -751,11 +752,11 @@ def main(args):
     np.random.seed(seed_num)
     #Main function, dependent on random.seed        
     with open_for_out(ofilename) as out_file:
-        #We log constituing energies already. No need to track
-        #if isinstance(energy, fbe.CombinedEnergy):
-        #    energies_to_track+=energy.uncalibrated_energies
-        #elif isinstance(energy, fbe.CoarseGrainEnergy):
-        #    energies_to_track+=[energy]
+        #Track energies without background for comparison with constituing energies
+        if isinstance(energy, fbe.CombinedEnergy):
+            energies_to_track+=energy.uncalibrated_energies
+        elif isinstance(energy, fbe.CoarseGrainEnergy):
+            energies_to_track+=[energy]
         stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
