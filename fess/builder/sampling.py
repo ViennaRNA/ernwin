@@ -30,6 +30,8 @@ import forgi.utilities.debug as fud
 
 import forgi.threedee.model.descriptors as cbr
 import fess.builder.models as cbm
+import logging
+log = logging.getLogger(__name__)
 
 #from guppy import hpy
 
@@ -469,19 +471,50 @@ class SamplingStatistics:
         '''
 
         print ("-------------------------")
-        
+
+def load_sampled_elements(sm):
+    """
+    Try to load the sampled elements from the cg into the sm.
+    :returns: True upon success, False upon failure (e.g. if cg was derived from a fasta file)
+    """
+    try:
+        sm.load_sampled_elems()
+    except:
+        return False
+    if not sm.elem_defs:
+        return False
+    return True
+
+def build_sm(sm, verbose = False):
+    """
+    Build the initial structure that will be used for sampling.
+    """
+    if sm.constraint_energy is not None or sm.junction_constraint_energy is not None:    
+        constraint_energy = sm.constraint_energy
+        junction_constraint_energy = sm.junction_constraint_energy
+        sm.constraint_energy = None
+        sm.junction_constraint_energy = None
+        log.info("building without constraint energy...")
+        sm.traverse_and_build()
+        sm.constraint_energy = constraint_energy
+        sm.junction_constraint_energy = junction_constraint_energy
+        log.info("building with constraint energy")
+        sm.traverse_and_build(verbose=verbose)
+        log.info("finished building", file=sys.stderr)
+    sm.traverse_and_build()
+    sm.bg.add_all_virtual_residues()
+
 
 class MCMCSampler(object):
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, start_from_scratch=False, dump_measures=False):
+    def __init__(self, sm, energy_function, stats, dump_measures=False):
         '''
         :param sm: SpatialModel that will be used for sampling.
     
-        :param start_from_scratch: Boolean. If true, always sample stats. If false and stats are present (e.g. *.coord file), start at the native conformation.
         '''
-        #BT: Seems to be not in used
+        #BT: Seems to be not in use
         #if stats_type == 'continuous':
         #    self.cont_stats = ftms.ContinuousAngleStats(ftms.get_angle_stats())
         #elif stats_type == 'random':
@@ -500,43 +533,15 @@ class MCMCSampler(object):
         self.resampled_energy = True
         self.prev_stats={}
         self.prev_mst = None #Used only in Subclass!
-        print("INFO: Trying to load sampled elements.", file=sys.stderr)
-        try:
-            sm.load_sampled_elems()
-        except:
-            start_from_scratch=True
-        else:
-            resampled=False
 
-        if start_from_scratch or not sm.elem_defs:  
-            print("INFO: Starting with sampling of all stats.", file=sys.stderr)
-            sm.sample_stats()
-            resampled=True
+        self.energy_function.energies += sm.constraint_energy.energies
+        self.energy_function.energies += [sm.junction_constraint_energy]
+        self.sm.constraint_energy = None
+        self.sm.junction_constraint_energy = None
 
-        constraint_energy = sm.constraint_energy
-        if sm.constraint_energy is not None or sm.junction_constraint_energy is not None:
-            junction_constraint_energy = sm.junction_constraint_energy
-            sm.constraint_energy = None
-            sm.junction_constraint_energy = None
-            print ("constraint energy about to build 1...", file=sys.stderr)
-            sm.traverse_and_build()
-            print ("constraint energy finished building 1", file=sys.stderr)
-            sm.constraint_energy = constraint_energy
-            sm.junction_constraint_energy = junction_constraint_energy
-            print ("constraint energy about to build 2...", file=sys.stderr)
-            sm.traverse_and_build(verbose=not resampled)
-            print ("constraint energy finished building 2", file=sys.stderr)
-            self.energy_function.energies += sm.constraint_energy.energies
-            self.energy_function.energies += [sm.junction_constraint_energy]
-        sm.constraint_energy = None
-        sm.junction_constraint_energy = None
-
-        sm.traverse_and_build()
-        print ("Adding virtual residues...", file=sys.stderr)
-        sm.bg.add_all_virtual_residues()
-        print ("Virtual residues added. Evaluating energy", file=sys.stderr)
+        #Evaluate the energy so we can accept that measure.
         self.prev_energy = energy_function.eval_energy(sm)
-        print ("Energy was {}".format(self.prev_energy), file=sys.stderr)
+        log.info("Energy was {}".format(self.prev_energy))
         try:
             self.prev_constituing = self.energy_function.constituing_energies
         except AttributeError: 
@@ -545,7 +550,7 @@ class MCMCSampler(object):
         #This is required so reject_last_measure does not accept the last measure from the 
         #file a second time. And for the use_accepted_measure flag of eval_energy
         self.energy_function.accept_last_measure()
-        sm.get_sampled_bulges()
+        self.sm.get_sampled_bulges() #Store in sm which bulges are sampled (vs broken ml-segments)
         if isinstance(stats, sstats.SamplingStatistics):
             self.stats.print_header()
 
@@ -688,9 +693,9 @@ class ImprovedMultiloopMCMC(MCMCSampler):
     Stats that lead to a lot of clashes are picked less often for the first multiloop segment, to
     avoid introducing a statistical bias.
     """
-    def __init__(self, sm, energy_function, stats, start_from_scratch=False, dump_measures=False):        
+    def __init__(self, sm, energy_function, stats, dump_measures=False):        
         self.junction_energy = sm.junction_constraint_energy
-        super(ImprovedMultiloopMCMC, self).__init__(sm, energy_function, stats, start_from_scratch, dump_measures)
+        super(ImprovedMultiloopMCMC, self).__init__(sm, energy_function, stats, dump_measures)
         #: A dict of the form `{ define : { stat : [#choosen, #rejects ] }}`
         self.stats_weights = c.defaultdict(lambda : c.defaultdict(lambda: [0,0]))
 
@@ -785,7 +790,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         return "".join(movestring)
 
 class ExhaustiveExplorer(MCMCSampler):
-    def __init__(self, sm, energy_function, stats, loop_of_interest, start_from_scratch = True):
+    def __init__(self, sm, energy_function, stats, loop_of_interest):
         super(ExhaustiveExplorer, self).__init__(sm, energy_function, stats)
         self.num_choices=len(self.sm.conf_stats.sample_stats(self.sm.bg, loop_of_interest))
         self.loop_of_interest=loop_of_interest

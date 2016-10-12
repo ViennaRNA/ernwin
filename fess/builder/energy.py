@@ -47,6 +47,8 @@ import time, random
 import functools
 import os
 
+import logging
+log = logging.getLogger(__name__)
 
 try:
   profile  #The @profile decorator from line_profiler (kernprof)
@@ -354,7 +356,7 @@ class FPPEnergy(EnergyFunction):
         try:
             projection_direction = np.linalg.solve(a, b)
         except Exception as e: #Degenerate equations. Estimate the solution from full set of equations
-            print(e, "USING LSTSQ")
+            log.info("{}: USING LSTSQ".format(e), exc_info=True)
             projection_direction = np.linalg.lstsq(np.array(vectors3d), np.array(angles))[0] #lstsq instead of solve, because system may be underdetermined
 
         ###
@@ -1427,7 +1429,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         rogs = rdata[:,1]
         rogs=np.array([adjust*i for i in rogs])
 
-        print("Radii of gyration [{}, {}]: min-median-max: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)), file=sys.stderr)
+        log.info("Radii of gyration [{}, {}]: min-median-max: {}-{}-{}".format(filename, adjust, min(rogs), sorted(rogs)[int(len(rogs)/2)], max(rogs)))
         return (self.get_distribution_from_values(rogs), list(rogs))
 
 class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):

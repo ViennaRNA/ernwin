@@ -269,6 +269,8 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
     twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
 
+    assert np.allclose(np.dot(stem_orientation, twist1), 0)
+
     mid1 = prev_stem.mids[s1e] + start_location
     mid2 = mid1 + stem_orientation
 
@@ -276,7 +278,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
 
     twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
     stem.twists = (twist1, twist2)
-
+    assert np.allclose(np.dot(stem_orientation, twist2), 0)
     return stem
 
 class SpatialModel:

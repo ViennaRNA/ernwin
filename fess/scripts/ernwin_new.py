@@ -26,7 +26,8 @@ import scipy.ndimage
 import numpy as np
 import itertools as it
 
-
+import logging
+log = logging.getLogger(__name__)
 
 
 
@@ -62,6 +63,10 @@ def get_parser():
     parser.add_argument('--start-from-scratch', default=False, action='store_true', 
                         help="Do not attempt to start at the input conformation.\n"
                              "(Automatically True for fasta files.)")
+    parser.add_argument('-f', '--fair-building', action="store_true", 
+                        help = "Try to build the structure using a fair \n"
+                               "but slow algorithm.\n "
+                               "This flag implies --start-from-scratch")
     parser.add_argument('--eval-energy', default=False, action='store_true', 
                         help='Evaluate the energy of the input structure and\n'
                              'exit without sampling.')
@@ -82,7 +87,7 @@ def get_parser():
                         help='Dump the measures used for energy calculation to file') #UNUSED OPTION. REMOVE
     parser.add_argument('--no-rmsd', default=False, 
                         help='Refrain from trying to calculate the rmsd.', action='store_true')
-    parser.add_argument('--rmsd-to', action='store', type=str, 
+    parser.add_argument('--rmsd-to', action='store', type=str,
                         help="A *.cg/ *.coord or *.pdb file.\n"
                              "Calculate the RMSD and MCC relative to the structure\n"
                              "in this file, not to the structure used as starting\n"
@@ -705,6 +710,8 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     if args.no_rmsd:
         options["rmsd"] = False
         options["acc"]  = False
+    if args.fair_building:
+        args.start_from_scratch = True
     if not args.start_from_scratch and not args.rmsd_to:
         options["extreme_rmsd"] = "max" #We start at 0 RMSD. Saving the min RMSD is useless.
     options[ "step_save" ] = args.step_save 
@@ -767,15 +774,25 @@ def main(args):
                           "--fpp-landmarks {}".format(e.scale, e.ref_image, 
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
                           file=out_file)
+
+            # Build the first spatial model.
+            log.info("Trying to load sampled elements...")
+            resampled = False
+            loaded = fbs.load_sampled_elements(sm)
+            if not args.start_from_scratch or not loaded:
+                if not loaded:            
+                    log.warning("Could not load stats. Start with sampling of all stats.")
+                sm.sample_stats()
+                resampled=True
+            
+            fbs.build_sm(sm, verbose = not resampled)
             if args.exhaustive:
-                sampler = fbs.ExhaustiveExplorer(sm, energy, stat, args.exhaustive, args.start_from_scratch)
+                sampler = fbs.ExhaustiveExplorer(sm, energy, stat, args.exhaustive)
             elif args.new_ml:
                 sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, 
-                                          start_from_scratch=args.start_from_scratch,
                                           dump_measures=args.dump_energies)
             else:
                 sampler = fbs.MCMCSampler(sm, energy, stat, 
-                                          start_from_scratch=args.start_from_scratch,
                                           dump_measures=args.dump_energies)
             for i in range(args.iterations):
                 sampler.step()
