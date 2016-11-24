@@ -479,13 +479,49 @@ def load_sampled_elements(sm):
     """
     try:
         sm.load_sampled_elems()
-    except:
+    except Exception as e:
+        log.warning("Cannot use structure from file. Need to resample: {}".format(e), exc_info=True)
         return False
     if not sm.elem_defs:
         return False
     return True
 
-def build_sm(sm, verbose = False):
+def build_fair(sm, stat_source, target_attempts=None, target_structures=None, randomize_mst = False):
+    if target_attempts is None and target_structures is None:
+        raise ValueError("Need target_structures or target_attempts")
+    attempts = 0
+    junction_failures = 0
+    structures = []        
+    constraint_energy = sm.constraint_energy
+    junction_constraint_energy = sm.junction_constraint_energy
+    failed_structures = []
+    sm.constraint_energy = None
+    sm.junction_constraint_energy = None
+    while True:
+        if sys.stdout.isatty():
+            print("\r{} / {}".format(len(structures), attempts), end="")
+        attempts += 1
+        if target_attempts is not None and attempts>target_attempts:
+            break
+        sm.sample_stats(stat_source)
+        sm.traverse_and_build()
+        if constraint_energy.eval_energy(sm)==0 and junction_constraint_energy.eval_energy(sm)==0:
+            structures.append(sm.bg.to_cg_string()) #Serializing is cheaper than deepcopy.
+        else:
+            failed_structures.append(sm.bg.to_cg_string())
+        if junction_constraint_energy.eval_energy(sm)>0:
+            junction_failures += 1
+        if target_structures is not None and len(structures)>=target_structures:
+            break
+        if randomize_mst:
+            for ml in sm.bg.find_mlonly_multiloops:
+                segment = random.choice(ml)
+                sm.set_multiloop_break_segment(segment)
+    sm.constraint_energy = constraint_energy
+    sm.junction_constraint_energy = junction_constraint_energy
+    return structures, failed_structures, attempts, junction_failures
+
+def build_sm(sm, stat_source, verbose = False):
     """
     Build the initial structure that will be used for sampling.
     """
@@ -498,9 +534,9 @@ def build_sm(sm, verbose = False):
         sm.traverse_and_build()
         sm.constraint_energy = constraint_energy
         sm.junction_constraint_energy = junction_constraint_energy
-        log.info("building with constraint energy")
-        sm.traverse_and_build(verbose=verbose)
-        log.info("finished building", file=sys.stderr)
+        log.info("building with constraint energy (verbose is '{}')".format(verbose))
+        sm.traverse_and_build(verbose=verbose, stat_source=stat_source)
+        log.info("finished building")
     sm.traverse_and_build()
     sm.bg.add_all_virtual_residues()
 
@@ -509,7 +545,7 @@ class MCMCSampler(object):
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, stats, dump_measures=False):
+    def __init__(self, sm, energy_function, stats, stat_source, dump_measures=False):
         '''
         :param sm: SpatialModel that will be used for sampling.
     
@@ -526,6 +562,7 @@ class MCMCSampler(object):
         self.sm = sm
         self.energy_function = energy_function
         self.stats = stats
+        self.stat_source = stat_source
         if not isinstance(stats, sstats.SamplingStatistics):
             self.stats.energy_function = energy_function
         self.prev_energy = 100000000000.
@@ -572,9 +609,9 @@ class MCMCSampler(object):
         movestring=[]
         energy = self.energy_function.eval_energy(self.sm, background=True)
 
-        movestring.append("{:.3f}".format(self.prev_energy[0]))
+        movestring.append("{:.3f}".format(self.prev_energy))
         movestring.append("->")
-        movestring.append("{:.3f};".format(energy[0]))
+        movestring.append("{:.3f};".format(energy))
 
         if energy < self.prev_energy:
             movestring.append("A")
@@ -630,9 +667,7 @@ class MCMCSampler(object):
         d
         movestring=[]
         movestring.append(d+":")
-        #import pdb
-        #pdb.set_trace()
-        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
+        possible_stats=self.stat_source.get_possible_stats(self.sm.bg, d)
         new_stat = random.choice(possible_stats)
 
         # we have to replace the energy because we've probably re-calibrated
@@ -645,15 +680,15 @@ class MCMCSampler(object):
             self.resampled_energy = False
 
         self.prev_stats={d: self.sm.elem_defs[d]}
-        movestring.append(hex(hash(self.prev_stats[d])))
+        movestring.append(self.prev_stats[d].pdb_name)
         movestring.append("->")
-        movestring.append(hex(hash(new_stat)))
+        movestring.append(new_stat.pdb_name)
         movestring.append(";")
-        if isinstance(new_stat, ftms.AngleStat) and isinstance(self.sm.conf_stats.angle_stats, ftms.ClusteredAngleStats):
-            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(self.prev_stats[d])))
-            movestring.append("->")
-            movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
-            movestring.append(";")
+        #if isinstance(new_stat, ftms.AngleStat) and isinstance(self.sm.conf_stats.angle_stats, ftms.ClusteredAngleStats):
+        #    movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(self.prev_stats[d])))
+        #    movestring.append("->")
+        #    movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
+        #    movestring.append(";")
         self.sm.elem_defs[d] = new_stat
         self.sm.traverse_and_build(start=d)
         return "".join(movestring)
@@ -676,7 +711,7 @@ class MCMCSampler(object):
 
         self.step_counter += 1
         if isinstance(self.stats, sstats.SamplingStatistics):
-            self.stats.update_statistics( self.sm, self.prev_energy[0], self.prev_constituing, movestring )
+            self.stats.update_statistics( self.sm, self.prev_energy, self.prev_constituing, movestring )
 
         self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
 
@@ -693,16 +728,15 @@ class ImprovedMultiloopMCMC(MCMCSampler):
     Stats that lead to a lot of clashes are picked less often for the first multiloop segment, to
     avoid introducing a statistical bias.
     """
-    def __init__(self, sm, energy_function, stats, dump_measures=False):        
+    def __init__(self, sm, energy_function, stats, stat_source, dump_measures=False):        
         self.junction_energy = sm.junction_constraint_energy
-        super(ImprovedMultiloopMCMC, self).__init__(sm, energy_function, stats, dump_measures)
+        super(ImprovedMultiloopMCMC, self).__init__(sm, energy_function, stats, stat_source, dump_measures)
         #: A dict of the form `{ define : { stat : [#choosen, #rejects ] }}`
         self.stats_weights = c.defaultdict(lambda : c.defaultdict(lambda: [0,0]))
 
         self.prev_stats={}
         self.prev_mst=None
     def change_elem(self):
-        #from ..scripts import report_coaxial_stacking as rcs
         # pick a random element and get a new statistic for it
         possible_elements=list(self.sm.bg.mst)
         pe=set(possible_elements)
@@ -727,19 +761,15 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         if len(missing_nodes)>0:
             self.prev_mst = copy.copy(self.sm.bg.mst)
             #print("Breaking {}".format(d))
-            d = self.sm.set_multiloop_break_segment(d) #This is done AFTER prev_stats are saved!
+            d = self.sm.set_multiloop_break_segment(d) #This is done AFTER prev_stats are saved! d now is the previousely broken segment
             #print("Closed {}".format(d))
 
         #Update defined_junction_nodes
         defined_junction_nodes = junction_nodes & self.sm.bg.mst
 
-        #print(self.sm.bg.traverse_graph())
-        #for node in junction_nodes:
-        #    print(node, self.sm.bg.get_node_dimensions(node), self.sm.bg.get_angle_type(node), "\t", hex(hash(self.sm.elem_defs.get(node))))
-
         movestring=[]
-        movestring.append(d+":")
-        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, d)
+        movestring.append(d+":") #The previousely broken but now closed segment.
+        possible_stats=self.stat_source.get_possible_stats(self.sm.bg, d)
         random.shuffle(list(possible_stats))
 
         searching=True
@@ -780,7 +810,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 other_d = random.choice(list(set(defined_junction_nodes)-set([d])))
                 #print ("... now changing {}".format(other_d), file=sys.stderr)
                 assert other_d in self.prev_stats
-                possible_other_stats = self.sm.conf_stats.sample_stats(self.sm.bg, other_d)
+                possible_other_stats = self.stat_source.get_possible_stats(self.sm.bg, other_d)
                 self.sm.elem_defs[other_d] = random.choice(possible_other_stats)
                 self.sm.traverse_and_build(start=other_d)
                 #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
@@ -790,22 +820,17 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         return "".join(movestring)
 
 class ExhaustiveExplorer(MCMCSampler):
-    def __init__(self, sm, energy_function, stats, loop_of_interest):
-        super(ExhaustiveExplorer, self).__init__(sm, energy_function, stats)
-        self.num_choices=len(self.sm.conf_stats.sample_stats(self.sm.bg, loop_of_interest))
+    def __init__(self, sm, energy_function, stats, stat_source, loop_of_interest):
+        super(ExhaustiveExplorer, self).__init__(sm, energy_function, stats, stat_source)
+        self.possible_stats = self.stat_source.get_possible_stats(sm.bg, loop_of_interest)
         self.loop_of_interest=loop_of_interest
-        self._to_choose=[]
     def next_choice(self):
         while True:
-            self.to_choose=list(range(self.num_choices))
-            random.shuffle(self.to_choose)
-            for choice in self.to_choose:
-                yield choice
+            random.shuffle(self.possible_stats)
+            for stat in self.possible_stats:
+                yield stat
     def change_elem(self):
-        possible_stats=self.sm.conf_stats.sample_stats(self.sm.bg, self.loop_of_interest)
-        c=next(self.next_choice())
-        #print(c)
-        new_stat = possible_stats[c]
+        new_stat=next(self.next_choice())
         self.sm.elem_defs[self.loop_of_interest] = new_stat
         self.sm.traverse_and_build(start=self.loop_of_interest)
         self.sm.bg.infos["sampledFromExhaustive"]=["{} {}".format(self.loop_of_interest,c)]
@@ -818,6 +843,7 @@ class ExhaustiveExplorer(MCMCSampler):
         self.energy_function.accept_last_measure()
         return str(c)
 
+"""
 class GibbsBGSampler:
     '''
     A Gibbs Sampler for Bulge Graphs.
@@ -909,4 +935,4 @@ class GibbsBGSampler:
 
         self.sm.traverse_and_build(start=bulge)
         self.stats.update_statistics(self.energy_function, self.sm)
-
+"""

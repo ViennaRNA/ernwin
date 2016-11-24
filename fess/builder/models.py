@@ -264,10 +264,10 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     '''
     stem = StemModel()
     
-    stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
-    start_location = cgg.stem2_pos_from_stem1_1(stem1_basis, bulge_params.position_params())
-    stem_orientation = cgg.stem2_orient_from_stem1_1(stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
-    twist1 = cgg.twist2_orient_from_stem1_1(stem1_basis, bulge_params.twist_params())
+    transposed_stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
+    start_location = cgg.stem2_pos_from_stem1_1(transposed_stem1_basis, bulge_params.position_params())
+    stem_orientation = cgg.stem2_orient_from_stem1_1(transposed_stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
+    twist1 = cgg.twist2_orient_from_stem1_1(transposed_stem1_basis, bulge_params.twist_params())
 
     assert np.allclose(np.dot(stem_orientation, twist1), 0)
 
@@ -287,7 +287,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg, conf_stats=None):
+    def __init__(self, bg):
         '''
         Initialize the structure.
 
@@ -313,31 +313,16 @@ class SpatialModel:
 
         self.elem_defs = None
 
-        # Used by the conf_stats property!
-        self._conf_stats = conf_stats
-        #if conf_stats is None:
-        #    self._default_conf_stats=True #Used for deepcopy to avoid copying the stats
-        #else:
-        #    self._default_conf_stats=False
         self.bg = bg
         self.add_to_skip()
         
         try:
             self.bg.add_all_virtual_residues()
-        except ftmc.RnaMissing3dError:
+        except (ftmc.RnaMissing3dError, AssertionError):
             # The structure is probably new and doesnt have coordinates yet
             pass
 
-    @property
-    def conf_stats(self):
-        if self._conf_stats is None:
-            #This takes up to 4 seconds, which is why we only load the stats the first time we use them.
-            self._conf_stats = ftms.get_conformation_stats()
-        return self._conf_stats
-    @conf_stats.setter
-    def conf_stats(self, val):
-        raise NotImplementedError #To see if this is needed.
-    def sample_stats(self):
+    def sample_stats(self, stat_source):
         self.elem_defs = dict()
 
         for d in self.bg.defines:
@@ -347,14 +332,14 @@ class SpatialModel:
                     # is broken here
                     continue
             try:
-                self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+                self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))
             except:
                 print ("Error sampling stats for element %s." % (d), file=sys.stderr)
                 raise
 
 
-    def resample(self, d):
-        self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+    def resample(self, d, stat_source):
+        self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))
         '''
         if d[0] == 's':
             self.stem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
@@ -592,7 +577,7 @@ class SpatialModel:
         mat = ftuv.get_double_alignment_matrix(target, [vec1, twist1])
 
         return mat
-
+    """ #Not random at all!
     def get_random_stem_stats(self, name):
         '''
         Return a random set of parameters with which to create a stem.
@@ -609,7 +594,7 @@ class SpatialModel:
             return ftms.AngleStat()
 
         #return self.angle_defs[name][ang_type]
-        return self.elem_defs[name]
+        return self.elem_defs[name]"""
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
@@ -675,20 +660,19 @@ class SpatialModel:
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
 
-
-
         cgg.add_virtual_residues(self.bg, stem)
 
-    def __str__(self):
-        return str(self.mids)
-    def elements_to_coords(self):
+    """def __str__(self):
+        return str(self.mids)"""
+    
+    def _elements_to_coords(self):
         '''
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
         '''
         # this should be changed in the future so that only stems whose 
         # positions have changed have their virtual residue coordinates
         # re-calculated
-        self.newly_added_stems = [d for d in self.bg.defines if d[0] == 's']
+        self.newly_added_stems = []#This is only called by traverse_and_build, where stems have already been placed. [d for d in self.bg.defines if d[0] == 's']
 
         #for stem in self.stems.keys():
         for stem in self.newly_added_stems:
@@ -751,9 +735,9 @@ class SpatialModel:
 
         #self.prev_visit_order = prev_visited
 
-    def finish_building(self):
+    def _finish_building(self):
         self.fill_in_bulges_and_loops()
-        self.elements_to_coords()
+        self._elements_to_coords()
         self.save_sampled_elems()
 
     def add_to_skip(self):
@@ -782,7 +766,7 @@ class SpatialModel:
         self.to_skip = to_skip
 
 
-    def traverse_and_build(self, start='start', fast=True, verbose=False):
+    def traverse_and_build(self, start='start', fast=True, verbose=False, stat_source = None):
         '''
         Build a 3D structure from the graph in self.bg.
         '''
@@ -809,6 +793,7 @@ class SpatialModel:
         self.stems['s0'] = self.add_stem('s0', self.elem_defs['s0'], StemModel(), 
                                       ftms.AngleStat(), (0,1))
 
+        self.stem_to_coords("s0")
         counter = 0
         i = 0
         while i < len(build_order):
@@ -838,7 +823,6 @@ class SpatialModel:
             else:
                 self.stems[s2] = stem
 
-            self.stem_to_coords(s1)
             self.stem_to_coords(s2)
 
             #Nodes for energy calculation
@@ -846,10 +830,12 @@ class SpatialModel:
 
             if self.junction_constraint_energy is not None and fast:
                 #Make sure, the sampled Multiloop segments fulfill the energy constraints.
+                s1, s2 = self.bg.edges[build_order[i][1]]
+                
                 assert self.junction_constraint_energy.eval_energy(self, nodes=nodes)==0., ("Multiloop"
                             " does not fulfill the constraints: {}, i={},. build_order[i]={};"
-                            " Sampled as {}. Energy {}".format(self.junction_constraint_energy.bad_bulges,
-                            i, build_order[i], self.elem_defs[build_order[i][1]], self.junction_constraint_energy))
+                            " Sampled as {}. Energy {}. Neighboring stems: {}: {}, {}: {}".format(self.junction_constraint_energy.bad_bulges,
+                            i, build_order[i], self.elem_defs[build_order[i][1]], self.junction_constraint_energy, s1, self.elem_defs[s1].pdb_name, s2, self.elem_defs[s2].pdb_name))
 
                 # Add all multiloop segments that are already determined at the current 
                 # build-step to the list of nodes for energy evaluation.
@@ -882,7 +868,7 @@ class SpatialModel:
                                        "Build_order(bad_loops[0])={}.".format(i, ej, 
                                               bad_loops, buildorder_of(bad_loops[0])))
                     d = build_order[i][1]
-                    self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))            
+                    self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))            
                     counter += 1
                     continue; #If the junction energy is non-zero, we do not bother with clashes 
 
@@ -908,7 +894,7 @@ class SpatialModel:
                         i = random.randint(0, i)
                     # resample its stats
                     d = build_order[i][1]
-                    self.elem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
+                    self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))
                     counter+=1;
                     continue;
             # All constraint energy is zero (or None) for the part of the RNA 
@@ -927,7 +913,7 @@ class SpatialModel:
         if self.constraint_energy is not None:
             c_energy=self.constraint_energy.eval_energy(self)
             assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}.".format(c_energy, self.constraint_energy.bad_bulges)
-        self.finish_building()
+        self._finish_building()
     """
     def __deepcopy__(self, memo={}):
         # According to https://mail.python.org/pipermail/tutor/2009-June/069433.html
