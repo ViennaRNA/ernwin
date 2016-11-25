@@ -6,7 +6,7 @@ setup(name='ernwin',
       author='Peter Kerpedjiev, Bernhard Thiel',
       author_email='pkerp@tbi.univie.ac.at, thiel@tbi.univie.ac.at',
       url='http://www.tbi.univie.ac.at/~thiel/ernwin/',
-      packages = ['fess', 'fess.builder', 'fess.aux'],
+      packages = ['fess', 'fess.builder', 'fess.aux', 'fess.motif'],
       package_data={'fess': ['stats/temp.stats', 'stats/cylinder_intersections*.csv',
                             'stats/subgraph_radius_of_gyration_sampled.csv',
                             'stats/subgraph_radius_of_gyration.csv',
@@ -20,5 +20,5 @@ setup(name='ernwin',
                              'stats/aminors_1jj2_sampled.csv',
 			     'stats/combined.stats',
                              'stats/all.stats']},
-      scripts=['fess/scripts/ernwin_new.py', 'fess/scripts/annotate_structure.py']
+      scripts=['fess/scripts/ernwin_new.py']
      )
