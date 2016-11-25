@@ -610,6 +610,7 @@ def setup_deterministic(args):
 
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
+    logging.basicConfig()
     if args.verbose:
         logging.getLogger().setLevel(level=logging.INFO)
     else:
@@ -791,7 +792,7 @@ def main(args):
                           file=out_file)
 
             if args.fair_building:
-                strus, failed_strus, attempts, failed_mls = fbs.build_fair(sm, stat_source, target_attempts=200000, randomize_mst = args.new_ml, )
+                strus, failed_strus, attempts, failed_mls = fbs.build_fair(sm, stat_source, target_attempts=args.iterations, randomize_mst = args.new_ml, )
                 print ("{}/{} attempts to build the structure were successful ({:%}). {} times a multiloop was not closed. Structure has {} defines and is {} nts long.".format(len(strus), attempts, len(strus)/attempts, failed_mls, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
                 for i, stru in enumerate(strus):
                     with open(os.path.join(config.Configuration.sampling_output_dir, 
@@ -816,17 +817,17 @@ def main(args):
                     sm.sample_stats(stat_source)
                 fbs.build_sm(sm, stat_source, verbose = not resample)
 
-            if args.exhaustive:
-                sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, args.exhaustive)
-            elif args.new_ml:
-                sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, stat_source,
-                                          dump_measures=args.dump_energies)
-            else:
-                sampler = fbs.MCMCSampler(sm, energy, stat, stat_source,
-                                          dump_measures=args.dump_energies)
-            for i in range(args.iterations):
-                sampler.step()
-            print ("# Everything done. Terminated normally", file=out_file)
+                if args.exhaustive:
+                    sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, args.exhaustive)
+                elif args.new_ml:
+                    sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, stat_source,
+                                              dump_measures=args.dump_energies)
+                else:
+                    sampler = fbs.MCMCSampler(sm, energy, stat, stat_source,
+                                              dump_measures=args.dump_energies)
+                for i in range(args.iterations):
+                    sampler.step()
+                print ("# Everything done. Terminated normally", file=out_file)
         finally: #Clean-up
             stat.collector.to_file()
             print("INFO: Random seed was {}".format(seed_num), file=sys.stderr)
