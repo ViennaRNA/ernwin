@@ -79,7 +79,7 @@ class StatStorage(object):
             fallback_filenames = []
         self.fallbacks = fallback_filenames
         self._sources = None
-    
+        self._has_warned = set() #Only emit warnings about insufficient stats once.
     def _iter_stat_sources(self):                
         if self._sources is None:
             self._sources = [read_stats_file(self.filename)]
@@ -96,7 +96,9 @@ class StatStorage(object):
             try:
                 source = next(statfiles)[stat_type]
             except StopIteration:
-                log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
+                if (stat_type, key, min_entries) not in self._has_warned:
+                    log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
+                    self._has_warned.add((stat_type, key, min_entries))
                 break
             try:
                 choose_from+=source[key]
@@ -111,5 +113,6 @@ class StatStorage(object):
         key = _key_from_bg_and_elem(bg, elem)
         return self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
 
-        
-    
+    def sample_for(self, bg, elem, min_entries = 100):
+        stats = self.get_possible_stats(bg, elem, min_entries)
+        return random.choice(stats)

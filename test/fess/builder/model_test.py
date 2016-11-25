@@ -493,7 +493,31 @@ class TestModel(unittest.TestCase):
 
             sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(), 
                                                     fbe.CoarseStemClashEnergy(), 
-                                                    fbe.StemVirtualResClashEnergy()])
+           class TestModel(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.real_stats_fn = 'test/fess/data/real.stats'
+        self.filtered_stats_fn = 'test/fess/data/filtered_stats_1gid.csv'
+
+        self.filtered_stats = ftms.FilteredConformationStats(self.real_stats_fn, 
+                                                             self.filtered_stats_fn)
+        
+        self.stat_source = stat_container.StatStorage(self.real_stats_fn)
+        self.sm = fbm.SpatialModel(self.cg)
+        self.sm.sample_stats(self.stat_source)
+
+        return
+
+    @unittest.expectedFailure #filtered_stats do not yet work with stat_container.
+    def test_filtered_traverse_and_build(self):
+        fcs = self.filtered_stats
+        ftms.set_conformation_stats(fcs)
+        sm = fbm.SpatialModel(self.cg, conf_stats=fcs)
+        sm.sample_stats()
+
+        sm.traverse_and_build()
+        sm.bg.to_file('temp.cg')
+                                         fbe.StemVirtualResClashEnergy()])
             sm.traverse_and_build()
         time2 = time.time()
         print >>sys.stderr, "traverse_and_build, elapsed_time:", time2 - time1
@@ -512,3 +536,60 @@ class TestModel(unittest.TestCase):
 
         print >>sys.stderr, "new_traverse_and_build, elapsed time:", time2 - time1"""
         
+class TestNewTraverse(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
+        self.cg_copy = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
+        self.sm = fbm.SpatialModel(self.cg)
+        real_stats_fn = 'test/fess/data/real.stats'        
+        self.stat_source = stat_container.StatStorage(real_stats_fn)
+
+    def test_new_traverse_and_build(self):   
+        self.sm.load_sampled_elems()
+        self.sm.new_traverse_and_build()
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+
+    def test_new_traverse_and_build_raises_with_start_and_unbuilt_structure(self):
+        self.sm.load_sampled_elems()
+        with self.assertRaises(ValueError):
+            self.sm.new_traverse_and_build(start="s1")
+
+    def test_new_traverse_and_build_start_doesnt_build_before_start(self):
+        self.sm.load_sampled_elems()
+        #We need to traverse_and_build at least once from the start!
+        self.sm.new_traverse_and_build()
+        #Change structure at s0
+        self.sm.elem_defs["s0"] = self.stat_source.get_possible_stats(self.cg, "s0")[0]
+        #Build only part that did not change
+        self.sm.new_traverse_and_build(start="s1")
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+        #Now build everything including the changed s0
+        self.sm.new_traverse_and_build()
+        self.assertGreater(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+    def test_new_traverse_and_build_start_really_builds(self):
+        self.sm.load_sampled_elems()
+        #We need to traverse_and_build at least once from the start!
+        self.sm.new_traverse_and_build()
+        #Change structure at s6
+        self.sm.elem_defs["s6"] = self.stat_source.get_possible_stats(self.cg, "s6")[0]
+        #Build part that did change
+        self.sm.new_traverse_and_build(start="s2")
+        self.assertGreater(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+
+    def test_new_traverse_and_build_steps_doesnt_build_after(self):
+        self.sm.load_sampled_elems()
+        #We need to traverse_and_build at least once from the start!
+        self.sm.new_traverse_and_build()
+        self.sm.elem_defs["s6"] = self.stat_source.get_possible_stats(self.cg, "s6")[0]
+        self.sm.new_traverse_and_build(max_steps=2)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+        self.sm.new_traverse_and_build()
+        self.assertGreater(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+
+    def test_new_traverse_and_build_steps_really_builds(self):
+        self.sm.load_sampled_elems()
+        #We need to traverse_and_build at least once from the start!
+        self.sm.new_traverse_and_build()
+        self.sm.elem_defs["s1"] = self.stat_source.get_possible_stats(self.cg, "s1")[0]
+        self.sm.new_traverse_and_build(max_steps=5)
+        self.assertGreater(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)

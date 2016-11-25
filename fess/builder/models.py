@@ -766,6 +766,92 @@ class SpatialModel:
         self.to_skip = to_skip
 
 
+    def new_traverse_and_build(self, start='start', max_steps=float('inf'), end=None):
+        '''
+        Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.
+        
+        :param start: Optional; Start building at the given element.
+        :param max_staps: Optional; Build at most that many stems.
+        :param end: Optional; End building once the given node is built.
+                    If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
+        :returns: A list of course_grained elements that have been built. (Useful, if start or max_steps is given).
+        '''
+        build_order = self.bg.traverse_graph()
+
+        def buildorder_of(stemid):
+            """
+            Returns the buildorder of the multi-/ interior loop before the stem with stemid.
+            @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
+            """
+            if stemid=="s0": return 0
+            if stemid.startswith('s'):
+              for i, stem_loop_stem in enumerate(build_order):
+                  if stemid==stem_loop_stem[2]:
+                      return i
+            else:
+              for i, stem_loop_stem in enumerate(build_order):
+                  if stemid==stem_loop_stem[1]:
+                      return i
+            raise ValueError("{} not found in {}.".format(stemid,build_order))
+        nodes = []
+        if start == "start":
+            # add the first stem in relation to a non-existent stem
+            first_stem = build_order[0][0]
+            self.stems[first_stem] = self.add_stem(first_stem, self.elem_defs[first_stem], StemModel(), 
+                                      ftms.AngleStat(), (0,1))
+            self.stem_to_coords(first_stem)
+            nodes.append(first_stem)
+            build_step = 0
+        else:
+            build_step = buildorder_of(start)
+            prev_stem = build_order[build_step][0]
+            try:
+                self.stems[prev_stem]
+            except KeyError:
+                raise ValueError("Cannot build structure starting from {0}, because the parts "
+                                 "of the structure before {0} have never been built. "
+                                 "(The start-option is only for RE-building)".format(start))
+
+        max_build_steps = min(build_step+max_steps, len(build_order))
+        while build_step < max_build_steps:
+            (s1, l, s2) = build_order[build_step]
+            nodes += [l, s2]
+            build_step +=1
+            
+            prev_stem = self.stems[s1]
+            angle_params = self.elem_defs[l]
+            stem_params = self.elem_defs[s2]
+            ang_type = self.bg.connection_type(l, [s1,s2])
+            connection_ends = self.bg.connection_ends(ang_type)
+
+            # get the direction of the first stem (which is used as a 
+            # coordinate system)
+            if connection_ends[0] == 0:
+                (s1b, s1e) = (1, 0)
+            elif connection_ends[0] == 1:
+                (s1b, s1e) = (0, 1)
+
+            stem = self.add_stem(s2, stem_params, prev_stem,
+                                 angle_params, (s1b, s1e))
+
+            # check which way the newly connected stem was added
+            # if its 1-end was added, the its coordinates need to
+            # be reversed to reflect the fact it was added backwards
+            if connection_ends[1] == 1:
+                self.stems[s2] = stem.reverse()
+            else:
+                self.stems[s2] = stem
+
+            self.stem_to_coords(s2)
+            
+            #Optional end-criterion given as a node label.
+            if end is not None and end in nodes:
+                break
+                
+        self._finish_building()
+        return nodes
+
+            
     def traverse_and_build(self, start='start', fast=True, verbose=False, stat_source = None):
         '''
         Build a 3D structure from the graph in self.bg.

@@ -7,7 +7,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
-from deepdiff import DeepDiff #Use fork from git@github.com:Bernhard10/deepdiff.git
+from deepdiff import DeepDiff 
 import collections as c
 import sys, random, copy
 import numpy as np
@@ -489,6 +489,7 @@ def load_sampled_elements(sm):
 def build_fair(sm, stat_source, target_attempts=None, target_structures=None, randomize_mst = False):
     if target_attempts is None and target_structures is None:
         raise ValueError("Need target_structures or target_attempts")
+    log.debug("Target attempts: {}, target structures: {}".format(target_attempts, target_structures))
     attempts = 0
     junction_failures = 0
     structures = []        
@@ -503,14 +504,20 @@ def build_fair(sm, stat_source, target_attempts=None, target_structures=None, ra
         attempts += 1
         if target_attempts is not None and attempts>target_attempts:
             break
+        log.debug("Fair building: Sampling...")
         sm.sample_stats(stat_source)
         sm.traverse_and_build()
         if constraint_energy.eval_energy(sm)==0 and junction_constraint_energy.eval_energy(sm)==0:
             structures.append(sm.bg.to_cg_string()) #Serializing is cheaper than deepcopy.
+            log.debug("... is valid")
         else:
             failed_structures.append(sm.bg.to_cg_string())
         if junction_constraint_energy.eval_energy(sm)>0:
             junction_failures += 1
+            log.debug("... junction invalid")
+        else:
+            log.debug("... clash invalid")
+
         if target_structures is not None and len(structures)>=target_structures:
             break
         if randomize_mst:
