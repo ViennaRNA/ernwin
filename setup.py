@@ -19,6 +19,7 @@ setup(name='ernwin',
                              'stats/aminors_1s72.csv',
                              'stats/aminors_1jj2_sampled.csv',
 			     'stats/combined.stats',
-                             'stats/all.stats']},
+                             'stats/all.stats',
+                             'stats/all_nr2.92.stats']},
       scripts=['fess/scripts/ernwin_new.py']
      )
