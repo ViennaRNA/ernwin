@@ -22,6 +22,8 @@ import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
 import copy
 
+import logging
+log = logging.getLogger(__name__)
 class StemModel:
     '''
     A way of encapsulating the coarse grain 3D stem.
@@ -770,7 +772,7 @@ class SpatialModel:
         '''
         Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.
         
-        :param start: Optional; Start building at the given element.
+        :param start: Optional; Start building the given element. If it is a stem, build AFTER this stem.
         :param max_staps: Optional; Build at most that many stems.
         :param end: Optional; End building once the given node is built.
                     If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
@@ -785,9 +787,9 @@ class SpatialModel:
             """
             if stemid=="s0": return 0
             if stemid.startswith('s'):
-              for i, stem_loop_stem in enumerate(build_order):
-                  if stemid==stem_loop_stem[2]:
-                      return i
+                for i, stem_loop_stem in enumerate(build_order):
+                    if stemid==stem_loop_stem[2]:
+                        return i+1
             else:
               for i, stem_loop_stem in enumerate(build_order):
                   if stemid==stem_loop_stem[1]:
@@ -804,6 +806,8 @@ class SpatialModel:
             build_step = 0
         else:
             build_step = buildorder_of(start)
+            if build_step == len(build_order):
+                return []
             prev_stem = build_order[build_step][0]
             try:
                 self.stems[prev_stem]

@@ -543,6 +543,39 @@ class TestNewTraverse(unittest.TestCase):
         self.sm = fbm.SpatialModel(self.cg)
         real_stats_fn = 'test/fess/data/real.stats'        
         self.stat_source = stat_container.StatStorage(real_stats_fn)
+        self.cg2 = ftmc.CoarseGrainRNA()
+        self.cg2.from_dotbracket("(((.(((.(((.(((...))).))).))).)))")
+        #(((.(((.(((.(((...))).))).))).)))
+        #sssisssisssissshhhsssisssisssisss
+        #000211112220333000333022211112000
+
+        self.sm2 = fbm.SpatialModel(self.cg2)
+        self.sm2.sample_stats(self.stat_source)
+        
+    def test_new_traverse_and_build_return_value(self):
+        #self.cg2.print_debug()
+        nodes = self.sm2.new_traverse_and_build()
+        self.assertEqual(nodes, ["s0", "i2", "s1", "i1", "s2", "i0", "s3"])
+
+    def test_new_traverse_and_build_with_start_s_return_value(self):
+        self.sm2.new_traverse_and_build()
+        nodes = self.sm2.new_traverse_and_build(start = "s2")
+        self.assertEqual(nodes, [ "i0", "s3"])
+    def test_new_traverse_and_build_with_start_i_return_value(self):
+        self.sm2.new_traverse_and_build()
+        nodes = self.sm2.new_traverse_and_build(start = "i1")
+        self.assertEqual(nodes, [ "i1", "s2", "i0", "s3"])
+     
+    def test_new_traverse_and_build_with_step_return_value(self):
+        self.sm2.new_traverse_and_build()
+        nodes = self.sm2.new_traverse_and_build(max_steps = 2)
+        self.assertEqual(nodes, [ "s0", "i2", "s1", "i1", "s2"])
+
+    def test_new_traverse_and_build_with_step_and_start_return_value(self):
+        self.sm2.new_traverse_and_build()
+        nodes = self.sm2.new_traverse_and_build(start = "s1", max_steps = 1)
+        self.assertEqual(nodes, [ "i1", "s2"])
+
 
     def test_new_traverse_and_build(self):   
         self.sm.load_sampled_elems()
