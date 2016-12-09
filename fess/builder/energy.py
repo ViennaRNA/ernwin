@@ -620,7 +620,7 @@ class CoarseStemClashEnergy(EnergyFunction):
         energy = 0.
         #print list(bg.stems())
 
-        if nodes == None:
+        if nodes is None:
             nodes = sm.bg.defines.keys()
 
         for (s1, s2) in it.combinations(bg.stems(), 2):

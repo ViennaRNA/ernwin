@@ -18,6 +18,7 @@ import forgi.utilities.debug as fud
 from fess.builder import energy as fbe
 from fess.builder import models as fbm
 from fess.builder import sampling as fbs
+from fess.builder import builder as fbb
 from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess.builder import stat_container
@@ -792,16 +793,11 @@ def main(args):
                           file=out_file)
 
             if args.fair_building:
-                strus, failed_strus, attempts, failed_mls = fbs.build_fair(sm, stat_source, target_attempts=args.iterations, randomize_mst = args.new_ml, )
-                print ("{}/{} attempts to build the structure were successful ({:%}). {} times a multiloop was not closed. Structure has {} defines and is {} nts long.".format(len(strus), attempts, len(strus)/attempts, failed_mls, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
-                for i, stru in enumerate(strus):
-                    with open(os.path.join(config.Configuration.sampling_output_dir, 
-                                      'build{:06d}.coord'.format(i)), "w") as f:
-                        f.write(stru)
-                for i, stru in enumerate(failed_strus):
-                    with open(os.path.join(config.Configuration.sampling_output_dir, 
-                                      'failed{:06d}.coord'.format(i)), "w") as f:
-                        f.write(stru)  
+                builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, True, sm.junction_constraint_energy, sm.constraint_energy)
+                success, attempts, failed_mls, clashes = builder.success_probability(sm, target_attempts=args.iterations, store_success = True)
+                print("SUCCESS:", success, attempts, failed_mls, clashes)
+                print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+
+                       "{} times a multiloop was not closed. {} clashes occurred. Structure has {} defines and is {} nts long.".format(failed_mls, clashes, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
             else:            
                 resample = args.start_from_scratch
                 if not args.start_from_scratch:
