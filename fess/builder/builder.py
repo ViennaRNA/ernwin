@@ -248,7 +248,7 @@ class FairBuilder(Builder):
     def _store_success(self, sm):
         self._success_save_counter += 1
         with open(os.path.join(self.output_dir, 
-                              'buils{:06d}.coord'.format(self._success_save_counter)), "w") as f:
+                              'build{:06d}.coord'.format(self._success_save_counter)), "w") as f:
             f.write(sm.bg.to_cg_string())
             
     @profile

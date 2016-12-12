@@ -615,7 +615,7 @@ def setup_deterministic(args):
     if args.verbose:
         logging.getLogger().setLevel(level=logging.INFO)
     else:
-        logging.getLogger().setLevel(level=logging.WARNING)
+        logging.getLogger().setLevel(level=logging.ERROR)
     if args.debug:
         modules = args.debug.split(",")
         for module in modules:
