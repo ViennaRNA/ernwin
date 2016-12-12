@@ -1,0 +1,8 @@
+pandas
+numpy
+scipy
+biopython
+deepdiff
+networkx
+future
+forgi
