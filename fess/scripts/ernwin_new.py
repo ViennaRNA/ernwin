@@ -20,6 +20,7 @@ from fess.builder import models as fbm
 from fess.builder import sampling as fbs
 from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
+from fess.builder import stat_container
 from fess import data_file
 from fess.motif import annotate as fma
 import scipy.ndimage
@@ -111,11 +112,19 @@ def get_parser():
     parser.add_argument('-o', '--output-dir-suffix', action='store', type=str, 
                         default="", help="Suffix attached to the name from the fasta-file, \n"
                                          "used as name for the subfolder with all structures.")
+    parser.add_argument('-v', '--verbose', action='store_true', help="be verbose")
+    parser.add_argument('--debug', type=str, help="A comma-seperated list of modules for which debug output will be activated. (E.g. fess.builder)")
+
     #Controll Stats for sampling
-    parser.add_argument('--stats-file', type=str, default=data_file("stats/all.stats"),
+    parser.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.92.stats"),
                         help= "A filename.\n"
                               "A file containing all the stats to sample from\n"
                               " for all coarse grained elements")
+    parser.add_argument('--fallback-stats-files', nargs = '+', type=str,
+                        help= "A list of fallback stats file that can be uses if insufficient stats "
+                              "are found in the normal stats file for a coarse-grained element.\n"
+                              "If more than one file is given, the files are used in the order specified.\n")
+            
     parser.add_argument('--clustered-angle-stats', type=str, action="store",
                         help= "A filename.\n"
                               "If given, use this instead of --stats-file for the\n"
@@ -136,7 +145,7 @@ def get_parser():
                                          "J=junction   only junction closure energy\n"
                                          "C=clash      only stem clash energy")
     parser.add_argument('-e', '--energy', default="D", action='store', type=str, 
-                        help= "The type of non-constraint energy to use. D=Default\n"
+                        help= "The type of non-constraint energy to use. D=Default, N=None.\n"
                               "Specify a ','-separated list of energy contributions.\n"
                               "Each contribution has the format: [PRE]TYP[ADJ].\n"
                               "PRE: optional energy prefactor\n"
@@ -601,6 +610,16 @@ def setup_deterministic(args):
 
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
+    if args.verbose:
+        logging.getLogger().setLevel(level=logging.INFO)
+    else:
+        logging.getLogger().setLevel(level=logging.WARNING)
+    if args.debug:
+        modules = args.debug.split(",")
+        for module in modules:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+            log.debug("Showing debugging output for '{}'".format(module))
+
     #Load the RNA from file
     rnafile, = args.rna #Tuple unpacking
     if rnafile[-3:] == '.fa':
@@ -614,6 +633,13 @@ def setup_deterministic(args):
     else:
         cg = ftmc.CoarseGrainRNA(rnafile)
 
+    if not cg.defines:
+        print("Could not load Coarse Grained RNA. "
+              "Was the input file in fasta or cg format?",file=sys.stderr)
+        sys.exit(1)
+    if "s0" not in cg.defines:
+        print("No sampling can be done for structures without a stem",file=sys.stderr)
+        sys.exit(1)
     #Output file and directory        
     ofilename=None
     if not args.eval_energy:
@@ -629,24 +655,15 @@ def setup_deterministic(args):
         if args.output_file:
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
-
-    #Initialize the spatial model
-    if args.clustered_angle_stats and args.jar3d:
-        print("ERROR: --clustered-angle-stats and --jar3d are mutually exclusive!", file=sys.stderr)
+    #Initialize the stat_container
+    stat_source = stat_container.StatStorage(args.stats_file, args.fallback_stats_files)
+    if args.clustered_angle_stats or args.jar3d:
+        print("ERROR: --clustered-angle-stats and --jar3d are currently not implemented!", file=sys.stderr)
         sys.exit(1)
-    if args.clustered_angle_stats:
-        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file, args.clustered_angle_stats))
-    elif args.jar3d:
-        jared_out    = op.join(config.Configuration.sampling_output_dir, "filtered_stats")
-        jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
-        motifs = fma.annotate_structure(cg, jared_tmp, cg.name.split('_')[0])
-        elems = fma.motifs_to_cg_elements(motifs, config.Configuration.sampling_output_dir, filename = jared_out)
-        filtered_stats = ftms.FilteredConformationStats(stats_file=args.stats_file,
-                                                        filter_filename=jared_out)
-        ftms.set_conformation_stats(filtered_stats)
-        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats())
-    else:
-        sm=fbm.SpatialModel(cg, ftms.get_conformation_stats(args.stats_file))
+    
+    #Initialize the spatial model
+    sm=fbm.SpatialModel(cg)
+    
     #Load the reference sm (if given)
     if args.rmsd_to:
         if args.rmsd_to.endswith(".pdb"):
@@ -659,15 +676,15 @@ def setup_deterministic(args):
     else:
         original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
         
-
-
     #Initialize the requested energies
     
     if args.energy=="D":
         energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
+    elif args.energy=="N":
+        energy=fbe.CombinedEnergy([],[]) 
     else:
         energy=parseCombinedEnergyString(args.energy, cg, original_sm.bg, args)
-
+        
     #Initialize energies to track
     energies_to_track=[]
     for track_energy_string in args.track_energies.split(":"):
@@ -680,13 +697,11 @@ def setup_deterministic(args):
 
 
     #Initialize the Constraint energies
-    junction_energy=None
-    clash_energy=None
     if args.constraint_energy in ["D","B","J"]:
         sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
     if args.constraint_energy in ["D","B","C"]:
         sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
-    return sm, original_sm, ofilename, energy, energies_to_track
+    return sm, original_sm, ofilename, energy, energies_to_track, stat_source
 
 def setup_stat(out_file, sm, args, energies_to_track, original_sm):
     """
@@ -730,11 +745,10 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
                                      output_file=out_file, options=options)
     return stat
 
-
 def main(args):
     #Setup that does not use the random number generator.
     randstate=random.getstate()#Just for verification purposes
-    sm, original_sm, ofilename, energy, energies_to_track = setup_deterministic(args)
+    sm, original_sm, ofilename, energy, energies_to_track, stat_source = setup_deterministic(args)
     assert randstate==random.getstate()#Just for verification purposes
     fud.pv("energies_to_track")
     #Eval-energy mode
@@ -757,6 +771,7 @@ def main(args):
         seed_num = random.randint(0,4294967295) #sys.maxint) #4294967295 is maximal value for numpy
     random.seed(seed_num)
     np.random.seed(seed_num)
+    
     #Main function, dependent on random.seed        
     with open_for_out(ofilename) as out_file:
         #Track energies without background for comparison with constituing energies
@@ -775,27 +790,43 @@ def main(args):
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
                           file=out_file)
 
-            # Build the first spatial model.
-            log.info("Trying to load sampled elements...")
-            resampled = False
-            loaded = fbs.load_sampled_elements(sm)
-            if not args.start_from_scratch or not loaded:
-                if not loaded:            
-                    log.warning("Could not load stats. Start with sampling of all stats.")
-                sm.sample_stats()
-                resampled=True
-            
-            fbs.build_sm(sm, verbose = not resampled)
+            if args.fair_building:
+                strus, failed_strus, attempts, failed_mls = fbs.build_fair(sm, stat_source, target_attempts=200000, randomize_mst = args.new_ml, )
+                print ("{}/{} attempts to build the structure were successful ({:%}). {} times a multiloop was not closed. Structure has {} defines and is {} nts long.".format(len(strus), attempts, len(strus)/attempts, failed_mls, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
+                for i, stru in enumerate(strus):
+                    with open(os.path.join(config.Configuration.sampling_output_dir, 
+                                      'build{:06d}.coord'.format(i)), "w") as f:
+                        f.write(stru)
+                for i, stru in enumerate(failed_strus):
+                    with open(os.path.join(config.Configuration.sampling_output_dir, 
+                                      'failed{:06d}.coord'.format(i)), "w") as f:
+                        f.write(stru)  
+            else:            
+                resample = args.start_from_scratch
+                if not args.start_from_scratch:
+                    # Build the first spatial model.
+                    log.info("Trying to load sampled elements...")
+                    loaded = fbs.load_sampled_elements(sm)
+                    if not loaded:            
+                        log.warning("Could not load stats. Start with sampling of all stats.")                    
+                        resample=True
+
+                if resample:
+                    log.info("Sampling all stats to build structure from scratch.")
+                    sm.sample_stats(stat_source)
+                fbs.build_sm(sm, stat_source, verbose = not resample)
+
             if args.exhaustive:
-                sampler = fbs.ExhaustiveExplorer(sm, energy, stat, args.exhaustive)
+                sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, args.exhaustive)
             elif args.new_ml:
-                sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, 
+                sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, stat_source,
                                           dump_measures=args.dump_energies)
             else:
-                sampler = fbs.MCMCSampler(sm, energy, stat, 
+                sampler = fbs.MCMCSampler(sm, energy, stat, stat_source,
                                           dump_measures=args.dump_energies)
             for i in range(args.iterations):
                 sampler.step()
+            print ("# Everything done. Terminated normally", file=out_file)
         finally: #Clean-up
             stat.collector.to_file()
             print("INFO: Random seed was {}".format(seed_num), file=sys.stderr)

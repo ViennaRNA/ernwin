@@ -16,7 +16,8 @@ import os.path
 import numpy as np
 from ..aux.SortedCollection import SortedCollection
 import warnings
-
+import logging
+log = logging.getLogger(__name__)
 __metaclass__=type
 
 class StatisticsCollector:
@@ -86,6 +87,7 @@ class CombinedStatistics(StatisticsCollector):
         line=[]
         for member in self._members:
             if not member.silent:
+                log.debug("Updating {}".format(type(member)))
                 fields = member.update(sm, step)
                 if member.display:
                     line.append(fields)
@@ -97,7 +99,12 @@ class CombinedStatistics(StatisticsCollector):
         with open(os.path.join(conf.Configuration.sampling_output_dir,"stats.txt"), "w") as f:
             print("#"+self._joiner.join(h for member in self._members for h in member.header if not member.silent and member.history is not None ), file=f)
             for i in range(length):
-                print( self._joiner.join(str(h[i]) for h in history), file=f)
+                try:
+                    print( self._joiner.join(str(h[i]) for h in history), file=f)
+                except:
+                    log.error("#"+self._joiner.join(h for member in self._members for h in member.header if not member.silent and member.history is not None ))
+                    log.error(history)
+                    raise
         
                 
             
@@ -125,6 +132,7 @@ class ACCStatistics(StatisticsCollector):
         try:
             self._cm_calc = ftme.AdjacencyCorrelation(reference_sm.bg)
         except Exception as e:
+            log.exception(e)
             warnings.warn("Cannot report ACC. {} in reference SM: {}".format(type(e), str(e)))
             self.silent = True
             self.history=None
@@ -140,6 +148,7 @@ class ACCStatistics(StatisticsCollector):
                 self.history[0].append(acc)
             return "{:5.3f}".format(acc)
         except ZeroDivisionError:
+            self.history[0].append(float("nan"))
             return "{:5.3f}".format(float("nan"))
 
 class RMSDStatistics(StatisticsCollector):
@@ -230,7 +239,6 @@ class EnergyTracking(StatisticsCollector):
             self._energy_function.accept_last_measure()
         else:
             energy=self._energy_function.eval_energy(sm)
-        energy,=energy #energy is an 1 element array for some reason
         self.history[0].append(self._energy_function.shortname())
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy)==1:

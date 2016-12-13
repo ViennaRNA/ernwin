@@ -21,7 +21,6 @@ import os.path as op
 #import scipy.stats as ss
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
-import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.graph_pdb as ftug
 import fess.builder.aminor as fba
 import fess.builder.models as cbm
@@ -133,7 +132,7 @@ class EnergyFunction(object):
     def accept_last_measure(self):
         """EnergyFunction.acceptLastMeasure"""
         if len(self.measures) > 0:        
-            self.accepted_measures += [self.measures[-1]]
+            self.accepted_measures.append(self.measures[-1])
 
     def update_adjustment(*args, **kwargs):
         pass
@@ -549,17 +548,20 @@ class CombinedEnergy:
                 contrib = energy.eval_energy(sm, background=background,
                                              nodes=nodes)
 
-            if np.isscalar(contrib):
-                contrib=np.array([contrib])
-            self.constituing_energies.append((energy.shortname(), contrib[0]))
+            if not np.isscalar(contrib):
+                contrib, = contrib
+            self.constituing_energies.append((energy.shortname(), contrib))
             #try: print("uncalibrated ",energy.shortname(), " contributes ",contrib ,"to the combined energy")
             #except Exception: print("uncalibrated ",energy, " contributes ",contrib ,"to the combined energy")
             total_energy += contrib
             num_contribs +=1
             self.bad_bulges += energy.bad_bulges
             if verbose:
-                print (energy.__class__.__name__, energy.shortname(), contrib)
+                print (energy.__class__.__name__, energy.shortname(), contrib)            
+                if energy.bad_bulges:
+                    print("bad_bulges:", energy.bad_bulges)
 
+            log.debug("{} ({}) contributing {}".format(energy.__class__.__name__, energy.shortname(), contrib))
         for energy in self.energies:
             contrib=None
             if use_accepted_measure:
@@ -580,6 +582,13 @@ class CombinedEnergy:
             num_contribs +=1
             if verbose:
                 print (energy.__class__.__name__, energy.shortname(), contrib)
+                if energy.bad_bulges:
+                    if isinstance(energy, StemVirtualResClashEnergy):
+                        print(set(tuple(sorted([energy.bad_bulges[i], energy.bad_bulges[i+1]])) for i in range(0, len(energy.bad_bulges),2)))
+                    else:
+                        print("bad_bulges:", energy.bad_bulges)
+
+            log.debug("{} ({}) contributing {}".format(energy.__class__.__name__, energy.shortname(), contrib))
 
         if self.normalize:
             total_energy=total_energy/num_contribs
@@ -694,8 +703,8 @@ class StemVirtualResClashEnergy(EnergyFunction):
         '''
         Check if any of the virtual residue atoms clash.
         '''
-        #(p1, v1, v1_l, v1_r) = cgg.virtual_res_3d_pos(bg, s1, i1)
-        #(p2, v2, v2_l, v2_r) = cgg.virtual_res_3d_pos(bg, s2, i2)
+        #(p1, v1, v1_l, v1_r) = ftug.virtual_res_3d_pos(bg, s1, i1)
+        #(p2, v2, v2_l, v2_r) = ftug.virtual_res_3d_pos(bg, s2, i2)
 
 
         vra1 = self.vras[(s1,i1,a1)]
@@ -789,13 +798,12 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #fud.pv('s1,s2')
 
             if (s1,i1,a1) not in self.vras.keys():
-                self.vras[(s1,i1,a1)] = cgg.virtual_residue_atoms(bg, s1, i1, a1)
+                self.vras[(s1,i1,a1)] = ftug.virtual_residue_atoms(bg, s1, i1, a1)
             if (s2,i2,a2) not in self.vras.keys():
-                self.vras[(s2,i2,a2)] = cgg.virtual_residue_atoms(bg, s2, i2, a2)
+                self.vras[(s2,i2,a2)] = ftug.virtual_residue_atoms(bg, s2, i2, a2)
 
             #energy += 100000. * self.virtual_residue_atom_clashes(sm.bg, s1, i1, a1, s2, i2, a2)
         energy += 100000. * self.virtual_residue_atom_clashes_kd()
-
         return energy
 
 class DistanceEnergy(EnergyFunction):
@@ -836,16 +844,20 @@ class RoughJunctionClosureEnergy(EnergyFunction):
         for bulge in all_bulges:
             #bl = bg.defines[bulge][1] - bg.defines[bulge][0] - 1
             bl = bg.get_bulge_dimensions(bulge)[0]
-            #dist = cgg.junction_virtual_res_distance(bg, bulge)
-            dist = cgg.junction_virtual_atom_distance(bg, bulge)
-
+            #dist = ftug.junction_virtual_res_distance(bg, bulge)
+            dist = ftug.junction_virtual_atom_distance(bg, bulge)            
             #
             #cutoff_distance = (bl) * 5.9 + 13.4
             #cutoff_distance = (bl) * 5.908 + 11.309
             #cutoff_distance = (bl) * 6.4 + 6.4
-            cutoff_distance = (bl) * 6.22 + 14.0
+            cutoff_distance = (bl) * 6.22 + 14.0 #Peter's cyclic coordinate descent
+            #cutoff_distance  = (bl) * 1.60 + 34.02 # 0.99-quantile-regression on nr 2.92 dataset.
+            #cutoff_distance  = (bl) * 2.68 + 12.03  # 0.8-quantile-regression on nr 2.92 dataset.
+            
             # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long. 
+            
             if (dist > cutoff_distance):
+                log.info("Junction closure: dist {} > cutoff {} for bulge {} with length {}".format(dist, cutoff_distance, bulge, bl))
                 self.bad_bulges += bg.find_bulge_loop(bulge, 200) + [bulge]
                 energy += (dist - cutoff_distance) * 10000.
 
@@ -968,6 +980,7 @@ class CoarseGrainEnergy(EnergyFunction):
         floc = -0.1
         fscale =  1.5 * max(values)
 
+        log.debug("Getting distribtion from values of shape {}".format(np.shape(values)))
         if self.dist_type == "kde":
             try:
                 k = ss.gaussian_kde(values)
@@ -1018,7 +1031,7 @@ class CoarseGrainEnergy(EnergyFunction):
         kr = self.real_kdes[self.measure_category(cg)]
         ks = self.sampled_kdes[self.measure_category(cg)]
         if use_accepted_measure:
-            m=self.accepted_measures[-1]
+            m = self.accepted_measures[-1]
         else:
             m = self.get_cg_measure(sm)
 
@@ -1035,11 +1048,12 @@ class CoarseGrainEnergy(EnergyFunction):
             ax2.legend()
             plt.show()
 
-        #print("Measure is {:1.4f}".format(m))
+        log.debug("Measure is {:1.4f}".format(m))
+        
         self.measures.append(m)
         
         if background:
-            energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
+            energy, = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
             self.prev_energy = energy
             self.prev_cg = m
             #if isinstance(self, ShortestLoopDistancePerLoop):
@@ -1047,7 +1061,9 @@ class CoarseGrainEnergy(EnergyFunction):
             #energy = (np.log(kr.integrate_box_1d(0., m) + 0.0001 * ks.integrate_box_1d(0., m)) - np.log(ks.integrate_box_1d(0., m)))
             return -1 * self.energy_prefactor * energy
         else:
-            energy = np.log(kr(m))
+            l = np.log(kr(m))
+            log.debug("Energy, = {}".format(l))
+            energy, = l
             return -energy
 
 
@@ -1338,13 +1354,13 @@ class CheatingEnergy(EnergyFunction):
     def __init__(self, real_bg):
         super(CheatingEnergy, self).__init__()
         self.real_bg = copy.deepcopy(real_bg)
-        self.real_residues = cgg.bg_virtual_residues(self.real_bg)
+        self.real_residues = ftug.bg_virtual_residues(self.real_bg)
 
     def eval_energy(self, sm, background=True, nodes=None):
         '''
         @param sm: A SpatialModel, which contains a coarse grain model (sm.bg)
         '''
-        new_residues = cgg.bg_virtual_residues(sm.bg)
+        new_residues = ftug.bg_virtual_residues(sm.bg)
 
         return  ftms.rmsd(self.real_residues, new_residues)*30
     def shortname(self):
@@ -1408,6 +1424,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def get_cg_measure(self, sm):
         (length, rog) = length_and_rog(sm.bg)
         self.measures += [rog]
+        log.debug("ROG-energy. get_measure returning a rog of {}".format(rog))
         return rog
 
     def get_distribution_from_file(self, filename, length, adjust=1.):
@@ -1459,7 +1476,7 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         self.real_stats_fn = None
     def get_distribution_from_file(self, filename, length, adjust=1.):
         if filename is None:
-            return stats.norm(loc=0.77*adjust, scale=0.23*adjust).pdf, None
+            return lambda x: np.array([stats.norm(loc=0.77*adjust, scale=0.23*adjust).pdf(x)]), None
         else:
             return super(NormalDistributedRogEnergy, self).get_distribution_from_file(filename, length, adjust)
     def shortname(self):
@@ -1805,7 +1822,7 @@ class AMinorEnergy(CoarseGrainEnergy):
                 ax1.legend(loc="lower left")
                 ax2.legend()
                 plt.show()
-        return energy
+        return energy[0]
 
 """
 class SpecificAMinorEnergy(AMinorEnergy):
