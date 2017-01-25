@@ -572,14 +572,16 @@ class MCMCSampler(object):
         self.stat_source = stat_source
         if not isinstance(stats, sstats.SamplingStatistics):
             self.stats.energy_function = energy_function
+        #: Store the energy of the last configuration!
         self.prev_energy = 100000000000.
         self.dump_measures = dump_measures
         self.resampled_energy = True
         self.prev_stats={}
         self.prev_mst = None #Used only in Subclass!
-
-        self.energy_function.energies += sm.constraint_energy.energies
-        self.energy_function.energies += [sm.junction_constraint_energy]
+        if sm.constraint_energy is not None:
+            self.energy_function.energies += sm.constraint_energy.energies
+        if sm.junction_constraint_energy is not None:
+            self.energy_function.energies += [sm.junction_constraint_energy]
         self.sm.constraint_energy = None
         self.sm.junction_constraint_energy = None
 
@@ -610,7 +612,8 @@ class MCMCSampler(object):
         pe=set(possible_elements)
         d = random.choice(possible_elements)
         movestring =  self.change_one_element(d)
-        return movestring + self.accept_reject()
+        ms, accepted = self.accept_reject()
+        return movestring + ms, accepted
 
     def accept_reject(self):
         movestring=[]
@@ -624,46 +627,59 @@ class MCMCSampler(object):
             movestring.append("A")
             # lower energy means automatic acceptance accordint to the
             # metropolis hastings criterion
-            self.prev_energy = energy
-            try:
-                self.prev_constituing =  self.energy_function.constituing_energies
-            except AttributeError: pass
-            self.energy_function.accept_last_measure()
-            for d in self.prev_stats:
-                if d[0] =="m" and d not in self.sm.bg.mst:
-                    if d in self.sm.bg.sampled: del self.sm.bg.sampled[d]
+            self.accept(energy)
+            accepted = True
         else:
             # calculate a probability
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
                 movestring.append("R")
-                # reject the sampled statistic and replace it the old one                
-                if self.prev_mst is not None:
-                    oldonly = self.prev_mst - self.sm.bg.mst
-                    self.sm.change_mst(self.prev_mst)
-                    for m in oldonly:
-                        if m[0]!="m": continue
-                        if m in self.sm.bg.sampled:
-                            del self.sm.bg.sampled[m]
-                for d, stats in self.prev_stats.items():
-                    self.sm.elem_defs[d] = stats
+                # reject the sampled statistic and replace it the old one            
+                self.reject()
                 self.sm.traverse_and_build(start='start')
-                self.energy_function.reject_last_measure()
-            else:
+                accepted = False
+            else:            
                 movestring.append("A")
-                # accept the new statistic
-                self.prev_energy = energy
-                try:
-                    self.prev_constituing =  self.energy_function.constituing_energies
-                except AttributeError: pass
-                self.energy_function.accept_last_measure()
-                for d in self.prev_stats:
-                    if d[0] =="m" and d not in self.sm.bg.mst:
-                        if d in self.sm.bg.sampled: del self.sm.bg.sampled[d]
-                #print ("...still accepting")
-        return "".join(movestring)
+                self.accept(energy)
+                accepted = True
+                #print ("...still accepting")            
+        return "".join(movestring), accepted
 
+    def accept(self, energy):
+        """
+        :param energy: The energy of the accepted state. 
+                       This is to avoid expensive recalculation of the energy
+        """
+        # accept the new statistic
+        self.prev_energy = energy
+        try:
+            self.prev_constituing =  self.energy_function.constituing_energies
+        except AttributeError: pass
+        self.energy_function.accept_last_measure()
+        for d in self.prev_stats:
+            if d[0] =="m" and d not in self.sm.bg.mst:
+                if d in self.sm.bg.sampled: del self.sm.bg.sampled[d]
+        self.prev_mst = None
+        self.prev_stats = {}
+        if isinstance(self.energy_function, fbe.CombinedEnergy):
+            for e in self.energy_function.iterate_energies():
+                if hasattr(e, "accepted_projDir"):
+                    self.sm.bg.project_from=e.accepted_projDir
 
+    def reject(self):
+        if self.prev_mst is not None:
+            oldonly = self.prev_mst - self.sm.bg.mst
+            self.sm.change_mst(self.prev_mst)
+            for m in oldonly:
+                if m[0]!="m": continue
+                if m in self.sm.bg.sampled:
+                    del self.sm.bg.sampled[m]        
+            self.prev_mst = None
+        for d, stats in self.prev_stats.items():
+            self.sm.elem_defs[d] = stats
+        self.energy_function.reject_last_measure()
+        self.prev_stats = {}
+        
     def change_one_element(self, d):
         """
         Change the stats for the selected define and accept or 
@@ -671,7 +687,7 @@ class MCMCSampler(object):
 
         :param d: The define to change.
         """
-        d
+        
         movestring=[]
         movestring.append(d+":")
         possible_stats=self.stat_source.get_possible_stats(self.sm.bg, d)
@@ -697,15 +713,11 @@ class MCMCSampler(object):
         #    movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
         #    movestring.append(";")
         self.sm.elem_defs[d] = new_stat
-        self.sm.traverse_and_build(start=d)
+        self.sm.new_traverse_and_build(start=d)
         return "".join(movestring)
 
     def step(self):
-        movestring=self.change_elem()
-        if isinstance(self.energy_function, fbe.CombinedEnergy):
-            for e in self.energy_function.iterate_energies():
-                if hasattr(e, "accepted_projDir"):
-                    self.sm.bg.project_from=e.accepted_projDir
+        movestring, accepted =self.change_elem()
         
         if self.dump_measures:
             if self.step_counter % 20 == 0:
@@ -721,7 +733,8 @@ class MCMCSampler(object):
             self.stats.update_statistics( self.sm, self.prev_energy, self.prev_constituing, movestring )
 
         self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
-
+        
+        return accepted
 class ImprovedMultiloopMCMC(MCMCSampler):
     """
     This Sampler is like the MCMCSampler except for multiloops.

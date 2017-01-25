@@ -9,11 +9,11 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 
 import argparse, sys, warnings, copy, os, random, math
 import os.path as op
-import subprocess as spr
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.graph.bulge_graph as fgb
 import forgi.utilities.debug as fud
 from fess.builder import energy as fbe
 from fess.builder import models as fbm
@@ -22,12 +22,12 @@ from fess.builder import builder as fbb
 from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess.builder import stat_container
-from fess import data_file
+from fess import data_file, __version__
 from fess.motif import annotate as fma
 import scipy.ndimage
 import numpy as np
 import itertools as it
-
+import subprocess
 import logging
 log = logging.getLogger(__name__)
 
@@ -785,6 +785,14 @@ def main(args):
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
+            try: #On my local machine, this script issues `git describe` in the ernwin and frogi directory.
+                label = subprocess.check_output(["get_ernwin_version"])
+            except OSError: #In production, use the version variable
+                raise
+                label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
+                print ("# Version: {}".format(label), file=out_file)
+
+
             for e in energy.iterate_energies():
                 if isinstance(e, fbe.FPPEnergy):
                     print("# Used FPP energy with options: --scale {} --ref-img {} "

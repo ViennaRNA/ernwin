@@ -170,6 +170,8 @@ class SortedCollection(object):
         """Whether the item would be inserted in a position before maxlen"""
         if self._maxlen is None:
             return True
+        if self._maxlen==0: 
+            return False
         k = self._key(item)
         if len(self._keys)==self._maxlen and k>self._keys[-1]:
             return False
@@ -179,6 +181,8 @@ class SortedCollection(object):
         """Whether the item would be inserted in a position before maxlen using insert_right"""
         if self._maxlen is None:
             return True
+        if self._maxlen==0: 
+            return False
         k = self._key(item)
         if len(self._keys)==self._maxlen and k>=self._keys[-1]:
             return False
@@ -186,6 +190,8 @@ class SortedCollection(object):
 
     def insert(self, item):
         'Insert a new item.  If equal keys are found, add to the left'
+        if self._maxlen==0: 
+            return
         k = self._key(item)
         i = bisect_left(self._keys, k)
         self._keys.insert(i, k)
@@ -197,6 +203,8 @@ class SortedCollection(object):
 
     def insert_right(self, item):
         'Insert a new item.  If equal keys are found, add to the right'
+        if self._maxlen==0: 
+            return
         k = self._key(item)
         i = bisect_right(self._keys, k)
         self._keys.insert(i, k)
