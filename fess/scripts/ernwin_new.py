@@ -23,6 +23,8 @@ from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess.builder import stat_container
 from fess import data_file, __version__
+import fess
+import forgi
 from fess.motif import annotate as fma
 import scipy.ndimage
 import numpy as np
@@ -785,13 +787,17 @@ def main(args):
         try:
             print ("# Random Seed: {}".format(seed_num), file=out_file)
             print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
-            try: #On my local machine, this script issues `git describe` in the ernwin and frogi directory.
-                label = subprocess.check_output(["get_ernwin_version"])
-            except OSError: #In production, use the version variable
-                raise
-                label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
-                print ("# Version: {}".format(label), file=out_file)
-
+            try:
+                #Installed with setup.py from a gitrepo
+                label = "ernwin {}, forgi {}".format(fess.__complete_version__, forgi.__complete_version__)
+            except:
+                try: 
+                    #On my local machine, run from git directory. This script issues `git describe` in the ernwin and forgi directory.
+                    label = subprocess.check_output(["get_ernwin_version"])
+                except OSError: 
+                    #In production, use the version variable
+                    label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
+            print ("# Version: {}".format(label), file=out_file)
 
             for e in energy.iterate_energies():
                 if isinstance(e, fbe.FPPEnergy):

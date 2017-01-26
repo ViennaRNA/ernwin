@@ -17,13 +17,15 @@ import numpy as np
 from ..aux.SortedCollection import SortedCollection
 import warnings
 import logging
+from collections import defaultdict
 log = logging.getLogger(__name__)
 __metaclass__=type
 
-class StatisticsCollector:
+class StatisticsCollector(object):
     """
     A base class for Spatial-Model Statistic objects.
-    """
+    """       
+    header=[]
     def __init__(self, *args, **kwargs):
         """
         :var self.header: A list of strings to describe the fields of history collected.
@@ -31,7 +33,6 @@ class StatisticsCollector:
         :var self.silent: This is set to true, if a Collector cannot initialize itself properly.
         :var self.display: If this is True, the collector will write to stdout.
         """
-        self.header=[]
         self.history=[[]]
         self.silent = False
         self.display=True
@@ -47,7 +48,9 @@ class StatisticsCollector:
         and return them as a string ready for printing to the screen.
         """
         raise NotImplementedError("Needs to be subclassed")
-            
+    @staticmethod
+    def parse_value(stri):
+        return stri
 
 class CombinedStatistics(StatisticsCollector):
     def __init__(self, collectors, separator=""):
@@ -113,20 +116,23 @@ class CombinedStatistics(StatisticsCollector):
 class ROGStatistics(StatisticsCollector):
     """
     Store and print the Radius of Gyration.
-    """
-    def __init__(self):
-        super(ROGStatistics, self).__init__()
-        self.header=["ROG"]
+    """        
+    header=["ROG"]
     def update(self, sm, step):
         rog=ftur.radius_of_gyration(sm.bg.get_ordered_stem_poss())
         self.history[0].append(rog)
         return "{:6.2f} A".format(rog)
-
+    @staticmethod
+    def parse_value(stri):
+        stri = stri.split()
+        assert stri[1]=="A", stri
+        return float(stri[0])
 
 class ACCStatistics(StatisticsCollector):
     """
     Store and print the Adjacency Correlation Coefficient
-    """
+    """            
+    header=[ "ACC" ]
     def __init__(self, reference_sm):
         super(ACCStatistics, self).__init__()
         try:
@@ -135,9 +141,7 @@ class ACCStatistics(StatisticsCollector):
             log.exception(e)
             warnings.warn("Cannot report ACC. {} in reference SM: {}".format(type(e), str(e)))
             self.silent = True
-            self.history=None
-        else:
-            self.header=[ "ACC" ]
+            self.history = None
 
     def update(self, sm, step):
         try:
@@ -150,11 +154,15 @@ class ACCStatistics(StatisticsCollector):
         except ZeroDivisionError:
             self.history[0].append(float("nan"))
             return "{:5.3f}".format(float("nan"))
+    @staticmethod
+    def parse_value(stri):
+        return float(stri)
 
 class RMSDStatistics(StatisticsCollector):
     """
     Store and print the Root Mean Square Deviation from the reference SM.
     """
+    header = ["RMSD", "dRMSD", "maxRMSD", "maxdRMSD" ] #All allowed headers. __init__ sets self.header, which takes priority.
     def __init__(self, reference_sm, show_min_max=True, save_n_best=0, mode="RMSD"):
         """
         :param reference_sm: The reference spatial model, against which to collect statistics.
@@ -214,11 +222,17 @@ class RMSDStatistics(StatisticsCollector):
                 return "{:6.3f} A".format(rmsd)
         else: 
             return
+    @staticmethod
+    def parse_value(stri):
+        stri = stri.split()
+        assert stri[1]=="A"
+        return float(stri[0])
 
 class EnergyTracking(StatisticsCollector):
     """
     After every step, evaluate an energy not used for sampling
     """
+    header = ["Tracked Energy"]
     def __init__(self, energy_function, background=False):
         """
         :param energy_function: The energy function which will be evaluated in every update step.
@@ -250,13 +264,19 @@ class EnergyTracking(StatisticsCollector):
             sn = self._energy_function.get_name()
         return "{}: {}".format(sn, energy)
     @property
-    def header_str(self):
+    def header_str():
         return "Tracked Energy"
+    
+    @staticmethod
+    def parse_value(stri):
+        stri = stri.split()
+        return stri[0][:-1],float(stri[1])
 
 class EnergyMeasure(StatisticsCollector):
     """
     After every step, log the last accepted measure of the energy. Does not call eval_energy!
     """
+    header = [ "measure_of_" ]
     def __init__(self, energy_function):
         """
         :param energy_function: The energy function from which the last measure will be logged.
@@ -269,11 +289,15 @@ class EnergyMeasure(StatisticsCollector):
         measure=self._energy_function.accepted_measures[-1]
         self.history[0].append(measure)
         return "{:10.3f}".format(measure)
-        
+    @staticmethod
+    def parse_value(stri):
+        return float(stri)
+
 class ShowTime(StatisticsCollector):
     """
     After every step, show the elapsed time (since start_time)
     """
+    header = [ "time" ]
     def __init__(self, start_time):
         """
         :param start_time: A numeric value or the string "now". 
@@ -284,7 +308,6 @@ class ShowTime(StatisticsCollector):
             self._start_time=time.time()
         else:
             self._start_time=start_time
-        self.header = [ "time" ]
         self.history= None #This does not save its history.
     def update(self, sm, step):
         elapsed=time.time()-self._start_time
@@ -294,15 +317,29 @@ class ShowTime(StatisticsCollector):
             return "{:5.1f} min".format(elapsed/60.0)
         else:
             return "{:5.1f} h".format(elapsed/3600.0)
+    @staticmethod
+    def parse_value(stri):
+        time, unit = stri.split()
+        time=float(time)
+        if unit == "h":
+            time*=3600
+        elif unit == "min":
+            time*=60
+        elif unit == "sec":
+            pass
+        else:
+            assert False
+        return time
 
 class Delimitor(StatisticsCollector):
     """
     A dummy collector that always prints a delimitor and does not save any Statistics
-    """
+    """        
+    header = [] #Empty header, because no need to parse the dilimiter in file-parsing mode.
     def __init__(self, delimitor="|"):
         super(Delimitor, self).__init__()
         self._delimitor=delimitor
-        self.history = None
+        self.history = None    
         self.header= ["|"]
     def update(self, sm, step):
         return self._delimitor
@@ -311,6 +348,7 @@ class Distance(StatisticsCollector):
     """
     The distance between two nucleotides
     """
+    header = ["Distance_"]
     def __init__(self, nuc1, nuc2):
         super(Distance, self).__init__()
         self._nuc1 = int(nuc1)
@@ -321,6 +359,9 @@ class Distance(StatisticsCollector):
                                  sm.bg.get_virtual_residue(self._nuc2, True))
         self.history[0].append(dist)
         return "{:6.2f} A".format(dist)
+    @staticmethod
+    def parse_value(stri):
+        return float(stri.split()[0])
 
 ###################################################################################################
 ##########
@@ -522,3 +563,76 @@ class SamplingStatistics:
             with open(os.path.join(conf.Configuration.sampling_output_dir, 
                               'step{:06d}.coord'.format(self.step)), "w") as f:
                 f.write(cg_stri)
+
+class OutfileParser(object):
+    def __init__(self):
+        self._collectors = None
+    def _get_lookup_table(self):        
+        """
+        Return a dictionary with headers as keys and 
+        StatisticCollector classes (not instances) as values
+        """
+        return {h : cls for cls in StatisticsCollector.__subclasses__() if not cls == CombinedStatistics for h in cls.header 
+                }
+    
+    def _collector_from_header(self, header):
+        """
+        Return the StatisticsCollector subclass which supports the given header.
+        
+        Note that the header ((in the parsed file) might contain additional 
+        characters to the right that are not present in the classes header list.
+        Thus, if key-based lookup fails, this method falls back to startswith()
+        """
+        try:
+            return self._lookup_table[header]
+        except KeyError:
+            for key, cls in self._lookup_table.items():
+                if header.startswith(key):
+                    return cls
+        return None
+    
+    def _init_collector_lookup(self, headers):
+        self._lookup_table = self._get_lookup_table()
+        self._collectors = []
+        for header in headers:
+            self._collectors.append(self._collector_from_header(header))
+
+    def parse(self, filepath):
+        meta = {}
+        with open(filepath) as  file:
+            headers = None
+            data = None
+            for line in file:
+                line=line.strip()
+                if not line: 
+                    continue
+                elif line.startswith("# Random Seed:"):
+                    meta["seed"] = int(line.split()[-1])
+                elif line.startswith("# Command"):
+                    meta["command"] = line.split('`')[1]
+                elif line.startswith("# Version"):
+                    fields = line.split()
+                    meta["ernwin_version"] = fields[3].rstrip(",")
+                    meta["forgi_version"] = fields[5]
+                elif line.startswith("#"): 
+                    continue
+                elif headers is None:
+                    headers = line.split("\t")
+                    self._init_collector_lookup(headers)
+                    data=[]
+                    for i in range(len(headers)):
+                        data.append([])
+                else:
+                    fields = line.split('\t')
+                    for i, field in enumerate(fields):
+                        cls = self._collectors[i]
+                        if cls is not None:
+                            data[i].append(cls.parse_value(field))
+            data_dic = {}
+            for i, header in enumerate(headers):
+                if data[i]:
+                    if isinstance(data[i][0], tuple):
+                        data_dic["{}_{}".format(header, data[i][0][0])] = [ x[1] for x in data[i]]
+                    else:
+                        data_dic[header] = data[i]
+            print(data_dic)
