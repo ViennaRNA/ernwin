@@ -564,6 +564,7 @@ class SamplingStatistics:
                               'step{:06d}.coord'.format(self.step)), "w") as f:
                 f.write(cg_stri)
 
+
 class OutfileParser(object):
     def __init__(self):
         self._collectors = None
@@ -596,8 +597,11 @@ class OutfileParser(object):
         self._collectors = []
         for header in headers:
             self._collectors.append(self._collector_from_header(header))
-
-    def parse(self, filepath):
+    @staticmethod
+    def parse(filepath):
+        parser = OutfileParser()
+        return parser._parse(filepath)
+    def _parse(self, filepath):
         meta = {}
         with open(filepath) as  file:
             headers = None
@@ -625,6 +629,10 @@ class OutfileParser(object):
                 else:
                     fields = line.split('\t')
                     for i, field in enumerate(fields):
+                        if i == 0: #Step
+                            data[i].append(int(field))
+                        elif i==1: #Sampling_Energy
+                            data[i].append(float(field))
                         cls = self._collectors[i]
                         if cls is not None:
                             data[i].append(cls.parse_value(field))
@@ -635,4 +643,4 @@ class OutfileParser(object):
                         data_dic["{}_{}".format(header, data[i][0][0])] = [ x[1] for x in data[i]]
                     else:
                         data_dic[header] = data[i]
-            print(data_dic)
+        return data_dic
