@@ -264,7 +264,7 @@ class EnergyTracking(StatisticsCollector):
             sn = self._energy_function.get_name()
         return "{}: {}".format(sn, energy)
     @property
-    def header_str():
+    def header_str(self):
         return "Tracked Energy"
     
     @staticmethod
