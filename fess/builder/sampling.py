@@ -7,7 +7,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
-from deepdiff import DeepDiff 
+
 import collections as c
 import sys, random, copy
 import numpy as np
