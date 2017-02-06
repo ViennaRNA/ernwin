@@ -810,7 +810,7 @@ def setup_sampler(sm, energy, stat, stat_source, resample, exhaustive = False, n
     if resample:
         log.info("Sampling all stats to build structure from scratch.")
         sm.sample_stats(stat_source)
-        fbs.build_sm(sm, stat_source, verbose = False) #Resamples, if needed to avoid clashes
+    fbs.build_sm(sm, stat_source, verbose = False) #Resamples, if needed to avoid clashes
 
     if exhaustive:
         sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, exhaustive)
@@ -873,13 +873,16 @@ def main(args):
                 samplers = []
                 out_dirs = []
                 for i in range(args.replica_exchange):
-                    out_dirs.append(op.join(config.Configuration.sampling_output_dir, "temperature_{:02d}".format(i)))                
+                    out_dirs.append(op.join(config.Configuration.sampling_output_dir, "temperature_{:02d}".format(i))) 
+                    if not os.path.exists(out_dirs[-1]):
+                        os.makedirs(out_dirs[-1])
+
                 out_files = []
                 print("#NOTE: Only printing stats for first temperature to stdout. "
                       "Information for all replicas can be found in the output directory.", file=sys.stdout)
                 try:
                     for i in range(args.replica_exchange):
-                        out_files.append(open(op.join(re_outdir), "out.log"), "w")
+                        out_files.append(open(op.join(out_dirs[i], "out.log"), "w"))
                     for i, e_and_s in enumerate(zip(energy, sm)):
                         r_energy, s = e_and_s
                         # Replica exchange does not support --track-energies
@@ -903,7 +906,7 @@ def main(args):
                         if args.parallel:
                             fbr.start_parallel_replica_exchange(samplers, args.iterations)
                         else:
-                            re = fbr.ReplicaExchange(sampler)
+                            re = fbr.ReplicaExchange(samplers)
                             re.run(args.iterations)
                     finally:
                         for sampler in samplers:

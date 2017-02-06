@@ -66,6 +66,7 @@ class StemModel:
         '''
         Rotate the stem and its twists according to the definition
         of rot_mat.
+    assert np.array_equal(bm.mids[0], self.bg.coords[connected][1])
 
         @param rot_mat: A rotation matrix.
         '''
@@ -685,7 +686,7 @@ class SpatialModel:
         for d in self.bg.hloop_iterator():
             bm = self.bulges[d]
             connected, =self.bg.edges[d]
-            assert np.array_equal(bm.mids[0], self.bg.coords[connected][1])
+            assert np.allclose(bm.mids[0], self.bg.coords[connected][1]), "Difference {}".format(bm.mids[0]-self.bg.coords[connected][1])
             self.bg.coords[d] = np.array([bm.mids[0], bm.mids[1]])
         for d in ["f1", "t1"]:
             if d in self.bg.defines:

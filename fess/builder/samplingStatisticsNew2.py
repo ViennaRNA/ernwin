@@ -106,9 +106,10 @@ class CombinedStatistics(StatisticsCollector):
             for i in range(length):
                 try:
                     print( self._joiner.join(str(h[i]) for h in history), file=f)
-                except:
+                except Exception as e:
                     log.error("#"+self._joiner.join(h for member in self._members for h in member.header if not member.silent and member.history is not None ))
                     log.error(history)
+                    log.error(e)
                     raise
         
                 
@@ -266,7 +267,7 @@ class EnergyTracking(StatisticsCollector):
             sn = self._energy_function.get_name()
         return "{}: {}".format(sn, energy)
     @property
-    def header_str():
+    def header_str(self):
         return "Tracked Energy"
     
     @staticmethod
