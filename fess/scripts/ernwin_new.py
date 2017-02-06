@@ -7,7 +7,13 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 
-import argparse, sys, warnings, copy, os, random, math
+import argparse
+import sys
+import warnings
+import copy
+import os
+import random
+import math
 import os.path as op
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
@@ -19,6 +25,7 @@ from fess.builder import energy as fbe
 from fess.builder import models as fbm
 from fess.builder import sampling as fbs
 from fess.builder import builder as fbb
+from fess.builder import replicaExchange as fbr
 from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess.builder import stat_container
@@ -80,6 +87,8 @@ def get_parser():
                                                        "Instead of the MCMC sampling algorithm, use a sampler \n"
                                                        "that tries every stat for the given coarse grain element.")
     parser.add_argument('--new-ml', action="store_true", help="Experimental")
+    parser.add_argument('--replica-exchange', type=int, help="Experimental")
+    parser.add_argument('--parallel', action="store_true", help="Only useful for replica exchange. Spawn parallel processes.")
     #Controll output
     parser.add_argument('--save-n-best', default=3, 
                         help='Save the best (lowest energy) n structures.', type=int)
@@ -140,13 +149,15 @@ def get_parser():
     parser.add_argument('--jar3d', action="store_true", help="Use JAR3D to restrict the stats \n"
                                                    "for interior loops to matching motifs.\n"
                                                    "Requires the correct paths to jar3d to be set in\n "
-                                                   "fess.builder.config.py"   )
+                                                   "fess.builder.config.py"   )    
+    #Controlling the energy
     parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str, 
                                     help="The type of constraint energy to use. \n"
                                          "D=Default    clash- and junction closure energy\n"
                                          "B=Both       same as 'D'\n"
                                          "J=junction   only junction closure energy\n"
-                                         "C=clash      only stem clash energy")
+                                         "C=clash      only stem clash energy\n"
+                                         "N=None       no constraint energy")
     parser.add_argument('-e', '--energy', default="D", action='store', type=str, 
                         help= "The type of non-constraint energy to use. D=Default, N=None.\n"
                               "Specify a ','-separated list of energy contributions.\n"
@@ -639,7 +650,7 @@ def setup_deterministic(args):
 
     if not cg.defines:
         print("Could not load Coarse Grained RNA. "
-              "Was the input file in fasta or cg format?",file=sys.stderr)
+              "Was the input file in fasta (with a filename ending in .fa) or cg format?",file=sys.stderr)
         sys.exit(1)
     if "s0" not in cg.defines:
         print("No sampling can be done for structures without a stem",file=sys.stderr)
@@ -665,9 +676,67 @@ def setup_deterministic(args):
         print("ERROR: --clustered-angle-stats and --jar3d are currently not implemented!", file=sys.stderr)
         sys.exit(1)
     
-    #Initialize the spatial model
-    sm=fbm.SpatialModel(cg)
-    
+    if args.replica_exchange:
+        sm = []
+        for i in range(args.replica_exchange):
+            #Initialize the spatial models
+            sm.append(fbm.SpatialModel(cg))
+        
+        if "@" in args.energy:
+            rep_energies = args.energy.split("@")
+            if len(rep_energies) != args.replica_exchange:
+                raise ValueError("Number of energies for replica exchange not correct.")
+        else:
+            rep_energies = [args.energy]*args.replica_exchange
+        energy = []
+        for e in rep_energies:
+            if e=="D":
+                energy.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
+            elif e=="N":
+                energy.append(fbe.CombinedEnergy([],[]))
+            else:
+                energy.append(parseCombinedEnergyString(e, cg, original_sm.bg, args))
+        #Initialize energies to track
+        energies_to_track=[]
+        if args.track_energies:
+            raise ValueError("Energy tracking currently not supported for ")
+        #Initialize the Constraint energies
+        if "@" in args.constraint_energy:
+            ce = args.constraint_energy.split("@")
+        else:
+            ce = [args.constraint_energy]*args.replica_exchange
+        for s, c in zip(sm,ce):
+            if s in ["D","B","J"]:
+                s.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
+            if s in ["D","B","C"]:
+                s.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
+    else:
+        #Initialize the spatial model
+        sm=fbm.SpatialModel(cg)
+
+        #Initialize the requested energies
+        if args.energy=="D":
+            energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
+        elif args.energy=="N":
+            energy=fbe.CombinedEnergy([],[]) 
+        else:
+            energy=parseCombinedEnergyString(args.energy, cg, original_sm.bg, args)
+
+        #Initialize energies to track
+        energies_to_track=[]
+        for track_energy_string in args.track_energies.split(":"):
+            if track_energy_string:
+                if track_energy_string=="D":
+                    energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
+                else:
+                    energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
+                                             original_sm.bg, args))
+        #Initialize the Constraint energies
+        if args.constraint_energy in ["D","B","J"]:
+            sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
+        if args.constraint_energy in ["D","B","C"]:
+            sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
+
     #Load the reference sm (if given)
     if args.rmsd_to:
         if args.rmsd_to.endswith(".pdb"):
@@ -678,36 +747,15 @@ def setup_deterministic(args):
         else:
             original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
     else:
-        original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
-        
-    #Initialize the requested energies
-    
-    if args.energy=="D":
-        energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
-    elif args.energy=="N":
-        energy=fbe.CombinedEnergy([],[]) 
-    else:
-        energy=parseCombinedEnergyString(args.energy, cg, original_sm.bg, args)
-        
-    #Initialize energies to track
-    energies_to_track=[]
-    for track_energy_string in args.track_energies.split(":"):
-        if track_energy_string:
-            if track_energy_string=="D":
-                energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
-            else:
-                energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
-                                         original_sm.bg, args))
+        if args.replica_exchange:
+            original_sm=fbm.SpatialModel(copy.deepcopy(sm[-1].bg))
+        else:
+            original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
 
 
-    #Initialize the Constraint energies
-    if args.constraint_energy in ["D","B","J"]:
-        sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
-    if args.constraint_energy in ["D","B","C"]:
-        sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
     return sm, original_sm, ofilename, energy, energies_to_track, stat_source
 
-def setup_stat(out_file, sm, args, energies_to_track, original_sm):
+def setup_stat(out_file, sm, args, energies_to_track, original_sm, save_dir=None):
     """
     Setup the stat object used for logging/ output.
 
@@ -746,8 +794,33 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm):
             isinstance(energy, fbe.HausdorffEnergy)):
                 options[ "measure" ].append(energy)
     stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
-                                     output_file=out_file, options=options)
+                                     output_file=out_file, options=options, 
+                                     output_directory = save_dir)
     return stat
+
+def setup_sampler(sm, energy, stat, stat_source, resample, exhaustive = False, new_ml = False, dump_energies = False):
+    if not resample:
+        # Build the first spatial model.
+        log.info("Trying to load sampled elements...")
+        loaded = fbs.load_sampled_elements(sm)
+        if not loaded:            
+            log.warning("Could not load stats. Start with sampling of all stats.")                    
+            resample=True
+
+    if resample:
+        log.info("Sampling all stats to build structure from scratch.")
+        sm.sample_stats(stat_source)
+        fbs.build_sm(sm, stat_source, verbose = False) #Resamples, if needed to avoid clashes
+
+    if exhaustive:
+        sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, exhaustive)
+    elif new_ml:
+        sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, stat_source,
+                                            dump_measures=dump_energies)
+    else:
+        sampler = fbs.MCMCSampler(sm, energy, stat, stat_source,
+                                            dump_measures=dump_energies)
+    return sampler
 
 def main(args):
     #Setup that does not use the random number generator.
@@ -757,6 +830,8 @@ def main(args):
     fud.pv("energies_to_track")
     #Eval-energy mode
     if args.eval_energy:
+        if args.replica_exchange:
+            raise ValueError("--eval-energy and --replica-exchange are mutually exclusive.")
         sm.bg.add_all_virtual_residues()
         fud.pv('energy.eval_energy(sm, verbose=True, background=False)')
         if sm.constraint_energy:
@@ -777,70 +852,100 @@ def main(args):
     np.random.seed(seed_num)
     
     #Main function, dependent on random.seed        
-    with open_for_out(ofilename) as out_file:
-        #Track energies without background for comparison with constituing energies
-        if isinstance(energy, fbe.CombinedEnergy):
-            energies_to_track+=energy.uncalibrated_energies
-        elif isinstance(energy, fbe.CoarseGrainEnergy):
-            energies_to_track+=[energy]
-        stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
+    with open_for_out(ofilename) as out_file:        
+        # Print some information for reproducibility to the log file.
+        print ("# Random Seed: {}".format(seed_num), file=out_file)
+        print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
         try:
-            print ("# Random Seed: {}".format(seed_num), file=out_file)
-            print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
+            #Installed with setup.py from a gitrepo
+            label = "ernwin {}, forgi {}".format(fess.__complete_version__, forgi.__complete_version__)
+        except:
+            try: 
+                #On my local machine, run from git directory. This script issues `git describe` in the ernwin and forgi directory.
+                label = subprocess.check_output(["get_ernwin_version"])
+            except OSError: 
+                #In production, use the version variable
+                label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
+        print ("# Version: {}".format(label), file=out_file)
+        if args.replica_exchange:
+                print ("# Starting Replica exchange. "
+                       "Please refere to the logs of the different temperature sampler.", file=out_file)
+                samplers = []
+                out_dirs = []
+                for i in range(args.replica_exchange):
+                    out_dirs.append(op.join(config.Configuration.sampling_output_dir, "temperature_{:02d}".format(i)))                
+                out_files = []
+                print("#NOTE: Only printing stats for first temperature to stdout. "
+                      "Information for all replicas can be found in the output directory.", file=sys.stdout)
+                try:
+                    for i in range(args.replica_exchange):
+                        out_files.append(open(op.join(re_outdir), "out.log"), "w")
+                    for i, e_and_s in enumerate(zip(energy, sm)):
+                        r_energy, s = e_and_s
+                        # Replica exchange does not support --track-energies
+                        if isinstance(r_energy, fbe.CombinedEnergy):
+                            energies_to_track=r_energy.uncalibrated_energies
+                        elif isinstance(r_energy, fbe.CoarseGrainEnergy):
+                            energies_to_track=[r_energy]
+                        stat=setup_stat(out_files[i], s, args, energies_to_track, original_sm, out_dirs[i])
+                        if i>0: #Only have first temperature print to stdout.
+                            stat.options["silent"] = True
+                        for e in r_energy.iterate_energies():
+                            if isinstance(e, fbe.FPPEnergy):
+                                print("# Replice {} used FPP energy with options: --scale {} --ref-img {} "
+                                      "--fpp-landmarks {}".format(i, e.scale, e.ref_image, 
+                                                              ":".join(",".join(map(str,x)) for x in e.landmarks)),
+                                      file=out_file)
+                        samplers.append(setup_sampler(s, r_energy, stat, stat_source, resample=args.start_from_scratch, 
+                                                exhaustive = False, new_ml = args.new_ml, 
+                                                dump_energies = args.dump_energies))
+                    try:
+                        if args.parallel:
+                            fbr.start_parallel_replica_exchange(samplers, args.iterations)
+                        else:
+                            re = fbr.ReplicaExchange(sampler)
+                            re.run(args.iterations)
+                    finally:
+                        for sampler in samplers:
+                            sampler.stats.collector.to_file()
+                finally:
+                    for f in out_files:
+                        try:
+                            f.close()
+                        except:
+                            pass
+
+        elif args.fair_building:
+            builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, True, sm.junction_constraint_energy, sm.constraint_energy)
+            success, attempts, failed_mls, clashes = builder.success_probability(sm, target_attempts=args.iterations, store_success = True)
+            print("SUCCESS:", success, attempts, failed_mls, clashes)
+            print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+
+                   "{} times a multiloop was not closed. {} clashes occurred."
+                   " Structure has {} defines and is {} nts long.".format(failed_mls, clashes, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
+        else: #Normal sampling
+            #Track energies without background for comparison with constituing energies
+            if isinstance(energy, fbe.CombinedEnergy):
+                energies_to_track+=energy.uncalibrated_energies
+            elif isinstance(energy, fbe.CoarseGrainEnergy):
+                energies_to_track+=[energy]
+            stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
             try:
-                #Installed with setup.py from a gitrepo
-                label = "ernwin {}, forgi {}".format(fess.__complete_version__, forgi.__complete_version__)
-            except:
-                try: 
-                    #On my local machine, run from git directory. This script issues `git describe` in the ernwin and forgi directory.
-                    label = subprocess.check_output(["get_ernwin_version"])
-                except OSError: 
-                    #In production, use the version variable
-                    label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
-            print ("# Version: {}".format(label), file=out_file)
-
-            for e in energy.iterate_energies():
-                if isinstance(e, fbe.FPPEnergy):
-                    print("# Used FPP energy with options: --scale {} --ref-img {} "
-                          "--fpp-landmarks {}".format(e.scale, e.ref_image, 
+                for e in energy.iterate_energies():
+                    if isinstance(e, fbe.FPPEnergy):
+                        print("# Used FPP energy with options: --scale {} --ref-img {} "
+                              "--fpp-landmarks {}".format(e.scale, e.ref_image, 
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
-                          file=out_file)
-
-            if args.fair_building:
-                builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, True, sm.junction_constraint_energy, sm.constraint_energy)
-                success, attempts, failed_mls, clashes = builder.success_probability(sm, target_attempts=args.iterations, store_success = True)
-                print("SUCCESS:", success, attempts, failed_mls, clashes)
-                print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+
-                       "{} times a multiloop was not closed. {} clashes occurred. Structure has {} defines and is {} nts long.".format(failed_mls, clashes, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
-            else:            
-                resample = args.start_from_scratch
-                if not args.start_from_scratch:
-                    # Build the first spatial model.
-                    log.info("Trying to load sampled elements...")
-                    loaded = fbs.load_sampled_elements(sm)
-                    if not loaded:            
-                        log.warning("Could not load stats. Start with sampling of all stats.")                    
-                        resample=True
-
-                if resample:
-                    log.info("Sampling all stats to build structure from scratch.")
-                    sm.sample_stats(stat_source)
-                fbs.build_sm(sm, stat_source, verbose = not resample)
-
-                if args.exhaustive:
-                    sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, args.exhaustive)
-                elif args.new_ml:
-                    sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, stat_source,
-                                              dump_measures=args.dump_energies)
-                else:
-                    sampler = fbs.MCMCSampler(sm, energy, stat, stat_source,
-                                              dump_measures=args.dump_energies)
+                              file=out_file)
+                sampler = setup_sampler(sm, energy, stat, stat_source, resample=args.start_from_scratch, 
+                                        exhaustive = args.exhaustive, new_ml = args.new_ml, 
+                                        dump_energies = args.dump_energies)
                 for i in range(args.iterations):
                     sampler.step()
-                print ("# Everything done. Terminated normally", file=out_file)
-        finally: #Clean-up
-            stat.collector.to_file()
-            print("INFO: Random seed was {}".format(seed_num), file=sys.stderr)
+                    print ("# Everything done. Terminated normally", file=out_file)
+            finally: #Clean-up
+                stat.collector.to_file()
+
+    
 
 
 # Parser is available even if __name__!="__main__", to allow for 

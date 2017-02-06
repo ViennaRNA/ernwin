@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-import sys, math
 from borgy.graph.bulge_graph import BulgeGraph
+import math
+import sys
 
 def check_define_integrity(bg):
     for key in bg.defines.keys():

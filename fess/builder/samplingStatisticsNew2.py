@@ -11,7 +11,9 @@ import forgi.threedee.model.similarity as ftme
 import forgi.threedee.utilities.vector as ftuv
 from . import config as conf
 from . import energy as fbe
-import sys, time, copy
+import sys
+import time
+import copy
 import os.path
 import numpy as np
 from ..aux.SortedCollection import SortedCollection
@@ -390,7 +392,8 @@ _statisticsDefaultOptions={
 
 
 class SamplingStatistics:
-    def __init__(self, sm_orig, energy_functions=[], output_file=sys.stdout, options="all"):
+    def __init__(self, sm_orig, energy_functions=[], output_file=sys.stdout, options="all",
+                 output_directory = None):
         """
         :param sm_orig: The Spatial Model against which to collect statistics. 
                         .. warning:: This should not be modified. 
@@ -508,11 +511,18 @@ class SamplingStatistics:
         
         self.collector = CombinedStatistics(collectors)
 
+        if output_directory is None:
+            self.out_dir = conf.Configuration.sampling_output_dir
+        else:
+            self.out_dir = output_directory
+            if not os.path.exists(self.out_dir):
+                os.makedirs(self.out_dir)
+                log.info ("Directory {} created.".format(self.out_dir))
+
     def printline(self, line):
         """Print to both STDOUT and the log file."""
         if self.output_file != sys.stdout and not self.options["silent"]:
-            print (line) #Only replace tabs for stdout to make it take less space
-
+            print (line)
         if self.output_file != None:
             print(line, file=self.output_file)
             self.output_file.flush()
@@ -554,13 +564,13 @@ class SamplingStatistics:
         
         if self.step % 10 == 0:
             for i, cg_stri in enumerate(self.best_cgs):
-                with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                with open(os.path.join(self.out_dir, 
                                       'best{:d}.coord'.format(i)), 'w') as f:
                     f.write(cg_stri[0])
                               
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
             cg_stri = sm.bg.to_cg_string()
-            with open(os.path.join(conf.Configuration.sampling_output_dir, 
+            with open(os.path.join(self.out_dir, 
                               'step{:06d}.coord'.format(self.step)), "w") as f:
                 f.write(cg_stri)
 
