@@ -206,7 +206,8 @@ class FairBuilder(Builder):
     def __init__(self, stat_source, output_dir = None, store_failed=False, junction_energy=None, clash_energy=None):
         """
         :param store_failed: Should structures, that do not fulfill the constraint energy, be stored?
-                             A boolean or one of the following strings: "junction", "clash"
+                             A boolean or one of the following strings: "junction", "clash", "list"
+                             In case of list: only append the failure reasons to the file clashlist.txt
         """
         super(FairBuilder, self).__init__(stat_source, junction_energy, clash_energy)
         self.output_dir = output_dir
@@ -228,6 +229,20 @@ class FairBuilder(Builder):
             if self.junction_energy.eval_energy(sm)>0:
                 if self.store_failed is True or self.store_failed == "junction":
                     self._store_failed(sm)
+                elif self.store_failed=="list":
+                    with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
+                        self._failed_save_counter += 1
+                        bad_junctions = []
+                        add = True
+                        for j in self.junction_energy.bad_bulges:
+                            if add:
+                                bad_junctions.append(j)
+                                add = False
+                            else:
+                                if j == bad_junctions[-1]:
+                                    add=True
+                        f.write("{}: junction {}\n".format(self._failed_save_counter, 
+                                                         list(set(bad_junctions))))
                 return False
         return True
     
@@ -236,6 +251,13 @@ class FairBuilder(Builder):
             if self.clash_energy.eval_energy(sm)>0:
                 if self.store_failed is True or self.store_failed == "clash":
                     self._store_failed(sm)
+                elif self.store_failed=="list":
+                    with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
+                        self._failed_save_counter += 1
+                        clash_pairs = set()
+                        for i in range(0, len(self.clash_energy.bad_bulges),2):
+                            clash_pairs.add(tuple(sorted([self.clash_energy.bad_bulges[0], self.clash_energy.bad_bulges[1]])))
+                        f.write("{}: clash {}\n".format(self._failed_save_counter, list(clash_pairs)))
                 return False
         return True
     

@@ -87,6 +87,9 @@ def get_parser():
                                                        "Instead of the MCMC sampling algorithm, use a sampler \n"
                                                        "that tries every stat for the given coarse grain element.")
     parser.add_argument('--new-ml', action="store_true", help="Experimental")
+    parser.add_argument('--mst-breakpoints', type=str, help="During initial MST creation, prefer to \n"
+                                                            "break the multiloops at the indicated nodes.\n"
+                                                            "A comma-seperated list. E.g. 'm0,m10,m12'")
     parser.add_argument('--replica-exchange', type=int, help="Experimental")
     parser.add_argument('--parallel', action="store_true", help="Only useful for replica exchange. Spawn parallel processes.")
     #Controll output
@@ -680,8 +683,11 @@ def setup_deterministic(args):
         sm = []
         for i in range(args.replica_exchange):
             #Initialize the spatial models
-            sm.append(fbm.SpatialModel(cg))
-        
+            sm.append(fbm.SpatialModel(copy.deepcopy(cg)))
+            if args.mst_breakpoints:
+                bps = args.mst_breakpoints.split(",")
+                for bp in bps:
+                    sm.set_multiloop_break_segment(bp)
         if "@" in args.energy:
             rep_energies = args.energy.split("@")
             if len(rep_energies) != args.replica_exchange:
@@ -713,7 +719,10 @@ def setup_deterministic(args):
     else:
         #Initialize the spatial model
         sm=fbm.SpatialModel(cg)
-
+        if args.mst_breakpoints:
+            bps = args.mst_breakpoints.split(",")
+            for bp in bps:
+                sm.set_multiloop_break_segment(bp)
         #Initialize the requested energies
         if args.energy=="D":
             energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
@@ -919,7 +928,7 @@ def main(args):
                             pass
 
         elif args.fair_building:
-            builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, True, sm.junction_constraint_energy, sm.constraint_energy)
+            builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
             success, attempts, failed_mls, clashes = builder.success_probability(sm, target_attempts=args.iterations, store_success = True)
             print("SUCCESS:", success, attempts, failed_mls, clashes)
             print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+

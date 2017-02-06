@@ -397,6 +397,7 @@ class SpatialModel:
             params = (r, u, v)
 
         start_mid = prev_stem.mids[s1b]
+        log.debug("prev stem {}: mids[{}]={}, coords = {}".format(prev_stem_node, s1b, prev_stem.mids[s1b], self.bg.coords[prev_stem_node]))
         (r, u, v) = params
 
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
@@ -612,7 +613,7 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
-
+        log.debug("add_stem")
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
 
         stem.name = stem_name
@@ -623,6 +624,7 @@ class SpatialModel:
         return stem
 
     def fill_in_bulges_and_loops(self):
+        log.debug("Started fill_in_bulges_and_loops")
         loops = list(self.bg.hloop_iterator())
         fiveprime = list(self.bg.floop_iterator())
         threeprime = list(self.bg.tloop_iterator())
@@ -631,6 +633,7 @@ class SpatialModel:
         for d in self.bg.defines.keys():
             if d[0] != 's':
                 if d in loops:
+                    log.debug("Adding loop {} (connected to {})".format(d, list(self.bg.edges[d])[0]))
                     self.add_loop(d, list(self.bg.edges[d])[0])
                 elif d in fiveprime:
                     self.add_loop(d, list(self.bg.edges[d])[0])
@@ -653,13 +656,12 @@ class SpatialModel:
                     self.bulges[d] = BulgeModel((s1mid, s2mid))
                     self.closed_bulges += [d]
 
-    def stem_to_coords(self, stem, report_changes=False):
+    def stem_to_coords(self, stem):
         sm = self.stems[stem]
-        if report_changes:
-            if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
-                print("Changing stem", stem, ":", self.bg.coords[stem], "!=", (sm.mids[0], sm.mids[1]))
-            if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
-                print("Changing stem twist", stem, ":", self.bg.twists[stem], "!=", (sm.twists[0], sm.twists[1]))
+        if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
+            log.debug("Changing stem {}: {} to {}".format(stem, self.bg.coords[stem], (sm.mids[0], sm.mids[1])))
+        if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
+            log.debug("Changing stem twist {} : {} to {}".format(stem, self.bg.twists[stem], (sm.twists[0], sm.twists[1])))
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
 
@@ -681,12 +683,16 @@ class SpatialModel:
         for stem in self.newly_added_stems:
             self.stem_to_coords(stem)
 
+        log.debug("_elements_to_coords: Adding bulge coodinates from stems")
         self.bg.add_bulge_coords_from_stems()
 
         for d in self.bg.hloop_iterator():
             bm = self.bulges[d]
             connected, =self.bg.edges[d]
-            assert np.allclose(bm.mids[0], self.bg.coords[connected][1]), "Difference {}".format(bm.mids[0]-self.bg.coords[connected][1])
+            if not np.allclose(bm.mids[0], self.bg.coords[connected][1]):
+                log.error("BulgeModel for {} with coords {} and {}".format(d, bm.mids[0], bm.mids[1]))
+                log.error("Connected to stem {} with coords {} and {}".format(connected, self.bg.coords[connected][0], self.bg.coords[connected][1]))
+                assert False, "Bulge {}, Difference {}".format(d, bm.mids[0]-self.bg.coords[connected][1])
             self.bg.coords[d] = np.array([bm.mids[0], bm.mids[1]])
         for d in ["f1", "t1"]:
             if d in self.bg.defines:
@@ -739,6 +745,7 @@ class SpatialModel:
         #self.prev_visit_order = prev_visited
 
     def _finish_building(self):
+        log.debug("Finish building")
         self.fill_in_bulges_and_loops()
         self._elements_to_coords()
         self.save_sampled_elems()
@@ -779,6 +786,7 @@ class SpatialModel:
                     If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
         :returns: A list of course_grained elements that have been built. (Useful, if start or max_steps is given).
         '''
+        log.debug("new_traverse_and_build(self, start={}, max_steps={}, end={})".format(start, max_steps, end))
         build_order = self.bg.traverse_graph()
 
         def buildorder_of(stemid):
@@ -792,14 +800,17 @@ class SpatialModel:
                     if stemid==stem_loop_stem[2]:
                         return i+1
             else:
-              for i, stem_loop_stem in enumerate(build_order):
-                  if stemid==stem_loop_stem[1]:
-                      return i
+                if stemid[0] in "ftm":
+                    return float("inf")
+                for i, stem_loop_stem in enumerate(build_order):
+                    if stemid==stem_loop_stem[1]:
+                        return i
             raise ValueError("{} not found in {}.".format(stemid,build_order))
         nodes = []
         if start == "start":
             # add the first stem in relation to a non-existent stem
             first_stem = build_order[0][0]
+            log.debug("new_traverse_and_build: Setting self.stems[{}] (=first  stem)".format(first_stem))
             self.stems[first_stem] = self.add_stem(first_stem, self.elem_defs[first_stem], StemModel(), 
                                       ftms.AngleStat(), (0,1))
             self.stem_to_coords(first_stem)
@@ -807,10 +818,12 @@ class SpatialModel:
             build_step = 0
         else:
             build_step = buildorder_of(start)
-            if build_step == len(build_order):
+            if build_step >= len(build_order):
+                self._finish_building()
                 return []
             prev_stem = build_order[build_step][0]
             try:
+                log.debug("new_traverse_and_build: Setting self.stems[{}] (=prev_stem)".format(prev_stem))
                 self.stems[prev_stem]
             except KeyError:
                 raise ValueError("Cannot build structure starting from {0}, because the parts "
@@ -841,7 +854,8 @@ class SpatialModel:
 
             # check which way the newly connected stem was added
             # if its 1-end was added, the its coordinates need to
-            # be reversed to reflect the fact it was added backwards
+            # be reversed to reflect the fact it was added backwards                
+            log.debug("new_traverse_and_build: Setting self.stems[{}] (=s2)".format(s2))
             if connection_ends[1] == 1:
                 self.stems[s2] = stem.reverse()
             else:
