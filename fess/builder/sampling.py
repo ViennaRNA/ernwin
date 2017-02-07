@@ -842,7 +842,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
         movestring.append("TRIES{};".format(num_tries))
         ms, accepted = self.accept_reject()
-        movestring.append(self.ms)
+        movestring.append(ms)
         return "".join(movestring), accepted
 
 class ExhaustiveExplorer(MCMCSampler):
