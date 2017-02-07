@@ -766,7 +766,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         if d[0]!="m":
             movestring=self.change_one_element(d) #Use the superclass method.
             ms, accepted = self.accept_reject()
-            return movestring + ms
+            return movestring + ms, accepted
 
         junction_nodes = set( x for x in self.sm.bg.find_bulge_loop(d, 200) if x[0]=="m" )
         missing_nodes = junction_nodes - pe
@@ -839,7 +839,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         movestring.append("TRIES{};".format(num_tries))
         ms, accepted = self.accept_reject()
         movestring.append(self.ms)
-        return "".join(movestring)
+        return "".join(movestring), accepted
 
 class ExhaustiveExplorer(MCMCSampler):
     def __init__(self, sm, energy_function, stats, stat_source, loop_of_interest):
@@ -863,7 +863,7 @@ class ExhaustiveExplorer(MCMCSampler):
             self.prev_constituing =  self.energy_function.constituing_energies
         except AttributeError: pass
         self.energy_function.accept_last_measure()
-        return str(c)
+        return str(c), True
 
 """
 class GibbsBGSampler:
