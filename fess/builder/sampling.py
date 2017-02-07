@@ -814,7 +814,10 @@ class ImprovedMultiloopMCMC(MCMCSampler):
 
         self.sm.elem_defs[d] = newstat
         self.sm.traverse_and_build(start=d)
-        energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
+        if self.junction_energy is not None:
+            energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
+        else:
+            energy = 0
         num_tries=0
         if len(defined_junction_nodes)>1: #If pseudoknots are allowed, more than one multiloop segment can be broken.
             #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
@@ -835,6 +838,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 self.sm.elem_defs[other_d] = random.choice(possible_other_stats)
                 self.sm.traverse_and_build(start=other_d)
                 #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
+                assert self.junction_energy is not None
                 energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
         movestring.append("TRIES{};".format(num_tries))
         ms, accepted = self.accept_reject()
