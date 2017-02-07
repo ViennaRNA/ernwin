@@ -55,9 +55,10 @@ class ReplicaExchange(object):
             for j, sampler in enumerate(self.sampler_list):
                 log.info("Sampler {}: changing element".format(j))
                 sampler.step()
-            for sampler1, sampler2 in itertools.combinations(self.sampler_list, 2):
-                log.info("Trying Replica exchange")
-                try_replica_exchange(sampler1, sampler2)
+            for j, sampler1 in enumerate(self.sampler_list):
+                if j+1<len(self.sampler_list):
+                    log.info("Trying Replica exchange")
+                    try_replica_exchange(sampler1, self.sampler_list[j+1])
 
 class MultiPipeConnection(object):
     def __init__(self, names, connections):
