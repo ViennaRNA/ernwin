@@ -765,7 +765,8 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         self.prev_mst=None
         if d[0]!="m":
             movestring=self.change_one_element(d) #Use the superclass method.
-            return movestring + self.accept_reject()
+            ms, accepted = self.accept_reject()
+            return movestring + ms
 
         junction_nodes = set( x for x in self.sm.bg.find_bulge_loop(d, 200) if x[0]=="m" )
         missing_nodes = junction_nodes - pe
@@ -836,7 +837,8 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
                 energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
         movestring.append("TRIES{};".format(num_tries))
-        movestring.append(self.accept_reject())
+        ms, accepted = self.accept_reject()
+        movestring.append(self.ms)
         return "".join(movestring)
 
 class ExhaustiveExplorer(MCMCSampler):
