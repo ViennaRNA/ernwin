@@ -32,10 +32,11 @@ def get_parser():
     parser.add_argument('ernwin_dir', type = str, help='A directory containing the step*.coord files.')
     #Options
     parser.add_argument('--fair-ensemble', action='store', help='A folder containing the '
-                            'build*.coord files representing a fairly built ensemble.', type=str)
+                            'build*.coord files representing a fairly built ensemble. '
+                            'Or several ":" seperated folders', type=str)
     parser.add_argument('--reference', type=str, help="The true crystal structure")
     parser.add_argument('--subsample', type=int, default = 1, help="Use every n structures")
-
+    parser.add_argument('--full-rmsd-matrix', action="store_true", help="Calculate complete RMSD matrix (takes quite long)")
     return parser
 
 def read_cg_traj(fn):
@@ -82,11 +83,13 @@ if __name__=="__main__":
     del traj
     print("traj read")
     if args.fair_ensemble:
-        print("Reading BG")        
+        fair_es = args.fair_ensemble.split(":")
+        print("Reading BG")               
         ftraj = []
-        file_iter = glob.iglob(op.join(args.fair_ensemble,"build*.coord"))
-        for cg in pool.imap_unordered(read_cg_bg, file_iter):
-            ftraj.append(cg) #Arbitrary order
+        for fe in fair_es:
+            file_iter = glob.iglob(op.join(fe,"build*.coord"))
+            for cg in pool.imap_unordered(read_cg_bg, file_iter):
+                ftraj.append(cg) #Arbitrary order
         print("Fair ensemble with {} builds".format(len(ftraj)))
     else:
         ftraj = None
@@ -94,19 +97,20 @@ if __name__=="__main__":
     pool.close()
     
     print(time.time(),"rmsd - rmsd")
-    trajectory.view_db_clustering(ftraj)
+    trajectory.view_2d_projection(ftraj, cluster=args.full_rmsd_matrix)
     print(time.time(),"rog - rmsd")
-    trajectory.view_db_clustering(ftraj, "rog", "rmsd_to_reference")
+    trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix)
     print(time.time(),"rog - anisotropy")
-    trajectory.view_db_clustering(ftraj, "rog", "anisotropy")
-    print(time.time(),"Delta RMSD")
-    trajectory.view_delta_rmsd_vs_steps()
-    print(time.time(),"Embedding")
-    trajectory.view_2d_embedding()
+    trajectory.view_2d_projection(ftraj, "rog", "anisotropy", cluster=args.full_rmsd_matrix)
+    if args.full_rmsd_matrix:    
+        print(time.time(),"Delta RMSD")
+        trajectory.view_delta_rmsd_vs_steps()
+        print(time.time(),"Embedding")
+        trajectory.view_2d_embedding()
     if ftraj:
         print("The average RMSD between two structures in the background is roughly {:.0f}".format(sample_background_rmsd(ftraj)))
     if ref and ftraj:
-        print("The average RMSD between the reference structure and the background is {:.0f}".format(np.mean(calculate_descriptor_for("rmsd_to_reference", ftraj, ref))))
+        print("The average RMSD between the reference structure and the background is {:.0f}".format(np.mean(ftme.calculate_descriptor_for("rmsd_to_reference", ftraj, ref))))
 
     #Energies only for the steps stored
    # energies = np.array([data["Sampling_Energy"][i] for i in sorted(nr_to_step.values())])

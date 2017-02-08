@@ -800,7 +800,7 @@ class SpatialModel:
                     if stemid==stem_loop_stem[2]:
                         return i+1
             else:
-                if stemid[0] in "ftm":
+                if stemid[0] in "fth":
                     return float("inf")
                 for i, stem_loop_stem in enumerate(build_order):
                     if stemid==stem_loop_stem[1]:
@@ -855,7 +855,9 @@ class SpatialModel:
             # check which way the newly connected stem was added
             # if its 1-end was added, the its coordinates need to
             # be reversed to reflect the fact it was added backwards                
-            log.debug("new_traverse_and_build: Setting self.stems[{}] (=s2)".format(s2))
+            log.debug("new_traverse_and_build: Setting self.stems[{}] (connected to {} via {})".format(s2, s1, l))
+            log.debug("angle_params {}, stem_params {}".format(angle_params, stem_params))
+
             if connection_ends[1] == 1:
                 self.stems[s2] = stem.reverse()
             else:

@@ -29,6 +29,7 @@ import forgi.threedee.utilities.graph_pdb as ftug
 import logging
 log = logging.getLogger(__name__)
 logging.getLogger().setLevel(level=logging.DEBUG)
+
 def _determined_broken_ml_segments(built_nodes, bg):
     ml_nodes=set(x for x in bg.defines.keys() if x[0]=="m")
     broken_multiloops = ml_nodes-set(itertools.chain(*[bo for bo in bg.traverse_graph()]))

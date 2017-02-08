@@ -819,7 +819,8 @@ def setup_sampler(sm, energy, stat, stat_source, resample, exhaustive = False, n
     if resample:
         log.info("Sampling all stats to build structure from scratch.")
         sm.sample_stats(stat_source)
-    fbs.build_sm(sm, stat_source, verbose = False) #Resamples, if needed to avoid clashes
+    clashfree_builder = fbb.Builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
+    clashfree_builder.build(sm) 
 
     if exhaustive:
         sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, exhaustive)
@@ -953,7 +954,7 @@ def main(args):
                                         dump_energies = args.dump_energies)
                 for i in range(args.iterations):
                     sampler.step()
-                    print ("# Everything done. Terminated normally", file=out_file)
+                print ("# Everything done. Terminated normally", file=out_file)
             finally: #Clean-up
                 stat.collector.to_file()
 

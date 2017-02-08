@@ -618,12 +618,10 @@ class MCMCSampler(object):
     def accept_reject(self):
         movestring=[]
         energy = self.energy_function.eval_energy(self.sm, background=True)
-
         movestring.append("{:.3f}".format(self.prev_energy))
         movestring.append("->")
         movestring.append("{:.3f};".format(energy))
-
-        if energy < self.prev_energy:
+        if energy <= self.prev_energy:
             movestring.append("A")
             # lower energy means automatic acceptance accordint to the
             # metropolis hastings criterion
@@ -636,7 +634,7 @@ class MCMCSampler(object):
                 movestring.append("R")
                 # reject the sampled statistic and replace it the old one            
                 self.reject()
-                self.sm.traverse_and_build(start='start')
+                self.sm.new_traverse_and_build(start='start')
                 accepted = False
             else:            
                 movestring.append("A")
@@ -676,6 +674,7 @@ class MCMCSampler(object):
                     del self.sm.bg.sampled[m]        
             self.prev_mst = None
         for d, stats in self.prev_stats.items():
+            log.debug("reject: Resetting {} to {}".format(d, stats.pdb_name))
             self.sm.elem_defs[d] = stats
         self.energy_function.reject_last_measure()
         self.prev_stats = {}
