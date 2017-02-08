@@ -14,6 +14,7 @@ import numpy as np
 import math, os
 import time
 #import psutil
+from . import config as conf
 
 import scipy.stats as ss
 
@@ -632,10 +633,22 @@ class MCMCSampler(object):
             r = random.random()
             if r > math.exp(self.prev_energy - energy):
                 movestring.append("R")
-                # reject the sampled statistic and replace it the old one            
+                # reject the sampled statistic and replace it the old one
+                cg_stri = self.sm.bg.to_cg_string()
+                with open(os.path.join(conf.Configuration.sampling_output_dir, 'before_reset.coord'), "w") as f:
+                    f.write(cg_stri)
+
                 self.reject()
                 self.sm.new_traverse_and_build(start='start')
                 accepted = False
+                if not self.energy_function.uses_background():
+                    rec_prev_energy = self.energy_function.eval_energy(self.sm)
+                    log.debug("Energy after resetting is {}".format(rec_prev_energy))
+                    if rec_prev_energy != self.prev_energy:
+                        cg_stri = self.sm.bg.to_cg_string()
+                        with open(os.path.join(conf.Configuration.sampling_output_dir, 'after_reset.coord'), "w") as f:
+                            f.write(cg_stri)
+                    assert rec_prev_energy == self.prev_energy, "{}!={}. Energy changed after resetting".format(rec_prev_energy, self.prev_energy)
             else:            
                 movestring.append("A")
                 self.accept(energy)
@@ -712,7 +725,7 @@ class MCMCSampler(object):
         #    movestring.append(str(self.sm.conf_stats.angle_stats.cluster_of(new_stat)))
         #    movestring.append(";")
         self.sm.elem_defs[d] = new_stat
-        self.sm.new_traverse_and_build(start=d)
+        self.sm.new_traverse_and_build(start=d, include_start=True)
         return "".join(movestring)
 
     def step(self):

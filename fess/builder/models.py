@@ -268,9 +268,13 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     stem = StemModel()
     
     transposed_stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
+    log.debug("Place new stem: transposed_stem1_basis: {}".format(transposed_stem1_basis))
     start_location = cgg.stem2_pos_from_stem1_1(transposed_stem1_basis, bulge_params.position_params())
+    log.debug("Start location: {}".format(start_location))
     stem_orientation = cgg.stem2_orient_from_stem1_1(transposed_stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
+    log.debug("Stem_orientation: {}".format(stem_orientation))
     twist1 = cgg.twist2_orient_from_stem1_1(transposed_stem1_basis, bulge_params.twist_params())
+    log.debug("twist1: {}".format(twist1))
 
     assert np.allclose(np.dot(stem_orientation, twist1), 0)
 
@@ -278,8 +282,10 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     mid2 = mid1 + stem_orientation
 
     stem.mids = (mid1, mid2)
-
+    
+    log.debug("stem_params.twist_angle: {}".format(stem_params.twist_angle))
     twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
+    log.debug("twist2: {}".format(twist2))
     stem.twists = (twist1, twist2)
     assert np.allclose(np.dot(stem_orientation, twist2), 0)
     return stem
@@ -605,7 +611,10 @@ class SpatialModel:
         Add a stem after a bulge. 
 
         The bulge parameters will determine where to place the stem in relation
-        to the one before it (prev_stem). This one's length and twist are
+        to the one before it (prev_stem). This one's length and tDEBUG:fess.builder.models:new_traverse_and_build: Setting self.stems[s0] (=first  stem)
+DEBUG:fess.builder.models:add_stem
+DEBUG:fess.builder.models:Changing stem twist s0 : (array([ 1.,  0.,  0.]), array([-0.20962777,  0.        , -0.97778126])) to (array([ 1.,  0.,  0.]), array([-0.29679851,  0.        , -0.95494013]))
+wist are
         defined by the parameters stem_params.
 
         @param stem_params: The parameters describing the length and twist of the stem.
@@ -613,7 +622,7 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
-        log.debug("add_stem")
+        log.debug("add_stem {}".format(stem_name))
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
 
         stem.name = stem_name
@@ -776,20 +785,21 @@ class SpatialModel:
         self.to_skip = to_skip
 
 
-    def new_traverse_and_build(self, start='start', max_steps=float('inf'), end=None):
+    def new_traverse_and_build(self, start='start', max_steps=float('inf'), end=None, include_start=False):
         '''
         Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.
         
-        :param start: Optional; Start building the given element. If it is a stem, build AFTER this stem.
+        :param start: Optional; Start building the given element. (See include_start)
         :param max_staps: Optional; Build at most that many stems.
         :param end: Optional; End building once the given node is built.
                     If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
+        :param include_start: If True, build including the node given as start, if False, only build AFTER it.
         :returns: A list of course_grained elements that have been built. (Useful, if start or max_steps is given).
         '''
         log.debug("new_traverse_and_build(self, start={}, max_steps={}, end={})".format(start, max_steps, end))
         build_order = self.bg.traverse_graph()
 
-        def buildorder_of(stemid):
+        def buildorder_of(stemid, include = False):
             """
             Returns the buildorder of the multi-/ interior loop before the stem with stemid.
             @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
@@ -797,17 +807,20 @@ class SpatialModel:
             if stemid=="s0": return 0
             if stemid.startswith('s'):
                 for i, stem_loop_stem in enumerate(build_order):
-                    if stemid==stem_loop_stem[2]:
-                        return i+1
+                    if stemid==stem_loop_stem[2]: 
+                        if include:
+                            return i
+                        else:
+                            return i+1
             else:
                 if stemid[0] in "fth":
-                    return float("inf")
+                    return float("inf") #Only fill in bulges and loops if loop was changed
                 for i, stem_loop_stem in enumerate(build_order):
                     if stemid==stem_loop_stem[1]:
                         return i
             raise ValueError("{} not found in {}.".format(stemid,build_order))
         nodes = []
-        if start == "start":
+        if start == "start" or start == "s0":
             # add the first stem in relation to a non-existent stem
             first_stem = build_order[0][0]
             log.debug("new_traverse_and_build: Setting self.stems[{}] (=first  stem)".format(first_stem))
@@ -817,13 +830,13 @@ class SpatialModel:
             nodes.append(first_stem)
             build_step = 0
         else:
-            build_step = buildorder_of(start)
+            build_step = buildorder_of(start, include_start)
             if build_step >= len(build_order):
                 self._finish_building()
                 return []
             prev_stem = build_order[build_step][0]
             try:
-                log.debug("new_traverse_and_build: Setting self.stems[{}] (=prev_stem)".format(prev_stem))
+                log.debug("new_traverse_and_build: Checking self.stems[{}] (=prev_stem)".format(prev_stem))
                 self.stems[prev_stem]
             except KeyError:
                 raise ValueError("Cannot build structure starting from {0}, because the parts "
@@ -849,14 +862,15 @@ class SpatialModel:
             elif connection_ends[0] == 1:
                 (s1b, s1e) = (0, 1)
 
-            stem = self.add_stem(s2, stem_params, prev_stem,
-                                 angle_params, (s1b, s1e))
-
             # check which way the newly connected stem was added
             # if its 1-end was added, the its coordinates need to
             # be reversed to reflect the fact it was added backwards                
             log.debug("new_traverse_and_build: Setting self.stems[{}] (connected to {} via {})".format(s2, s1, l))
-            log.debug("angle_params {}, stem_params {}".format(angle_params, stem_params))
+            log.debug("angle_params {}, stem_params {}, ang_type {}, connection_ends {}".format(angle_params, stem_params, ang_type, connection_ends))
+            log.debug("prev. stem MIDS: {}, TWISTS: {}".format(prev_stem.mids, prev_stem.twists))
+            
+            stem = self.add_stem(s2, stem_params, prev_stem,
+                                 angle_params, (s1b, s1e))
 
             if connection_ends[1] == 1:
                 self.stems[s2] = stem.reverse()
