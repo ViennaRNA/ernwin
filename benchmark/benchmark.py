@@ -138,18 +138,21 @@ if __name__=="__main__":
     del traj
     print("traj read")
     if args.bg_energy:
-        energy_function = fbe.getDefaultEnergies(trajectory[0])
+        energy_function = fbe.CombinedEnergy(getDefaultEnergies(trajectory.at_timestep(0)))
+    
+    sm = lambda : None #Dummy object http://stackoverflow.com/a/2827734/5069869
+    ftraj = []
+    f_energies = []
     if args.fair_ensemble:
         fair_es = args.fair_ensemble.split(":")
         print("Reading BG")               
-        ftraj = []
-        f_energies = []
         for fe in fair_es:
             file_iter = glob.iglob(op.join(fe,"build*.coord"))
             for cg in pool.imap_unordered(read_cg_bg, file_iter):
                 ftraj.append(cg) #Arbitrary order
                 if args.bg_energy:
-                    f_energies.append(energy_function.eval_energy(cg))
+                    sm.bg = cg
+                    f_energies.append(energy_function.eval_energy(sm))
         print("Fair ensemble with {} builds".format(len(ftraj)))
     else:
         ftraj = None
@@ -157,15 +160,19 @@ if __name__=="__main__":
     pool.close()
     print(time.time(),"rmsd - rmsd")    
     bins = trajectory.view_2d_hist(ftraj)
-    trajectory.color_by_energy(bins=bins)
-    raise RuntimeError("DONE")
-    trajectory.view_2d_projection(ftraj, cluster=args.full_rmsd_matrix)
+    trajectory.color_by_energy(bins, ftraj, f_energies)
+    trajectory.view_2d_projection(ftraj, cluster=args.full_rmsd_matrix)    
+
     print(time.time(),"rog - rmsd")
-    trajectory.view_2d_hist(ftraj, "rog", "rmsd_to_reference")
+    bins = trajectory.view_2d_hist(ftraj, "rog", "rmsd_to_reference")
+    trajectory.color_by_energy(bins, ftraj, f_energies, "rog", "rmsd_to_reference")
     trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix)
+    
     print(time.time(),"rog - anisotropy")
-    trajectory.view_2d_hist(ftraj, "rog", "anisotropy")
+    bins = trajectory.view_2d_hist(ftraj, "rog", "anisotropy")
+    trajectory.color_by_energy(bins, ftraj, f_energies, "rog", "anisotropy")
     trajectory.view_2d_projection(ftraj, "rog", "anisotropy", cluster=args.full_rmsd_matrix)
+    
     if args.full_rmsd_matrix:    
         print(time.time(),"Delta RMSD")
         trajectory.view_delta_rmsd_vs_steps()

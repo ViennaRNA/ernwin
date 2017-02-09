@@ -679,6 +679,7 @@ def setup_deterministic(args):
         print("ERROR: --clustered-angle-stats and --jar3d are currently not implemented!", file=sys.stderr)
         sys.exit(1)
     
+    #LOAD THE SM(s)
     if args.replica_exchange:
         sm = []
         for i in range(args.replica_exchange):
@@ -687,7 +688,33 @@ def setup_deterministic(args):
             if args.mst_breakpoints:
                 bps = args.mst_breakpoints.split(",")
                 for bp in bps:
-                    sm.set_multiloop_break_segment(bp)
+                    sm.set_multiloop_break_segment(bp)    
+    else:
+        #Initialize the spatial model
+        sm=fbm.SpatialModel(cg)
+        if args.mst_breakpoints:
+            bps = args.mst_breakpoints.split(",")
+            for bp in bps:
+                sm.set_multiloop_break_segment(bp)
+          
+                    
+    #Load the reference sm (if given)
+    if args.rmsd_to:
+        if args.rmsd_to.endswith(".pdb"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
+                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
+        else:
+            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
+    else:
+        if args.replica_exchange:
+            original_sm=fbm.SpatialModel(copy.deepcopy(sm[-1].bg))
+        else:
+            original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
+
+    # INIT ENERGY
+    if args.replica_exchange:
         if "@" in args.energy:
             rep_energies = args.energy.split("@")
             if len(rep_energies) != args.replica_exchange:
@@ -717,12 +744,6 @@ def setup_deterministic(args):
             if s in ["D","B","C"]:
                 s.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
     else:
-        #Initialize the spatial model
-        sm=fbm.SpatialModel(cg)
-        if args.mst_breakpoints:
-            bps = args.mst_breakpoints.split(",")
-            for bp in bps:
-                sm.set_multiloop_break_segment(bp)
         #Initialize the requested energies
         if args.energy=="D":
             energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
@@ -745,21 +766,6 @@ def setup_deterministic(args):
             sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
         if args.constraint_energy in ["D","B","C"]:
             sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
-
-    #Load the reference sm (if given)
-    if args.rmsd_to:
-        if args.rmsd_to.endswith(".pdb"):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
-                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
-        else:
-            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
-    else:
-        if args.replica_exchange:
-            original_sm=fbm.SpatialModel(copy.deepcopy(sm[-1].bg))
-        else:
-            original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
 
 
     return sm, original_sm, ofilename, energy, energies_to_track, stat_source
