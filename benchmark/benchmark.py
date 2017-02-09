@@ -115,6 +115,8 @@ def getDefaultEnergies(cg):
 
 parser = get_parser()
 if __name__=="__main__":
+    with open("test", "w") as f:
+        f.write(str(1234.2))
 
     args = parser.parse_args()
     
@@ -138,7 +140,7 @@ if __name__=="__main__":
     del traj
     print("traj read")
     if args.bg_energy:
-        energy_function = fbe.CombinedEnergy(getDefaultEnergies(trajectory.at_timestep(0)))
+        energy_function = fbe.CombinedEnergy([], getDefaultEnergies(trajectory.at_timestep(0)))
     
     sm = lambda : None #Dummy object http://stackoverflow.com/a/2827734/5069869
     ftraj = []
@@ -148,15 +150,19 @@ if __name__=="__main__":
         print("Reading BG")               
         for fe in fair_es:
             file_iter = glob.iglob(op.join(fe,"build*.coord"))
-            for cg in pool.imap_unordered(read_cg_bg, file_iter):
-                ftraj.append(cg) #Arbitrary order
+            for cg in pool.imap(read_cg_bg, file_iter):
+                ftraj.append(cg)
                 if args.bg_energy:
                     sm.bg = cg
-                    f_energies.append(energy_function.eval_energy(sm))
+                    e = energy_function.eval_energy(sm)
+                    f_energies.append(e)
         print("Fair ensemble with {} builds".format(len(ftraj)))
     else:
         ftraj = None
-        
+    with open("energies_of_bg", "w") as f:
+        for e in f_energies:
+            f.write(str(e))
+    
     pool.close()
     print(time.time(),"rmsd - rmsd")    
     bins = trajectory.view_2d_hist(ftraj)
