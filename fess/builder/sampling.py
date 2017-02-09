@@ -676,6 +676,7 @@ class MCMCSampler(object):
             for e in self.energy_function.iterate_energies():
                 if hasattr(e, "accepted_projDir"):
                     self.sm.bg.project_from=e.accepted_projDir
+        self.sm.bg.infos["totalEnergy"]="{} {}".format(energy, self.energy_function.shortname())
 
     def reject(self):
         if self.prev_mst is not None:
