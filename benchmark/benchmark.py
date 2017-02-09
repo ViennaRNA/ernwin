@@ -20,6 +20,7 @@ import time
 from multiprocessing.dummy import Pool, TimeoutError #We like a pool of threads
 from itertools import islice
 import random
+import fess.builder.energy as fbe
 
 def get_parser():
     """
@@ -37,6 +38,7 @@ def get_parser():
     parser.add_argument('--reference', type=str, help="The true crystal structure")
     parser.add_argument('--subsample', type=int, default = 1, help="Use every n structures")
     parser.add_argument('--full-rmsd-matrix', action="store_true", help="Calculate complete RMSD matrix (takes quite long)")
+    parser.add_argument('--bg-energy', action="store_true", help="Calculate the energy for the background.")
     return parser
 
 def read_cg_traj(fn):
@@ -57,7 +59,60 @@ def sample_background_rmsd(reference):
             samples.append(random.choice(reference).coords.rmsd_to(random.choice(reference).coords))
         newav = np.mean(samples)
     return newav
+
+DEFAULT_ENERGY_PREFACTOR=30
+
+
+def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
+    """
+    Get the shortest loopdistance per loop energy for each hloop.
+
+    :param cg: The coarse grained RNA
+    :returns: A list of energies
+    """
+    energies=[]
+    for hloop in cg.hloop_iterator():
+        energies+= [fbe.ShortestLoopDistancePerLoop(hloop, prefactor)]
+    return energies
+def getAMinorEnergies(cg, pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
+    """
+    Get the A-minor energies for h- and i-loops.
     
+    :param pre: Energy prefactor
+    :param adj: Adjustment
+
+    :returns: A list of energies
+    """
+    ame1 = fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj)
+    ame2 = fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)
+    energies = []
+    if ame1.get_num_loops(cg)>0:
+        energies.append(ame1)
+    if ame2.get_num_loops(cg)>0:
+        energies.append(ame2)
+    return energies
+
+def getDefaultEnergies(cg):
+    """
+    Get the default energies.
+
+    :param cg: The coarse grained RNA
+    :returns: A list of energies
+    """
+    energies=[]
+    #Radius of gyration
+    energies.append(fbe.RadiusOfGyrationEnergy(energy_prefactor=DEFAULT_ENERGY_PREFACTOR,
+                                               adjustment=1.0))
+    #Shortest loop distance per loop
+    sld = getSLDenergies(cg)
+    if sld:
+        energies+=[ fbe.CombinedEnergy([],  sld , normalize=True) ]
+    #A-minor energies
+    energies += getAMinorEnergies(cg)
+    return energies
+
+
+
 parser = get_parser()
 if __name__=="__main__":
 
@@ -82,25 +137,34 @@ if __name__=="__main__":
     trajectory = ftme.Ensemble(traj, ref)
     del traj
     print("traj read")
+    if args.bg_energy:
+        energy_function = fbe.getDefaultEnergies(trajectory[0])
     if args.fair_ensemble:
         fair_es = args.fair_ensemble.split(":")
         print("Reading BG")               
         ftraj = []
+        f_energies = []
         for fe in fair_es:
             file_iter = glob.iglob(op.join(fe,"build*.coord"))
             for cg in pool.imap_unordered(read_cg_bg, file_iter):
                 ftraj.append(cg) #Arbitrary order
+                if args.bg_energy:
+                    f_energies.append(energy_function.eval_energy(cg))
         print("Fair ensemble with {} builds".format(len(ftraj)))
     else:
         ftraj = None
         
     pool.close()
-    
-    print(time.time(),"rmsd - rmsd")
+    print(time.time(),"rmsd - rmsd")    
+    bins = trajectory.view_2d_hist(ftraj)
+    trajectory.color_by_energy(bins=bins)
+    raise RuntimeError("DONE")
     trajectory.view_2d_projection(ftraj, cluster=args.full_rmsd_matrix)
     print(time.time(),"rog - rmsd")
+    trajectory.view_2d_hist(ftraj, "rog", "rmsd_to_reference")
     trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix)
     print(time.time(),"rog - anisotropy")
+    trajectory.view_2d_hist(ftraj, "rog", "anisotropy")
     trajectory.view_2d_projection(ftraj, "rog", "anisotropy", cluster=args.full_rmsd_matrix)
     if args.full_rmsd_matrix:    
         print(time.time(),"Delta RMSD")
