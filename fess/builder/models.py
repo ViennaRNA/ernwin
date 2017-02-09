@@ -611,10 +611,7 @@ class SpatialModel:
         Add a stem after a bulge. 
 
         The bulge parameters will determine where to place the stem in relation
-        to the one before it (prev_stem). This one's length and tDEBUG:fess.builder.models:new_traverse_and_build: Setting self.stems[s0] (=first  stem)
-DEBUG:fess.builder.models:add_stem
-DEBUG:fess.builder.models:Changing stem twist s0 : (array([ 1.,  0.,  0.]), array([-0.20962777,  0.        , -0.97778126])) to (array([ 1.,  0.,  0.]), array([-0.29679851,  0.        , -0.95494013]))
-wist are
+        to the one before it (prev_stem). This one's length and twist are
         defined by the parameters stem_params.
 
         @param stem_params: The parameters describing the length and twist of the stem.
@@ -886,7 +883,39 @@ wist are
         self._finish_building()
         return nodes
 
-            
+    def ml_stat_deviation(self, ml, stat, stem1, stem2):
+        """
+        Calculate the deviation in angstrom between the stem that would be placed using the given 
+        stats for an open multiloop segment and the true stem position.
+        
+        :param ml: A element name, e.g. "m0". Should correspond to a broken multiloop.
+        :param stat: The fictive stat to use for this ml segment.
+        """
+        stem1, stem2 = self.bg.edges[ml] #Arbitrary direction
+        prev_stem = self.stems[stem1]
+        angle_params = self.elem_defs[ml]
+        stem_params = self.elem_defs[stem2]
+        ang_type = self.bg.connection_type(ml, [stem1,stem2])
+        connection_ends = self.bg.connection_ends(ang_type)
+
+        # get the direction of the first stem (which is used as a 
+        # coordinate system)
+         if connection_ends[0] == 0:
+            (s1b, s1e) = (1, 0)
+        elif connection_ends[0] == 1:
+            (s1b, s1e) = (0, 1)
+
+
+        stem = self.add_stem(stem2, stem_params, prev_stem,
+                                 angle_params, (s1b, s1e))
+        if connection_ends[1] == 1:
+            stem = stem.reverse()
+        true_stem = self.stems[stem2]
+        difference1 = abs(stem.mids[0]-ture_stem.mids[0]) + abs(stem.mids[1]-ture_stem.mids[1])
+        difference2 = abs(stem.mids[0]-ture_stem.mids[1]) + abs(stem.mids[1]-ture_stem.mids[0])
+        log.info("Difference ml_stat_deviation = min({}, {})".format(difference1, difference2))
+        return min(difference1, difference2)
+
     def traverse_and_build(self, start='start', fast=True, verbose=False, stat_source = None):
         '''
         Build a 3D structure from the graph in self.bg.
