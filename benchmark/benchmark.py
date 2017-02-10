@@ -8,6 +8,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              unicode, xrange, StandardError)
 import logging    
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 import argparse
 import glob
 import os.path as op
@@ -37,6 +38,8 @@ def get_parser():
                             'Or several ":" seperated folders', type=str)
     parser.add_argument('--reference', type=str, help="The true crystal structure")
     parser.add_argument('--subsample', type=int, default = 1, help="Use every n structures")
+    parser.add_argument('--skip-burnin', type=int, default = 0, help="Skip n structures")
+    parser.add_argument('--max-bg-samples', type=int, default = 0, help="Use only up to n background structures")
     parser.add_argument('--full-rmsd-matrix', action="store_true", help="Calculate complete RMSD matrix (takes quite long)")
     parser.add_argument('--bg-energy', action="store_true", help="Calculate the energy for the background.")
     return parser
@@ -46,14 +49,14 @@ def read_cg_traj(fn):
     cg = ftmc.CoarseGrainRNA(fn)
     return step, cg
 def read_cg_bg(fn):
-    return ftmc.CoarseGrainRNA(fn)
+    return fn, ftmc.CoarseGrainRNA(fn)
 
 
 def sample_background_rmsd(reference):
     oldav = float('inf')
     samples = [random.choice(reference).coords.rmsd_to(random.choice(reference).coords)]
     newav = np.mean(samples)
-    while abs(oldav-newav)>2:
+    while abs(oldav-newav)>0.5:
         oldav = newav
         for i in range(20):
             samples.append(random.choice(reference).coords.rmsd_to(random.choice(reference).coords))
@@ -131,13 +134,12 @@ if __name__=="__main__":
     print("Reading traj") 
     traj = {}
     pool = Pool(processes=2)
-    file_iter = islice(sorted(glob.iglob(op.join(args.ernwin_dir,"step*.coord"))), 0, None, args.subsample)
+    file_iter = islice(sorted(glob.iglob(op.join(args.ernwin_dir,"step*.coord"))), args.skip_burnin, None, args.subsample)
         
     for step, cg in pool.imap_unordered(read_cg_traj, file_iter):
         traj[step]=cg
             
     trajectory = ftme.Ensemble(traj, ref)
-    del traj
     print("traj read")
     if args.bg_energy:
         energy_function = fbe.CombinedEnergy([], getDefaultEnergies(trajectory.at_timestep(0)))
@@ -145,25 +147,37 @@ if __name__=="__main__":
     sm = lambda : None #Dummy object http://stackoverflow.com/a/2827734/5069869
     ftraj = []
     f_energies = []
+    f_fns = []
     if args.fair_ensemble:
         fair_es = args.fair_ensemble.split(":")
         print("Reading BG")               
         for fe in fair_es:
             file_iter = glob.iglob(op.join(fe,"build*.coord"))
-            for cg in pool.imap(read_cg_bg, file_iter):
+            if args.max_bg_samples:
+                file_iter = islice(file_iter, 0, args.max_bg_samples)
+            for fn, cg in pool.imap(read_cg_bg, file_iter):
                 ftraj.append(cg)
                 if args.bg_energy:
                     sm.bg = cg
-                    e = energy_function.eval_energy(sm)
+                    e = energy_function.eval_energy(sm, background = False)
                     f_energies.append(e)
-        print("Fair ensemble with {} builds".format(len(ftraj)))
+                    f_fns.append(fn)
+        print("Fair ensemble with {} builds".format(len(ftraj)))        
+        if args.bg_energy:
+            with open("energies_of_bg", "w") as f:
+                for i,e in enumerate(f_energies):
+                    f.write(str("{} {}\n".format(f_fns[i], e)))
+
     else:
         ftraj = None
-    with open("energies_of_bg", "w") as f:
-        for e in f_energies:
-            f.write(str(e))
+    
     
     pool.close()
+    print("PCA")
+    trajectory.ensemble_pca(ftraj)
+    trajectory.ensemble_pca(ftraj, False)
+
+    
     print(time.time(),"rmsd - rmsd")    
     bins = trajectory.view_2d_hist(ftraj)
     trajectory.color_by_energy(bins, ftraj, f_energies)
@@ -189,6 +203,57 @@ if __name__=="__main__":
     if ref and ftraj:
         print("The average RMSD between the reference structure and the background is {:.0f}".format(np.mean(ftme.calculate_descriptor_for("rmsd_to_reference", ftraj, ref))))
 
+
+    if ftraj:
+        num_stru=[]
+        av_rmsd=[]
+        av_true_rmsd=[]
+        min_true_rmsd = []
+        for i in range(1000, len(ftraj), 500):
+            num_stru.append(i)
+            av_rmsd.append(sample_background_rmsd(ftraj[:i]))
+            rmsds = ftme.calculate_descriptor_for("rmsd_to_reference", ftraj[:i], ref)
+            av_true_rmsd.append(np.mean(rmsds))
+            min_true_rmsd.append(np.min(rmsds))
+
+        import matplotlib.pyplot as plt
+        
+        plt.plot(num_stru, av_rmsd, "o-", label="estim. pairwise RMSD")
+        plt.plot(num_stru, av_true_rmsd, "o-", label="av. RMSD to target")
+        plt.plot(num_stru, min_true_rmsd, "o-", label="min RMSD to target")
+
+        plt.legend(loc = "center right")
+        figname = "RMSD_vs_samplesize_{}_background.svg".format(trajectory.at_timestep(0).name)
+        plt.savefig(figname)
+        log.info("Figure {} created".format(figname))
+        plt.clf()
+        plt.close()
+
+    num_stru=[]
+    av_rmsd=[]
+    av_true_rmsd=[]
+    min_true_rmsd = []
+    for i in range(1000, len(traj), 500):
+        num_stru.append(i)
+        av_rmsd.append(sample_background_rmsd(trajectory.at_timestep((0,i))))
+        rmsds = ftme.calculate_descriptor_for("rmsd_to_reference", trajectory.at_timestep((0,i)), ref)
+        av_true_rmsd.append(np.mean(rmsds))
+        min_true_rmsd.append(np.min(rmsds))
+
+    import matplotlib.pyplot as plt
+    plt.plot(num_stru, av_rmsd, "o-", label="estim. pairwise RMSD")
+    plt.plot(num_stru, av_true_rmsd, "o-", label="av. RMSD to target")
+    plt.plot(num_stru, min_true_rmsd, "o-", label="min RMSD to target")
+
+    plt.legend(loc = "center right")
+    figname = "RMSD_vs_samplesize_{}.svg".format(trajectory.at_timestep(0).name)
+    plt.savefig(figname)
+    log.info("Figure {} created".format(figname))
+    plt.clf()
+    plt.close()
+
+        
+        
     #Energies only for the steps stored
    # energies = np.array([data["Sampling_Energy"][i] for i in sorted(nr_to_step.values())])
     
