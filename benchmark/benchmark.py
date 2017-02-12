@@ -42,6 +42,7 @@ def get_parser():
     parser.add_argument('--max-bg-samples', type=int, default = 0, help="Use only up to n background structures")
     parser.add_argument('--full-rmsd-matrix', action="store_true", help="Calculate complete RMSD matrix (takes quite long)")
     parser.add_argument('--bg-energy', action="store_true", help="Calculate the energy for the background.")
+    parser.add_argument('--ml', type=str, help="Two ,-seperated ml names")
     return parser
 
 def read_cg_traj(fn):
@@ -173,6 +174,19 @@ if __name__=="__main__":
     
     
     pool.close()
+    
+    if args.ml:
+        print(args.ml)
+        elem1, elem2 = args.ml_.split(",")
+        bins = trajectory.view_2d_hist(ftraj, "cg_dist_{}".format(elem1), "cg_dist_{}".format(elem2))
+        trajectory.color_by_energy(bins, ftraj, f_energies, "cg_dist_{}".format(elem1), "cg_dist_{}".format(elem2))
+        trajectory.view_2d_projection(ftraj, "cg_dist_{}".format(elem1), "cg_dist_{}".format(elem2), cluster=args.full_rmsd_matrix)    
+        
+        s = "cg_dist_sum_{}_{}".format(elem1, elem2)
+        d = "cg_dist_difference_{}_{}".format(elem1, elem2)
+        bins = trajectory.view_2d_hist(ftraj, s, d)
+        trajectory.color_by_energy(bins, ftraj, f_energies, s, d )
+        trajectory.view_2d_projection(ftraj, s, d, cluster=args.full_rmsd_matrix)    
     print("PCA")
     trajectory.ensemble_pca(ftraj)
     trajectory.ensemble_pca(ftraj, False)
