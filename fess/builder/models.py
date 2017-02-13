@@ -900,7 +900,7 @@ class SpatialModel:
 
         # get the direction of the first stem (which is used as a 
         # coordinate system)
-         if connection_ends[0] == 0:
+        if connection_ends[0] == 0:
             (s1b, s1e) = (1, 0)
         elif connection_ends[0] == 1:
             (s1b, s1e) = (0, 1)

@@ -6,6 +6,8 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
+import matplotlib as mpl
+mpl.use('Agg')
 import logging    
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -22,7 +24,6 @@ from multiprocessing.dummy import Pool, TimeoutError #We like a pool of threads
 from itertools import islice
 import random
 import fess.builder.energy as fbe
-
 def get_parser():
     """
     Here all commandline & help-messages arguments are defined.
@@ -177,10 +178,10 @@ if __name__=="__main__":
     
     if args.ml:
         print(args.ml)
-        elem1, elem2 = args.ml_.split(",")
-        bins = trajectory.view_2d_hist(ftraj, "cg_dist_{}".format(elem1), "cg_dist_{}".format(elem2))
-        trajectory.color_by_energy(bins, ftraj, f_energies, "cg_dist_{}".format(elem1), "cg_dist_{}".format(elem2))
-        trajectory.view_2d_projection(ftraj, "cg_dist_{}".format(elem1), "cg_dist_{}".format(elem2), cluster=args.full_rmsd_matrix)    
+        elem1, elem2 = args.ml.split(",")
+        bins = trajectory.view_2d_hist(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
+        trajectory.color_by_energy(bins, ftraj, f_energies, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
+        trajectory.view_2d_projection(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2), cluster=args.full_rmsd_matrix)    
         
         s = "cg_dist_sum_{}_{}".format(elem1, elem2)
         d = "cg_dist_difference_{}_{}".format(elem1, elem2)
