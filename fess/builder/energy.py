@@ -1362,7 +1362,7 @@ class CheatingEnergy(EnergyFunction):
         '''
         new_residues = ftug.bg_virtual_residues(sm.bg)
 
-        return  ftms.rmsd(self.real_residues, new_residues)*10
+        return  ftms.rmsd(self.real_residues, new_residues)*30
     def shortname(self):
         return "CHE"
 
