@@ -44,6 +44,7 @@ def get_parser():
     parser.add_argument('--full-rmsd-matrix', action="store_true", help="Calculate complete RMSD matrix (takes quite long)")
     parser.add_argument('--bg-energy', action="store_true", help="Calculate the energy for the background.")
     parser.add_argument('--ml', type=str, help="Two ,-seperated ml names")
+    parser.add_argument('--write-stats-csv', type=str, help="Write this file")
     return parser
 
 def read_cg_traj(fn):
@@ -176,6 +177,13 @@ if __name__=="__main__":
     
     pool.close()
     
+    
+    if args.write_stats_csv:
+        trajectory.create_element_csv(args.write_stats_csv)
+        if ftraj:
+            bg_e = ftme.Ensemble(ftraj)
+            bg_e.create_element_csv(args.write_stats_csv+".bg.csv")
+        
     if args.ml:
         print(args.ml)
         elem1, elem2 = args.ml.split(",")

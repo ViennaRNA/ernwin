@@ -116,3 +116,8 @@ class StatStorage(object):
     def sample_for(self, bg, elem, min_entries = 100):
         stats = self.get_possible_stats(bg, elem, min_entries)
         return random.choice(stats)
+        
+
+        
+        
+        
