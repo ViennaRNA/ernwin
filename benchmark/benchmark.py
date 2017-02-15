@@ -188,6 +188,10 @@ if __name__=="__main__":
     if args.ml:
         print(args.ml)
         elem1, elem2 = args.ml.split(",")
+        bins = trajectory.view_2d_hist(ftraj, "stat_angle{}".format(elem1), "stat_angle{}".format(elem2))
+        trajectory.color_by_energy(bins, ftraj, f_energies, "stat_angle{}".format(elem1), "stat_angle{}".format(elem2))
+        trajectory.view_2d_projection(ftraj, "stat_angle{}".format(elem1), "stat_angle{}".format(elem2), cluster=args.full_rmsd_matrix)    
+        
         bins = trajectory.view_2d_hist(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
         trajectory.color_by_energy(bins, ftraj, f_energies, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
         trajectory.view_2d_projection(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2), cluster=args.full_rmsd_matrix)    
