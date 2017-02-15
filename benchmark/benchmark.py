@@ -183,7 +183,8 @@ if __name__=="__main__":
         if ftraj:
             bg_e = ftme.Ensemble(ftraj)
             bg_e.create_element_csv(args.write_stats_csv+".bg.csv")
-        
+        sys.exit()
+ 
     if args.ml:
         print(args.ml)
         elem1, elem2 = args.ml.split(",")
