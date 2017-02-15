@@ -522,10 +522,15 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args):
             energies.append(getHDEenergy(args.ref_img, args.scale, pre))
         elif "CHE" in contrib:
             pre,_, adj=contrib.partition("CHE")
-            if pre!="" or adj!="":
+            if adj!="":
                 warnings.warn("Prefactor '{}' and adjustment '{}' are ignored "
                               "for cheating energy!".format(pre, adj))
-            energies.append(fbe.CheatingEnergy(reference_cg))
+            if pre:
+                pre=int(pre)
+            else:
+                pre=DEFAULT_ENERGY_PREFACTOR
+            
+            energies.append(fbe.CheatingEnergy(reference_cg, pre))
         elif "CLA" in contrib:
             pre,_, adj=contrib.partition("CLA")
             if adj!="":

@@ -1351,10 +1351,11 @@ class CylinderIntersectionEnergy(CoarseGrainEnergy):
         return total_cylinder_intersections
 
 class CheatingEnergy(EnergyFunction):
-    def __init__(self, real_bg):
+    def __init__(self, real_bg, energy_prefactor=DEFAULT_ENERGY_PREFACTOR):
         super(CheatingEnergy, self).__init__()
         self.real_bg = copy.deepcopy(real_bg)
         self.real_residues = ftug.bg_virtual_residues(self.real_bg)
+        self.prefactor=energy_prefactor
 
     def eval_energy(self, sm, background=True, nodes=None):
         '''
@@ -1362,7 +1363,7 @@ class CheatingEnergy(EnergyFunction):
         '''
         new_residues = ftug.bg_virtual_residues(sm.bg)
 
-        return  ftms.rmsd(self.real_residues, new_residues)*30
+        return  ftms.rmsd(self.real_residues, new_residues)*self.prefactor
     def shortname(self):
         return "CHE"
 

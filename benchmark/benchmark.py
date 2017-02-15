@@ -183,24 +183,35 @@ if __name__=="__main__":
         if ftraj:
             bg_e = ftme.Ensemble(ftraj)
             bg_e.create_element_csv(args.write_stats_csv+".bg.csv")
-        sys.exit()
+        #sys.exit()
  
     if args.ml:
-        print(args.ml)
-        elem1, elem2 = args.ml.split(",")
-        bins = trajectory.view_2d_hist(ftraj, "stat_angle{}".format(elem1), "stat_angle{}".format(elem2))
-        trajectory.color_by_energy(bins, ftraj, f_energies, "stat_angle{}".format(elem1), "stat_angle{}".format(elem2))
-        trajectory.view_2d_projection(ftraj, "stat_angle{}".format(elem1), "stat_angle{}".format(elem2), cluster=args.full_rmsd_matrix)    
+        for ml in args.ml.split(":"):
+            print(args.ml)
+            elem1, elem2 = ml.split(",")
+
+            bins = trajectory.view_2d_hist(ftraj, "stat_angle_{}".format(elem1), "stat_angle_{}".format(elem2))
+            trajectory.color_by_energy(bins, ftraj, f_energies, "stat_angle_{}".format(elem1), "stat_angle_{}".format(elem2))
+            trajectory.view_2d_projection(ftraj, "stat_angle_{}".format(elem1), "stat_angle_{}".format(elem2), cluster=args.full_rmsd_matrix)    
         
-        bins = trajectory.view_2d_hist(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
-        trajectory.color_by_energy(bins, ftraj, f_energies, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
-        trajectory.view_2d_projection(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2), cluster=args.full_rmsd_matrix)    
+            bins = trajectory.view_2d_hist(ftraj, "stat_angle_{}".format(elem1), "cg_distance_{}".format(elem1))
+            trajectory.color_by_energy(bins, ftraj, f_energies, "stat_angle_{}".format(elem1), "cg_distance_{}".format(elem1))
+            trajectory.view_2d_projection(ftraj, "stat_angle_{}".format(elem1), "cg_distance_{}".format(elem1), cluster=args.full_rmsd_matrix)    
+           
+
+            bins = trajectory.view_2d_hist(ftraj, "stat_angle_{}".format(elem2), "cg_distance_{}".format(elem2))
+            trajectory.color_by_energy(bins, ftraj, f_energies, "stat_angle_{}".format(elem2), "cg_distance_{}".format(elem2))
+            trajectory.view_2d_projection(ftraj, "stat_angle_{}".format(elem2), "cg_distance_{}".format(elem2), cluster=args.full_rmsd_matrix)    
+ 
+            bins = trajectory.view_2d_hist(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
+            trajectory.color_by_energy(bins, ftraj, f_energies, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2))
+            trajectory.view_2d_projection(ftraj, "cg_distance_{}".format(elem1), "cg_distance_{}".format(elem2), cluster=args.full_rmsd_matrix)    
         
-        s = "cg_dist_sum_{}_{}".format(elem1, elem2)
-        d = "cg_dist_difference_{}_{}".format(elem1, elem2)
-        bins = trajectory.view_2d_hist(ftraj, s, d)
-        trajectory.color_by_energy(bins, ftraj, f_energies, s, d )
-        trajectory.view_2d_projection(ftraj, s, d, cluster=args.full_rmsd_matrix)    
+            s = "cg_dist_sum_{}_{}".format(elem1, elem2)
+            d = "cg_dist_difference_{}_{}".format(elem1, elem2)
+            bins = trajectory.view_2d_hist(ftraj, s, d)
+            trajectory.color_by_energy(bins, ftraj, f_energies, s, d )
+            trajectory.view_2d_projection(ftraj, s, d, cluster=args.full_rmsd_matrix)    
     print("PCA")
     trajectory.ensemble_pca(ftraj)
     trajectory.ensemble_pca(ftraj, False)
