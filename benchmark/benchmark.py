@@ -45,6 +45,7 @@ def get_parser():
     parser.add_argument('--bg-energy', action="store_true", help="Calculate the energy for the background.")
     parser.add_argument('--ml', type=str, help="Two ,-seperated ml names")
     parser.add_argument('--write-stats-csv', type=str, help="Write this file")
+    parser.add_argument('--embed', type=str, help="Calculate embedding (Expensive)")
     return parser
 
 def read_cg_traj(fn):
@@ -185,6 +186,8 @@ if __name__=="__main__":
             bg_e.create_element_csv(args.write_stats_csv+".bg.csv")
         #sys.exit()
  
+    if args.embed:
+        trajectory.view_2d_embedding(ftraj)
     if args.ml:
         for ml in args.ml.split(":"):
             print(args.ml)

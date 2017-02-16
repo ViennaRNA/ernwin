@@ -121,19 +121,29 @@ class EnergyFunction(object):
     The base class for energy functions.
     '''
 
-    def __init__(self):
+    def __init__(self, prefactor = DEFAULT_ENERGY_PREFACTOR):
         #: Used by constraint energies, to store tuples of stems that clash.
         #: Updated every time eval_energy is called.
         self.bad_bulges = []
 
         self.measures = []
         self.accepted_measures = []
-    
+        if isinstance(prefactor, tuple):
+            self.prefactor = prefactor[0]            
+            self.prefactor_change_step = prefactor[1]
+            self.target_prefactor = prefactor[2]
+        else:
+            self.prefactor = prefactor
+            self.target_prefactor = None
+            self.prefactor_change_step = None
+        
     def accept_last_measure(self):
         """EnergyFunction.acceptLastMeasure"""
         if len(self.measures) > 0:        
             self.accepted_measures.append(self.measures[-1])
 
+    def update_prefactor(self):
+        
     def update_adjustment(*args, **kwargs):
         pass
 
