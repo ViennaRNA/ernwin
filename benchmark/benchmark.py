@@ -226,6 +226,7 @@ if __name__=="__main__":
     bins = trajectory.view_2d_hist(ftraj, "rog", "rmsd_to_reference")
     trajectory.color_by_energy(bins, ftraj, f_energies, "rog", "rmsd_to_reference")
     trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix)
+    trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix, circular = True)
     
     print(time.time(),"rog - anisotropy")
     bins = trajectory.view_2d_hist(ftraj, "rog", "anisotropy")
