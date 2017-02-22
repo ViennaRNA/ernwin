@@ -551,10 +551,10 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
     def __init__(self, prefactor = None):
         if prefactor is None:
-            prefactor = _JUNCTION_DEFAULT_PREFACTOR 
+            prefactor = self._JUNCTION_DEFAULT_PREFACTOR 
         super(RoughJunctionClosureEnergy, self).__init__(prefactor = prefactor)
         
-    def eval_energy(self, cg, background=True, nodes=None):
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         if nodes == None:
             nodes = cg.defines.keys()
 

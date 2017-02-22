@@ -68,6 +68,29 @@ class TestClashEnergy(unittest.TestCase):
         self.energy.eval_energy(self.cg_clash)
         self.assertEqual(set(self.energy.bad_bulges), {"s7", "s11"})
 
+class TestJunctionConstraintEnergy(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg.add_all_virtual_residues()
+        self.junction_energy = fbe.RoughJunctionClosureEnergy()
+        self.cg_bad = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
+        self.cg_bad.coords["s0"] = [0.,0.,0.], [0.,0.,10.]
+        self.cg_bad.coords["h0"] = self.cg_bad.coords["s0"][1], self.cg_bad.coords["s0"][1]+[3.,6.,0.]
+        self.cg_bad.coords["m0"] = self.cg_bad.coords["s0"][0], self.cg_bad.coords["s0"][0]+[2.,1.,300.]
+        self.cg_bad.coords["s1"] = self.cg_bad.coords["m0"][1], self.cg_bad.coords["m0"][1]+[12.,2.,-2.]
+        self.cg_bad.coords["h1"] = self.cg_bad.coords["s1"][1], self.cg_bad.coords["s1"][1]+[1.,6.,0.]
+        self.cg_bad.twists["s0"] = ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s0")), -ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s0"))
+        self.cg_bad.twists["s1"] = ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s1")), -ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s1"))
+        self.cg_bad.add_all_virtual_residues()
+    def test_junction_energy_ok(self):
+        self.assertEqual(self.junction_energy.eval_energy(self.cg), 0)
+    def test_junction_energy_bad(self):
+        self.assertGreater(self.junction_energy.eval_energy(self.cg_bad), 1000)
+        self.assertIn("m0", self.junction_energy.bad_bulges)    
+    def test_junction_energy_nodes(self):
+        self.assertEqual(self.junction_energy.eval_energy(self.cg, nodes=["s0", "h0", "s1"]), 0)
+        self.assertGreater(self.junction_energy.eval_energy(self.cg_bad, nodes=["m0"]), 1000)
+        
 class TestNonConstraintEnergies(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
