@@ -45,7 +45,7 @@ def get_parser():
     parser.add_argument('--bg-energy', action="store_true", help="Calculate the energy for the background.")
     parser.add_argument('--ml', type=str, help="Two ,-seperated ml names")
     parser.add_argument('--write-stats-csv', type=str, help="Write this file")
-    parser.add_argument('--embed', type=str, help="Calculate embedding (Expensive)")
+    parser.add_argument('--embed', action="store_true", help="Calculate embedding (Expensive)")
     return parser
 
 def read_cg_traj(fn):
@@ -188,6 +188,7 @@ if __name__=="__main__":
  
     if args.embed:
         trajectory.view_2d_embedding(ftraj)
+        assert False
     if args.ml:
         for ml in args.ml.split(":"):
             print(args.ml)
@@ -215,6 +216,8 @@ if __name__=="__main__":
             bins = trajectory.view_2d_hist(ftraj, s, d)
             trajectory.color_by_energy(bins, ftraj, f_energies, s, d )
             trajectory.view_2d_projection(ftraj, s, d, cluster=args.full_rmsd_matrix)    
+    
+    trajectory.view_2d_projection(None, "rmsd_to_reference", "info_energy", cluster=args.full_rmsd_matrix)
     print("PCA")
     trajectory.ensemble_pca(ftraj)
     trajectory.ensemble_pca(ftraj, False)
@@ -230,7 +233,10 @@ if __name__=="__main__":
     trajectory.color_by_energy(bins, ftraj, f_energies, "rog", "rmsd_to_reference")
     trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix)
     trajectory.view_2d_projection(ftraj, "rog", "rmsd_to_reference", cluster=args.full_rmsd_matrix, circular = True)
+   
+    # 
     
+
     print(time.time(),"rog - anisotropy")
     bins = trajectory.view_2d_hist(ftraj, "rog", "anisotropy")
     trajectory.color_by_energy(bins, ftraj, f_energies, "rog", "anisotropy")
@@ -246,7 +252,32 @@ if __name__=="__main__":
     if ref and ftraj:
         print("The average RMSD between the reference structure and the background is {:.0f}".format(np.mean(ftme.calculate_descriptor_for("rmsd_to_reference", ftraj, ref))))
 
-
+    import matplotlib.pyplot as plt
+    if args.bg_energy:
+        if ftraj:
+            bg_rmsds = ftme.calculate_descriptor_for("rmsd_to_reference", ftraj, ref)
+            plt.plot(bg_rmsds, f_energies, 'o')
+            plt.xlabel("RMSD to reference")
+            plt.ylabel("Energy")
+            figname = "BG_{}_rmsd_energy.svg".format(ftraj[0].name)
+            plt.savefig(figname)
+            log.info("Figure {} created".format(figname))
+            plt.clf()
+            plt.close()
+        rmsds = trajectory._get_descriptor("rmsd_to_reference")
+        t_energies = []
+        for cg in trajectory._cgs:
+            sm.bg = cg
+            t_energies.append(energy_function.eval_energy(sm, background = False))
+        plt.plot(rmsds, t_energies, 'o')
+        plt.xlabel("RMSD to reference")
+        plt.ylabel("Energy")
+        figname = "Sampled_{}_rmsd_uncal_energy.svg".format(ftraj[0].name)
+        plt.savefig(figname)
+        log.info("Figure {} created".format(figname))
+        plt.clf()
+        plt.close()
+    
     if ftraj:
         num_stru=[]
         av_rmsd=[]
@@ -255,11 +286,10 @@ if __name__=="__main__":
         for i in range(1000, len(ftraj), 500):
             num_stru.append(i)
             av_rmsd.append(sample_background_rmsd(ftraj[:i]))
-            rmsds = ftme.calculate_descriptor_for("rmsd_to_reference", ftraj[:i], ref)
+            rmsds = bg_rmsds[:i]
             av_true_rmsd.append(np.mean(rmsds))
             min_true_rmsd.append(np.min(rmsds))
 
-        import matplotlib.pyplot as plt
         
         plt.plot(num_stru, av_rmsd, "o-", label="estim. pairwise RMSD")
         plt.plot(num_stru, av_true_rmsd, "o-", label="av. RMSD to target")

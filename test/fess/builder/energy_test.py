@@ -17,43 +17,46 @@ import forgi.threedee.utilities.vector as ftuv
 
 class TestClashEnergy(unittest.TestCase):
     def setUp(self):
-        cg=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        cg2=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure2.coord')
-        cg_clash=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-clash.coord')
-        self.sm = fbm.SpatialModel(cg)
-        self.sm.load_sampled_elems()
-        self.sm2 = fbm.SpatialModel(cg2)
-        self.sm2.load_sampled_elems()
-        self.sm_clash= fbm.SpatialModel(cg_clash)
-        self.sm_clash.load_sampled_elems()
+        self.cg=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
+        self.cg2=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure2.coord')
+        self.cg_clash=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-clash.coord')
+        self.cg.add_all_virtual_residues()
+        self.cg2.add_all_virtual_residues()
+        self.cg_clash.add_all_virtual_residues()
+        #self.sm = fbm.SpatialModel(cg)
+        #self.sm.load_sampled_elems()
+        #self.sm2 = fbm.SpatialModel(cg2)
+        #self.sm2.load_sampled_elems()
+        #self.sm_clash= fbm.SpatialModel(cg_clash)
+        #self.sm_clash.load_sampled_elems()
         self.energy=fbe.StemVirtualResClashEnergy()
     def test_stem_virtual_res_clash_energy_with_nodes(self):
-        self.assertEqual(self.energy.eval_energy(self.sm), 0.)
+        self.assertEqual(self.energy.eval_energy(self.cg), 0.)
         nodes=['h2', 'h0', 'h1', 's9', 's8', 's3', 's2', 's1', 's0', 's7', 's6', 's5', 's4', 'm1', 
                'm0', 'm3', 'm2', 's11', 's10', 'i1', 'i0', 'i3', 'i2', 'i5', 'i4', 'i7', 'i6', 't1']
-        self.assertEqual(self.energy.eval_energy(self.sm, nodes=nodes), 0.)
+        self.assertEqual(self.energy.eval_energy(self.cg, nodes=nodes), 0.)
         nodes=['s9', 's8', 's3', 's2', 's1', 's0', 's7', 's6', 's5', 's4', 's11', 's10']
-        self.assertEqual(self.energy.eval_energy(self.sm, nodes=nodes), 0.)
+        self.assertEqual(self.energy.eval_energy(self.cg, nodes=nodes), 0.)
         #Raises, if not at least one stem in Nodes.
         with self.assertRaises(ValueError):
-            self.assertEqual(self.energy.eval_energy(self.sm, nodes=["i5"]), 0.)
+            self.assertEqual(self.energy.eval_energy(self.cg, nodes=["i5"]), 0.)
         with self.assertRaises(ValueError):
-            self.assertEqual(self.energy.eval_energy(self.sm, nodes=[]), 0.)
+            self.assertEqual(self.energy.eval_energy(self.cg, nodes=[]), 0.)
         #Raises, if stem not in Graph
         with self.assertRaises(KeyError):
-            self.assertEqual(self.energy.eval_energy(self.sm, nodes=["s220"]), 0.)
+            self.assertEqual(self.energy.eval_energy(self.cg, nodes=["s220"]), 0.)
         #Structure with a clash
-        self.assertGreater(self.energy.eval_energy(self.sm_clash), 100.)
-        self.assertGreater(self.energy.eval_energy(self.sm_clash, nodes=["s7", "s11"]), 100.)
+        self.assertGreater(self.energy.eval_energy(self.cg_clash), 100.)
+        self.assertGreater(self.energy.eval_energy(self.cg_clash, nodes=["s7", "s11"]), 100.)
 
         
     def test_energy_independent_of_nodes(self):
-        for i,sm in enumerate([self.sm, self.sm_clash, self.sm2]):                
-            e=self.energy.eval_energy(sm)
-            for l in range(10,len(sm.bg.defines),2):
-                nodes=random.sample(sm.bg.defines.keys(),l)
+        for i,cg in enumerate([self.cg, self.cg_clash, self.cg2]):                
+            e=self.energy.eval_energy(cg)
+            for l in range(10,len(cg.defines),2):
+                nodes=random.sample(cg.defines.keys(),l)
                 try:
-                    e_nodes=self.energy.eval_energy(sm, nodes=nodes)
+                    e_nodes=self.energy.eval_energy(cg, nodes=nodes)
                 except ValueError: #No stem in nodes
                     e_nodes=0
                 np.set_printoptions(threshold=np.nan)
@@ -62,32 +65,34 @@ class TestClashEnergy(unittest.TestCase):
                                      "for spatial model {}.".format(e_nodes, e, nodes, i))
 
     def test_bad_bulges(self):
-        self.energy.eval_energy(self.sm_clash)
+        self.energy.eval_energy(self.cg_clash)
         self.assertEqual(set(self.energy.bad_bulges), {"s7", "s11"})
 
 class TestNonConstraintEnergies(unittest.TestCase):
     def setUp(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
-        self.sm = fbm.SpatialModel(cg)
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg.add_all_virtual_residues()
+
     def test_ROG_energy(self):
-        energyfunction = fbe.RadiusOfGyrationEnergy(energy_prefactor=30)
-        energy = energyfunction.eval_energy(self.sm, background = False)
+        energyfunction = fbe.RadiusOfGyrationEnergy(self.cg.seq_length, prefactor=30)
+        energy = energyfunction.eval_energy(self.cg, background = False)
         self.assertLess(energy, 100)
         self.assertGreater(energy, 0)
-        energy = energyfunction.eval_energy(self.sm, background = True)
+        energy = energyfunction.eval_energy(self.cg, background = True)
         self.assertLess(energy, 50)
         self.assertGreater(energy, -50)
+        
     def test_NDR_energy(self):
-        energyfunction = fbe.NormalDistributedRogEnergy(35)
-        energyBG = energyfunction.eval_energy(self.sm, background = True)
+        energyfunction = fbe.NormalDistributedRogEnergy(self.cg.seq_length, 35)
+        energyBG = energyfunction.eval_energy(self.cg, background = True)
         self.assertLess(energyBG, 1000)
         self.assertGreater(energyBG, -1000)
 
     def test_ROG_energy_last_measure(self):
-        energyfunction = fbe.RadiusOfGyrationEnergy()
-        energy = energyfunction.eval_energy(self.sm)
+        energyfunction = fbe.RadiusOfGyrationEnergy(self.cg.seq_length)
+        energy = energyfunction.eval_energy(self.cg)
         energyfunction.accept_last_measure()
-        self.assertEqual(energyfunction.accepted_measures[-1], self.sm.bg.radius_of_gyration())
+        self.assertEqual(energyfunction.accepted_measures[-1], self.cg.radius_of_gyration("vres"))
         
 class TestProjectionMatchEnergySetup(unittest.TestCase):
     def test_ProjectionMatchEnergy_init(self):

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from __future__ import absolute_import, division, print_function, unicode_literals
-from builtins import (ascii, bytes, chr, dict, filter, hex, input,
+from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip) #future package
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
