@@ -10,7 +10,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 from abc import ABCMeta, abstractmethod, abstractproperty
 import numpy as np
 import scipy.stats
-
+import warnings
 import logging
 log = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class EnergyFunction(object):
         self.bad_bulges = []
 
         #: The measure encountered during last energy evaluation
-        self._last_measures = None
+        self._last_measure = None
         #: The reference distribution. 
         #: In the case of EnergyFunctions that are not CoarseGrainEnergy instances, 
         #: this is only used to dump the measures to a file.
@@ -45,9 +45,10 @@ class EnergyFunction(object):
         #: (Used for reference ratio method and simulated annealing)
         self.step=0
         
-        #: Name and shortname of the energy 
-        self.name = self.__class__.__name__.lower()
-        
+        #: Name and shortname of the energy
+        if not hasattr(self, "name"):
+            self.name = self.__class__.__name__.lower()
+            
     def accept_last_measure(self):
         """
         The last measure should contribute to the new reference distribution.
@@ -148,35 +149,39 @@ class CoarseGrainEnergy(EnergyFunction):
         #: Change this to anything but "kde" to use a beta distribution (UNTESTED).
         self.dist_type = "kde"
 
-        self.reference_distribution, self.accepted_measures = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
-        self.target_distribution, self.target_values =  self._get_distribution_from_file(self.real_stats_fn, rna_length)
-        if adjustment!=1:
-            self._adjust_target_distribution()
-
+        self.reset_kdes(rna_length)
+        
         #: The previous evaluated energy
         self.prev_energy = None
         
         #: Resample the reference distribution every n steps
         self.kde_resampling_frequency = 3
-        
+    
+    def reset_kdes(self, rna_length):
+        self.reference_distribution, self.accepted_measures = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
+        self.target_distribution, self.target_values =  self._get_distribution_from_file(self.real_stats_fn, rna_length)
+        if self.adjustment!=1:
+            self._adjust_target_distribution()
+
     def _step_complete(self):
         """
         Call superclass _step_complete and resample background_kde every n steps.
         """
         super(CoarseGrainEnergy, self)._step_complete()
         if self.step % self.kde_resampling_frequency == 0:
-            self.resample_background_kde()
+            self._resample_background_kde()
     
-    def resample_background_kde(self):
+    def _resample_background_kde(self):
         """
         Update the reference distribution based on the accepted values
         """
         values = self.accepted_measures
-        if len(values) > 100:
+        if True: #if len(values) > 100: #if True, because accepted measures contain the initial values from the file
             new_kde = self._get_distribution_from_values(values)
             if new_kde is not None:
                 self.reference_distribution = new_kde
-                
+        #else:
+        #    warnings.warn("Not enough accepted measures to perform resampling. Only {}".format(len(self.accepted_measures)))
     @abstractmethod
     def _get_distribution_from_file(self):
         raise NotImplementedError
@@ -227,7 +232,7 @@ class CoarseGrainEnergy(EnergyFunction):
             ax1.plot(xs, self.reference_distribution(xs), label="sampled")
             ax1.plot(xs, self.target_distribution(xs), label="reference")
             ax2.plot(xs, -(np.log(self.target_distribution(xs) + 0.00000001 * self.reference_distribution(xs)) - np.log(self.reference_distribution(xs))), label="energy", color="red")
-            plt.title(self.shortname())
+            plt.title(self.shortname)
             ax1.legend(loc="lower left")
             ax2.legend()
             plt.show()
@@ -240,13 +245,14 @@ class CoarseGrainEnergy(EnergyFunction):
             ref_val = self.reference_distribution(m)
             tar_val = self.target_distribution(m)
             energy, = (np.log( tar_val + 0.00000001 * ref_val) - np.log(ref_val))
+            log.debug("Energy (not yet scaled) = {}".format(energy))
             self.prev_energy = energy
             return -1 * self.prefactor * energy
         else:
             l = np.log(self.target_distribution(m))
             log.debug("Energy, = {}".format(l))
             energy, = l
-            return -energy * self.prefactor
+            return -energy
 
     def _update_adj(self):
         super(RadiusOfGyrationEnergy, self)._update_adjustment()

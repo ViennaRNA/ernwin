@@ -15,6 +15,22 @@ import fess.builder.models as fbm
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.vector as ftuv
 
+try:
+    from unittest.mock import Mock #python3
+except:
+    from mock import Mock
+    
+def add_stem_coordinates(cg, stem, start, direction=[0.,0.,10.]):
+    """
+    :param cg: The CoarseGrainedRNA
+    :param stem: STRING, e.g. "s0"
+    :param start: A sequence of 3 floats (coordinates)
+    :param direction: A vector pointing from the start to the end
+    """
+    cg.coords[stem] = start, np.array(start)+np.array(direction)
+    cg.twists[stem] = (ftuv.get_orthogonal_unit_vector(cg.coords.get_direction(stem)), 
+                      -ftuv.get_orthogonal_unit_vector(cg.coords.get_direction(stem)))
+
 class TestClashEnergy(unittest.TestCase):
     def setUp(self):
         self.cg=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
@@ -74,13 +90,11 @@ class TestJunctionConstraintEnergy(unittest.TestCase):
         self.cg.add_all_virtual_residues()
         self.junction_energy = fbe.RoughJunctionClosureEnergy()
         self.cg_bad = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
-        self.cg_bad.coords["s0"] = [0.,0.,0.], [0.,0.,10.]
+        add_stem_coordinates(self.cg_bad, "s0", [0.,0.,0.], [0.,0.,10.])
         self.cg_bad.coords["h0"] = self.cg_bad.coords["s0"][1], self.cg_bad.coords["s0"][1]+[3.,6.,0.]
         self.cg_bad.coords["m0"] = self.cg_bad.coords["s0"][0], self.cg_bad.coords["s0"][0]+[2.,1.,300.]
-        self.cg_bad.coords["s1"] = self.cg_bad.coords["m0"][1], self.cg_bad.coords["m0"][1]+[12.,2.,-2.]
+        add_stem_coordinates(self.cg_bad, "s1", self.cg_bad.coords["m0"][1], [12.,2.,-2.])
         self.cg_bad.coords["h1"] = self.cg_bad.coords["s1"][1], self.cg_bad.coords["s1"][1]+[1.,6.,0.]
-        self.cg_bad.twists["s0"] = ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s0")), -ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s0"))
-        self.cg_bad.twists["s1"] = ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s1")), -ftuv.get_orthogonal_unit_vector(self.cg_bad.coords.get_direction("s1"))
         self.cg_bad.add_all_virtual_residues()
     def test_junction_energy_ok(self):
         self.assertEqual(self.junction_energy.eval_energy(self.cg), 0)
@@ -90,8 +104,115 @@ class TestJunctionConstraintEnergy(unittest.TestCase):
     def test_junction_energy_nodes(self):
         self.assertEqual(self.junction_energy.eval_energy(self.cg, nodes=["s0", "h0", "s1"]), 0)
         self.assertGreater(self.junction_energy.eval_energy(self.cg_bad, nodes=["m0"]), 1000)
+
+class TestSLDEnergies(unittest.TestCase):
+    def setUp(self):
+        self.cg1 = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg1.add_all_virtual_residues()
+        self.cg_far = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
+        add_stem_coordinates(self.cg_far, "s0", [0.,0.,0.], [0.,0.,10.])
+        self.cg_far.coords["h0"] = self.cg_far.coords["s0"][1], self.cg_far.coords["s0"][1]+[3.,6.,0.]
+        self.cg_far.coords["m0"] = self.cg_far.coords["s0"][0], self.cg_far.coords["s0"][0]+[2.,1.,200.]
+        add_stem_coordinates(self.cg_far, "s1", self.cg_far.coords["m0"][1], [12.,2.,-2.])
+        self.cg_far.coords["h1"] = self.cg_far.coords["s1"][1], self.cg_far.coords["s1"][1]+[1.,6.,0.]
+        self.cg_far.add_all_virtual_residues()
+    
+    def test_SDL_1GID(self):
+        energy = fbe.get_SLD_energies(self.cg1)
+        self.assertGreater(energy.eval_energy(self.cg1, background=True), -30)
+        self.assertLess(energy.eval_energy(self.cg1, background=True), 30)
+        self.assertGreater(energy.eval_energy(self.cg1, background=False), 0)
+        self.assertLess(energy.eval_energy(self.cg1, background=False), 50)
         
-class TestNonConstraintEnergies(unittest.TestCase):
+    def test_SLD_far(self):
+        energy = fbe.get_SLD_energies(self.cg_far)
+        # At first, we do not use any artificial data
+        energy._lsp_data_weight = 1
+        energy._lsp_artificial_weight = 0
+        energy.kde_resampling_frequency = 1
+        energy.reset_kdes(self.cg_far.seq_length)
+        
+        e1 = energy.eval_energy(self.cg_far)
+        self.assertLess(e1, -500)
+        energy.accept_last_measure()
+        
+        e2 = energy.eval_energy(self.cg_far)
+        self.assertGreater(e2, 1000)
+        energy.accept_last_measure()
+        
+        e3 = energy.eval_energy(self.cg_far)
+        self.assertGreater(e3, 1000)
+        
+        
+        # Now we use artificial data. Energy values should be less extreme
+        energy._lsp_data_weight = 3
+        energy._lsp_artificial_weight = 1
+        energy.reset_kdes(self.cg_far.seq_length)
+        
+        e1 = energy.eval_energy(self.cg_far)#, plot_debug = True)
+        self.assertLess(e1, 100)
+        self.assertGreater(e1, -100)
+        energy.accept_last_measure()
+        
+        e2 = energy.eval_energy(self.cg_far)
+        self.assertLess(e2, 100)
+        self.assertGreater(e2, -100)
+        self.assertGreater(e2, e1)
+        energy.accept_last_measure()
+        
+        e3 = energy.eval_energy(self.cg_far)
+        self.assertLess(e3, 100)
+        self.assertGreater(e3, -100)
+
+class TestAMinorEnergy(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg.add_all_virtual_residues()
+        self.energy = fbe.get_AME_energies(self.cg)
+    def test_AME_energy(self):
+        e = self.energy.eval_energy(self.cg)#, plot_debug = True)
+        self.assertLess(e, 0)
+        self.assertGreater(e, -200)
+
+class TestABCs(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg.add_all_virtual_residues()
+    def test_background_kde_is_resampled(self):
+        e = fbe.RadiusOfGyrationEnergy(self.cg.seq_length, prefactor=30)
+        e._resample_background_kde = Mock()
+        e.accept_last_measure()
+        e._resample_background_kde.assert_not_called()
+        e.accept_last_measure()
+        e._resample_background_kde.assert_not_called()
+        e.accept_last_measure()
+        e._resample_background_kde.assert_called_once_with()
+        e._resample_background_kde.reset_mock()
+        e.accept_last_measure()
+        e._resample_background_kde.assert_not_called()
+        e._resample_background_kde.reset_mock()
+        e.kde_resampling_frequency = 1
+        e.accept_last_measure()
+        e._resample_background_kde.assert_called_once_with()
+
+
+class TestCombinedEnergy(unittest.TestCase):
+    def test_getattr(self):
+        e = fbe.CombinedEnergy()
+        e.accept_last_measure() #Does nothing
+        e.energies.append(fbe.NormalDistributedRogEnergy(12, 35))
+        e.accept_last_measure() #Calls accept_last_measure fof NDR energy
+        mock_energy = Mock()
+        mock_energy.accept_last_measure = Mock()
+        e.energies.append(mock_energy)
+        e.accept_last_measure() #Calls accept_last_measure of NDR and mock_energy
+        mock_energy.accept_last_measure.assert_called_once_with()
+        
+        with self.assertRaises(AttributeError):
+            e.do_something_else()
+            
+            
+class TestGyrationRadiusEnergies(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
         self.cg.add_all_virtual_residues()

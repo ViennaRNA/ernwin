@@ -7,6 +7,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
+__metaclass__=object         
                              
 from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
 from collections import defaultdict
@@ -653,10 +654,14 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
-    def __init__(self, loop_type='h', adjustment=1., prefactor=DEFAULT_ENERGY_PREFACTOR):
+    def __init__(self, rna_length, loop_type='h', adjustment=1., prefactor=DEFAULT_ENERGY_PREFACTOR):
         self.real_stats_fn = 'stats/aminors_1s72.csv'
-        self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
-        super(AMinorEnergy, self).__init__(rna_lengthprefactor=prefactor, adjustment = adjustment)
+        self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'        
+        
+        self.types = {'h':0, 'i':1, 'm':2, 's': 3, 'f': 4, 't': 5}
+        self.loop_type = self.types[loop_type]
+
+        super(AMinorEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
 
         dall = pd.read_csv(load_local_data('stats/tall.csv'), delimiter=' ', 
                            names=['l1','l2','dist','angle', "angle2",'seq']) 
@@ -672,8 +677,6 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         self.dall = dict()
         self.dbg_close = dict()
-        self.types = {'h':0, 'i':1, 'm':2, 's': 3, 'f': 4, 't': 5}
-        self.loop_type = self.types[loop_type]
 
         self.prob_funcs = dict()
         p_d_a_a2_given_i = dict()
@@ -685,8 +688,10 @@ class AMinorEnergy(CoarseGrainEnergy):
             db = self.dbg_close[lt] = dbg_close[[lt in x for x in dbg_close['l1']]]
             p_i[lt] = len(dl['dist']) / float(len(db['dist']))
 
-            p_d_a_a2_given_i[lt] = scipy.stats.gaussian_kde(np.array(zip(dl["dist"], dl["angle"], dl["angle2"])).T)
-            p_d_a_a2[lt] = scipy.stats.gaussian_kde(np.array(zip(db["dist"], db["angle"], db["angle2"])).T)
+
+            d_for_p_d_a_a2_given_i = np.array(list(zip(dl["dist"], dl["angle"], dl["angle2"])))
+            p_d_a_a2_given_i[lt] = scipy.stats.gaussian_kde(d_for_p_d_a_a2_given_i.T)
+            p_d_a_a2[lt] = scipy.stats.gaussian_kde(np.array(list(zip(db["dist"], db["angle"], db["angle2"]))).T)
             #self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point) * p_i[lt]) / (p_d_a_a2[lt](point))
             self.prob_funcs[lt] = lambda point: (p_d_a_a2_given_i[lt](point)) / (p_d_a_a2[lt](point) + p_d_a_a2_given_i[lt](point))
         #print ("SELF>MEASURES ({}): {}".format(self.shortname(),len(self.measures)))
@@ -716,7 +721,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
-        return (self.get_distribution_from_values(rogs), list(rogs))
+        return (self._get_distribution_from_values(rogs), list(rogs))
 
     def eval_prob(self, cg, d):
         lt = d[0]
@@ -750,7 +755,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         #return (prob, stem_counts)
         #return prob / stem_counts
 
-    def get_cg_measure(self, cg):
+    def _get_cg_measure(self, cg):
         for d in cg.defines.keys():
 
             # the loop type is encoded as an integer so that the stats file can be 
@@ -787,7 +792,7 @@ class AMinorEnergy(CoarseGrainEnergy):
     def _get_num_loops(self, cg):
         return len([d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in cg.get_define_seq_str(d)])
     
-    def eval_energy(self, cg, background=True, use_accepted_measure = False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
+    def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
         kr = self.target_distribution
         ks = self.reference_distribution
 
@@ -813,19 +818,19 @@ class AMinorEnergy(CoarseGrainEnergy):
                 prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
                 self.prev_energy = energy
                 self.prev_cg = m
-                energy +=  -1 * self.energy_prefactor * prev_energy                
+                energy +=  -1 * self.prefactor * prev_energy                
             else:
                 energy +=  -np.log(kr(m))
-        if False: #For debuging
+        if plot_debug: #For debuging
                 import matplotlib.pyplot as plt
                 xs=np.linspace(0, 1, 500)
                 fig,ax1 = plt.subplots()
                 ax2 = ax1.twinx()
-                ax1.plot(xs, ks(xs), label="sampled")
-                ax1.plot(xs, kr(xs), label="reference")
+                ax1.plot(xs, ks(xs), label="referecne distribution")
+                ax1.plot(xs, kr(xs), label="target distribution")
                 ax2.plot(xs, -(np.log(kr(xs) + 0.00000001 * ks(xs)) - np.log(ks(xs))), label="energy", color="red")
-                ax1.plot(self.measures, [1]*len(self.measures), "o", label="Measures")
-                plt.title(self.shortname())
+                ax1.plot(self.accepted_measures, [1]*len(self.accepted_measures), "o", label="Accepted Measures")
+                plt.title(self.shortname)
                 ax1.legend(loc="lower left")
                 ax2.legend()
                 plt.show()
@@ -839,13 +844,12 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     def __init__(self, rna_length, loop_name, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment = 1.):        
         self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
-        super(ShortestLoopDistancePerLoop, self).__init__(rna_length, prefactor, adjustment)
-        self.loop_name = loop_name
+        
         #: Add equally distributed points to the target and reference distribution estimation (linspacepoints  lsp)
         #: Weight of the true data compared to the artificial points (integer)
         self._lsp_data_weight = 3
         #: Weight of the artificial data (usually 1 or 0)
-        self._lsp_data_weight = 1
+        self._lsp_artificial_weight = 1
         #: How many artificial points to add to the reference distribution
         self._lsp_reference_num_points = 30
         #: How many artificial points to add to the target distribution
@@ -855,11 +859,14 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         #: End of the range for artificial points
         self._lsp_max = 300
 
+        super(ShortestLoopDistancePerLoop, self).__init__(rna_length, prefactor, adjustment)
+        self.loop_name = loop_name
+
     @property
     def _shortname(self):
         return "SLD({})".format(self.loop_name)
 
-    def get_distribution_from_file(self, filename, length):
+    def _get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
         if filename == self.sampled_stats_fn:
             lsp=np.linspace(self._lsp_min, self._lsp_max, 
@@ -868,11 +875,11 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             lsp=np.linspace(self._lsp_min, self._lsp_max, 
                             num=self._lsp_target_num_points )
                             
-        data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_data_weight)
+        data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_artificial_weight)
         
-        return (self.get_distribution_from_values(data), list(data))
+        return (self._get_distribution_from_values(data), list(data))
 
-    def get_cg_measure(self, cg):
+    def _get_cg_measure(self, cg):
         min_dist = float("inf")
 
         for h in cg.hloop_iterator():
@@ -903,23 +910,69 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             try:
                 energy= super(ShortestLoopDistancePerLoop, self).eval_energy(cg,
                                                                          background,
-                                                                         nodes)
+                                                                         nodes, **kwargs)
             except DoNotContribute:
                 energy=0
             return energy
 
+class CombinedFunction(object):
+    def __init__(self, funcs):
+        self._funcs = funcs
+    def __call__(self, *args, **kwargs):
+        results = []
+        for fun in self._funcs:
+            results.append(fun(*args, **kwargs))
+        log.debug("Combined Function called. Results are {}".format(results))
+        if not results or results[0] is None:
+            return None
+        return results
+    
 class CombinedEnergy(object):
     def __init__(self, energies=None, normalize=False):
         """
         :param normalize: Divide the resulting energy by the numbers of contributions
         """
         if energies is not None:
-            self.energies = energies
+            super(CombinedEnergy, self).__setattr__("energies", energies)
         else:
-            self.energies=[]
+            super(CombinedEnergy, self).__setattr__("energies", [])   
+        super(CombinedEnergy, self).__setattr__("constituing_energies", [])
+        super(CombinedEnergy, self).__setattr__("normalize", normalize)
+        
+    def __setattr__(self, name, val):
+        if name not in self.__dict__:
+            for e in self.energies:
+                setattr(e, name, val)
+        else:
+            self.__dict__[name]=val
             
-        self.constituing_energies=[]
-        self.normalize=normalize
+    def __getattr__(self, name):
+        #If no energies are present, do nothing (DON'T raise an error)
+        if not self.energies:
+            return CombinedFunction([])   
+        log.debug("getattr delegating call to {}".format(name))
+        attrs = []
+        for e in self.energies:
+            try:
+                attrs.append(getattr(e, name))
+            except AttributeError as e:
+                if hasattr(CoarseGrainEnergy, name):
+                    # If the function only exists for CoarseGrainedEnergies, 
+                    # but not for normal Energy functions,
+                    # call it only on CoarseGrainedEenrgies.
+                    pass
+                else:
+                    # Else this is an error.
+                    raise AttributeError("CombinedEnergy has no attribute '{}', because {}".format(name, e))
+        try:
+            return sum(attrs)
+        except:
+            pass
+        try:
+            return "".join(attrs)
+        except: 
+            pass
+        return CombinedFunction(attrs)
         
     def uses_background(self):
         for e in self.energies:
@@ -948,29 +1001,6 @@ class CombinedEnergy(object):
         if len(sn)>12:
             sn=sn[:9]+"..."
         return sn
-
-    def resample_background_kde(self, struct):
-        for e in self.energies:
-            try:
-                e.resample_background_kde(struct)
-            except AttributeError:
-                pass
-    def update_adjustment(self, step, cg):
-        for e in it.chain(self.energies, self.uncalibrated_energies):
-            e.update_adjustment(step, cg)
-            
-    def accept_last_measure(self):
-        """CombinedEnergy.acceptLastMeasure"""
-        for e in self.energies:
-            e.accept_last_measure()
-    def reject_last_measure(self):
-        """CombinedEnergy.rejectLastMeasure"""
-        for e in self.energies:
-            e.reject_last_measure()
-
-    def dump_measures(self, base_directory, iteration=None):
-        for e in self.energies:
-            e.dump_measures(base_directory, iteration)
 
     @property
     def bad_bulges(self):
@@ -1016,5 +1046,40 @@ class CombinedEnergy(object):
         for en in it.chain(self.energies, self.uncalibrated_energies):
             out_str += en.__class__.__name__ + " "
         return out_str
+        
+    def __len__(self):
+        return len(self.energies)
+    
+####################################################################################################
+## Convenience functions for creating energies
+####################################################################################################
 
+def get_SLD_energies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
+    """
+    Get the shortest loopdistance per loop energy for each hloop.
 
+    :param cg: The coarse grained RNA
+    :returns: A CombinedEnergy
+    """
+    energies=[]
+    for hloop in cg.hloop_iterator():
+        energies+= [ShortestLoopDistancePerLoop(cg.seq_length, hloop, prefactor)]
+    return CombinedEnergy(energies)
+
+def get_AME_energies(cg, pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
+    """
+    Get the A-minor energies for h- and i-loops.
+    
+    :param pre: Energy prefactor
+    :param adj: Adjustment
+
+    :returns: A CombinedEnergy
+    """
+    ame1 = AMinorEnergy(cg.seq_length, loop_type = 'h', prefactor=pre, adjustment=adj)
+    ame2 = AMinorEnergy(cg.seq_length, loop_type = 'i', prefactor=pre, adjustment=adj)
+    energies = []
+    if ame1._get_num_loops(cg)>0:
+        energies.append(ame1)
+    if ame2._get_num_loops(cg)>0:
+        energies.append(ame2)
+    return CombinedEnergy(energies)

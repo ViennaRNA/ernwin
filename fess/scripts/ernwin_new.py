@@ -244,6 +244,7 @@ def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
     for hloop in cg.hloop_iterator():
         energies+= [fbe.ShortestLoopDistancePerLoop(hloop, prefactor)]
     return energies
+
 def getAMinorEnergies(cg, pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
     """
     Get the A-minor energies for h- and i-loops.
