@@ -23,6 +23,15 @@ class EnergyFunction(object):
     '''
     __metaclass__ = ABCMeta
     
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment):
+        """
+        Factory function. Return this energy for the given cg.
+        
+        :returns: An instance if this class or a CombinedEnergy containing instances of this class.
+        """
+        return cls(prefactor, adjustment)
+    
     def __init__(self, prefactor = DEFAULT_ENERGY_PREFACTOR, adjustment = 1):
         
         #: Used by constraint energies, to store tuples of stems that clash.
@@ -143,6 +152,15 @@ class CoarseGrainEnergy(EnergyFunction):
     """
     A base-class for Energy functions that use a background distribution.
     """
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment):
+        """
+        Factory function. Return this energy for the given cg.
+        
+        :returns: An instance if this class or a CombinedEnergy which is empty or contains instances of this class.
+        """
+        return cls(rna_length = cg.seq_length, prefactor=prefactor, adjustment=adjustment)
+
     def __init__(self, rna_length, prefactor, adjustment):
         super(CoarseGrainEnergy, self).__init__(prefactor, adjustment)
         
@@ -158,7 +176,8 @@ class CoarseGrainEnergy(EnergyFunction):
         self.kde_resampling_frequency = 3
     
     def reset_kdes(self, rna_length):
-        self.reference_distribution, self.accepted_measures = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
+        self.reference_distribution, am = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
+        self.accepted_measures = list(am)
         self.target_distribution, self.target_values =  self._get_distribution_from_file(self.real_stats_fn, rna_length)
         if self.adjustment!=1:
             self._adjust_target_distribution()

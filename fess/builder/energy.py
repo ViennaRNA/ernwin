@@ -33,7 +33,8 @@ import pandas as pd
 import pkgutil as pu
 import StringIO
 import math
-
+import re
+from pprint import pprint
 import logging
 log = logging.getLogger(__name__)
 
@@ -616,7 +617,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         rogs = rdata[:,1]
         rogs=np.array(rogs)
 
-        return (self._get_distribution_from_values(rogs), list(rogs))
+        return (self._get_distribution_from_values(rogs), rogs)
 
 
 class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
@@ -654,6 +655,25 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
+    @classmethod
+    def from_cg(cls, cg, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment=1.0):
+        """
+        Get the A-minor energies for h- and i-loops.
+
+        :param pre: Energy prefactor
+        :param adj: Adjustment
+
+        :returns: A CombinedEnergy
+        """
+        ame1 = cls(cg.seq_length, loop_type = 'h', prefactor=prefactor, adjustment=adjustment)
+        ame2 = cls(cg.seq_length, loop_type = 'i', prefactor=prefactor, adjustment=adjustment)
+        energies = []
+        if ame1._get_num_loops(cg)>0:
+            energies.append(ame1)
+        if ame2._get_num_loops(cg)>0:
+            energies.append(ame2)
+        return CombinedEnergy(energies)
+
     def __init__(self, rna_length, loop_type='h', adjustment=1., prefactor=DEFAULT_ENERGY_PREFACTOR):
         self.real_stats_fn = 'stats/aminors_1s72.csv'
         self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'        
@@ -701,8 +721,9 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.num_loops=None
 
     @property
-    def _shortname(self):
-        return "AME({})".format(self.loop_type)
+    def shortname(self):
+        sn = super(AMinorEnergy, self).shortname
+        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_type))
 
     def _get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
@@ -721,7 +742,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
-        return (self._get_distribution_from_values(rogs), list(rogs))
+        return (self._get_distribution_from_values(rogs), rogs)
 
     def eval_prob(self, cg, d):
         lt = d[0]
@@ -841,6 +862,19 @@ class DoNotContribute(Exception):
 
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
+    @classmethod
+    def from_cg(cls, cg, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment=1.0):
+        """
+        Get the shortest loopdistance per loop energy for each hloop.
+
+        :param cg: The coarse grained RNA
+        :returns: A CombinedEnergy
+        """
+        energies=[]
+        for hloop in cg.hloop_iterator():
+            energies+= [cls(rna_length = cg.seq_length, loop_name = hloop, prefactor = prefactor, adjustment = adjustment)]
+        return CombinedEnergy(energies)
+    
     def __init__(self, rna_length, loop_name, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment = 1.):        
         self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
@@ -863,8 +897,9 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         self.loop_name = loop_name
 
     @property
-    def _shortname(self):
-        return "SLD({})".format(self.loop_name)
+    def shortname(self):
+        sn = super(ShortestLoopDistancePerLoop, self).shortname
+        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_name))
 
     def _get_distribution_from_file(self, filename, length):
         data = np.genfromtxt(load_local_data(filename), delimiter=' ')
@@ -877,7 +912,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
                             
         data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_artificial_weight)
         
-        return (self._get_distribution_from_values(data), list(data))
+        return (self._get_distribution_from_values(data), data)
 
     def _get_cg_measure(self, cg):
         min_dist = float("inf")
@@ -1050,36 +1085,83 @@ class CombinedEnergy(object):
     def __len__(self):
         return len(self.energies)
     
+    def hasinstance(self, cls):
+        """
+        Returns True, if any of the member energies is an instance of the given class
+        """
+        for e in self.energies:
+            if hasattr(e, "hasinstance"):
+                if e.hasinstance(cls): return True
+            elif isinstance(e, cls):
+                return True
+        return False
 ####################################################################################################
 ## Convenience functions for creating energies
 ####################################################################################################
-
-def get_SLD_energies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
+def _get_all_subclasses(cls):
     """
-    Get the shortest loopdistance per loop energy for each hloop.
-
-    :param cg: The coarse grained RNA
-    :returns: A CombinedEnergy
+    Thanks to fletom at http://stackoverflow.com/a/17246726/5069869
     """
-    energies=[]
-    for hloop in cg.hloop_iterator():
-        energies+= [ShortestLoopDistancePerLoop(cg.seq_length, hloop, prefactor)]
-    return CombinedEnergy(energies)
+    all_subclasses = []
 
-def get_AME_energies(cg, pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
-    """
-    Get the A-minor energies for h- and i-loops.
-    
-    :param pre: Energy prefactor
-    :param adj: Adjustment
+    for subclass in cls.__subclasses__():
+        all_subclasses.append(subclass)
+        all_subclasses.extend(_get_all_subclasses(subclass))
+    return all_subclasses
 
-    :returns: A CombinedEnergy
+def energies_from_string(contribution_string, cg, num_steps = None):
     """
-    ame1 = AMinorEnergy(cg.seq_length, loop_type = 'h', prefactor=pre, adjustment=adj)
-    ame2 = AMinorEnergy(cg.seq_length, loop_type = 'i', prefactor=pre, adjustment=adj)
+    :param contribution_string: A string with comma-seperated energy contributions.
+    :param cg: The CoarseGrainRNA
+    :param num_steps: The number of total steps of the simulation. (Used only for simulated annealing. Else None)
+    """
+    contributions = contribution_string.split(",")
+    energy_classes = { cls._shortname: cls for cls in _get_all_subclasses(EnergyFunction) if not cls == CoarseGrainEnergy }
     energies = []
-    if ame1._get_num_loops(cg)>0:
-        energies.append(ame1)
-    if ame2._get_num_loops(cg)>0:
-        energies.append(ame2)
+    for contrib in contributions:
+        match = re.match(r"([^A-Z]*)([A-Z]+)(.*)", contrib)
+        if match is None:
+            raise ValueError("Contribution {} not understood".format(contrib))
+        cls = energy_classes[match.group(2)]
+        pre = _parseEnergyContributionString(match.group(1), DEFAULT_ENERGY_PREFACTOR, num_steps)
+        adj = _parseEnergyContributionString(match.group(3), 1., num_steps)
+        
+        energies.append(cls.from_cg(cg, pre, adj))
     return CombinedEnergy(energies)
+
+def _parseEnergyContributionString(contrib, default, num_steps):
+    """
+    Helper function 
+    """
+    if not contrib:
+        return default
+    if "_" in contrib:
+        a=contrib.split("_")
+        if len(a)==2:
+            start=float(a[0])
+            end=float(a[1])
+            if abs(start-end)<1.2:
+                step=0.1
+            elif abs(start-end)>100:
+                step=10
+            else:
+                step=1
+            if end<start:
+                step=step*-1
+        elif len(a)==3:
+            start=float(a[0])
+            step=float(a[1])
+            end=float(a[2])
+        else:
+            raise ValueError("Too many underscores in {}".format(contrib))
+        frequency=num_steps / (math.ceil((end-start)/step)+1)
+        assert frequency>1, numSteps
+    
+        if frequency>=num_steps:
+            raise ValueError("Could not parse energy program '{}': "
+                             "Expected START_STEP_STOP, found {}, {}, {} which would "
+                             "lead to a change every {} simulation steps".format(contrib, start, step, 
+                                                                       end, frequency))
+        return (start, step, frequency)
+    else:
+        return float(contrib)
