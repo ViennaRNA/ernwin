@@ -34,6 +34,8 @@ import pkgutil as pu
 import StringIO
 import math
 import re
+import sys
+import inspect
 from pprint import pprint
 import logging
 log = logging.getLogger(__name__)
@@ -64,24 +66,57 @@ def load_local_data(filename):
 
 class RandomEnergy(EnergyFunction):
     _shortname = "RND"
-    def eval_energy(self, cg, background=None, nodes=None):
+    def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         return self.prefactor * random.random() + self.adjustment
     
 class ConstantEnergy(EnergyFunction):
     _shortname = "CNST"
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+        if adjustment is not None:
+            warnings.warn("Adjustment {} ignored for constant energy CNST".format(adjustment))
+        return cls(prefactor)
+        
     def __init__(self, value = 0):
         super(ConstantEnergy, self).__init__(prefactor = value)
-    def eval_energy(self, cg, background=None, nodes=None):
+    def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         return self.prefactor + self.adjustment
     
+class CheatingEnergy(EnergyFunction):
+    _shortname = "CHE"
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+        return cls(cg, prefactor, adjustment)
+    def __init__(self, ref_cg, prefactor = None, adjustment = None):
+        """
+        The energy is RMSD**adjustment*prefactor
+        """
+        super(CheatingEnergy, self).__init__(prefactor = prefactor, adjustment = adjustment)
+        self.real_residues = ftug.bg_virtual_residues(ref_cg)
+    def eval_energy(self, cg, background=None, nodes=None, **kwargs):
+        new_residues = ftug.bg_virtual_residues(cg)
+        return  ftms.rmsd(self.real_residues, new_residues)**self.adjustment*self.prefactor
+        
 class ProjectionMatchEnergy(EnergyFunction):
     _shortname = "PRO"
-    def __init__(self, distances={}, prefactor=1):
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, pro_distances, **kwargs):
+        """
+        :param pro_distances: A dictionary tuple(str,str):float that maps pairs 
+                              of element names to distances in the projected plane (in Angstrom)
+        """
+        if adjustment is not None:
+            warnings.warn("Adjustment {} ignored for PRO energy".format(adjustment))
+        return cls(pro_distances, prefactor)
+        
+    def __init__(self, distances={}, prefactor=None):
         """
         :param directions: A dict where the keys are tuples of coarse grain element names 
                            (e.g.: ("h1","m1")) and the values are the distance 
                            IN THE PROJECTED PLANE (i.e. in the micrograph).
-        """        
+        """
+        if prefactor is None:
+            prefactor = 1.
         super(ProjectionMatchEnergy, self).__init__(prefactor = prefactor)
         self.distances=distances
         #: The optimal projection direction for the last accepted step.
@@ -149,7 +184,7 @@ class ProjectionMatchEnergy(EnergyFunction):
             x+=abs(lengthDifferenceGivenP-lengthDifferenceExperiment)
         return x
 
-    def eval_energy(self, cg, background=None, nodes=None):
+    def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         """
         Returns a measure that is zero for a perfect fit with the target 
         projection distances and increases as the fit gets worse. 
@@ -191,6 +226,16 @@ class ProjectionMatchEnergy(EnergyFunction):
 class FPPEnergy(EnergyFunction):
     _shortname = "FPP"
     name = "Four-Point-Projection-Energy"
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, fpp_landmarks, fpp_ref_image, fpp_scale, **kwargs):
+        """
+        :param fpp_ref_image: The path to the reference image
+        :param fpp_landmarks: A list of 3-tuples (residue_num, x (in pixels), y (in pixels))
+        :param fpp_scale: The width of the image in Angstrom
+        """
+        if adjustment is not None:
+            warnings.warn("Adjustment {} ignored for FPP energy".format(adjustment))
+        return cls(prefactor, fpp_landmarks, fpp_scale, fpp_ref_image)
     def __init__(self, pre, landmarks, scale, ref_image):
         super(FPPEnergy, self).__init__(prefactor = pre)
         self.landmarks = landmarks
@@ -198,7 +243,7 @@ class FPPEnergy(EnergyFunction):
         self.ref_image = fpp.to_grayscale(scipy.ndimage.imread(ref_image))
 
     @profile
-    def eval_energy(self, cg, background=True, nodes=None):
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         steplength = self.scale/self.ref_image.shape[0]
         ### Step 1: Calculate projection direction:
         vectors3d, angles, penalties = self._generate_equations(cg)
@@ -315,13 +360,53 @@ class FPPEnergy(EnergyFunction):
 class DistanceExponentialEnergy(EnergyFunction):
     _shortname = "CLA"
     _DEFAULT_CLAMP_DISTANCE = 15.0
-    def __init__(self, from_elem, to_elem, distance=None, scale=1.):
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, cla_pairs, **kwargs):
+        """
+        :param cla_pairs: A list of 2-tuples, containing either residue numbers or cg-element names.
+        """
+        clamp = []
+        for pair in cla_pairs:
+            try:
+                r1,r2 = pair
+            except ValueError as e:
+                print("Invalid pair '{}'".format(pair), file=sys.stderr)
+                raise
+            try: # initially we assume the clamp target are residue numbers
+                r1=int(r1)
+            except ValueError: #Or they are element names
+                e1=r1
+            else:
+                e1=cg.get_node_from_residue_num(r1)
+            try: # initially we assume the clamp target are residue numbers
+                r2=int(r2)
+            except ValueError: #Or they are element names
+                e2=r2
+            else:
+                e2=cg.get_node_from_residue_num(r2)
+            #e1 and e2 are element names
+            if e1 not in cg.defines:
+                raise ValueError("Invalid clamp pair '{}'['{}' not in cg] -'{}' "
+                      ".".format(r1,e1,r2))
+            if e2 not in cg.defines:
+                raise ValueError("Invalid clamp pair '{}' -'{}'['{}' not in cg] "
+                      ".".format(r1,r2, e2))
+            if e1==e2:
+                warnings.warn("Cannot clamp identical elements "
+                              " {} and {} ({}=={})".format(r1,r2,e1,e2))
+            else:
+                clamp+=[cls(e1, e2, distance = adjustment, scale = prefactor )]
+        return CombinedEnergy(clamp)
+        
+    def __init__(self, from_elem, to_elem, distance=None, scale=None):
         '''
         Create an exponential distribution for the distance between two elements.
         
         Here the prefactor gives the steepness of the exponential curve, 
         while the adjustment gives the maximal distance that does not incur any penalty.
         '''
+        if scale is None:
+            scale = 1.
         if distance is None:
             distance = self._DEFAULT_CLAMP_DISTANCE
         super(DistanceExponentialEnergy, self).__init__(prefactor = scale, adjustment = distance)
@@ -358,7 +443,7 @@ class DistanceExponentialEnergy(EnergyFunction):
             name = "{}{}".format(name, self.adjustment)
         return "{}({},{})".format(name,self.from_elem, self.to_elem)
     
-    def eval_energy(self, cg, background=True, nodes=None):
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         "This energy is always >0"
         closest_distance = self.get_distance(cg)
 
@@ -470,7 +555,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
         return clashes
 
-    def eval_energy(self, cg, background=False, nodes = None):
+    def eval_energy(self, cg, background=False, nodes = None, **kwargs):
         '''
         Count how many clashes of virtual residues there are.
 
@@ -550,7 +635,11 @@ class StemVirtualResClashEnergy(EnergyFunction):
 class RoughJunctionClosureEnergy(EnergyFunction):
     _shortname = "JUNCT"
     _JUNCTION_DEFAULT_PREFACTOR = 50000.
-
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+        if adjustment is not None:
+            warnings.warn("Adjustment {} ignored for JUNCT JunctionConstraintEnergy".format(adjustment))
+        return cls(prefactor)    
     def __init__(self, prefactor = None):
         if prefactor is None:
             prefactor = self._JUNCTION_DEFAULT_PREFACTOR 
@@ -584,7 +673,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
-    def __init__(self, rna_length, adjustment=1., prefactor=DEFAULT_ENERGY_PREFACTOR):
+    def __init__(self, rna_length, adjustment=None, prefactor=None):
         """
         :param rna_length: The length in nucleotides of the RNA
         """
@@ -622,7 +711,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
 class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
     _shortname = "NDR"
-    def __init__(self, rna_length, adjustment, prefactor=DEFAULT_ENERGY_PREFACTOR):
+    def __init__(self, rna_length, adjustment, prefactor=None):
         """
         A Subclass of the Radius of Gyration energy with a normal distributed target distribution.
 
@@ -656,7 +745,7 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     @classmethod
-    def from_cg(cls, cg, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment=1.0):
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
         Get the A-minor energies for h- and i-loops.
 
@@ -674,7 +763,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             energies.append(ame2)
         return CombinedEnergy(energies)
 
-    def __init__(self, rna_length, loop_type='h', adjustment=1., prefactor=DEFAULT_ENERGY_PREFACTOR):
+    def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
         self.real_stats_fn = 'stats/aminors_1s72.csv'
         self.sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'        
         
@@ -802,16 +891,17 @@ class AMinorEnergy(CoarseGrainEnergy):
         self._last_measure is more than one
         """
         if self._last_measure is not None:        
-            self.accepted_measures += self._last_measure
+            self.accepted_measures.extend(self._last_measure)
         self._step_complete()
 
     def reject_last_measure(self):
         """AMinor.rejectLastMeasure"""
         if len(self.accepted_measures) > 0 and self.num_loops>0:
-            self.accepted_measures += self.accepted_measures[-self.num_loops:]
+            self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
             
     def _get_num_loops(self, cg):
-        return len([d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in cg.get_define_seq_str(d)])
+        possible_loops = [d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))]
+        return len(possible_loops)
     
     def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
         kr = self.target_distribution
@@ -822,6 +912,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         if self.num_loops is None:
             self.num_loops=self._get_num_loops(cg)
             
+        self._last_measure = []
         for d in cg.defines.keys():
 
             # the loop type is encoded as an integer so that the stats file can be 
@@ -829,11 +920,9 @@ class AMinorEnergy(CoarseGrainEnergy):
             if self.types[d[0]] != self.loop_type or 'A' not in "".join(cg.get_define_seq_str(d)):
                 continue
 
-            if use_accepted_measure:
-                m = self.accepted_measures[-1]
-            else:
-                m = self.eval_prob(cg, d)[0]
-            self._last_measure = m
+
+            m = self.eval_prob(cg, d)[0]
+            self._last_measure.append(m)
 
             if background:
                 prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
@@ -863,7 +952,7 @@ class DoNotContribute(Exception):
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
     @classmethod
-    def from_cg(cls, cg, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment=1.0):
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
         Get the shortest loopdistance per loop energy for each hloop.
 
@@ -875,7 +964,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             energies+= [cls(rna_length = cg.seq_length, loop_name = hloop, prefactor = prefactor, adjustment = adjustment)]
         return CombinedEnergy(energies)
     
-    def __init__(self, rna_length, loop_name, prefactor=DEFAULT_ENERGY_PREFACTOR, adjustment = 1.):        
+    def __init__(self, rna_length, loop_name, prefactor=None, adjustment = None):        
         self.real_stats_fn = 'stats/loop_loop3_distances_native.csv'
         self.sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
         
@@ -1011,7 +1100,7 @@ class CombinedEnergy(object):
         
     def uses_background(self):
         for e in self.energies:
-            if hasattr(e, "sampled_kdes"):
+            if isinstance(e, CoarseGrainEnergy):
                 return True
         return False
     
@@ -1033,17 +1122,16 @@ class CombinedEnergy(object):
         for e in self.energies:
             name.append(e.shortname)
         sn=",".join(name)
-        if len(sn)>12:
-            sn=sn[:9]+"..."
+
         return sn
 
     @property
     def bad_bulges(self):
         bad_bulges = []
         for e in self.energies:
-            if hasattr(e, bad_bulges):
+            if hasattr(e, "bad_bulges"):
                 bad_bulges+=e.bad_bulges
-                
+        return bad_bulges
     def eval_energy(self, cg, verbose=False, background=True,
                     nodes=None, use_accepted_measure=False, plot_debug=False):
         total_energy = 0.
@@ -1068,9 +1156,13 @@ class CombinedEnergy(object):
                     print("bad_bulges:", energy.bad_bulges)
             log.debug("{} ({}) contributing {}".format(energy.__class__.__name__, energy.shortname, contrib))
             
-        if self.normalize:
-            total_energy=total_energy/num_contribs
 
+        if num_contribs>0:        
+            if self.normalize:
+                total_energy=total_energy/num_contribs
+        else:
+            assert self.energies == []
+            
         if verbose:
             print ("--------------------------")
             print ("total_energy:", total_energy)
@@ -1078,7 +1170,7 @@ class CombinedEnergy(object):
 
     def __str__(self):
         out_str = ''
-        for en in it.chain(self.energies, self.uncalibrated_energies):
+        for en in self.energies:
             out_str += en.__class__.__name__ + " "
         return out_str
         
@@ -1109,11 +1201,12 @@ def _get_all_subclasses(cls):
         all_subclasses.extend(_get_all_subclasses(subclass))
     return all_subclasses
 
-def energies_from_string(contribution_string, cg, num_steps = None):
+def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
     """
     :param contribution_string: A string with comma-seperated energy contributions.
     :param cg: The CoarseGrainRNA
     :param num_steps: The number of total steps of the simulation. (Used only for simulated annealing. Else None)
+    :param kwargs: The keyword args will be passed on to the energie's from_cg methos.
     """
     contributions = contribution_string.split(",")
     energy_classes = { cls._shortname: cls for cls in _get_all_subclasses(EnergyFunction) if not cls == CoarseGrainEnergy }
@@ -1123,18 +1216,25 @@ def energies_from_string(contribution_string, cg, num_steps = None):
         if match is None:
             raise ValueError("Contribution {} not understood".format(contrib))
         cls = energy_classes[match.group(2)]
-        pre = _parseEnergyContributionString(match.group(1), DEFAULT_ENERGY_PREFACTOR, num_steps)
-        adj = _parseEnergyContributionString(match.group(3), 1., num_steps)
-        
-        energies.append(cls.from_cg(cg, pre, adj))
+        pre = _parseEnergyContributionString(match.group(1), num_steps)
+        adj = _parseEnergyContributionString(match.group(3), num_steps)
+        try:
+            energies.append(cls.from_cg(cg, pre, adj, **kwargs))
+        except TypeError as e:
+            if "arguments" not in e.message:
+                raise
+            # http://stackoverflow.com/a/2677263
+            args = inspect.getargspec(cls.from_cg).args
+            missing_arg = set(args)-set(["cls", "cg", "prefactor", "adjustment"]+list(kwargs.keys()))
+            raise TypeError("The following required Keyword-Arguments for energy {} are missing: {}".format(match.group(2), list(missing_arg)))
     return CombinedEnergy(energies)
 
-def _parseEnergyContributionString(contrib, default, num_steps):
+def _parseEnergyContributionString(contrib, num_steps):
     """
     Helper function 
     """
     if not contrib:
-        return default
+        return None
     if "_" in contrib:
         a=contrib.split("_")
         if len(a)==2:

@@ -24,7 +24,7 @@ class EnergyFunction(object):
     __metaclass__ = ABCMeta
     
     @classmethod
-    def from_cg(cls, cg, prefactor, adjustment):
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
         Factory function. Return this energy for the given cg.
         
@@ -32,8 +32,11 @@ class EnergyFunction(object):
         """
         return cls(prefactor, adjustment)
     
-    def __init__(self, prefactor = DEFAULT_ENERGY_PREFACTOR, adjustment = 1):
-        
+    def __init__(self, prefactor = None, adjustment = None):
+        if prefactor is None:
+            prefactor = DEFAULT_ENERGY_PREFACTOR
+        if adjustment is None:
+            adjustment = 1.
         #: Used by constraint energies, to store tuples of stems that clash.
         #: Updated every time eval_energy is called.
         self.bad_bulges = []
@@ -153,7 +156,7 @@ class CoarseGrainEnergy(EnergyFunction):
     A base-class for Energy functions that use a background distribution.
     """
     @classmethod
-    def from_cg(cls, cg, prefactor, adjustment):
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
         Factory function. Return this energy for the given cg.
         
@@ -161,7 +164,7 @@ class CoarseGrainEnergy(EnergyFunction):
         """
         return cls(rna_length = cg.seq_length, prefactor=prefactor, adjustment=adjustment)
 
-    def __init__(self, rna_length, prefactor, adjustment):
+    def __init__(self, rna_length, prefactor=None, adjustment=None):
         super(CoarseGrainEnergy, self).__init__(prefactor, adjustment)
         
         #: Change this to anything but "kde" to use a beta distribution (UNTESTED).
@@ -175,6 +178,7 @@ class CoarseGrainEnergy(EnergyFunction):
         #: Resample the reference distribution every n steps
         self.kde_resampling_frequency = 3
     
+
     def reset_kdes(self, rna_length):
         self.reference_distribution, am = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
         self.accepted_measures = list(am)

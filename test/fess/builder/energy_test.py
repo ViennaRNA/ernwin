@@ -104,7 +104,10 @@ class TestJunctionConstraintEnergy(unittest.TestCase):
     def test_junction_energy_nodes(self):
         self.assertEqual(self.junction_energy.eval_energy(self.cg, nodes=["s0", "h0", "s1"]), 0)
         self.assertGreater(self.junction_energy.eval_energy(self.cg_bad, nodes=["m0"]), 1000)
-
+    def test_energy_independent_of_nodes(self):
+        cg = ftmc.CoarseGrainRNA('test/fess/data/4way.cg')
+        cg.add_all_virtual_residues()
+        self.assertEqual(self.junction_energy.eval_energy(cg, nodes=["m0"]), self.junction_energy.eval_energy(cg))
 class TestSLDEnergies(unittest.TestCase):
     def setUp(self):
         self.cg1 = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
@@ -118,14 +121,14 @@ class TestSLDEnergies(unittest.TestCase):
         self.cg_far.add_all_virtual_residues()
     
     def test_SDL_1GID(self):
-        energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg1)
+        energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg1, None, None)
         self.assertGreater(energy.eval_energy(self.cg1, background=True), -30)
         self.assertLess(energy.eval_energy(self.cg1, background=True), 30)
         self.assertGreater(energy.eval_energy(self.cg1, background=False), 0)
         self.assertLess(energy.eval_energy(self.cg1, background=False), 50)
         
     def test_SLD_far(self):
-        energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg_far)
+        energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg_far, None, None)
         # At first, we do not use any artificial data
         energy._lsp_data_weight = 1
         energy._lsp_artificial_weight = 0
@@ -168,7 +171,7 @@ class TestAMinorEnergy(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
         self.cg.add_all_virtual_residues()
-        self.energy = fbe.AMinorEnergy.from_cg(self.cg)
+        self.energy = fbe.AMinorEnergy.from_cg(self.cg, None, None)
     def test_AME_energy(self):
         e = self.energy.eval_energy(self.cg)#, plot_debug = True)
         self.assertLess(e, 0)
@@ -359,6 +362,22 @@ class TestConvenienceFunctions(unittest.TestCase):
         
         energy = fbe.energies_from_string("SLD", cg)
         self.assertTrue(energy.hasinstance(fbe.ShortestLoopDistancePerLoop))
+    
+    def test_from_cg_AME(self):
+        # A in hairpin and interiorloop
+        cg1 = ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGAAGGGAAACCCAACCC")
+        e1 = fbe.AMinorEnergy.from_cg(cg1, None, None)
+        self.assertEqual(len(e1.energies), 2)
+        # A only in hairpin
+        cg2 =  ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUUGGGAAACCCUUCCC")
+        e2 = fbe.AMinorEnergy.from_cg(cg2, None, None)
+        self.assertEqual(len(e2.energies), 1)
+        self.assertEqual(e2.energies[0].loop_type, 0)
+        # A only in IL
+        cg2 =  ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUAGGGUUUCCCUUCCC")
+        e2 = fbe.AMinorEnergy.from_cg(cg2, None, None)
+        self.assertEqual(len(e2.energies), 1)
+        self.assertEqual(e2.energies[0].loop_type, 1)
         
     def test_energies_from_string_multiple(self):
         cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
@@ -419,3 +438,15 @@ class TestConvenienceFunctions(unittest.TestCase):
                 self.assertEqual(e.prefactor, 20)
                 self.assertEqual(e._pf_stepwidth, 5)
                 self.assertEqual(e._pf_update_freq, 250)
+                
+    def test_energies_from_string_kwargs_clamp(self):
+        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
+        energy = fbe.energies_from_string("CLA", cg, 1000, cla_pairs = [("s0", "s1"),("s0", "h2")])
+        for e in energy.iterate_energies():
+            self.assertEqual(e.adjustment, e._DEFAULT_CLAMP_DISTANCE)
+            self.assertEqual(e.from_elem, "s0")
+            self.assertIn(e.to_elem, ["s1", "h2"])
+        with self.assertRaises(TypeError) as ex: #Missing kwarg for CLA energy
+            energy = fbe.energies_from_string("CLA", cg, 1000)
+        self.assertIn("CLA", str(ex.exception))
+        self.assertIn("cla_pairs", str(ex.exception))

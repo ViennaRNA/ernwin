@@ -252,17 +252,17 @@ class EnergyTracking(StatisticsCollector):
         self.history = [ [], [] ]
     def update(self, sm, step):
         if self._background:
-            energy=self._energy_function.eval_energy(sm, background=True)
+            energy=self._energy_function.eval_energy(sm.bg, background=True)
             self._energy_function.accept_last_measure()
         else:
-            energy=self._energy_function.eval_energy(sm)
-        self.history[0].append(self._energy_function.shortname())
+            energy=self._energy_function.eval_energy(sm.bg)
+        self.history[0].append(self._energy_function.shortname)
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy)==1:
             energy="{:10.3f}".format(energy[0])
         elif isinstance(energy, float):
             energy="{:10.3f}".format(energy)
-        sn = self._energy_function.shortname()
+        sn = self._energy_function.shortname
         if sn=="":
             sn = self._energy_function.get_name()
         return "{}: {}".format(sn, energy)
@@ -286,7 +286,7 @@ class EnergyMeasure(StatisticsCollector):
         """
         super(EnergyMeasure, self).__init__()
         self._energy_function = energy_function
-        self.header = [ "measure_of_"+self._energy_function.shortname() ]
+        self.header = [ "measure_of_"+self._energy_function.shortname ]
         self.history = [ [] ]
     def update(self, sm, step):
         measure=self._energy_function.accepted_measures[-1]
@@ -550,8 +550,8 @@ class SamplingStatistics:
         self.step+=1
         line=["{:6d}\t{:10.3f}".format(self.step, energy)]
         if self.options["constituing_energies"]=="no_clash":
-            ignore_names=[fbe.RoughJunctionClosureEnergy().shortname(),
-                         fbe.StemVirtualResClashEnergy().shortname()]
+            ignore_names=[fbe.RoughJunctionClosureEnergy().shortname,
+                         fbe.StemVirtualResClashEnergy().shortname]
         else:
             ignore_names=[]
         line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies 

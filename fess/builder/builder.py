@@ -19,6 +19,7 @@ import itertools
 import random
 import copy
 import os
+import sys
 #profile decorator from line_profiler (kernprof) or memory_profiler
 try:
     profile
@@ -40,6 +41,7 @@ def _determined_broken_ml_segments(built_nodes, bg):
             if loop <= ( set(built_nodes) | broken_multiloops ):
                 broken_determined_nodes.add(n)
     return broken_determined_nodes
+
 
 class Builder(object):
     """
@@ -65,7 +67,14 @@ class Builder(object):
             self.build(sm)
             models.append(copy.deepcopy(sm))
         return models
-    
+
+    def accept_or_build(self, sm):
+        log.info("building without constraint energy...")
+        sm.new_traverse_and_build()
+        if self.clash_energy is not None or self.junction_energy is not None:
+            self._build_with_energies(sm)
+        log.info("Done to build")
+        
     def build(self, sm):
         """
         Initialize the spatial model with random stats
@@ -73,41 +82,46 @@ class Builder(object):
         :param sm: The SpatialModel
         """
         sm.sample_stats(self.stat_source)
-        #Build without energy
-        log.info("building without constraint energy...")
-        sm.new_traverse_and_build()
-        if self.clash_energy is not None or self.junction_energy is not None:
-            self._build_with_energies(sm)
-        log.info("Done to build")
+        self.accept_or_build(sm)
 
     def _build_with_energies(self, sm):
         log.info("building with constraint energies")
+
         newbuilt_nodes = sm.new_traverse_and_build(start = 'start', max_steps = 1)
         built_nodes = []
-        while newbuilt_nodes:
-            built_nodes += newbuilt_nodes
-            log.debug("{}".format(built_nodes))
-            self._check_sampled_ml(sm, newbuilt_nodes[-1])
-            bad_segments = self._get_bad_ml_segments(sm, built_nodes)
-            log.debug("BAd segments {}".format(bad_segments))
-            if not bad_segments:
-                log.debug("Evaluate clash energy:")
-                #The junction-energy is ok. Now we look at the clash energy
-                bad_segments = self._get_bad_clash_segments(sm, built_nodes)
-                if self._rebuild_clash_only(sm, built_nodes, [x for x in bad_segments if x[0] == "i"]):
-                    bad_segments = []
-                else:
-                    #The structure has changed, so we need to get the bad segments again.
+        iterations = 0
+        try:
+            while newbuilt_nodes:
+                iterations +=1
+                built_nodes += newbuilt_nodes
+                log.debug("built nodes are {}".format(built_nodes))
+                self._check_sampled_ml(sm, newbuilt_nodes[-1])
+                bad_segments = self._get_bad_ml_segments(sm, built_nodes)
+                log.debug("Bad segments {}".format(bad_segments))
+                if not bad_segments:
+                    log.debug("Evaluate clash energy:")
+                    #The junction-energy is ok. Now we look at the clash energy
                     bad_segments = self._get_bad_clash_segments(sm, built_nodes)
-            # If we need to resample, go back somewhere into the past
-            if bad_segments:
-                start_node = random.choice(bad_segments)
-                sm.elem_defs[start_node] = self.stat_source.sample_for(sm.bg, start_node)
-                built_nodes = built_nodes[:built_nodes.index(start_node)]
-                log.debug("Going back to node {}".format(start_node))
-            else:
-                start_node = built_nodes[-1]
-            newbuilt_nodes = sm.new_traverse_and_build(start = start_node, max_steps = 1)
+                    if not bad_segments or self._rebuild_clash_only(sm, built_nodes, [x for x in bad_segments if x[0] == "i"]):
+                        #All clashes were removed
+                        assert self._get_bad_clash_segments(sm, built_nodes) == []
+                        bad_segments = []
+                    else:
+                        #The structure has changed, so we need to get the bad segments again.
+                        bad_segments = self._get_bad_clash_segments(sm, built_nodes)
+                # If we need to resample, go back somewhere into the past
+                if bad_segments:
+                    start_node = random.choice(bad_segments)
+                    sm.elem_defs[start_node] = self.stat_source.sample_for(sm.bg, start_node)
+                    built_nodes = built_nodes[:built_nodes.index(start_node)]
+                    log.debug("Going back to node {}".format(start_node))
+                else:
+                    start_node = built_nodes[-1]
+                    log.debug("Proceeding with next node {}".format(start_node))
+                newbuilt_nodes = sm.new_traverse_and_build(start = start_node, max_steps = 1)
+        except KeyboardInterrupt:
+            print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
+            raise
         log.debug("++++++++++++++++++++++++++++++++++++++")
     def _check_sampled_ml(self, sm, ml):
         """
@@ -120,7 +134,7 @@ class Builder(object):
         """
         if self.junction_energy is None:
             return
-        if self.junction_energy.eval_energy(sm, nodes = ml)!=0:
+        if self.junction_energy.eval_energy(sm.bg, nodes = ml)!=0:
                     dist = ftug.junction_virtual_atom_distance(sm.bg, ml)            
                     raise ValueError("Multiloop {} does not fulfill the constraints. "
                                      "Sampled as {}, "
@@ -140,7 +154,7 @@ class Builder(object):
         if self.junction_energy is None: 
             return []
         det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
-        ej = self.junction_energy.eval_energy( sm, nodes=det_br_nodes)
+        ej = self.junction_energy.eval_energy( sm.bg, nodes=det_br_nodes)
         log.debug("Junction Energy for nodes {} (=> {}) is {}".format(nodes, det_br_nodes, ej))
         if ej>0:
             bad_loop_nodes =  [ x for x in self.junction_energy.bad_bulges if x in nodes and x[0]=="m"]
@@ -160,7 +174,7 @@ class Builder(object):
         """
         if self.clash_energy is None:
             return []
-        ec = self.clash_energy.eval_energy(sm, nodes=nodes)
+        ec = self.clash_energy.eval_energy(sm.bg, nodes=nodes)
         log.debug("Clash Energy for nodes {} is {}".format(nodes, ec))
         if ec>0:
             bad_stems=set(self.clash_energy.bad_bulges)
@@ -195,7 +209,7 @@ class Builder(object):
             node = random.choice(changable)
             sm.elem_defs[node] = self.stat_source.sample_for(sm.bg, node)
             sm.new_traverse_and_build(start=node, end=nodes[-1])
-            ec = self.clash_energy.eval_energy(sm, nodes=nodes)
+            ec = self.clash_energy.eval_energy(sm.bg, nodes=nodes)
             if ec == 0:
                 log.debug("_rebuild_clash_only for {} was successful after {} tries".format(nodes, i))
                 return True
@@ -227,7 +241,7 @@ class FairBuilder(Builder):
 
     def _fulfills_junction_energy(self, sm):
         if self.junction_energy is not None:
-            if self.junction_energy.eval_energy(sm)>0:
+            if self.junction_energy.eval_energy(sm.bg)>0:
                 if self.store_failed is True or self.store_failed == "junction":
                     self._store_failed(sm)
                 elif self.store_failed=="list":
@@ -249,7 +263,7 @@ class FairBuilder(Builder):
     
     def _fulfills_clash_energy(self, sm):
         if self.clash_energy is not None:
-            if self.clash_energy.eval_energy(sm)>0:
+            if self.clash_energy.eval_energy(sm.bg)>0:
                 if self.store_failed is True or self.store_failed == "clash":
                     self._store_failed(sm)
                 elif self.store_failed=="list":
@@ -332,7 +346,7 @@ class DimerizationBuilder(FairBuilder):
         because we are only looking at partial structures here.
         """
         if self.junction_energy is not None:
-            if self.junction_energy.eval_energy(sm, nodes=nodes)>0:
+            if self.junction_energy.eval_energy(sm.bg, nodes=nodes)>0:
                 return False
         return True
     

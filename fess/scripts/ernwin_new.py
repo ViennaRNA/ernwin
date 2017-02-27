@@ -37,6 +37,7 @@ import scipy.ndimage
 import numpy as np
 import itertools as it
 import subprocess
+import operator
 import logging
 log = logging.getLogger(__name__)
 
@@ -233,72 +234,12 @@ def get_parser():
                               " integers (positions in the sequence).\n")
     return parser
 
-def getSLDenergies(cg, prefactor=DEFAULT_ENERGY_PREFACTOR):
-    """
-    Get the shortest loopdistance per loop energy for each hloop.
-
-    :param cg: The coarse grained RNA
-    :returns: A list of energies
-    """
-    energies=[]
-    for hloop in cg.hloop_iterator():
-        energies+= [fbe.ShortestLoopDistancePerLoop(hloop, prefactor)]
-    return energies
-
-def getAMinorEnergies(cg, pre=DEFAULT_ENERGY_PREFACTOR, adj=1.0):
-    """
-    Get the A-minor energies for h- and i-loops.
-    
-    :param pre: Energy prefactor
-    :param adj: Adjustment
-
-    :returns: A list of energies
-    """
-    ame1 = fbe.AMinorEnergy(loop_type = 'h', energy_prefactor=pre, adjustment=adj)
-    ame2 = fbe.AMinorEnergy(loop_type = 'i', energy_prefactor=pre, adjustment=adj)
-    energies = []
-    if ame1.get_num_loops(cg)>0:
-        energies.append(ame1)
-    if ame2.get_num_loops(cg)>0:
-        energies.append(ame2)
-    return energies
-
-def getDefaultEnergies(cg):
-    """
-    Get the default energies.
-
-    :param cg: The coarse grained RNA
-    :returns: A list of energies
-    """
-    energies=[]
-    #Radius of gyration
-    energies.append(fbe.RadiusOfGyrationEnergy(energy_prefactor=DEFAULT_ENERGY_PREFACTOR,
-                                               adjustment=1.0))
-    #Shortest loop distance per loop
-    sld = getSLDenergies(cg)
-    if sld:
-        energies+=[ fbe.CombinedEnergy([],  sld , normalize=True) ]
-    #A-minor energies
-    energies += getAMinorEnergies(cg)
-    return energies
-
-def getPROenergy(proj_dist_str, prefactor):
-    contributions=proj_dist_str.split(":")
-    distances={}
-    for contrib in contributions:
-        f=contrib.split(",")
-        if len(f)!=3:
-            raise ValueError("Could not parse projected-dist string: '{}'".format(contrib))
-        distances[(f[0],f[1])]=float(f[2])
-    if not distances:
-        raise ValueError("The --projected-dist option is required if the PRO energy is used.".format(contrib))
-    return fbe.ProjectionMatchEnergy(distances, prefactor)
 
 def getHDEenergy(hde_image, scale, pre):
     img=scipy.ndimage.imread(hde_image)
     return fbe.HausdorffEnergy(img, scale, pre)
 
-def getFPPEnergy(cg, pre, args):
+def getFPPArgs(cg, args):
     print ("GET FPP ENERGY")
     if not (args.ref_img and args.scale and args.fpp_landmarks):
         import Tkinter as tk
@@ -455,7 +396,7 @@ def getFPPEnergy(cg, pre, args):
         root.mainloop()
         ### We have all we need stored in selected.
         landmarks = [ tuple(x) for x in selected["triples"] ]
-    return fbe.FPPEnergy(pre, landmarks, scale, ref_image)
+    return {fpp_landmarks : landmarks, fpp_scale : scale, fpp_ref_image : ref_image}
         
 def parseCombinedEnergyString(stri,  cg, reference_cg, args):
     """
@@ -466,165 +407,22 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args):
     :param reference_cg: The r coarse-grained RNA (e.g. a deepcopy of cg)
     :returs: A combined energy
     """
-    contributions=stri.split(",")
-    energies=[]
-    for contrib in contributions:
-        if "DEF" in contrib:
-            pre,_,adj=contrib.partition("DEF")
-            if pre!="" or adj!="":
-                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored "
-                              "for default energy!".format(pre, adj))
-            energies+=getDefaultEnergies(cg)
-        elif "ROG" in contrib:
-            pre, adj=parseEnergyContributionString(contrib, "ROG")
-            e = fbe.RadiusOfGyrationEnergy( energy_prefactor=pre, adjustment=adj[0])
-            if adj[1]:
-                e.set_dynamic_adjustment(adj[1],math.ceil(args.iterations/adj[2]))
-            energies.append(e)
-        elif "NDR" in contrib:
-            pre, adj=parseEnergyContributionString(contrib, "NDR")
-            e = fbe.NormalDistributedRogEnergy( energy_prefactor=pre, adjustment=adj[0])
-            if adj[1]:
-                e.set_dynamic_adjustment(adj[1],math.ceil(args.iterations/adj[2]))
-            energies.append(e)
-        elif "AME" in contrib:
-            pre, adj=parseEnergyContributionString(contrib, "AME")
-            es=getAMinorEnergies(cg, pre, adj[0])
-            if adj[1]:
-                for e in es:
-                    e.set_dynamic_adjustment(adj[1],math.ceil(args.iterations/adj[2]))
-            energies+=es
-        elif "SLD" in contrib:
-            pre,_, adj=contrib.partition("SLD")
-            if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for "
-                              "ShortestLoopdistancePerLoop energy!".format(adj))            
-            if pre=="": pre=DEFAULT_ENERGY_PREFACTOR
-            else: pre=int(pre)
-            energies+=[ fbe.CombinedEnergy([],  getSLDenergies(cg, pre), normalize=True ) ]
-        elif "PRO" in contrib:
-            pre,_, adj=contrib.partition("PRO")
-            if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for "
-                              "ProjectionMatchEnergy energy!".format(adj))
-            if pre:
-                pre=int(pre)
-            else:
-                pre=1
-            energies.append(getPROenergy(args.projected_dist, pre))
-        elif "HDE" in contrib:
-            pre,_, adj=contrib.partition("HDE")
-            if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for Hausdorff energy!".format(adj))
-            if pre:
-                pre=int(pre)
-            else:
-                pre=DEFAULT_ENERGY_PREFACTOR
-            energies.append(getHDEenergy(args.ref_img, args.scale, pre))
-        elif "CHE" in contrib:
-            pre,_, adj=contrib.partition("CHE")
-            if adj!="":
-                warnings.warn("Prefactor '{}' and adjustment '{}' are ignored "
-                              "for cheating energy!".format(pre, adj))
-            if pre:
-                pre=int(pre)
-            else:
-                pre=DEFAULT_ENERGY_PREFACTOR
-            
-            energies.append(fbe.CheatingEnergy(reference_cg, pre))
-        elif "CLA" in contrib:
-            pre,_, adj=contrib.partition("CLA")
-            if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for Clamp Energy!".format(adj))
-            if pre:
-                pre=int(pre)
-            else:
-                pre=1
-            pairs = args.clamp.split(':')
-            clamp=[]
-            for pair in pairs:
-                r1,r2=pair.split(",")
-                try: # initially we assume the clamp target are residue numbers
-                    r1=int(r1)
-                except ValueError: #Or they are element names
-                    e1=r1
-                else:
-                    e1=cg.get_node_from_residue_num(r1)
-                try: # initially we assume the clamp target are residue numbers
-                    r2=int(r2)
-                except ValueError: #Or they are element names
-                    e2=r2
-                else:
-                    e2=cg.get_node_from_residue_num(r2)
-                if e1 not in cg.defines or e2 not in cg.defines:
-                    print("ERROR: Invalid Clamp values '{}'-'{}' "
-                          "(elements '{}'-'{}').".format(r1,r2,e1,e2), file=sys.stderr)
-                    sys.exit(1)
-                if e1==e2:
-                    warnings.warn("Cannot clamp identical elements "
-                                  " {} and {} ({}=={})".format(r1,r2,e1,e2))
-                else:
-                    clamp+=[fbe.DistanceExponentialEnergy(e1,e2,15.,pre)]
-            if clamp:
-                energies.append(fbe.CombinedEnergy([],clamp))
-        elif "FPP" in contrib:
-            pre,_, adj=contrib.partition("FPP")
-            if adj!="":
-                warnings.warn("Adjustment '{}' is ignored for FPP energy!".format(adj))
-            if pre:
-                pre=int(pre)
-            else:
-                pre=1
-            energies.append(getFPPEnergy(cg, pre, args))
-        else:
-            print("ERROR: Cannot parse energy contribution: '{}'".format(contrib), file=sys.stderr)
-            sys.exit(1)
-    return fbe.CombinedEnergy([], energies)
-def parseEnergyContributionString(contrib, sep):
-    """
-    Helper function for parsing of commandline.
-
-    Splits the contrib string at the occurence of sep. 
-    If an empty string is before and/por after the seperator, the default value is returned.
-
-    :param contrib: A string, e.g. "30ROG1.0"
-    :returns: a 2-tuple of floats: Prefactor, Adjustment
-    """
-    pre,_,adj=contrib.partition(sep)
-    if not pre:
-        pre=DEFAULT_ENERGY_PREFACTOR
-    if "_" in adj:
-        a=adj.split("_")
-        if len(a)==2:
-            adj=float(a[0])
-            end=float(a[1])
-            if abs(adj-end)<1.2:
-                step=0.1
-            else:
-                step=1
-            if end<adj:
-                step=step*-1
-            num_steps=math.ceil((end-adj)/step)+1
-            assert num_steps>1, numSteps
-            return float(pre), (adj, step, num_steps)
-        elif len(a)==3:
-            adj=float(a[0])
-            step=float(a[1])
-            end=float(a[2])
-            num_steps=math.ceil((end-adj)/step)+1
-            if num_steps<2:
-                raise ValueError("Could not parse adjustment in option '{}': "
-                                  "Expected START_STEP_STOP, found {}, {}, {} which would "
-                                  "lead to a total of {} steps".format(contrib, adj, step, 
-                                                                       end, num_steps))
-            return float(pre), (adj, step, num_steps)
-        else:
-            raise ValueError("Could not parse adjustment in option: '{}'".format(contrib))
+    kwargs = {}
+    if args.clamp:
+        kwargs["cla_pairs"] = map(operator.methodcaller("split", ","), args.clamp.split(':'))
+    if args.projected_dist:
+        contributions=args.projected_dist.split(":")
+        kwargs["pro_distances"]={}
+        for contrib in contributions:
+            f=contrib.split(",")
+            if len(f)!=3:
+                raise ValueError("Could not parse projected-dist string: '{}'".format(contrib))
+            kwargs["pro_distances"][(f[0],f[1])]=float(f[2])
         
-    if not adj:
-        adj=1.0
-    return float(pre), (float(adj),0,0)
+    if "FPP" in stri:
+        kwargs.update(getFPPArgs(cg, args))
 
+    return fbe.energies_from_string(stri, cg, args.iterations, **kwargs)
 
 
 def setup_deterministic(args):
@@ -730,7 +528,7 @@ def setup_deterministic(args):
         energy = []
         for e in rep_energies:
             if e=="D":
-                energy.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
+                energy.append(fbe.energies_from_string("ROG,AME,SLD", cg))
             elif e=="N":
                 energy.append(fbe.CombinedEnergy([],[]))
             else:
@@ -752,9 +550,9 @@ def setup_deterministic(args):
     else:
         #Initialize the requested energies
         if args.energy=="D":
-            energy=fbe.CombinedEnergy([],getDefaultEnergies(cg))     
+            energy=parseCombinedEnergyString("ROG,AME,SLD", cg, original_sm.bg, args)  
         elif args.energy=="N":
-            energy=fbe.CombinedEnergy([],[]) 
+            energy=fbe.CombinedEnergy([]) 
         else:
             energy=parseCombinedEnergyString(args.energy, cg, original_sm.bg, args)
 
@@ -763,7 +561,7 @@ def setup_deterministic(args):
         for track_energy_string in args.track_energies.split(":"):
             if track_energy_string:
                 if track_energy_string=="D":
-                    energies_to_track.append(fbe.CombinedEnergy([],getDefaultEnergies(cg)))
+                    energies_to_track.append(parseCombinedEnergyString("ROG,AME,SLD", cg, original_sm.bg, args))
                 else:
                     energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
                                              original_sm.bg, args))
@@ -810,10 +608,10 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, save_dir=None
         options[ "distance" ] = list(map(str.split, args.dist.split(':'), it.repeat(","))) #map is from future!
     else:
         options[ "distance" ] = []
-    for energy in energies_to_track:
-        if  (isinstance(energy, fbe.ProjectionMatchEnergy) or
-            isinstance(energy, fbe.HausdorffEnergy)):
-                options[ "measure" ].append(energy)
+#    for energy in energies_to_track:
+#        if  (isinstance(energy, fbe.ProjectionMatchEnergy) or
+#            isinstance(energy, fbe.HausdorffEnergy)):
+#                options[ "measure" ].append(energy)
     stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
                                      output_file=out_file, options=options, 
                                      output_directory = save_dir)
@@ -832,7 +630,7 @@ def setup_sampler(sm, energy, stat, stat_source, resample, exhaustive = False, n
         log.info("Sampling all stats to build structure from scratch.")
         sm.sample_stats(stat_source)
     clashfree_builder = fbb.Builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
-    clashfree_builder.build(sm) 
+    clashfree_builder.accept_or_build(sm) 
 
     if exhaustive:
         sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, exhaustive)
@@ -855,13 +653,13 @@ def main(args):
         if args.replica_exchange:
             raise ValueError("--eval-energy and --replica-exchange are mutually exclusive.")
         sm.bg.add_all_virtual_residues()
-        fud.pv('energy.eval_energy(sm, verbose=True, background=False)')
+        fud.pv('energy.eval_energy(sm.bg, verbose=True, background=False)')
         if sm.constraint_energy:
-            fud.pv('sm.constraint_energy.eval_energy(sm, verbose=True, background=False)')
+            fud.pv('sm.constraint_energy.eval_energy(sm.bg, verbose=True, background=False)')
         if sm.junction_constraint_energy:
-            fud.pv('sm.junction_constraint_energy.eval_energy(sm, verbose=True, background=False)')
+            fud.pv('sm.junction_constraint_energy.eval_energy(sm.bg, verbose=True, background=False)')
         for track_energy in energies_to_track:
-            fud.pv('track_energy.eval_energy(sm, verbose=True, background=False)')
+            fud.pv('track_energy.eval_energy(sm.bg, verbose=True, background=False)')
         sys.exit(0) 
   
     #Set-up the random Number generator.
@@ -950,7 +748,7 @@ def main(args):
         else: #Normal sampling
             #Track energies without background for comparison with constituing energies
             if isinstance(energy, fbe.CombinedEnergy):
-                energies_to_track+=energy.uncalibrated_energies
+                energies_to_track+=energy.energies
             elif isinstance(energy, fbe.CoarseGrainEnergy):
                 energies_to_track+=[energy]
             stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)

@@ -368,7 +368,7 @@ class SamplingStatistics:
             if tracked_energies and tracking_energies:
                 output_str += " | [tracked Energies]"
                 for i,e in enumerate(tracking_energies):
-                    sn=e.shortname()
+                    sn=e.shortname
                     if len(sn)>12:
                         sn=sn[:9]+"..."
                     output_str += "  [{}]: ".format(sn)
@@ -376,7 +376,7 @@ class SamplingStatistics:
             elif tracking_energies:
                 output_str += " | [tracked Energies]"
                 for e in tracking_energies:
-                    sn=e.shortname()
+                    sn=e.shortname
                     if len(sn)>12:
                         sn=sn[:9]+"..."
                     output_str += "  [{}]: ".format(sn)
@@ -576,7 +576,6 @@ class MCMCSampler(object):
         #: Store the energy of the last configuration!
         self.prev_energy = 100000000000.
         self.dump_measures = dump_measures
-        self.resampled_energy = True
         self.prev_stats={}
         self.prev_mst = None #Used only in Subclass!
         if sm.constraint_energy is not None:
@@ -587,7 +586,7 @@ class MCMCSampler(object):
         self.sm.junction_constraint_energy = None
 
         #Evaluate the energy so we can accept that measure.
-        self.prev_energy = energy_function.eval_energy(sm)
+        self.prev_energy = energy_function.eval_energy(sm.bg)
         log.info("Energy was {}".format(self.prev_energy))
         try:
             self.prev_constituing = self.energy_function.constituing_energies
@@ -618,7 +617,7 @@ class MCMCSampler(object):
 
     def accept_reject(self):
         movestring=[]
-        energy = self.energy_function.eval_energy(self.sm, background=True)
+        energy = self.energy_function.eval_energy(self.sm.bg, background=True)
         movestring.append("{:.3f}".format(self.prev_energy))
         movestring.append("->")
         movestring.append("{:.3f};".format(energy))
@@ -642,7 +641,7 @@ class MCMCSampler(object):
                 self.sm.new_traverse_and_build(start='start')
                 accepted = False
                 if not self.energy_function.uses_background():
-                    rec_prev_energy = self.energy_function.eval_energy(self.sm)
+                    rec_prev_energy = self.energy_function.eval_energy(self.sm.bg)
                     log.debug("Energy after resetting is {}".format(rec_prev_energy))
                     #if rec_prev_energy != self.prev_energy:
                         #cg_stri = self.sm.bg.to_cg_string()
@@ -676,7 +675,7 @@ class MCMCSampler(object):
             for e in self.energy_function.iterate_energies():
                 if hasattr(e, "accepted_projDir"):
                     self.sm.bg.project_from=e.accepted_projDir
-        self.sm.bg.infos["totalEnergy"]=["{} {}".format(energy, self.energy_function.shortname())]
+        self.sm.bg.infos["totalEnergy"]=["{} {}".format(energy, self.energy_function.shortname)]
 
     def reject(self):
         if self.prev_mst is not None:
@@ -708,12 +707,10 @@ class MCMCSampler(object):
 
         # we have to replace the energy because we've probably re-calibrated
         # the energy function
-        if self.resampled_energy and self.energy_function.uses_background():
-            self.prev_energy = self.energy_function.eval_energy(self.sm, background=True, use_accepted_measure=True)
-            try:
-                self.prev_constituing =  self.energy_function.constituing_energies
-            except AttributeError: pass
-            self.resampled_energy = False
+        self.prev_energy = self.energy_function.eval_energy(self.sm.bg, background=True, use_accepted_measure=True)
+        try:
+            self.prev_constituing =  self.energy_function.constituing_energies
+        except AttributeError: pass
 
         self.prev_stats={d: self.sm.elem_defs[d]}
         movestring.append(self.prev_stats[d].pdb_name)
@@ -737,15 +734,11 @@ class MCMCSampler(object):
                 self.energy_function.dump_measures(cbc.Configuration.sampling_output_dir, 
                                                    self.step_counter)
 
-        if self.step_counter % 3 == 0:
-            self.resampled_energy = True
-            self.energy_function.resample_background_kde(self.sm.bg)
 
         self.step_counter += 1
         if isinstance(self.stats, sstats.SamplingStatistics):
             self.stats.update_statistics( self.sm, self.prev_energy, self.prev_constituing, movestring )
 
-        self.energy_function.update_adjustment(self.step_counter, self.sm.bg)
         
         return accepted
 class ImprovedMultiloopMCMC(MCMCSampler):
@@ -828,7 +821,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
         self.sm.elem_defs[d] = newstat
         self.sm.traverse_and_build(start=d)
         if self.junction_energy is not None:
-            energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
+            energy = self.junction_energy.eval_energy(self.sm.bg, nodes=junction_nodes)
         else:
             energy = 0
         num_tries=0
@@ -852,7 +845,7 @@ class ImprovedMultiloopMCMC(MCMCSampler):
                 self.sm.traverse_and_build(start=other_d)
                 #print ("... coaxial stacks now: {}".format(rcs.report_all_stacks(self.sm.bg)), file=sys.stderr)
                 assert self.junction_energy is not None
-                energy = self.junction_energy.eval_energy(self.sm, nodes=junction_nodes)
+                energy = self.junction_energy.eval_energy(self.sm.bg, nodes=junction_nodes)
         movestring.append("TRIES{};".format(num_tries))
         ms, accepted = self.accept_reject()
         movestring.append(ms)
@@ -874,7 +867,7 @@ class ExhaustiveExplorer(MCMCSampler):
         self.sm.traverse_and_build(start=self.loop_of_interest)
         self.sm.bg.infos["sampledFromExhaustive"]=["{} {}".format(self.loop_of_interest,c)]
         #Calculate the enrgy, but always accept
-        energy = self.energy_function.eval_energy(self.sm, background=True)
+        energy = self.energy_function.eval_energy(self.sm.bg, background=True)
         self.prev_energy = energy
         try:
             self.prev_constituing =  self.energy_function.constituing_energies

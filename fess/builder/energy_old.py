@@ -1483,7 +1483,7 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         self.real_stats_fn = None
     def get_distribution_from_file(self, filename, length, adjust=1.):
         if filename is None:
-            return , None
+            return None
         else:
             return super(NormalDistributedRogEnergy, self).get_distribution_from_file(filename, length, adjust)
     def shortname(self):
