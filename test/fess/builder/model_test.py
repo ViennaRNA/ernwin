@@ -554,6 +554,8 @@ class TestNewTraverse(unittest.TestCase):
         self.stat_source = stat_container.StatStorage(real_stats_fn)
         self.cg2 = ftmc.CoarseGrainRNA()
         self.cg2.from_dotbracket("(((.(((.(((.(((...))).))).))).)))")
+        self.cg3 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((......)))))", seq="GGCGCAAAAAAGCGCC")
+
         #(((.(((.(((.(((...))).))).))).)))
         #sssisssisssissshhhsssisssisssisss
         #000211112220333000333022211112000
@@ -561,6 +563,9 @@ class TestNewTraverse(unittest.TestCase):
         self.sm2 = fbm.SpatialModel(self.cg2)
         self.sm2.sample_stats(self.stat_source)
         
+        self.sm3 = fbm.SpatialModel(self.cg3)
+        self.sm3.sample_stats(self.stat_source)
+
     def test_new_traverse_and_build_return_value(self):
         #self.cg2.print_debug()
         nodes = self.sm2.new_traverse_and_build()
@@ -584,6 +589,10 @@ class TestNewTraverse(unittest.TestCase):
         self.sm2.new_traverse_and_build()
         nodes = self.sm2.new_traverse_and_build(start = "s1", max_steps = 1)
         self.assertEqual(nodes, [ "i1", "s2"])
+
+    def test_new_traverse_and_build_no_angles(self):   
+        nodes = self.sm3.new_traverse_and_build()
+        self.assertEqual(nodes, ["s0"])
 
 
     def test_new_traverse_and_build(self):   

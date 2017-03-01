@@ -341,14 +341,14 @@ class SpatialModel:
                     # is broken here
                     continue
             try:
-                self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))
+                self.elem_defs[d] = stat_source.sample_for(self.bg, d)
             except:
                 print ("Error sampling stats for element %s." % (d), file=sys.stderr)
                 raise
 
 
     def resample(self, d, stat_source):
-        self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))
+        self.elem_defs[d] = stat_source.sample_for(self.bg, d)
         '''
         if d[0] == 's':
             self.stem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
@@ -819,7 +819,7 @@ class SpatialModel:
         nodes = []
         if start == "start" or start == "s0":
             # add the first stem in relation to a non-existent stem
-            first_stem = build_order[0][0]
+            first_stem = "s0"
             log.debug("new_traverse_and_build: Setting self.stems[{}] (=first  stem)".format(first_stem))
             self.stems[first_stem] = self.add_stem(first_stem, self.elem_defs[first_stem], StemModel(), 
                                       ftms.AngleStat(), (0,1))
