@@ -31,6 +31,21 @@ import logging
 log = logging.getLogger(__name__)
 logging.getLogger().setLevel(level=logging.DEBUG)
 
+
+def load_sampled_elements(sm):
+    """
+    Try to load the sampled elements from the cg into the sm.
+    :returns: True upon success, False upon failure (e.g. if cg was derived from a fasta file)
+    """
+    try:
+        sm.load_sampled_elems()
+    except Exception as e:
+        log.warning("Cannot use structure from file. Need to resample: {}".format(e), exc_info=True)
+        return False
+    if not sm.elem_defs:
+        return False
+    return True
+
 def _determined_broken_ml_segments(built_nodes, bg):
     ml_nodes=set(x for x in bg.defines.keys() if x[0]=="m")
     broken_multiloops = ml_nodes-set(itertools.chain(*[bo for bo in bg.traverse_graph()]))

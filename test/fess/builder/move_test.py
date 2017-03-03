@@ -134,8 +134,8 @@ class TestNMoverPublicAPI(TestMoverBaseClassPublicAPI):
 class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
     def setUp(self):
         super(TestExhaustiveExplorerPrivateMembers, self).setUp()
-        self.mover_realstats = fbmov.ExhaustiveMover(self.stat_source_real, self.sm, ["s0"])
-        self.mover_limitedstats = fbmov.ExhaustiveMover(self.stat_source_limited, self.sm, ["s0"])
+        self.mover_realstats = fbmov.ExhaustiveMover(self.stat_source_real, ["s0"], self.sm )
+        self.mover_limitedstats = fbmov.ExhaustiveMover(self.stat_source_limited, ["s0"], self.sm )
     def test_get_elem_and_stat_real_stats(self):
         elems = Counter()
         stats = set()
@@ -211,12 +211,12 @@ class TestConvenienceFunctions(unittest.TestCase):
     def test_mover_from_string(self):
         mover = fbmov.mover_from_string("Mover", self.stat_source)
         self.assertIsInstance(mover, fbmov.Mover)
-        mover = fbmov.mover_from_string("ExhaustiveMover(m0,m1)", self.stat_source, self.sm)
+        mover = fbmov.mover_from_string("ExhaustiveMover[m0,m1]", self.stat_source, self.sm)
         self.assertIsInstance(mover, fbmov.ExhaustiveMover)
-        mover = fbmov.mover_from_string("NElementMover(3)", self.stat_source, self.sm)
+        mover = fbmov.mover_from_string("NElementMover[3]", self.stat_source, self.sm)
         self.assertIsInstance(mover, fbmov.NElementMover)
         self.assertEqual(mover._n_moves, 3)
-        mover = fbmov.mover_from_string("ConnectedElementMover(4)", self.stat_source)
+        mover = fbmov.mover_from_string("ConnectedElementMover[4]", self.stat_source)
         self.assertIsInstance(mover, fbmov.ConnectedElementMover)
         self.assertEqual(mover._n_moves, 4)
         mover = fbmov.mover_from_string("WholeMLMover", self.stat_source)

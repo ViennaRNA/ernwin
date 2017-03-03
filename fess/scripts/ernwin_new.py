@@ -27,7 +27,7 @@ from fess.builder import sampling as fbs
 from fess.builder import builder as fbb
 from fess.builder import replicaExchange as fbr
 from fess.builder import config
-from fess.builder import samplingStatisticsNew2 as sstats
+from fess.builder import monitor as sstats
 from fess.builder import stat_container
 from fess.builder import move as fbmov
 from fess import data_file, __version__
@@ -389,6 +389,13 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args):
 
     return fbe.energies_from_string(stri, cg, args.iterations, **kwargs)
 
+def energy_from_string(e, cg, original_sm, args):
+    if e=="D":
+        return fbe.energies_from_string("ROG,AME,SLD", cg)
+    elif e=="N":
+        return fbe.CombinedEnergy([],[])
+    else:
+        return parseCombinedEnergyString(e, cg, original_sm.bg, args)
 
 def setup_deterministic(args):
     """
@@ -430,20 +437,29 @@ def setup_deterministic(args):
     #Output file and directory        
     ofilename=None
     if not args.eval_energy:
-        if args.output_base_dir and not os.path.exists(args.output_base_dir):
-            os.makedirs(args.output_base_dir)
-            print ("INFO: Directory {} created.".format(args.output_base_dir), file=sys.stderr)
+        if args.output_base_dir:
+            if not os.path.exists(args.output_base_dir):
+                os.makedirs(args.output_base_dir)
+                print ("INFO: Directory {} created.".format(args.output_base_dir), file=sys.stderr)
+            else:
+                print ("WARNING: Using existing directory {}. Potentially overwriting its content.".format(args.output_base_dir), file=sys.stderr)
+
         subdir=cg.name+args.output_dir_suffix
         config.Configuration.sampling_output_dir = os.path.join(args.output_base_dir, subdir)
         if not os.path.exists(config.Configuration.sampling_output_dir):
             os.makedirs(config.Configuration.sampling_output_dir)
             print ("INFO: Directory {} created. This folder will be used for all output "
                    "files.".format(config.Configuration.sampling_output_dir), file=sys.stderr)
+        else:
+            print ("WARNING: Using existing directory {}. Potentially overwriting its content.".format(config.Configuration.sampling_output_dir), file=sys.stderr)
+
         if args.output_file:
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
     #Initialize the stat_container
     stat_source = stat_container.StatStorage(args.stats_file, args.fallback_stats_files)
+    
+    
     if args.clustered_angle_stats or args.jar3d:
         print("ERROR: --clustered-angle-stats and --jar3d are currently not implemented!", file=sys.stderr)
         sys.exit(1)
@@ -492,12 +508,7 @@ def setup_deterministic(args):
             rep_energies = [args.energy]*args.replica_exchange
         energy = []
         for e in rep_energies:
-            if e=="D":
-                energy.append(fbe.energies_from_string("ROG,AME,SLD", cg))
-            elif e=="N":
-                energy.append(fbe.CombinedEnergy([],[]))
-            else:
-                energy.append(parseCombinedEnergyString(e, cg, original_sm.bg, args))
+            energy.append(energy_from_string(e, cg, original_sm, args))
         #Initialize energies to track
         energies_to_track=[]
         if args.track_energies:
@@ -514,12 +525,7 @@ def setup_deterministic(args):
                 s.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
     else:
         #Initialize the requested energies
-        if args.energy=="D":
-            energy=parseCombinedEnergyString("ROG,AME,SLD", cg, original_sm.bg, args)  
-        elif args.energy=="N":
-            energy=fbe.CombinedEnergy([]) 
-        else:
-            energy=parseCombinedEnergyString(args.energy, cg, original_sm.bg, args)
+        energy = energy_from_string(args.energy, cg, original_sm, args)
 
         #Initialize energies to track
         energies_to_track=[]
@@ -536,8 +542,11 @@ def setup_deterministic(args):
         if args.constraint_energy in ["D","B","C"]:
             sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
 
+    # It should not matter, which sm (in case of RE) I use, 
+    # as long as it corresponds to the correct bulge graph (i.e. 2D structure).
+    mover = fbmov.mover_from_string(args.move_set, stat_source, original_sm)
 
-    return sm, original_sm, ofilename, energy, energies_to_track, stat_source
+    return sm, original_sm, ofilename, energy, energies_to_track, mover, stat_source
 
 def setup_stat(out_file, sm, args, energies_to_track, original_sm, save_dir=None):
     """
@@ -582,11 +591,11 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, save_dir=None
                                      output_directory = save_dir)
     return stat
 
-def setup_sampler(sm, energy, stat, stat_source, resample, exhaustive = False, new_ml = False, dump_energies = False):
+def setup_sampler(sm, energy, stat, resample, mover, stat_source):
     if not resample:
         # Build the first spatial model.
         log.info("Trying to load sampled elements...")
-        loaded = fbs.load_sampled_elements(sm)
+        loaded = fbb.load_sampled_elements(sm)
         if not loaded:            
             log.warning("Could not load stats. Start with sampling of all stats.")                    
             resample=True
@@ -597,34 +606,28 @@ def setup_sampler(sm, energy, stat, stat_source, resample, exhaustive = False, n
     clashfree_builder = fbb.Builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
     clashfree_builder.accept_or_build(sm) 
 
-    if exhaustive:
-        sampler = fbs.ExhaustiveExplorer(sm, energy, stat, stat_source, exhaustive)
-    elif new_ml:
-        sampler = fbs.ImprovedMultiloopMCMC(sm, energy, stat, stat_source,
-                                            dump_measures=dump_energies)
-    else:
-        sampler = fbs.MCMCSampler(sm, energy, stat, stat_source,
-                                            dump_measures=dump_energies)
+    sampler = fbs.MCMCSampler(sm, energy, mover, stat)
     return sampler
+
+def eval_energy(sm, energy, energies_to_track):
+    sm.bg.add_all_virtual_residues()
+    fud.pv('energy.eval_energy(sm.bg, verbose=True, background=False)')
+    if sm.constraint_energy:
+        fud.pv('sm.constraint_energy.eval_energy(sm.bg, verbose=True, background=False)')
+    if sm.junction_constraint_energy:
+        fud.pv('sm.junction_constraint_energy.eval_energy(sm.bg, verbose=True, background=False)')
+    for track_energy in energies_to_track:
+        fud.pv('track_energy.eval_energy(sm.bg, verbose=True, background=False)')
 
 def main(args):
     #Setup that does not use the random number generator.
     randstate=random.getstate()#Just for verification purposes
-    sm, original_sm, ofilename, energy, energies_to_track, stat_source = setup_deterministic(args)
+    sm, original_sm, ofilename, energy, energies_to_track, mover, stat_source = setup_deterministic(args)
     assert randstate==random.getstate()#Just for verification purposes
     fud.pv("energies_to_track")
     #Eval-energy mode
     if args.eval_energy:
-        if args.replica_exchange:
-            raise ValueError("--eval-energy and --replica-exchange are mutually exclusive.")
-        sm.bg.add_all_virtual_residues()
-        fud.pv('energy.eval_energy(sm.bg, verbose=True, background=False)')
-        if sm.constraint_energy:
-            fud.pv('sm.constraint_energy.eval_energy(sm.bg, verbose=True, background=False)')
-        if sm.junction_constraint_energy:
-            fud.pv('sm.junction_constraint_energy.eval_energy(sm.bg, verbose=True, background=False)')
-        for track_energy in energies_to_track:
-            fud.pv('track_energy.eval_energy(sm.bg, verbose=True, background=False)')
+        eval_energy(sm, energy, energies_to_track)
         sys.exit(0) 
   
     #Set-up the random Number generator.
@@ -684,9 +687,7 @@ def main(args):
                                       "--fpp-landmarks {}".format(i, e.scale, e.ref_image, 
                                                               ":".join(",".join(map(str,x)) for x in e.landmarks)),
                                       file=out_file)
-                        samplers.append(setup_sampler(s, r_energy, stat, stat_source, resample=args.start_from_scratch, 
-                                                exhaustive = False, new_ml = args.new_ml, 
-                                                dump_energies = args.dump_energies))
+                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source))
                     try:
                         if args.parallel:
                             fbr.start_parallel_replica_exchange(samplers, args.iterations)
@@ -724,9 +725,8 @@ def main(args):
                               "--fpp-landmarks {}".format(e.scale, e.ref_image, 
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
                               file=out_file)
-                sampler = setup_sampler(sm, energy, stat, stat_source, resample=args.start_from_scratch, 
-                                        exhaustive = args.exhaustive, new_ml = args.new_ml, 
-                                        dump_energies = args.dump_energies)
+                sampler = setup_sampler(sm, energy, stat, resample=args.start_from_scratch, 
+                                        mover = mover, stat_source = stat_source)
                 for i in range(args.iterations):
                     sampler.step()
                 print ("# Everything done. Terminated normally", file=out_file)

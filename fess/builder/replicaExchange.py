@@ -10,19 +10,20 @@ import itertools
 from multiprocessing import Process, Pipe
 import fess.builder.models as fbm
 import forgi.threedee.model.coarse_grain as ftmc
-
+from fess.builder.sampling import NoopRevertWarning
 import logging
 log = logging.getLogger(__name__)
 import os
 import numpy as np
 import random
 import cProfile
+import warnings
 
 def try_replica_exchange(sampler1, sampler2):
     sm1 = sampler1.sm
     sm2 = sampler2.sm
-    sm1e2 = sampler2.energy_function.eval_energy(sm1)
-    sm2e1 = sampler1.energy_function.eval_energy(sm2)
+    sm1e2 = sampler2.energy_function.eval_energy(sm1.bg)
+    sm2e1 = sampler1.energy_function.eval_energy(sm2.bg)
     sm1e1 = sampler1.prev_energy
     sm2e2 = sampler2.prev_energy
     total_prev_e = sm1e1 + sm2e2
@@ -37,12 +38,14 @@ def try_replica_exchange(sampler1, sampler2):
         sampler2.accept(sm1e2)
         movestring = "RE {}<->{};A".format(hex(id(sampler1)), hex(id(sampler2)))
     else:
-        sampler1.reject()
-        sampler2.reject()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", NoopRevertWarning)
+            sampler1.reject()
+            sampler2.reject()
         movestring = "RE {}xxx{};R".format(hex(id(sampler1)), hex(id(sampler2)))
 
     for sampler in [sampler1, sampler2]:
-        sampler.stats.update_statistics(sampler.sm, sampler.prev_energy, sampler.prev_constituing, movestring)
+        sampler.stats_collector.update_statistics(sampler.sm, sampler.prev_energy, sampler.prev_constituing, movestring)
     
     
     
@@ -113,7 +116,7 @@ class MultiprocessingReProcess(Process):
             if self.pipe_lower is not None:
                 energy_curr_with_lower = self.recv_energy_with_different_sampler(sm_changed) 
                 energy_lower_with_lower = self.recv_step_result() 
-                energy_lower_with_curr = self.sampler.energy_function.eval_energy(self.sm_lower) 
+                energy_lower_with_curr = self.sampler.energy_function.eval_energy(self.sm_lower.bg) 
                 
                 old_energy = self.sampler.prev_energy + energy_lower_with_lower
                 total_exchanged_e = energy_curr_with_lower + energy_lower_with_curr
@@ -129,7 +132,9 @@ class MultiprocessingReProcess(Process):
                     movestring += "lower<>"
                 else:
                     #NO EXCHANGE
-                    self.sampler.reject()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", NoopRevertWarning)
+                        self.sampler.reject()
                     self.notify_lower_about_exchange(False)
                     movestring += "lowerXX"
             movestring+="this"
@@ -142,14 +147,16 @@ class MultiprocessingReProcess(Process):
                     replica_exchanged = True
                     movestring+="<>higher"
                 else:
-                    self.sampler.reject()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", NoopRevertWarning)
+                        self.sampler.reject()
                     movestring+="XXhigher"
             if replica_exchanged:
                 movestring+=";A"
             else:
                 movestring+=";R"
             log.error("PID {}: {}, {}".format(os.getpid(), self.sampler.prev_energy, type(self.sampler.prev_energy)))
-            self.sampler.stats.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
+            self.sampler.stats_collector.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
 
     def run(self):
         cProfile.runctx('self.run_exchange()', globals(), locals(), 'prof%d.prof' %self.id)
@@ -200,7 +207,7 @@ class MultiprocessingReProcess(Process):
         if cg_string is not None:
             self.sm_higher = self.sm_from_cg_string(cg_string)
         #Calculate energy and send it back
-        e = self.sampler.energy_function.eval_energy(self.sm_higher)
+        e = self.sampler.energy_function.eval_energy(self.sm_higher.bg)
         self.pipe_higher.send("exchanged_energy", e) 
         return e
     

@@ -86,6 +86,7 @@ class ExhaustiveMover(Mover):
         super(ExhaustiveMover, self).__init__(stat_source)
         if isinstance(elems_of_interest, str):
             elems_of_interest = elems_of_interest.split(",")
+        print(elems_of_interest)
         self._element_names = elems_of_interest
         self._move_iterator = self._iter_moves(sm)
     def _iter_moves(self, sm):
@@ -201,16 +202,16 @@ def mover_from_string(stri, stat_source, sm=None):
     Return a single Mover instance from a string describing the mover.
     
     The string needs to contain the class name of the mover and optionally
-    may contain one argument in round parenthesis: MOVERNAME[(ARGUMENT)]
+    may contain one argument in square brackets: MOVERNAME[ARGUMENT]
     
     :param stat_source: The stat_container that shall be used for all moves.
     :param sm: The Spatiel model. Needed, for ExhaustiveMover
     
     """
-    if '(' in stri:
-        movername, option = stri.split('(')
-        if option[-1]!=")":
-            raise ValueError("Missing closing parenthesis at end of '({}'".format(option))
+    if '[' in stri:
+        movername, option = stri.split('[')
+        if option[-1]!="]":
+            raise ValueError("Missing closing bracket at end of '[{}'".format(option))
         args = [option[:-1]]
     else:
         args = []

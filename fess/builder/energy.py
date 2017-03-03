@@ -736,6 +736,7 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
                "             and 0.23*ADJ stddev\n"
                "             [0.77 is a rough estimate for the relation between\n"
                "             perimeter and radius of gyration]\n".format(_shortname))
+
     def __init__(self, rna_length, adjustment, prefactor=None):
         """
         A Subclass of the Radius of Gyration energy with a normal distributed target distribution.
@@ -757,6 +758,8 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         is not a perfect sphere.
         This effect is accounted for by allowing values greater than 1*ADJ with a 
         non-neglectable probability
+        
+        :param rnalength: Used for initial reference distribution
         """
         super(NormalDistributedRogEnergy, self).__init__(rna_length, adjustment, prefactor)
         self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])

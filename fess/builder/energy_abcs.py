@@ -169,7 +169,7 @@ class CoarseGrainEnergy(EnergyFunction):
         
         #: Change this to anything but "kde" to use a beta distribution (UNTESTED).
         self.dist_type = "kde"
-
+        
         self.reset_kdes(rna_length)
         
         #: The previous evaluated energy
