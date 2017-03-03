@@ -91,34 +91,65 @@ class StatStorage(object):
     
     def _possible_stats(self, stat_type, key, min_entries = 100):
         choose_from = []
+        weights = []
         statfiles = self._iter_stat_sources()
         while len(choose_from)<min_entries:
             try:
                 source = next(statfiles)[stat_type]
-            except StopIteration:
+            except StopIteration: #All stat_files exhausted
                 if (stat_type, key, min_entries) not in self._has_warned:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
                     self._has_warned.add((stat_type, key, min_entries))
                 break
-            try:
-                choose_from+=source[key]
-            except KeyError:
-                pass
+            if key in source:
+                stats=source[key]
+                log.debug("Appending {} stats from source.".format(len(stats)))
+                choose_from.append(stats)
+                if weights:
+                    weights.append(min(min_entries - sum(weights), len(stats)))
+                else:
+                    weights.append(len(stats))
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
-        return choose_from
+        
+        return weights, choose_from
 
+    """
     def get_possible_stats(self, bg, elem, min_entries = 100):
         log.debug("Getting stats for {} of bg {}".format(elem, bg.name))
-        key = _key_from_bg_and_elem(bg, elem)
         return self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
-
-    def sample_for(self, bg, elem, min_entries = 100):
-        stats = self.get_possible_stats(bg, elem, min_entries)
-        return random.choice(stats)
-            
+    """
+    
+    def sample_for(self, bg, elem, min_entries = 100):        
+        key = _key_from_bg_and_elem(bg, elem)
+        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
+        r = random.randrange(sum(weights))
+        for i, w in enumerate(weights):
+            if r<w:
+                try:
+                    return random.choice(stats[i])
+                except:
+                    print("Stat file {}. weight = {}, r={}".format(i, w, r))
+                    raise
                 
-
+            r-=w
+        assert False
+    def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
+        """
+        Iterate over all stats for the given element.
         
-        
-        
+        If fallback-stats are present, a sample of the fallback_stats is 
+        generated every time the iterator is created and after iterating the 
+        main stats iteration continues over the sample of the fallback stats.
+        """
+        key = _key_from_bg_and_elem(bg, elem)
+        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
+        stat_samples = []
+        for i, w in enumerate(weights):
+            stat_samples.append(random.sample(stats[i], w))
+        while True:
+            for stats in stat_samples:
+                for s in stats:
+                    yield s
+            if not cycle:
+                break #Exhaust the generator

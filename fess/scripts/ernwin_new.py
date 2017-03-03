@@ -29,6 +29,7 @@ from fess.builder import replicaExchange as fbr
 from fess.builder import config
 from fess.builder import samplingStatisticsNew2 as sstats
 from fess.builder import stat_container
+from fess.builder import move as fbmov
 from fess import data_file, __version__
 import fess
 import forgi
@@ -84,10 +85,7 @@ def get_parser():
                              'exit without sampling.')
     parser.add_argument('--seed', action='store', help="Seed for the random number generator.",
                         type=int)
-    parser.add_argument('--exhaustive', type=str, help="A STRING describing the coarse grained element (e.g. i2)\n"
-                                                       "Instead of the MCMC sampling algorithm, use a sampler \n"
-                                                       "that tries every stat for the given coarse grain element.")
-    parser.add_argument('--new-ml', action="store_true", help="Experimental")
+    parser.add_argument('--move-set', default="Mover", help = fbmov.get_argparse_help())
     parser.add_argument('--mst-breakpoints', type=str, help="During initial MST creation, prefer to \n"
                                                             "break the multiloops at the indicated nodes.\n"
                                                             "A comma-seperated list. E.g. 'm0,m10,m12'")
@@ -163,42 +161,9 @@ def get_parser():
                                          "C=clash      only stem clash energy\n"
                                          "N=None       no constraint energy")
     parser.add_argument('-e', '--energy', default="D", action='store', type=str, 
-                        help= "The type of non-constraint energy to use. D=Default, N=None.\n"
-                              "Specify a ','-separated list of energy contributions.\n"
-                              "Each contribution has the format: [PRE]TYP[ADJ].\n"
-                              "PRE: optional energy prefactor\n"
-                              "ADJ: optional adjustment of target distribution\n"
-                              "     (float), default=1.0\n"
-                              "     use START_END or START_STEP_END to modify the\n"
-                              "     adjustment during sampling. E.g. 1.0_0.1_1.4\n"
-                              "     For each adjustment, equally many sampling steps \n"
-                              "     are used.\n"
-                              "     If step is not given, 1.0 or 0.1 is used, \n"
-                              "     depending on the difference between START and END.\n"
-                              "TYP: one of the following\n"
-                              "       ROG:  Radius of gyration energy\n"
-                              "       NDR:  Normal Distributed ROG energy.\n"
-                              "             Use a normal distribution for the target\n"
-                              "             radius of gyration with 0.77*ADJ as mean \n"
-                              "             and 0.23*ADJ stddev\n."
-                              "             [0.77 is a rough estimate for the relation between\n"
-                              "             perimeter and radius of gyration]\n"
-                              "       SLD:  shortest loop distance per loop\n"
-                              "       AME:  A-Minor energy\n"
-                              "       PRO:  Match Projection distances. \n"
-                              "             Requires the --projected-dist option\n"
-                              "       HDE:  Hausdorff distance based Energy \n"
-                              "             Requires the --ref-img and --scale  options\n"
-                              "       DEF:  add all default energies to the \n"
-                              "             combined energy\n"
-                              "       CHE:  Cheating Energy. Tries to minimize the RMSD\n"
-                              "       CLA:  Clamp elements (not nucleotides) together \n"
-                              "             (at 15 Angstrom) with an exponential energy\n"
-                              "             The prefactor is used as scale (default 1).\n"
-                              "             Requires the --clamp option\n"
-                              "       FPP:  4 point projection energy.\n"
-                              "             Select 4 landmarks in the projected image.\n"
-                              "Example: ROG10,SLD,AME")
+                    help= "The type of non-constraint energy to use. D=Default, N=None.\n"+
+                          fbe.get_argparse_help()+
+                          "\nExample: ROG,SLD,AME")
     parser.add_argument('--track-energies', action='store', type=str, default="",
                         help= "A ':' seperated list of combined energies.\n"
                               "Each energy is given in the format specified\n"

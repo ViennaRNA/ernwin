@@ -28,6 +28,7 @@ import forgi.projection.hausdorff as fph
 import forgi.projection.projection2d as fpp
 import forgi.threedee.model.similarity as ftms
 import forgi.threedee.model.descriptors as ftmd
+from ..aux.utils import get_all_subclasses
 import os.path as op
 import pandas as pd
 import pkgutil as pu
@@ -66,11 +67,13 @@ def load_local_data(filename):
 
 class RandomEnergy(EnergyFunction):
     _shortname = "RND"
+    HELPTEXT = "       {:3}:  Random Energy".format(_shortname)
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         return self.prefactor * random.random() + self.adjustment
     
 class ConstantEnergy(EnergyFunction):
     _shortname = "CNST"
+    HELPTEXT = "       {:3}:  Constant Energy".format(_shortname)
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         if adjustment is not None:
@@ -84,6 +87,7 @@ class ConstantEnergy(EnergyFunction):
     
 class CheatingEnergy(EnergyFunction):
     _shortname = "CHE"
+    HELPTEXT = "       {:3}:  Cheating Energy. Tries to minimize the RMSD.".format(_shortname)
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         return cls(cg, prefactor, adjustment)
@@ -99,6 +103,8 @@ class CheatingEnergy(EnergyFunction):
         
 class ProjectionMatchEnergy(EnergyFunction):
     _shortname = "PRO"
+    HELPTEXT = ("       {:3}:  Match Projection distances. \n"
+               "             Requires the projected distances.".format(_shortname))
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, pro_distances, **kwargs):
         """
@@ -226,6 +232,9 @@ class ProjectionMatchEnergy(EnergyFunction):
 class FPPEnergy(EnergyFunction):
     _shortname = "FPP"
     name = "Four-Point-Projection-Energy"
+    HELPTEXT = ("       {:3}:  4 point projection energy.\n"
+                "             Select 4 landmarks in the projected image.".format(_shortname))
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, fpp_landmarks, fpp_ref_image, fpp_scale, **kwargs):
         """
@@ -360,6 +369,11 @@ class FPPEnergy(EnergyFunction):
 class DistanceExponentialEnergy(EnergyFunction):
     _shortname = "CLA"
     _DEFAULT_CLAMP_DISTANCE = 15.0
+    HELPTEXT = ("       {:3}:  Clamp elements (not nucleotides) together \n"
+                "             (at ADJ={} Angstrom) with an exponential energy\n"
+                "             The prefactor is used as scale (default 1).\n"
+                "             Requires the elements which will be clamped together.").format(_shortname, _DEFAULT_CLAMP_DISTANCE)
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, cla_pairs, **kwargs):
         """
@@ -456,13 +470,15 @@ class DistanceExponentialEnergy(EnergyFunction):
     
 
 
-class StemVirtualResClashEnergy(EnergyFunction):
-    _shortname = "CLASH"
-    _CLASH_DEFAULT_PREFACTOR = 50000.
-    _CLASH_DEFAULT_ATOM_DIAMETER = 1.8
+class StemVirtualResClashEnergy(EnergyFunction):    
     '''
     Determine if the virtual residues clash.
     '''
+    _shortname = "CLASH"
+    _CLASH_DEFAULT_PREFACTOR = 50000.
+    _CLASH_DEFAULT_ATOM_DIAMETER = 1.8
+    IS_CONSTRAINT = True
+
 
     def __init__(self, clash_penalty = None, atom_diameter = None):
         """
@@ -635,6 +651,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 class RoughJunctionClosureEnergy(EnergyFunction):
     _shortname = "JUNCT"
     _JUNCTION_DEFAULT_PREFACTOR = 50000.
+    IS_CONSTRAINT = True
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         if adjustment is not None:
@@ -673,6 +690,8 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
+    HELPTEXT = "       {:3}:  Radius of gyration energy".format(_shortname)
+
     def __init__(self, rna_length, adjustment=None, prefactor=None):
         """
         :param rna_length: The length in nucleotides of the RNA
@@ -711,6 +730,12 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
 class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
     _shortname = "NDR"
+    HELPTEXT = ("       {:3}:  Normal Distributed ROG energy.\n"
+               "             Use a normal distribution for the target\n"
+               "             radius of gyration with 0.77*ADJ as mean \n"
+               "             and 0.23*ADJ stddev\n"
+               "             [0.77 is a rough estimate for the relation between\n"
+               "             perimeter and radius of gyration]\n".format(_shortname))
     def __init__(self, rna_length, adjustment, prefactor=None):
         """
         A Subclass of the Radius of Gyration energy with a normal distributed target distribution.
@@ -744,6 +769,8 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
+    HELPTEXT = "       {:3}:  A-Minor energy".format(_shortname)
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
@@ -951,6 +978,8 @@ class DoNotContribute(Exception):
 
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
+    HELPTEXT = "       {:3}:  shortest loop distance per loop".format(_shortname)
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
@@ -1190,16 +1219,7 @@ class CombinedEnergy(object):
 ####################################################################################################
 ## Convenience functions for creating energies
 ####################################################################################################
-def _get_all_subclasses(cls):
-    """
-    Thanks to fletom at http://stackoverflow.com/a/17246726/5069869
-    """
-    all_subclasses = []
 
-    for subclass in cls.__subclasses__():
-        all_subclasses.append(subclass)
-        all_subclasses.extend(_get_all_subclasses(subclass))
-    return all_subclasses
 
 def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
     """
@@ -1209,7 +1229,7 @@ def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
     :param kwargs: The keyword args will be passed on to the energie's from_cg methos.
     """
     contributions = contribution_string.split(",")
-    energy_classes = { cls._shortname: cls for cls in _get_all_subclasses(EnergyFunction) if not cls == CoarseGrainEnergy }
+    energy_classes = { cls._shortname: cls for cls in get_all_subclasses(EnergyFunction) if not cls == CoarseGrainEnergy }
     energies = []
     for contrib in contributions:
         match = re.match(r"([^A-Z]*)([A-Z]+)(.*)", contrib)
@@ -1265,3 +1285,30 @@ def _parseEnergyContributionString(contrib, num_steps):
         return (start, step, frequency)
     else:
         return float(contrib)
+
+def get_argparse_help(): 
+    """
+    Return a pre-formatted string that can be passed to "help" in argparse.add_argument,
+    if the resulting argument is parsed with `energies_from_string`
+    """
+    help= ["Specify a ','-separated list of energy contributions.\n"
+           "Each contribution has the format: [PRE]TYP[ADJ].\n"
+           "PRE: optional energy prefactor\n"
+           "ADJ: optional adjustment of target distribution\n"
+           "     (float), default=1.0\n"
+           "For simulated annealing, ADJ and PRE can be changed \n"
+           "     during the simulation. To achieve this, give \n"
+           "     underscore-seperated ranges START_END or START_STEP_END\n"
+           "     as PRE and/or ADJ. E.g. 1.0_0.1_1.4\n"
+           "     For each prefactor/ adjustment, equally \n"
+           "     many sampling steps are used.\n"
+           "     If step is not given, 1.0 or 0.1 is used, \n"
+           "     depending on the difference between START and END.\n"
+           "TYP: one of the following"]
+    for cls in get_all_subclasses(EnergyFunction):
+        if inspect.isabstract(cls):
+            continue
+        if hasattr(cls, "IS_CONSTRAINT") and cls.IS_CONSTRAINT:
+            continue
+        help.append(cls.HELPTEXT)
+    return "\n".join(help)
