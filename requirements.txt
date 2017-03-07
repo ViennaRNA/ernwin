@@ -5,4 +5,4 @@ biopython
 deepdiff
 networkx
 future
-forgi
+forgi==0.4
