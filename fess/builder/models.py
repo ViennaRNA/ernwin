@@ -915,7 +915,7 @@ class SpatialModel:
         difference2 = abs(stem.mids[0]-ture_stem.mids[1]) + abs(stem.mids[1]-ture_stem.mids[0])
         log.info("Difference ml_stat_deviation = min({}, {})".format(difference1, difference2))
         return min(difference1, difference2)
-
+    """
     def traverse_and_build(self, start='start', fast=True, verbose=False, stat_source = None):
         '''
         Build a 3D structure from the graph in self.bg.
@@ -923,10 +923,10 @@ class SpatialModel:
         build_order = self.bg.traverse_graph()
 
         def buildorder_of(stemid):
-            """
+            '''
             Returns the buildorder of the multi-/ interior loop before the stem with stemid.
             @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
-            """
+            '''
             if stemid=="s0": return 0
             if stemid.startswith('s'):
               for i, stem_loop_stem in enumerate(build_order):
@@ -1064,7 +1064,7 @@ class SpatialModel:
             c_energy=self.constraint_energy.eval_energy(self)
             assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}.".format(c_energy, self.constraint_energy.bad_bulges)
         self._finish_building()
-    """
+
     def __deepcopy__(self, memo={}):
         # According to https://mail.python.org/pipermail/tutor/2009-June/069433.html
         # this allows for subclassing SpatialModel

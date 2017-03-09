@@ -534,7 +534,9 @@ class StemVirtualResClashEnergy(EnergyFunction):
             #Adjacent residues cannot clash
             if abs(resn1 - resn2) == 1:
                 continue
-            self.bad_bulges += [key1[0], key2[0]]
+            clash_pair = tuple(sorted([key1[0], key2[0]]))
+            if clash_pair not in self.bad_bulges:
+                self.bad_bulges.append(clash_pair)
             self.bad_atoms[key1[0]].append(virtual_atoms[ia][0])
             self.bad_atoms[key2[0]].append(virtual_atoms[ib][0])
             clashes += 1

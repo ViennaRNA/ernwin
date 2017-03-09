@@ -192,7 +192,7 @@ class Builder(object):
         ec = self.clash_energy.eval_energy(sm.bg, nodes=nodes)
         log.debug("Clash Energy for nodes {} is {}".format(nodes, ec))
         if ec>0:
-            bad_stems=set(self.clash_energy.bad_bulges)
+            bad_stems=set(x for clash_pair in self.clash_energy.bad_bulges for x in clash_pair)
             first = min(nodes.index(st) for st in bad_stems)
             assert first>=0
             clash_nodes =  [ x for x in nodes[first:] if x[0] in ["m", "i"]]
@@ -285,8 +285,8 @@ class FairBuilder(Builder):
                     with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
                         self._failed_save_counter += 1
                         clash_pairs = set()
-                        for i in range(0, len(self.clash_energy.bad_bulges),2):
-                            clash_pairs.add(tuple(sorted([self.clash_energy.bad_bulges[0], self.clash_energy.bad_bulges[1]])))
+                        for clash_pair in self.clash_energy.bad_bulges:
+                            clash_pairs.add(clash_pair)
                         f.write("{}: clash {}\n".format(self._failed_save_counter, list(clash_pairs)))
                 return False
         return True
