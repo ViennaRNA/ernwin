@@ -89,14 +89,14 @@ class MCMCSampler:
                 accepted = False
                 
                 # For debugging
-                if not self.energy_function.uses_background():
-                    rec_prev_energy = self.energy_function.eval_energy(self.sm.bg)
-                    log.debug("Energy after resetting is {}".format(rec_prev_energy))
-                    #if rec_prev_energy != self.prev_energy:
-                        #cg_stri = self.sm.bg.to_cg_string()
-                        #with open(os.path.join(conf.Configuration.sampling_output_dir, 'after_reset.coord'), "w") as f:
-                        #    f.write(cg_stri)
-                    assert rec_prev_energy == self.prev_energy, "{}!={}. Energy changed after resetting".format(rec_prev_energy, self.prev_energy)
+                #if not self.energy_function.uses_background():
+                #    rec_prev_energy = self.energy_function.eval_energy(self.sm.bg)
+                #    log.debug("Energy after resetting is {}".format(rec_prev_energy))
+                #    #if rec_prev_energy != self.prev_energy:
+                #        #cg_stri = self.sm.bg.to_cg_string()
+                #        #with open(os.path.join(conf.Configuration.sampling_output_dir, 'after_reset.coord'), "w") as f:
+                #        #    f.write(cg_stri)
+                #    assert rec_prev_energy == self.prev_energy, "{}!={}. Energy changed after resetting".format(rec_prev_energy, self.prev_energy)
             else:            
                 movestring.append("A")
                 self.accept(energy)

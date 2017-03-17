@@ -268,13 +268,13 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     stem = StemModel()
     
     transposed_stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
-    log.debug("Place new stem: transposed_stem1_basis: {}".format(transposed_stem1_basis))
+    log.debug("Place new stem: transposed_stem1_basis: %s", transposed_stem1_basis)
     start_location = cgg.stem2_pos_from_stem1_1(transposed_stem1_basis, bulge_params.position_params())
-    log.debug("Start location: {}".format(start_location))
+    log.debug("Start location: %s", start_location)
     stem_orientation = cgg.stem2_orient_from_stem1_1(transposed_stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
-    log.debug("Stem_orientation: {}".format(stem_orientation))
+    log.debug("Stem_orientation: %s", stem_orientation)
     twist1 = cgg.twist2_orient_from_stem1_1(transposed_stem1_basis, bulge_params.twist_params())
-    log.debug("twist1: {}".format(twist1))
+    log.debug("twist1: %s", twist1)
 
     assert np.allclose(np.dot(stem_orientation, twist1), 0)
 
@@ -283,9 +283,9 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
 
     stem.mids = (mid1, mid2)
     
-    log.debug("stem_params.twist_angle: {}".format(stem_params.twist_angle))
+    log.debug("stem_params.twist_angle: %s", stem_params.twist_angle)
     twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
-    log.debug("twist2: {}".format(twist2))
+    log.debug("twist2: %s", twist2)
     stem.twists = (twist1, twist2)
     assert np.allclose(np.dot(stem_orientation, twist2), 0)
     return stem
@@ -403,7 +403,7 @@ class SpatialModel:
             params = (r, u, v)
 
         start_mid = prev_stem.mids[s1b]
-        log.debug("prev stem {}: mids[{}]={}, coords = {}".format(prev_stem_node, s1b, prev_stem.mids[s1b], self.bg.coords[prev_stem_node]))
+        log.debug("prev stem %s: mids[%s]=%s, coords = %s", prev_stem_node, s1b, prev_stem.mids[s1b], self.bg.coords[prev_stem_node])
         (r, u, v) = params
 
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
@@ -781,7 +781,7 @@ class SpatialModel:
 
         self.to_skip = to_skip
 
-
+    
     def new_traverse_and_build(self, start='start', max_steps=float('inf'), end=None, include_start=False):
         '''
         Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.

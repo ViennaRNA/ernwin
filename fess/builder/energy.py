@@ -1,4 +1,3 @@
-
 #!/usr/bin/python
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
@@ -37,6 +36,7 @@ import math
 import re
 import sys
 import inspect
+import itertools
 from pprint import pprint
 import logging
 log = logging.getLogger(__name__)
@@ -478,6 +478,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
     _CLASH_DEFAULT_PREFACTOR = 50000.
     _CLASH_DEFAULT_ATOM_DIAMETER = 1.8
     IS_CONSTRAINT = True
+    HELPTEXT = "       {:3}:  Clash constraint energy".format(_shortname)
 
 
     def __init__(self, clash_penalty = None, atom_diameter = None):
@@ -654,6 +655,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     _shortname = "JUNCT"
     _JUNCTION_DEFAULT_PREFACTOR = 50000.
     IS_CONSTRAINT = True
+    HELPTEXT = "       {:3}:  Junction constraint energy".format(_shortname)
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         if adjustment is not None:
@@ -704,7 +706,39 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
         if adjustment!=1:
             self._adjust_target_distribution()
-                    
+    
+    @classmethod
+    def generate_target_distribution(cls, cg_filenames, output_filename, use_subgraphs = False):
+        """
+        :param cg_filenames: A list of filenames containing true RNA tertiary structures.
+                             Typically these cg files have been generated from the pdb-files
+                             using the script `pdb_to_cg.py` provided with forgi.
+        :param use_subgraphs: Include the radius of subgraphs of the cg-files to get 
+                            more datapoints.
+        """
+        radii = []
+        for fname in cg_filenames:
+            cg = ftmc.CoarseGrainRNA(fname)
+            radii.append((sg.seq_length, cg.radius_of_gyration("vres")))
+            if use_subgraphs:
+                known_sgs = set([tuple(sorted(cg.defines.keys()))])
+                for l in range(3, len(cg.defines)-2): #range starts at 3, because this is the smallest length containing 2 stems.
+                                                      #For the same reason, we use len(defines)-2 to exclude the complete RNA
+                    for _ in range(100):
+                        subgraph = cg.random_subgraph(l)
+                        assert len(subgraph) == len(set(subgraph))
+                        subgraph_t = tuple(sorted(subgraph))
+                        if subgraph_t not in known_sgs: #No duplicates. We sample without replacement
+                            known_sgs.add(subgraph_t)
+                            nt_length = sum(cg.element_length(elem) for elem in subgraph)
+                            rog = ftmd.radius_of_gyration(get_poss_for_domain(subgraph))
+                            radii.append(nt_length, rog)
+        with open(output_filename) as f:
+            for nt_len, rog in radii:
+                print("{:d} {:.10f}".format(nt_len, rog), file=f)
+                
+            
+
     def _get_cg_measure(self, cg):
         return cg.radius_of_gyration("vres")
 
@@ -864,7 +898,8 @@ class AMinorEnergy(CoarseGrainEnergy):
         srdata = rdata[rdata[:,1] == self.loop_type]
         rogs = srdata[:,2]
         return (self._get_distribution_from_values(rogs), rogs)
-
+    
+    @profile
     def eval_prob(self, cg, d):
         lt = d[0]
         prob = 0.
@@ -898,16 +933,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         #return prob / stem_counts
 
     def _get_cg_measure(self, cg):
-        for d in cg.defines.keys():
-
-            # the loop type is encoded as an integer so that the stats file can be 
-            # loaded using numpy
-            if self.types[d[0]] != self.loop_type or 'A' not in "".join(cg.get_define_seq_str(d)):
-                continue
-
-            m = self.eval_prob(cg, d)[0]
-
-            return m
+        raise NotImplementedError("Not needed for A-Minor energy")
         
     @property
     def name(self):

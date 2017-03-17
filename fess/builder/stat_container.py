@@ -12,6 +12,13 @@ import random
 from collections import defaultdict
 import logging
 log = logging.getLogger(__name__)
+try:
+    from functools import lru_cache #python 3.2
+except ImportError:
+    try:
+        from backports.functools_lru_cache import lru_cache #pip install backports.functools_lru_cache
+    except ImportError:
+        lru_cache = lambda *args, **kwargs: lambda x: x #No-op decorator taking arguments
 
 
 def parse_stats_file(file_handle):
@@ -89,6 +96,7 @@ class StatStorage(object):
             yield self._sources[i]
         raise StopIteration
     
+    @lru_cache(maxsize = 128)
     def _possible_stats(self, stat_type, key, min_entries = 100):
         choose_from = []
         weights = []
@@ -120,7 +128,25 @@ class StatStorage(object):
         return self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
     """
     
-    def sample_for(self, bg, elem, min_entries = 100):        
+    def sample_for(self, bg, elem, min_entries = 100):
+        """
+        Sample a stat for the given coarse-grained element elem of bulge graph bg.
+        
+        During sampling, fallback-files (if used) have a lower weight
+        depending on the number of possible stats in the main file.
+        
+        .. note::
+        
+            A stat is a class holding an angle and distance based 
+            description of a coarse-grained fragment.
+            
+        
+        :param bg: A CoarseGrainRNA or BulgeGraph object
+        :param elem: The element name, e.g. "s0"
+        :param min_entries: If less than min-entries stats are found, try to use 
+                    the fallback-files to gather enough stats to sample from.
+        :param return: A singe Stat object, sampled from to possible stats.
+        """
         key = _key_from_bg_and_elem(bg, elem)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         r = random.randrange(sum(weights))
@@ -153,3 +179,35 @@ class StatStorage(object):
                     yield s
             if not cycle:
                 break #Exhaust the generator
+    
+    @lru_cache(maxsize = 128)
+    def _get_pdbname_statsets_for(self, elem, key, min_entries = 100):
+        """
+        Used in self.coverage_for, optimized by the use of lru_cache
+        """
+        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
+        stat_sets = []
+        for i, w in enumerate(weights):
+            stat_set = set(stat.pdb_name for stat in stats[i])
+            if len(stat_set) != len(stats[i]):
+                raise ValueError("coverage_for only works if the pdb_names of all "
+                                 "stats are unique.")
+            stat_sets.append((w, stat_set))
+        return sum(weights), stat_sets
+        
+    def coverage_for(self, sampled_stat_names, bg, elem, min_entries = 100):
+        """
+        Count, what percentage of the stats have been used during sampling.
+        
+        :param sampled_stat_names: A set of pdb_names of stats.
+        
+        For the other parameters, see `self.sample_for`
+        """
+        
+        key = _key_from_bg_and_elem(bg, elem)
+        total_weight, stat_sets = self._get_pdbname_statsets_for(elem, key, min_entries)
+        coverage = 0.
+        for weight, stat_set in stat_sets:
+            found = sampled_stat_names & stat_set
+            coverage += len(found)/len(stat_set) * weight/total_weight
+        return coverage

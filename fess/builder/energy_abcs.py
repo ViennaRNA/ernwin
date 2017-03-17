@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 
 DEFAULT_ENERGY_PREFACTOR = 30
 
+
+
 class EnergyFunction(object):
     '''
     The base class for energy functions.
@@ -87,8 +89,27 @@ class EnergyFunction(object):
 
     @abstractproperty #!Note: Can be overwritten by a simple class-level variable, does not have to be a property.
     def _shortname(self):
+        """
+        A shortcut for the energy name. Ideally 3 to 4 letters, all-caps.
+        
+        This should be implemented by a simple class-level variable.
+        
+        It is used to generate energies from commandline-options 
+        (via fess.builder.energy.energies_from_string).
+        Further more, the `shortname` property `_shortname` it for the description of the energy.
+        """
         raise NotImplementedError
 
+    @abstractproperty
+    def HELPTEXT(self):
+        """
+        A preformatted helptext describing the energy.
+        
+        This is used by get_argparse_help and intended for 
+        output on the commandline via argparse's `--help` option.
+        """
+        raise NotImplementedError
+    
     @property
     def shortname(self):
         if self.prefactor==DEFAULT_ENERGY_PREFACTOR:
@@ -178,8 +199,25 @@ class CoarseGrainEnergy(EnergyFunction):
         #: Resample the reference distribution every n steps
         self.kde_resampling_frequency = 3
     
-
+    
+    @abstractmethod
+    @classmethod
+    def generate_target_distribution(cls, *args, **kwargs):
+        """
+        Provide an implementation how the target distribution (and all other required files)
+        can be generated. Document this method well to ensure reproducibility.
+        
+        This should be implemented as a classmethod, so changes to the class will 
+        be reflected in the target distribution.
+        """
+        raise NotImplementedError
+    
     def reset_kdes(self, rna_length):
+        """
+        Reset the reference and target distribution to the values from files.
+        
+        :param rna_length: The length of the RNA in nucleotides.
+        """
         self.reference_distribution, am = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
         self.accepted_measures = list(am)
         self.target_distribution, self.target_values =  self._get_distribution_from_file(self.real_stats_fn, rna_length)

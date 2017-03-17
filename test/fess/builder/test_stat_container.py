@@ -136,6 +136,9 @@ class StatStoragePublicAPITests(unittest.TestCase):
     def setUp(self):
         self.st = fbstat.StatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
         self.cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
+        self.cg2 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....((((((...))))))..)))))", 
+                                                  seq = "AAAAACCCCCGGGGGGAAACCCCCCCCUUUUU")
+
     def test_sample_for(self):
         c = Counter()
         for i in range(200):
@@ -163,12 +166,14 @@ class StatStoragePublicAPITests(unittest.TestCase):
         stat_iter = self.st.iterate_stats_for(self.cg, "s0", 2)
         self.assertEqual(next(stat_iter).pdb_name, "test:s_0")
 
-
-
-
-
-
-
-
-
-
+    def test_coverage_for(self):
+        cov = self.st.coverage_for(set(["test:s_0", "fallback2:s_0", "fallback2:s_2"]), self.cg, "s0", 10)
+        self.assertEqual(cov, 1.) # All stats have been sampled (although this is less than min-stats
+        cov = self.st.coverage_for(set(["test:s_0", "fallback2:s_0", "fallback2:s_2"]), self.cg, "s0", 2)
+        self.assertEqual(cov, 1.) # All stats have been sampled
+        cov = self.st.coverage_for(set(["test:s_0", "fallback2:s_0"]), self.cg, "s0", 2)
+        self.assertEqual(cov, 0.75) # test1 has 50% weight and was fully sampled. fallback2 has 50% weight and was half-sampled.
+        cov = self.st.coverage_for(set(["test:i_0", "fallback2:i_0"]), self.cg2, "i0", 3)
+        self.assertAlmostEqual(cov, 2./3.) # Each file has weight 1/3, 2 files have been sampled
+        cov = self.st.coverage_for(set(["test:i_0", "fallback1:i_0"]), self.cg2, "i0", 2)
+        self.assertAlmostEqual(cov, 1.) # The file fallback2 is not needed at all.

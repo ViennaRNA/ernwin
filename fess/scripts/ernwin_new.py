@@ -548,7 +548,7 @@ def setup_deterministic(args):
 
     return sm, original_sm, ofilename, energy, energies_to_track, mover, stat_source
 
-def setup_stat(out_file, sm, args, energies_to_track, original_sm, save_dir=None):
+def setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source, save_dir=None):
     """
     Setup the stat object used for logging/ output.
 
@@ -587,6 +587,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, save_dir=None
 #            isinstance(energy, fbe.HausdorffEnergy)):
 #                options[ "measure" ].append(energy)
     stat = sstats.SamplingStatistics(original_sm, energy_functions = energies_to_track,
+                                     stat_source = stat_source,
                                      output_file=out_file, options=options, 
                                      output_directory = save_dir)
     return stat
@@ -678,7 +679,7 @@ def main(args):
                             energies_to_track=r_energy.uncalibrated_energies
                         elif isinstance(r_energy, fbe.CoarseGrainEnergy):
                             energies_to_track=[r_energy]
-                        stat=setup_stat(out_files[i], s, args, energies_to_track, original_sm, out_dirs[i])
+                        stat=setup_stat(out_files[i], s, args, energies_to_track, original_sm, out_dirs[i], stat_source)
                         if i>0: #Only have first temperature print to stdout.
                             stat.options["silent"] = True
                         for e in r_energy.iterate_energies():
@@ -694,6 +695,9 @@ def main(args):
                         else:
                             re = fbr.ReplicaExchange(samplers)
                             re.run(args.iterations)
+                    except:
+                        log.exception("An error occurred during sampling:")
+                        raise
                     finally:
                         for sampler in samplers:
                             sampler.stats.collector.to_file()
@@ -717,7 +721,7 @@ def main(args):
                 energies_to_track+=energy.energies
             elif isinstance(energy, fbe.CoarseGrainEnergy):
                 energies_to_track+=[energy]
-            stat=setup_stat(out_file, sm, args, energies_to_track, original_sm)
+            stat=setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source)
             try:
                 for e in energy.iterate_energies():
                     if isinstance(e, fbe.FPPEnergy):
@@ -730,6 +734,9 @@ def main(args):
                 for i in range(args.iterations):
                     sampler.step()
                 print ("# Everything done. Terminated normally", file=out_file)
+            except:
+                log.exception("An error occurred during sampling:")
+                raise
             finally: #Clean-up
                 stat.collector.to_file()
 

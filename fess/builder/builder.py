@@ -285,9 +285,7 @@ class FairBuilder(Builder):
                     with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
                         self._failed_save_counter += 1
                         clash_pairs = set()
-                        for clash_pair in self.clash_energy.bad_bulges:
-                            clash_pairs.add(clash_pair)
-                        f.write("{}: clash {}\n".format(self._failed_save_counter, list(clash_pairs)))
+                        f.write("{}: clash {}\n".format(self._failed_save_counter, self.clash_energy.bad_bulges))
                 return False
         return True
     
