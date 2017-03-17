@@ -6,6 +6,10 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
+import subprocess
+import fess
+import forgi
+import forgi.graph.bulge_graph as fgb
 __metaclass__=type
 
 def get_all_subclasses(cls, include_base = False):

@@ -12,6 +12,7 @@ import numpy as np
 import scipy.stats
 import warnings
 import logging
+import itertools as it
 log = logging.getLogger(__name__)
 
 

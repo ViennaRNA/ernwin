@@ -29,6 +29,7 @@ import forgi.threedee.model.similarity as ftms
 import forgi.threedee.model.descriptors as ftmd
 from ..aux.utils import get_all_subclasses, get_version_string
 import os.path as op
+import os
 import pandas as pd
 import pkgutil as pu
 import StringIO
@@ -731,7 +732,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         for fname in cg_filenames:
             log.info("Processing file %s", fname)
             cg = ftmc.CoarseGrainRNA(fname)
-            radii.append((sg.seq_length, cg.radius_of_gyration("vres")))
+            radii.append((cg.seq_length, cg.radius_of_gyration("vres")))
             if use_subgraphs:
                 known_sgs = set([tuple(sorted(cg.defines.keys()))])
                 for l in range(3, len(cg.defines)-2): # range starts at 3, because this is the
@@ -745,14 +746,14 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
                         if subgraph_t not in known_sgs: #No duplicates. We sample without replacement
                             known_sgs.add(subgraph_t)
                             nt_length = sum(cg.element_length(elem) for elem in subgraph)
-                            rog = ftmd.radius_of_gyration(get_poss_for_domain(subgraph))
-                            radii.append(nt_length, rog)
-        log.info("Writing to file %s", outfilename)
-        with open(outfilename, "w") as f:
+                            rog = ftmd.radius_of_gyration(cg.get_poss_for_domain(subgraph))
+                            radii.append((nt_length, rog))
+        log.info("Writing to file %s", out_filename)
+        with open(out_filename, "w") as f:
             print("# Generated on "+ time.strftime("%d %b %Y %H:%M:%S %Z"), file=f)
             print("# Generated from the following files: ", file=f)
             for fn in cg_filenames:
-                print("# {}".format(fn), file=f)
+                print("#   {}".format(fn), file=f)
             print("# Working directory: {}".format(os.getcwd()), file=f)
             print("# Version: {}".format(get_version_string()), file=f)
             print("# use_subgraphs = {}".format(use_subgraphs), file=f)
