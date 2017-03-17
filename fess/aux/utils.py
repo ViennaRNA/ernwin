@@ -20,3 +20,21 @@ def get_all_subclasses(cls, include_base = False):
         all_subclasses.append(subclass)
         all_subclasses.extend(get_all_subclasses(subclass))
     return all_subclasses
+    
+def get_version_string():
+    """
+    If installed from github, print the version obtained by `git describe`
+    On my local machine, when run within a git directory, get the commit 
+    hash directly using `git describe`
+    """
+    try:
+        #Installed with setup.py from a gitrepo
+        label = "ernwin {}, forgi {}".format(fess.__complete_version__, forgi.__complete_version__)
+    except:
+        try: 
+            #On my local machine, run from git directory. This script issues `git describe` in the ernwin and forgi directory.
+            label = subprocess.check_output(["get_ernwin_version"])
+        except OSError: 
+            #In production, use the version variable
+            label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
+    return label

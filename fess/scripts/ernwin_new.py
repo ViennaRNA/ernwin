@@ -645,16 +645,7 @@ def main(args):
         # Print some information for reproducibility to the log file.
         print ("# Random Seed: {}".format(seed_num), file=out_file)
         print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
-        try:
-            #Installed with setup.py from a gitrepo
-            label = "ernwin {}, forgi {}".format(fess.__complete_version__, forgi.__complete_version__)
-        except:
-            try: 
-                #On my local machine, run from git directory. This script issues `git describe` in the ernwin and forgi directory.
-                label = subprocess.check_output(["get_ernwin_version"])
-            except OSError: 
-                #In production, use the version variable
-                label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
+        label = get_version_string()
         print ("# Version: {}".format(label), file=out_file)
         if args.replica_exchange:
                 print ("# Starting Replica exchange. "

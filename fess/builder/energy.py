@@ -27,7 +27,7 @@ import forgi.projection.hausdorff as fph
 import forgi.projection.projection2d as fpp
 import forgi.threedee.model.similarity as ftms
 import forgi.threedee.model.descriptors as ftmd
-from ..aux.utils import get_all_subclasses
+from ..aux.utils import get_all_subclasses, get_version_string
 import os.path as op
 import pandas as pd
 import pkgutil as pu
@@ -39,6 +39,7 @@ import inspect
 import itertools
 from pprint import pprint
 import logging
+import time
 log = logging.getLogger(__name__)
 
 
@@ -695,35 +696,48 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
     HELPTEXT = "       {:3}:  Radius of gyration energy".format(_shortname)
-
+    real_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration.csv')
+    sampled_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration_sampled.csv')
+            
     def __init__(self, rna_length, adjustment=None, prefactor=None):
         """
         :param rna_length: The length in nucleotides of the RNA
         """
-        self.sampled_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration_sampled.csv')        
-        self.real_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration.csv')
         super(RadiusOfGyrationEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
 
         if adjustment!=1:
             self._adjust_target_distribution()
     
     @classmethod
-    def generate_target_distribution(cls, cg_filenames, output_filename, use_subgraphs = False):
+    def generate_target_distribution(cls, cg_filenames, out_filename=None, use_subgraphs = False):
         """
+        Generate the target distribution from the given cg-files and write it to a file
+        
+        .. warning::
+        
+            If out_filename is not given, this overwrites the file with the name given in
+            `cls.real_stats_fn`.
+            
         :param cg_filenames: A list of filenames containing true RNA tertiary structures.
                              Typically these cg files have been generated from the pdb-files
                              using the script `pdb_to_cg.py` provided with forgi.
         :param use_subgraphs: Include the radius of subgraphs of the cg-files to get 
                             more datapoints.
         """
+        if out_filename is None:
+            out_filename = cls.real_stats_fn
         radii = []
+        log.info("Generating target distribution for %s", type(cls).__name__)
         for fname in cg_filenames:
+            log.info("Processing file %s", fname)
             cg = ftmc.CoarseGrainRNA(fname)
             radii.append((sg.seq_length, cg.radius_of_gyration("vres")))
             if use_subgraphs:
                 known_sgs = set([tuple(sorted(cg.defines.keys()))])
-                for l in range(3, len(cg.defines)-2): #range starts at 3, because this is the smallest length containing 2 stems.
-                                                      #For the same reason, we use len(defines)-2 to exclude the complete RNA
+                for l in range(3, len(cg.defines)-2): # range starts at 3, because this is the
+                                                      # smallest length containing 2 stems.
+                                                      # For the same reason, we use len(defines)-2
+                                                      # to exclude the complete RNA
                     for _ in range(100):
                         subgraph = cg.random_subgraph(l)
                         assert len(subgraph) == len(set(subgraph))
@@ -733,12 +747,18 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
                             nt_length = sum(cg.element_length(elem) for elem in subgraph)
                             rog = ftmd.radius_of_gyration(get_poss_for_domain(subgraph))
                             radii.append(nt_length, rog)
-        with open(output_filename) as f:
+        log.info("Writing to file %s", outfilename)
+        with open(outfilename, "w") as f:
+            print("# Generated on "+ time.strftime("%d %b %Y %H:%M:%S %Z"), file=f)
+            print("# Generated from the following files: ", file=f)
+            for fn in cg_filenames:
+                print("# {}".format(fn), file=f)
+            print("# Working directory: {}".format(os.getcwd()), file=f)
+            print("# Version: {}".format(get_version_string()), file=f)
+            print("# use_subgraphs = {}".format(use_subgraphs), file=f)
             for nt_len, rog in radii:
                 print("{:d} {:.10f}".format(nt_len, rog), file=f)
                 
-            
-
     def _get_cg_measure(self, cg):
         return cg.radius_of_gyration("vres")
 

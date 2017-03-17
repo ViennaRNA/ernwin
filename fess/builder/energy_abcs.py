@@ -199,19 +199,42 @@ class CoarseGrainEnergy(EnergyFunction):
         #: Resample the reference distribution every n steps
         self.kde_resampling_frequency = 3
     
-    
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def generate_target_distribution(cls, *args, **kwargs):
         """
         Provide an implementation how the target distribution (and all other required files)
         can be generated. Document this method well to ensure reproducibility.
         
-        This should be implemented as a classmethod, so changes to the class will 
+        This must be implemented as a classmethod, so changes to the class will 
         be reflected in the target distribution.
         """
         raise NotImplementedError
     
+    def plot_distributions(self, from_=None, to_=None):
+        """
+        :param from_: Minimal value of x-axis
+        :param to_:   Maximal value of x-axis
+        """
+        import matplotlib.pyplot as plt
+        
+        if from_ is None:
+            from_ = min(it.chain(self.accepted_measures, self.target_values))
+        if to_ is None:
+            to_ = max(it.chain(self.accepted_measures, self.target_values))
+        xs=np.linspace(from_, to_, 2000)
+        fig,ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        ax1.plot(xs, self.reference_distribution(xs), label="sampled")
+        ax1.plot(xs, self.target_distribution(xs), label="target")
+        ax2.plot(xs, -(np.log(self.target_distribution(xs) + 0.00000001 * 
+                     self.reference_distribution(xs)) - np.log(self.reference_distribution(xs))),
+                 label="energy", color="red")
+        plt.title(self.shortname)
+        ax1.legend(loc="lower left")
+        ax2.legend()
+        plt.show(block = False)
+
     def reset_kdes(self, rna_length):
         """
         Reset the reference and target distribution to the values from files.
@@ -286,18 +309,7 @@ class CoarseGrainEnergy(EnergyFunction):
             m = self._get_cg_measure(cg)
 
         if plot_debug: #For debuging
-            import matplotlib.pyplot as plt
-            xs=np.linspace(0, 200, 2000)
-            fig,ax1 = plt.subplots()
-            ax2 = ax1.twinx()
-            ax1.plot(xs, self.reference_distribution(xs), label="sampled")
-            ax1.plot(xs, self.target_distribution(xs), label="reference")
-            ax2.plot(xs, -(np.log(self.target_distribution(xs) + 0.00000001 * self.reference_distribution(xs)) - np.log(self.reference_distribution(xs))), label="energy", color="red")
-            plt.title(self.shortname)
-            ax1.legend(loc="lower left")
-            ax2.legend()
-            plt.show()
-
+            self.plot_distribution()
         log.debug("Measure is {:1.4f}".format(m))
         
         self._last_measure = m
