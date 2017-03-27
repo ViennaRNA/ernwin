@@ -13,6 +13,11 @@ import scipy.stats
 import warnings
 import logging
 import itertools as it
+from ..aux.utils import get_version_string
+import time
+import os
+
+
 log = logging.getLogger(__name__)
 
 
@@ -212,6 +217,23 @@ class CoarseGrainEnergy(EnergyFunction):
         """
         raise NotImplementedError
     
+    @staticmethod
+    def _print_file_header(file_, cg_filenames):
+        """
+        Print a header to files generated with `generate_target_distribution`.
+        
+        This should allow for easy reproducibility where possible.
+        
+        :param file_: A file opened for writing
+        :param cg_filenames: A list of strings (filenames)
+        """
+        print("# Generated on "+ time.strftime("%d %b %Y %H:%M:%S %Z"), file=file_)
+        print("# Generated from the following files: ", file=file_)
+        for fn in cg_filenames:
+            print("#   {}".format(fn), file=f)
+        print("# Working directory: {}".format(os.getcwd()), file=f)
+        print("# Version: {}".format(get_version_string()), file=f)
+
     def plot_distributions(self, from_=None, to_=None):
         """
         :param from_: Minimal value of x-axis
