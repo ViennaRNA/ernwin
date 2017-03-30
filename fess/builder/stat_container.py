@@ -11,6 +11,7 @@ import sys
 import random
 from collections import defaultdict
 import logging
+import string
 log = logging.getLogger(__name__)
 try:
     from functools import lru_cache #python 3.2
@@ -71,13 +72,6 @@ letter_to_stat_type = {
     "i": "angle"
 }
     
-def _key_from_bg_and_elem(bg, elem):        
-    dims = bg.get_node_dimensions(elem)
-    if elem[0] in "i, m":
-        ang_type = bg.get_angle_type(elem)
-        return tuple([dims[0], dims[1], ang_type])
-    else:
-        return dims[0]
     
 class StatStorage(object):
     def __init__(self, filename, fallback_filenames = None):
@@ -87,6 +81,16 @@ class StatStorage(object):
         self.fallbacks = fallback_filenames
         self._sources = None
         self._has_warned = set() #Only emit warnings about insufficient stats once.
+        
+    @staticmethod
+    def _key_from_bg_and_elem(bg, elem):        
+        dims = bg.get_node_dimensions(elem)
+        if elem[0] in "i, m":
+            ang_type = bg.get_angle_type(elem)
+            return tuple([dims[0], dims[1], ang_type])
+        else:
+            return dims[0]
+
     def _iter_stat_sources(self):                
         if self._sources is None:
             self._sources = [read_stats_file(self.filename)]
@@ -98,10 +102,14 @@ class StatStorage(object):
     
     @lru_cache(maxsize = 128)
     def _possible_stats(self, stat_type, key, min_entries = 100):
+        """
+        :returns: Two lists, `weights` and `choose_from` of the same length.
+                  weights is a list of floats, choose_from is a list of stats.
+        """
         choose_from = []
         weights = []
         statfiles = self._iter_stat_sources()
-        while len(choose_from)<min_entries:
+        while sum(weights)<min_entries:
             try:
                 source = next(statfiles)[stat_type]
             except StopIteration: #All stat_files exhausted
@@ -111,12 +119,15 @@ class StatStorage(object):
                 break
             if key in source:
                 stats=source[key]
+                num_stats = len(stats)
                 log.debug("Appending {} stats from source.".format(len(stats)))
-                choose_from.append(stats)
-                if weights:
-                    weights.append(min(min_entries - sum(weights), len(stats)))
+                choose_from.extend(stats)
+                if not weights:
+                    weight = 1
                 else:
-                    weights.append(len(stats))
+                    remaining_total_weight = min_entries - sum(weights)
+                    weight = min(1, remaining_total_weight/len(stats))
+                weights += [weight]*num_stats
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
         
@@ -147,19 +158,16 @@ class StatStorage(object):
                     the fallback-files to gather enough stats to sample from.
         :param return: A singe Stat object, sampled from to possible stats.
         """
-        key = _key_from_bg_and_elem(bg, elem)
+        key = self._key_from_bg_and_elem(bg, elem)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
-        r = random.randrange(sum(weights))
+        r = random.uniform(0, sum(weights))
         for i, w in enumerate(weights):
-            if r<w:
-                try:
-                    return random.choice(stats[i])
-                except:
-                    print("Stat file {}. weight = {}, r={}".format(i, w, r))
-                    raise
-                
+            if r<=w:
+                return stats[i]                
             r-=w
         assert False
+        return stats[0] #Fallback if asserts are disabled. Should be unreachable.
+    
     def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
         """
         Iterate over all stats for the given element.
@@ -168,32 +176,20 @@ class StatStorage(object):
         generated every time the iterator is created and after iterating the 
         main stats iteration continues over the sample of the fallback stats.
         """
-        key = _key_from_bg_and_elem(bg, elem)
+        key = self._key_from_bg_and_elem(bg, elem)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         stat_samples = []
         for i, w in enumerate(weights):
-            stat_samples.append(random.sample(stats[i], w))
+            r = random.random()
+            if r<=w:
+                stat_samples.append(stats[i])
         while True:
-            for stats in stat_samples:
-                for s in stats:
-                    yield s
+            for stat in stat_samples:
+                yield stat
             if not cycle:
                 break #Exhaust the generator
     
-    @lru_cache(maxsize = 128)
-    def _get_pdbname_statsets_for(self, elem, key, min_entries = 100):
-        """
-        Used in self.coverage_for, optimized by the use of lru_cache
-        """
-        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
-        stat_sets = []
-        for i, w in enumerate(weights):
-            stat_set = set(stat.pdb_name for stat in stats[i])
-            if len(stat_set) != len(stats[i]):
-                raise ValueError("coverage_for only works if the pdb_names of all "
-                                 "stats are unique.")
-            stat_sets.append((w, stat_set))
-        return sum(weights), stat_sets
+
         
     def coverage_for(self, sampled_stat_names, bg, elem, min_entries = 100):
         """
@@ -204,10 +200,81 @@ class StatStorage(object):
         For the other parameters, see `self.sample_for`
         """
         
-        key = _key_from_bg_and_elem(bg, elem)
-        total_weight, stat_sets = self._get_pdbname_statsets_for(elem, key, min_entries)
+        key = self._key_from_bg_and_elem(bg, elem)
+        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
+        total_weight = sum(weights)
         coverage = 0.
-        for weight, stat_set in stat_sets:
-            found = sampled_stat_names & stat_set
-            coverage += len(found)/len(stat_set) * weight/total_weight
+        for i, weight in enumerate(weights):
+            if stats[i].pdb_name in sampled_stat_names:
+                coverage += weight/total_weight
         return coverage
+
+def identitical_bases(seq1, seq2):
+    if len(seq1) != len(seq2):
+        raise ValueError("Pairwise identity is only defined for strings of same length. "
+                         "Found {} and {}. Seq1={}".format(len(seq1), len(seq2), seq1[:10]))
+    s = 0
+    for i in range(len(seq1)):
+        s+= (seq1[i]==seq2[i])
+    return s
+
+def seq_and_pyrpur_similarity(sequences, stat):
+    translation = {ord(c): ord(t) for c, t in zip(u"AGCU", u"RRYY")}
+    ib4 = 0
+    ib2 = 0
+    for i in range(len(sequences)): #single or double stranded
+        #identical bases 4-letter and 2-letter alphabeth
+        ib4 += identitical_bases(sequences[i], stat.seqs[i])
+        print(repr(sequences[i]), repr(stat.seqs[i]))
+        ib2 += identitical_bases(sequences[i].translate(translation), stat.seqs[i].translate(translation))
+    return (ib2 + ib4 +1) / (sum(len(x) for x in sequences) * 2 +1) #^2 for ib4 and ib2
+    
+class SequenceDependentStatStorage(StatStorage):
+    def __init__(self, filename, fallback_filenames = None, sequence_score = seq_and_pyrpur_similarity):
+        self.sequence_score = sequence_score
+        super(SequenceDependentStatStorage, self).__init__(filename, fallback_filenames)
+        
+    @staticmethod
+    def _key_from_bg_and_elem(bg, elem):        
+        dims = bg.get_node_dimensions(elem)
+        if elem[0] in "i, m":
+            ang_type = bg.get_angle_type(elem)
+            return tuple([dims[0], dims[1], ang_type]), bg.get_define_seq_str(elem, adjacent = True)
+        else:
+            return dims[0], tuple(bg.get_define_seq_str(elem))
+
+
+    @lru_cache(maxsize = 256)
+    def _possible_stats(self, stat_type, key, min_entries = 100):
+        """
+        :returns: Two lists, `weights` and `choose_from` of the same length.
+                  weights is a list of floats, choose_from is a list of stats.
+        """
+        key, sequence = key
+        choose_from = []
+        weights = []
+        statfiles = self._iter_stat_sources()
+        while sum(weights)<min_entries:
+            try:
+                source = next(statfiles)[stat_type]
+            except StopIteration: #All stat_files exhausted
+                if (stat_type, key, min_entries) not in self._has_warned:
+                    log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
+                    self._has_warned.add((stat_type, key, min_entries))
+                break
+            if key in source:
+                stats=source[key]
+                num_stats = len(stats)
+                choose_from.extend(stats)                
+                if not weights:
+                    weight = 1
+                else:
+                    remaining_total_weight = min_entries - sum(weights)
+                    weight = min(1, remaining_total_weight/len(stats))
+                for stat in stats:
+                    weights.append(weight*self.sequence_score(sequence, stat))
+        if not choose_from:
+            raise LookupError("No stats found for {} with key {}".format(stat_type, key))
+        
+        return weights, choose_from
+

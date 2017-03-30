@@ -90,23 +90,23 @@ class StatStorageTest(unittest.TestCase):
         except:
             print("SOURCES", st._sources)
             raise
-        stat = stats[0][0]
+        stat = stats[0]
         self.assertEqual(stat.pdb_name, "test:s_0")
         with self.assertRaises(LookupError):
             st._possible_stats("stem", 12) #No stem with length 12
-        self.assertEqual(st._possible_stats("angle", (5,2,1))[1][0][0].pdb_name, "test:i_0")
+        self.assertEqual(st._possible_stats("angle", (5,2,1))[1][0].pdb_name, "test:i_0")
         with self.assertRaises(LookupError):
             st._possible_stats("angle", (4,5,1))
-        self.assertEqual(st._possible_stats("angle", (4,1000,-4))[1][0][0].pdb_name, "test:m_0")
+        self.assertEqual(st._possible_stats("angle", (4,1000,-4))[1][0].pdb_name, "test:m_0")
         with self.assertRaises(LookupError):
             st._possible_stats("angle", (4,1000,3))
-        self.assertEqual(st._possible_stats("loop", 6)[1][0][0].pdb_name, "test:h_0")
+        self.assertEqual(st._possible_stats("loop", 6)[1][0].pdb_name, "test:h_0")
         with self.assertRaises(LookupError):
             st._possible_stats("loop", 4)
-        self.assertEqual(st._possible_stats("3prime", 4)[1][0][0].pdb_name, "test:t_0")
+        self.assertEqual(st._possible_stats("3prime", 4)[1][0].pdb_name, "test:t_0")
         with self.assertRaises(LookupError):
             st._possible_stats("3prime", 6)
-        self.assertEqual(st._possible_stats("5prime", 4)[1][0][0].pdb_name, "test:f_0")
+        self.assertEqual(st._possible_stats("5prime", 4)[1][0].pdb_name, "test:f_0")
         with self.assertRaises(LookupError):
             st._possible_stats("5prime", 6)
 
@@ -114,22 +114,18 @@ class StatStorageTest(unittest.TestCase):
         st = fbstat.StatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
         #If the first file has enough stats, do not fall back
         _, poss_stats = st._possible_stats("stem", 5, 1)
-        poss_stats = [x for li in poss_stats for x in li ]
         self.assertEqual(poss_stats[0].pdb_name, "test:s_0")
         self.assertEqual(len(poss_stats), 1)
         #No hits in first file, fall back to second
         _, poss_stats = st._possible_stats("stem", 6, 1)
-        poss_stats = [x for li in poss_stats for x in li ]
         self.assertEqual(poss_stats[0].pdb_name, "fallback1:s_0")
         self.assertEqual(len(poss_stats), 1)
         #No hits in second file, fall back to third
         _, poss_stats = st._possible_stats("stem",10, 1)
-        poss_stats = [x for li in poss_stats for x in li ]
         self.assertEqual(poss_stats[0].pdb_name, "fallback2:s_1")
         self.assertEqual(len(poss_stats), 1)
         #We want at least two hits. Collect them from 1st and 3rd file
         _, poss_stats = st._possible_stats("stem",5, 2)
-        poss_stats = [x for li in poss_stats for x in li ]
         self.assertEqual(len(poss_stats), 3) #Even if we requested a minimum of 2 stats, we end up with 3.
 
 class StatStoragePublicAPITests(unittest.TestCase):
@@ -160,9 +156,15 @@ class StatStoragePublicAPITests(unittest.TestCase):
             stat_iter = self.st.iterate_stats_for(self.cg, "s0", 10)
         self.assertEqual(sum(1 for _ in stat_iter), 3) #3 stats
         
-        #If we only want at leat two stats, choose only one stat from the second 
-        stat_iter = self.st.iterate_stats_for(self.cg, "s0", 2)
-        self.assertEqual(sum(1 for _ in stat_iter), 2) #2 stats
+        #If we only want at least two stats, choose only one stat from the second
+        num_stats = 0
+        NUM_REP = 1000
+        for r in range(NUM_REP):
+            stat_iter = self.st.iterate_stats_for(self.cg, "s0", 2)
+            num_stats += sum(1 for _ in stat_iter)
+        self.assertLess(num_stats/NUM_REP, 2.5)
+        self.assertGreater(num_stats/NUM_REP, 1.5) #Expect 2 stats.
+
         stat_iter = self.st.iterate_stats_for(self.cg, "s0", 2)
         self.assertEqual(next(stat_iter).pdb_name, "test:s_0")
 
@@ -174,6 +176,22 @@ class StatStoragePublicAPITests(unittest.TestCase):
         cov = self.st.coverage_for(set(["test:s_0", "fallback2:s_0"]), self.cg, "s0", 2)
         self.assertEqual(cov, 0.75) # test1 has 50% weight and was fully sampled. fallback2 has 50% weight and was half-sampled.
         cov = self.st.coverage_for(set(["test:i_0", "fallback2:i_0"]), self.cg2, "i0", 3)
-        self.assertAlmostEqual(cov, 2./3.) # Each file has weight 1/3, 2 files have been sampled
+        self.assertAlmostEqual(cov, 2./3.) # All stats have weight 1, 2 stats have been sampled
         cov = self.st.coverage_for(set(["test:i_0", "fallback1:i_0"]), self.cg2, "i0", 2)
         self.assertAlmostEqual(cov, 1.) # The file fallback2 is not needed at all.
+
+class SequenceDependentStatStorageTests(unittest.TestCase):
+    def setUp(self):
+        self.st = fbstat.SequenceDependentStatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
+        self.cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
+
+    def test_sample_for(self):
+        c = Counter()
+        REPETITIONS = 2000
+        for i in range(REPETITIONS):
+            stat =self.st.sample_for(self.cg, "s0", 3) #test:s_0, fallback2:s_0, fallback2:s_2
+            c[stat.pdb_name]+=1
+        self.assertEqual(c.most_common(1)[0][0], "fallback2:s_0") # Highest similarity
+        mc =  c.most_common()
+        print(mc)
+        assert False
