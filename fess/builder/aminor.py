@@ -1,10 +1,23 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
+                      int, map, next, oct, open, pow, range, round,
+                      str, super, zip)
+from future.builtins.disabled import (apply, cmp, coerce, execfile,
+                             file, long, raw_input, reduce, reload,
+                             unicode, xrange, StandardError)
+__metaclass__=object         
+
+
+
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
 import forgi.graph.bulge_graph as fgb
 from collections import namedtuple
-
+import warnings
 import logging
+import numpy as np
+import scipy.stats
 log=logging.getLogger(__name__)
 
 try:
@@ -66,36 +79,52 @@ _AMGeometry = namedtuple("AMGeometry", ["pdb_id", "loop_name", "stem_name", "dis
 class AMGeometry(_AMGeometry):
     def _asdict(self):
         d = super(AMGeometry, self)._asdict()
-        d[loop_type] = self.loop_name[0]
+        d["loop_type"] = self.loop_name[0]
         return d
+    @property
+    def loop_type(self):
+        return self.loop_name[0]
     
 def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     """
     Used by generate_target_distribution.
 
-    :param all_cgs: A dictionary PDB_id (4-letter): CoarseGrainRNA
+    :param all_cgs: A dictionary PDB_id (4-letter): [CoarseGrainRNA, ...]
     :param fr3d_out: A file opened for reading.
     """
     geometries = set()
     for line in fr3d_out:
-        log.info("Line '%s'.read", line.strip())
+        log.debug("Line '%s'.read", line.strip())
         parts = line.split()
         if len(parts) < 10: 
             continue
         if parts[0] == "Filename": 
             continue
         pdb_id = parts[0]
-        try:
-            cg = all_cgs[parts[0]]
-        except KeyError:
-            log.warning("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}".format(parts[0]))
-            warnings.warn("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}".format(parts[0]))
+        if parts[0] in all_cgs:
+            cgs = all_cgs[parts[0]]
+            if len(cgs)==1:
+                cg, = cgs
+            else:
+                a_res = fgb.resid_from_str("{chain}:{res}".format(chain = parts[8][0], res = parts[3]))
+                for cg in cgs:
+                    if a_res in cg.seq_ids:
+                        break
+                    else:
+                        pass
+                else:
+                    log.warning("No CoarseGrainRNA found among those with PDB-ID {} that contains resid {}".format(parts[0], a_res))
+                    warnings.warn("No CoarseGrainRNA found among those with PDB-ID {} that contains resid {}".format(parts[0], a_res))
+                    continue
+        else:
+            log.warning("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}. Possible PDB-IDs are {}".format(parts[0], all_cgs.keys()))
+            warnings.warn("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}. Possible PDB-IDs are {}".format(parts[0], all_cgs.keys()))
             continue
         try:
             nums = []
             for i in range(3):
                 nums.append(fgb.resid_from_str("{chain}:{res}".format(chain = parts[8][i], res = parts[3+2*i])))
-            nodes = map(lambda x: cg.get_node_from_residue_num(cg.seq_id_to_pos(x)), nums)
+            nodes = list(map(lambda x: cg.get_node_from_residue_num(cg.seq_id_to_pos(x)), nums))
         except Exception as e:
             log.exception(e)
             continue
@@ -113,6 +142,8 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
             geometries.add(AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0]))))
     return geometries
 
+
+
 def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
     """
     :param aminor_geometries: A list or iterator of AMGeometry instances which correspond to true interactions.
@@ -128,15 +159,31 @@ def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
     all_geometries = np.array([[ x.dist, x.angle1, x.angle2 ] 
                                   for x in all_geometries 
                                   if  x.loop_type == loop_type])
+    log.info("%d interactions and %d geometries given.", len(aminor_geometries), len(all_geometries))
+    if len(aminor_geometries) == 0: #E.g. for f0
+        return lambda x: np.array([0])
     # Overall Probability/ Frequency of A-Minor interactions
+    log.info("len(aminor_geometries)=%d, len(all_geometries)=%d", len(aminor_geometries), len(all_geometries))
     p_interaction = len(aminor_geometries)/ len(all_geometries)
+    log.info("p_interaction = %s", p_interaction)
     p_geometry_given_interaction = scipy.stats.gaussian_kde(aminor_geometries.T)
     p_geometry_all = scipy.stats.gaussian_kde(all_geometries.T)
     # According to Peter's Thesis:
-    p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point) / p_geometry_all[lt](point)) * p_interaction 
+    #Gives always 0
+    p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point) / p_geometry_all(point)) * p_interaction 
+    
+    def p_function(point):
+        numerator = p_geometry_given_interaction(point)
+        #log.info("Numerator: %s", numerator)
+        denom = p_geometry_all(point)
+        #log.info("Denominator: %s", denom)
+        #log.info("p_interaction %s", p_interaction)
+        return numerator/denom*p_interaction
+
     # The version below was used by Peter to avoid too small denominators in case of pseudoknots.
-    #p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point)) / p_geometry_all[lt](point) + p_geometry_given_interaction[lt](point)
-    return p_interaction_given_geometry
+    # Can give probabilities >1
+    p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point)) / p_geometry_all(point) + p_geometry_given_interaction(point)
+    return p_function
 
 def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     """
@@ -183,7 +230,7 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
                                  cutoff_dist):
             continue
             
-        point = fba.get_relative_orientation(cg, loop, s)
+        point = get_relative_orientation(cg, loop, s)
         p = prob_fun(point)
         probs.append(p)
     if len(probs) == 0:
@@ -193,7 +240,7 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     log.debug("max_prob: Returning max(probs): %s", max_prob)
     return max_prob
 
- def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
+def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     """
     Return the total probability for the loop form any A-Minor interaction.
     
@@ -233,8 +280,8 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
                                  cutoff_dist):
             continue
             
-        point = fba.get_relative_orientation(cg, loop, s)
-        p = prob_fun(point)
+        point = get_relative_orientation(cg, loop, s)
+        p, = prob_fun(point)
         total_prob += (1-total_prob)*p
     log.debug("total_prob: Returning: %s", total_prob)
     return total_prob

@@ -450,3 +450,11 @@ class TestConvenienceFunctions(unittest.TestCase):
             energy = fbe.energies_from_string("CLA", cg, 1000)
         self.assertIn("CLA", str(ex.exception))
         self.assertIn("cla_pairs", str(ex.exception))
+
+class TestHelperFunctions(unittest.TestCase):
+    def test__iter_subgraphs(self):
+        cg = ftmc.CoarseGrainRNA(dotbracket_str = "...(((...)))...(((...)))...(((...(((...)))...)))", seq="AAAGGGAAACCCAAAGGGAAACCCAAAGGGUUUGGGAAACCCUUUCCC")
+        sgs = fbe._iter_subgraphs(cg, 1)
+        self.assertEqual(len(sgs), 1)
+        sgs = fbe._iter_subgraphs(cg, True)
+        self.assertGreater(len(sgs), 4)

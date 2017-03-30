@@ -707,7 +707,7 @@ def _iter_subgraphs(cg, use_subgraphs):
     
     if not use_subgraphs:
         return
-    if isinstance(use_subgraph, bool):
+    if isinstance(use_subgraphs, bool):
         target_range = it.repeat(range(3, len(cg.defines)-2), 100) # range starts at 3, because this is the
                                                                # smallest length containing 2 stems.
                                                                # For the same reason, we use len(defines)-2
@@ -715,7 +715,7 @@ def _iter_subgraphs(cg, use_subgraphs):
     else:
         # use_subgraphs is an integer, giving the numbers of subgraphs per structure.
         target_range = []
-        for i in range(len(use_subgraphs)):
+        for i in range(use_subgraphs):
             target_range.append(random.randint(3, len(cg.defines.keys())-2))
 
     known_sgs = set([tuple(sorted(cg.defines.keys()))])
@@ -768,7 +768,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         else:
             out_filename = op.join("fess", out_filename)
         radii = []
-        log.info("Generating target distribution for %s", type(cls).__name__)
+        log.info("Generating target distribution for %s", cls.__name__)
         if isinstance(cg_filenames, str):
             cg_filenames = [cg_filenames]
         for fname in cg_filenames:
@@ -915,7 +915,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         :param out_filename: None or a filename relative to `fess/`
         :param orientation_outfile: Where to store the list of relative orientations of 
                                     Adenines and the Stems in A-Minor interactions and 
-                                    in the background.
+                                    in the background. Relative to "fess/"
         :param fr3d_query: Describe the FR3D-query that you used in a string.
                            It will be added as comment to the output file.
         """
@@ -932,25 +932,26 @@ class AMinorEnergy(CoarseGrainEnergy):
             orientation_outfile = op.join("fess", orientation_outfile)
 
         #Read the cgs
-        all_cgs = {}
+        all_cgs = defaultdict(list)
         for fn in cg_filenames:
             cg = ftmc.CoarseGrainRNA(fn)
-            all_cgs[cg.name] = cg
+            all_cgs[cg.name[:4]].append(cg)
         
         #Read the FR3D output
         with open(fr3d_out) as f:
             aminor_geometries = fba.parse_fred(cls.cutoff_dist, all_cgs, f)        
         all_geometries = set()
-        for pdb_id, cg in all_cgs.items():
-            for loop in cg.defines:
-                if loop[0]=="s": 
-                    continue
-                for stem in cg.stem_iterator():
-                    if loop in cg.edges[stem]: 
+        for pdb_id, cgs in all_cgs.items():
+            for cg in cgs:
+                for loop in cg.defines:
+                    if loop[0]=="s": 
                         continue
-                    dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
-                    if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(nodes[0])):
-                        all_geometries.add(fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop))))
+                    for stem in cg.stem_iterator():
+                        if loop in cg.edges[stem]: 
+                            continue
+                        dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
+                        if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)):
+                            all_geometries.add(fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop))))
                         
         #Print orientations to orientation_outfile
         with open(orientation_outfile, "w") as f:                    
@@ -960,44 +961,52 @@ class AMinorEnergy(CoarseGrainEnergy):
             for line in fr3d_query.splitlines():
                 line=line.strip()
                 print("#    "+line, file = f)
-            print("# cutoff_dist = {} A".format(cls.cutoff_dist))
+            print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
             # HEADER
-            print ("loop_type dist angle1 angle2 is_interaction")
+            print ("loop_type dist angle1 angle2 is_interaction", file=f)
             for entry in all_geometries:
                 print("{loop_type} {dist} {angle1} "
                       "{angle2} {is_interaction}".format(is_interaction = (entry in aminor_geometries),
-                                                         **entry), file = f)
+                                                         **entry._asdict()), file = f)
         
         prob_fun= {}
         for loop_type in "himft":
+            log.info("Creating probability function for %s", loop_type)
             prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries, 
                                                                    all_geometries, 
                                                                    loop_type)
         #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
         with open(out_filename, "w") as f:
+            log.info("Writing AMinor target_dist to %s", out_filename)
             cls._print_file_header(f, cg_filenames)
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
-            print("# Probabilities from {}".format(orientation_outfile))
+            print("# Probabilities from {}".format(orientation_outfile), file=f)
             print("# fr3d_out = {}".format(fr3d_out), file=f)
             print("# fr3d_query:", file=f)
             for line in fr3d_query.splitlines():
-                line=line.strip()
-                print("#    "+line, file = f)
-            print("# cutoff_dist = {} A".format(cls.cutoff_dist))
-            print("rna_length, loop_type, total_prob")
-            for cg in all_cgs.values():
-                rna_length = cg.seq_length
-                for loop in cg.defines():
-                    if loop[0] == "s": 
-                        continue
-                    prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist)
-                    print("{} {} {}".format(rna_length, loop[0], prob), file = f)
-                for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
-                    for loop in subgraph:
+                print("#    "+line.strip(), file = f)
+            print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
+            print("rna_length loop_type total_prob", file=f)
+            for cgs in all_cgs.values():
+                for cg in cgs:
+                    print("# {}:".format(cg.name), file=f)
+                    rna_length = cg.seq_length
+                    for loop in cg.defines:
                         if loop[0] == "s": 
                             continue
-                        prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist, domain = subgraph)
-                        print("{} {} {}".format(sg_length, loop[0], prob), file = f)
+                        prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist)
+                        print("{} {} {}".format(rna_length, loop[0], prob), file = f)
+                    print("# Subgraphs:", file=f)
+                    log.info("Now generating AMinor for Subgraphs")
+                    i=0
+                    for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
+                        i+=1
+                        log.info("Subgraph of length %s (%d th sg)", sg_length, i)
+                        for loop in subgraph:
+                            if loop[0] == "s": 
+                                continue
+                            prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist, domain = subgraph)
+                            print("{} {} {}".format(sg_length, loop[0], prob), file = f)
         log.info("Successfully generated target distribution for AMinors.")
 
     def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
@@ -1009,7 +1018,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         self.loop_type = loop_type
 
         # Load the geometries (aminor and other)
-        all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ') 
+        all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#") 
         all_geometries = all_geometries[ all_geometries["dist"] < self.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
         self.prob_function = fba.aminor_probability_function(aminor_geometries.itertuples(),
@@ -1025,8 +1034,9 @@ class AMinorEnergy(CoarseGrainEnergy):
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_type))
 
     def _get_distribution_from_file(self, filename, length):
-        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
-
+        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
+        data = data[ data["loop_type"]==self.loop_type]
+        data = data.as_matrix(["rna_length", "total_prob"])
         rdata = list()
 
         distribution_lower_bound = 1.
@@ -1039,8 +1049,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                          data[:,0] < length * ( distribution_upper_bound ))]
         
-        srdata = rdata[rdata[:,1] == self.loop_type]
-        rogs = srdata[:,2]
+        rogs = rdata[:,1]
         return (self._get_distribution_from_values(rogs), rogs)
     
     def eval_prob(self, cg, d):
@@ -1131,7 +1140,7 @@ def _minimal_h_h_distance(cg, elem1, elem2_iterator):
     :param elem2_iterator: A ITERATOR/ LIST. Element names to compare h1 with.
     """
     min_dist = float("inf")
-    for elem2 in elem2_iterator():
+    for elem2 in elem2_iterator:
         if elem2==elem1: continue
         (i1,i2) = ftuv.line_segment_distance(cg.coords[elem1][0],
                                             cg.coords[elem1][1],
@@ -1189,24 +1198,25 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             
     
         distances = []
-        log.info("Generating target distribution for %s", type(cls).__name__)
+        log.info("Generating target distribution for %s", cls.__name__)
         if isinstance(cg_filenames, str):
             cg_filenames = [cg_filenames]
             
         loop_loop_distances = []
         for fname in cg_filenames:
             log.info("Processing file %s", fname)
+            cg = ftmc.CoarseGrainRNA(fname)
             for h1 in cg.hloop_iterator():            
                 min_dist = _minimal_h_h_distance(cg, h1, cg.hloop_iterator())                
                 if min_dist<float("inf"):
-                    loop_loop_distances.append((cg.seq_length, dist))
+                    loop_loop_distances.append((cg.seq_length, min_dist))
             for subgraph, nt_length in _iter_subgraphs(cg, use_subgraphs):
                 for h1 in subgraph:
                     if h1[0]!="h": 
                         continue
                     min_dist = _minimal_h_h_distance(cg, h1, (h for h in subgraph if h[0]=="h"))                  
                     if min_dist<float("inf"):
-                        loop_loop_distances.append((nt_length, dist))
+                        loop_loop_distances.append((nt_length, min_dist))
 
         log.info("Writing to file %s", out_filename)
         with open(out_filename, "w") as f:

@@ -230,9 +230,9 @@ class CoarseGrainEnergy(EnergyFunction):
         print("# Generated on "+ time.strftime("%d %b %Y %H:%M:%S %Z"), file=file_)
         print("# Generated from the following files: ", file=file_)
         for fn in cg_filenames:
-            print("#   {}".format(fn), file=f)
-        print("# Working directory: {}".format(os.getcwd()), file=f)
-        print("# Version: {}".format(get_version_string()), file=f)
+            print("#   {}".format(fn), file=file_)
+        print("# Working directory: {}".format(os.getcwd()), file=file_)
+        print("# Version: {}".format(get_version_string().strip()), file=file_)
 
     def plot_distributions(self, from_=None, to_=None):
         """
