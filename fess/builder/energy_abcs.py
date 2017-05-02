@@ -66,7 +66,9 @@ class EnergyFunction(object):
         self.step=0
         
         #: Name and shortname of the energy
-        if not hasattr(self, "name"):
+        # We need to check the class, not the instance, because implementation of name as a property 
+        # in subclasses may raise an error on incompletely initialized instanzes.
+        if not hasattr(type(self), "name"): 
             self.name = self.__class__.__name__.lower()
             
     def accept_last_measure(self):
@@ -333,8 +335,12 @@ class CoarseGrainEnergy(EnergyFunction):
 
         if plot_debug: #For debuging
             self.plot_distribution()
-        log.debug("Measure is {:1.4f}".format(m))
-        
+        try:
+            log.debug("Measure is {:1.4f}".format(m))
+        except ValueError:
+            log.exception("m is {}".format(repr(m)))
+            
+            
         self._last_measure = m
         
         if background:

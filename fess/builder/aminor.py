@@ -183,6 +183,7 @@ def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
     # The version below was used by Peter to avoid too small denominators in case of pseudoknots.
     # Can give probabilities >1
     p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point)) / p_geometry_all(point) + p_geometry_given_interaction(point)
+    #return p_interaction_given_geometry
     return p_function
 
 def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
@@ -231,16 +232,17 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
             continue
             
         point = get_relative_orientation(cg, loop, s)
-        p = prob_fun(point)
+        p, = prob_fun(point)
         probs.append(p)
     if len(probs) == 0:
-        log.debug("max_prob: Returning Array with one zero.")
-        return np.array([0.])
+        log.debug("max_prob: Returning zero.")
+        return 0
     max_prob = max(probs)
     log.debug("max_prob: Returning max(probs): %s", max_prob)
     return max_prob
 
 def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
+    #return max_prob(loop, cg, prob_fun, cutoff_dist, domain)
     """
     Return the total probability for the loop form any A-Minor interaction.
     

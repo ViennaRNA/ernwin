@@ -35,7 +35,7 @@ def parse_stats_file(file_handle):
         if line.startswith("stem"):
             stem_stat = ftmstats.StemStat(line)
             stats["stem"][stem_stat.bp_length].append(stem_stat)
-        elif line.startswith("angle"):
+        elif line.startswith("angle") or line.startswith("open") or line.startswith("pseudo"):
             angle_stat = ftmstats.AngleStat()
             try:
                 angle_stat.parse_line(line)

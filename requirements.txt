@@ -1,0 +1,8 @@
+pandas==0.19
+numpy
+scipy
+biopython
+deepdiff
+networkx
+future
+forgi

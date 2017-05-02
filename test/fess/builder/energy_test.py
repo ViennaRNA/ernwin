@@ -120,6 +120,23 @@ class TestSLDEnergies(unittest.TestCase):
         self.cg_far.coords["h1"] = self.cg_far.coords["s1"][1], self.cg_far.coords["s1"][1]+[1.,6.,0.]
         self.cg_far.add_all_virtual_residues()
     
+        self.cg_five = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))...(((...)))...(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAAGGGUUUGGGAAAGGGUUUGGGAAAGGGUUUGGGAAA")
+        add_stem_coordinates(self.cg_five, "s0", [0.,0.,0.], [0.,0.,10.])
+        for i in range(1, 5):
+            m="m{}".format(i-1)
+            prev_s = "s{}".format(i-1)
+            s = "s{}".format(i)
+            self.cg_five.coords[m] = self.cg_five.coords[prev_s][0], self.cg_five.coords[prev_s][0]+[0.,3.+i,0.]
+            add_stem_coordinates(self.cg_five, s, self.cg_five.coords[m][1], [0.,0.,10.])        
+        for i in range(5):
+            s="s{}".format(i)
+            h="h{}".format(i)
+            self.cg_five.coords[h] = self.cg_five.coords[s][1], self.cg_five.coords[s][1]+[3.,0.,0.]
+        self.cg_five.add_all_virtual_residues()
+
+    
+    
+    
     def test_SDL_1GID(self):
         energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg1, None, None)
         self.assertGreater(energy.eval_energy(self.cg1, background=True), -30)
@@ -166,6 +183,14 @@ class TestSLDEnergies(unittest.TestCase):
         e3 = energy.eval_energy(self.cg_far)
         self.assertLess(e3, 100)
         self.assertGreater(e3, -100)
+
+    def test_minimal_h_h_distance(self):
+        self.assertEqual(fbe._minimal_h_h_distance(self.cg_five, "h0", self.cg_five.hloop_iterator()), 4.)
+        self.assertEqual(fbe._minimal_h_h_distance(self.cg_five, "h1", self.cg_five.hloop_iterator()), 4.)
+        self.assertEqual(fbe._minimal_h_h_distance(self.cg_five, "h2", self.cg_five.hloop_iterator()), 5.)
+        self.assertEqual(fbe._minimal_h_h_distance(self.cg_five, "h3", self.cg_five.hloop_iterator()), 6.)
+        self.assertEqual(fbe._minimal_h_h_distance(self.cg_five, "h4", self.cg_five.hloop_iterator()), 7.)
+        self.assertEqual(fbe._minimal_h_h_distance(self.cg_five, "h0", ["h3", "h4"]), 15.)
 
 class TestAMinorEnergy(unittest.TestCase):
     def setUp(self):

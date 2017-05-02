@@ -774,23 +774,23 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         for fname in cg_filenames:
             log.info("Processing file %s", fname)
             cg = ftmc.CoarseGrainRNA(fname)
-            radii.append((cg.seq_length, cg.radius_of_gyration("vres")))
+            radii.append((cg.name, cg.seq_length, cg.radius_of_gyration("vres")))
             for subgraph, nt_length in _iter_subgraphs(cg, use_subgraphs):
                 rog = ftmd.radius_of_gyration(cg.get_poss_for_domain([stem for stem in subgraph if stem[0]=="s"], mode = "fast"))
-                radii.append((nt_length, rog))
+                radii.append((cg.name+".subgraph", nt_length, rog))
         log.info("Writing to file %s", out_filename)
         with open(out_filename, "w") as f:
             cls._print_file_header(f, cg_filenames)
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
-            for nt_len, rog in radii:
-                print("{:d} {:.10f}".format(nt_len, rog), file=f)
+            for name, nt_len, rog in radii:
+                print("{:s} {:d} {:.10f}".format(name, nt_len, rog), file=f)
              
     
     def _get_cg_measure(self, cg):
         return cg.radius_of_gyration("fast")
 
     def _get_distribution_from_file(self, filename, length):
-        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
 
         rdata = []
 
@@ -802,10 +802,10 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             distribution_lower_bound -= INCR
             distribution_upper_bound += INCR
 
-            rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
-                                         data[:,0] < length * ( distribution_upper_bound ))]
+            rdata = data[np.logical_and( data[:,1] > ( distribution_lower_bound ) * length,
+                                         data[:,1] < length * ( distribution_upper_bound ))]
 
-        rogs = rdata[:,1]
+        rogs = rdata[:,2]
         rogs=np.array(rogs)
 
         return (self._get_distribution_from_values(rogs), rogs)
@@ -965,7 +965,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             # HEADER
             print ("loop_type dist angle1 angle2 is_interaction", file=f)
             for entry in all_geometries:
-                print("{loop_type} {dist} {angle1} "
+                print("{pdb_id} {loop_type} {dist} {angle1} "
                       "{angle2} {is_interaction}".format(is_interaction = (entry in aminor_geometries),
                                                          **entry._asdict()), file = f)
         
@@ -982,20 +982,20 @@ class AMinorEnergy(CoarseGrainEnergy):
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
             print("# Probabilities from {}".format(orientation_outfile), file=f)
             print("# fr3d_out = {}".format(fr3d_out), file=f)
-            print("# fr3d_query:", file=f)
-            for line in fr3d_query.splitlines():
-                print("#    "+line.strip(), file = f)
+            if fr3d_query:
+                print("# fr3d_query:", file=f)
+                for line in fr3d_query.splitlines():
+                    print("#    "+line.strip(), file = f)
             print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
-            print("rna_length loop_type total_prob", file=f)
+            print("pdb_id rna_length loop_type total_prob", file=f)
             for cgs in all_cgs.values():
                 for cg in cgs:
-                    print("# {}:".format(cg.name), file=f)
                     rna_length = cg.seq_length
                     for loop in cg.defines:
                         if loop[0] == "s": 
                             continue
                         prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist)
-                        print("{} {} {}".format(rna_length, loop[0], prob), file = f)
+                        print("{} {} {} {}".format(cg.name, rna_length, loop[0], prob), file = f)
                     print("# Subgraphs:", file=f)
                     log.info("Now generating AMinor for Subgraphs")
                     i=0
@@ -1006,23 +1006,23 @@ class AMinorEnergy(CoarseGrainEnergy):
                             if loop[0] == "s": 
                                 continue
                             prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist, domain = subgraph)
-                            print("{} {} {}".format(sg_length, loop[0], prob), file = f)
+                            print("{} {} {} {}".format(cg.name+".subgraph", sg_length, loop[0], prob), file = f)
         log.info("Successfully generated target distribution for AMinors.")
 
     def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
         """
         :param loop_type: A one-letter string giving the loop type. E.g. 'h' or 'i'
-        """
+        """        
+        self.loop_type = loop_type
         super(AMinorEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
         
-        self.loop_type = loop_type
 
         # Load the geometries (aminor and other)
         all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#") 
         all_geometries = all_geometries[ all_geometries["dist"] < self.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
         self.prob_function = fba.aminor_probability_function(aminor_geometries.itertuples(),
-                                                               all_geometries.itertuples(),
+                                                               all_geometries.itertuples(), #With pandas >=0.19 this yields namedtuples!
                                                                self.loop_type)
 
         #: The number of coarse grain elements considered in this energy
@@ -1037,17 +1037,24 @@ class AMinorEnergy(CoarseGrainEnergy):
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
         data = data[ data["loop_type"]==self.loop_type]
         data = data.as_matrix(["rna_length", "total_prob"])
-        rdata = list()
+        rdata = []
 
         distribution_lower_bound = 1.
         distribution_upper_bound = 1.
 
-        while (len(rdata) < 500):
-            distribution_lower_bound -= INCR
-            distribution_upper_bound += INCR
+        while (len(rdata) < 500 and len(rdata)<len(data)):        
+            try:
+                distribution_lower_bound -= INCR
+                distribution_upper_bound += INCR
 
-            rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
-                                         data[:,0] < length * ( distribution_upper_bound ))]
+                rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
+                                             data[:,0] < length * ( distribution_upper_bound ))]
+            except KeyboardInterrupt:
+                print("len(rdata) is {}, len(data)={}, bound= {}...{}".format(len(rdata),len(data), 
+                     distribution_lower_bound ) * length, length * ( distribution_upper_bound ))
+                raise
+        if len(rdata)==0:
+            raise ValueError("No data found for distribution in file {}".format(filename))
         
         rogs = rdata[:,1]
         return (self._get_distribution_from_values(rogs), rogs)
@@ -1060,13 +1067,13 @@ class AMinorEnergy(CoarseGrainEnergy):
         
     @property
     def name(self):
-        if self.loop_type == self.types['i']:
+        if self.loop_type == 'i':
             return "A-Minor Energy (interior loops)"
-        elif self.loop_type == self.types['h']:
+        elif self.loop_type == 'h':
             return "A-Minor Energy (hairpin loops)"
         else:
             return "A-Minor Energy"
-        
+
     def accept_last_measure(self):
         """
         self._last_measure is more than one
@@ -1206,24 +1213,26 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         for fname in cg_filenames:
             log.info("Processing file %s", fname)
             cg = ftmc.CoarseGrainRNA(fname)
+            pdbid = cg.name
             for h1 in cg.hloop_iterator():            
                 min_dist = _minimal_h_h_distance(cg, h1, cg.hloop_iterator())                
                 if min_dist<float("inf"):
-                    loop_loop_distances.append((cg.seq_length, min_dist))
+                    loop_loop_distances.append((pdbid, cg.seq_length, min_dist))                
+            pdbid = cg.name+".subgraph"
             for subgraph, nt_length in _iter_subgraphs(cg, use_subgraphs):
                 for h1 in subgraph:
                     if h1[0]!="h": 
                         continue
                     min_dist = _minimal_h_h_distance(cg, h1, (h for h in subgraph if h[0]=="h"))                  
                     if min_dist<float("inf"):
-                        loop_loop_distances.append((nt_length, min_dist))
+                        loop_loop_distances.append((pdbid, nt_length, min_dist))
 
         log.info("Writing to file %s", out_filename)
         with open(out_filename, "w") as f:
             cls._print_file_header(f, cg_filenames)
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
-            for nt_len, distance in loop_loop_distances:
-                print("{:d} {:.10f}".format(nt_len, distance), file=f)
+            for pdbid, nt_len, distance in loop_loop_distances:
+                print("{:s} {:d} {:.10f}".format(pdbid, nt_len, distance), file=f)
         
             
     def __init__(self, rna_length, loop_name, prefactor=None, adjustment = None):        
@@ -1251,21 +1260,21 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_name))
 
     def _get_distribution_from_file(self, filename, length):
-        data = np.genfromtxt(load_local_data(filename), delimiter=' ')
+        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
+        data=data[:, -1] #Ignore the nt-length and the pdb-id. Only look at the distances.
         if filename == self.sampled_stats_fn:
             lsp=np.linspace(self._lsp_min, self._lsp_max, 
                             num=self._lsp_reference_num_points )
         else:
-            lsp=np.linspace(self._lsp_min, self._lsp_max, 
-                            num=self._lsp_target_num_points )
-                            
+            lsp=[np.linspace(self._lsp_min, self._lsp_max, 
+                            num=self._lsp_target_num_points )]               
         data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_artificial_weight)
         
         return (self._get_distribution_from_values(data), data)
 
     def _get_cg_measure(self, cg):
         min_dist = _minimal_h_h_distance(cg, self.loop_name, cg.hloop_iterator())
-
+        return min_dist
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         '''
         We want to return an energy of 0. if there's less than two hairpin
