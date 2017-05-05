@@ -14,7 +14,7 @@ import forgi.utilities.debug as fud
 
 import fess.builder.ccd as cbc
 
-import forgi.threedee.utilities.rmsd as brmsd
+import forgi.threedee.model.similarity as brmsd
 
 #import borgy.aux.Barnacle as barn
 #import fess.aux.CPDB.BarnacleCPDB as barn
@@ -38,12 +38,12 @@ import random as rand
 import numpy as np
 
 def get_measurement_vectors1(ress, r1, r2):
-    return( ress[r2]["C4'"].get_vector().get_array(), 
+    return( ress[r2]["C4'"].get_vector().get_array(),
             ress[r2]["C3'"].get_vector().get_array(),
             ress[r2]["O3'"].get_vector().get_array())
 
 def get_measurement_vectors2(ress, r1, r2):
-    return( ress[r2]["O4'"].get_vector().get_array(), 
+    return( ress[r2]["O4'"].get_vector().get_array(),
             ress[r2]["C1'"].get_vector().get_array(),
             ress[r2]["C2'"].get_vector().get_array())
 
@@ -63,12 +63,9 @@ def reconstruct_stems(sm, stem_library=dict()):
 
     @param sm: Spatial Model
     '''
-    #sm.traverse_and_build()
-    new_chain = bpdbc.Chain(' ')
-
     for stem_name in sm.elem_defs.keys():
         if stem_name[0]!="s": continue
-        models.reconstruct_stem(sm, stem_name, new_chain, stem_library)
+        models.reconstruct_stem(sm, stem_name, {}, stem_library)
 
     return new_chain
 
@@ -100,7 +97,7 @@ def splice_stem(chain, define):
     '''
     Extract just the defined stem from the chain and return it as
     a new chain.
-    
+
     @param chain: A Bio.PDB.Chain containing the stem in define
     @param define: The BulgeGraph stem define
     '''
@@ -243,13 +240,13 @@ def get_alignment_vectors(ress, r1, r2):
     return vec
 
 def get_measurement_vectors(ress, r1, r2):
-    return( ress[r2]["C2'"].get_vector().get_array(), 
+    return( ress[r2]["C2'"].get_vector().get_array(),
             ress[r2]["C3'"].get_vector().get_array(),
             ress[r2]["O3'"].get_vector().get_array())
 
 def get_atom_coord_array(chain, start_res, end_res):
     '''
-    Return an array of the coordinates of all the atoms in the chain, 
+    Return an array of the coordinates of all the atoms in the chain,
     arranged in the following order:
 
     P, O5', C5', C4', O4', C3', C1', C2', base_atoms, O3'
@@ -285,7 +282,7 @@ def get_atom_coord_array(chain, start_res, end_res):
                     coords += [res['O2P'].get_vector().get_array()]
                 else:
                     raise
-                    
+
             count += 1
             continue
 
@@ -294,7 +291,7 @@ def get_atom_coord_array(chain, start_res, end_res):
 
 def get_atom_name_array(chain, start_res, end_res):
     '''
-    Return an array of the coordinates of all the atoms in the chain, 
+    Return an array of the coordinates of all the atoms in the chain,
     arranged in the following order:
 
     P, O5', C5', C4', O4', C3', C1', C2', base_atoms, O3'
@@ -324,7 +321,7 @@ def get_atom_name_array(chain, start_res, end_res):
 
 def set_atom_coord_array(chain, coords, rids):
     '''
-    Set the coordinates of the atoms in the chain to the ones in coords. 
+    Set the coordinates of the atoms in the chain to the ones in coords.
 
     P, O5', C5', C4', O4', C3', C1', C2', base_atoms, O3'
 
@@ -555,7 +552,7 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
                 chain_stems[handles[0] - i][a] - chain_stems[handles[1] + i][a])]
             c1_sampled += [cuv.magnitude(
                 chain_loop[handles[2] - i][a] - chain_loop[handles[3] + i][a])]
-    
+
     c1_target = np.array(c1_target)
     c1_sampled = np.array(c1_sampled)
         '''
@@ -569,7 +566,7 @@ def get_initial_measurement_distance(chain_stems, chain_loop, handles):
 
 def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_all_angles=True, move_front_angle=True, no_close=False):
     '''
-    Align the chain_loop so that it stretches from the end of one stem to the 
+    Align the chain_loop so that it stretches from the end of one stem to the
     start of the other.
 
     @param chain_stems: The PDB coordinates of the chain with the stem.
@@ -606,13 +603,13 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
         for i in angle_to_move:
             si = indeces[rids[i]]
 
-            # 
+            #
             if move_front_angle:
                 points += [si]
             points += [si+4, si+5, si+6]
 
         rot_mat = np.eye(3,3)
-            
+
         '''
         distances = get_adjacent_interatom_distances(chain_loop, handle[2], handle[3])
         names = get_adjacent_interatom_names(chain_loop, handle[2], handle[3])
@@ -622,7 +619,7 @@ def close_fragment_loop(chain_stems, chain_loop, handles, iterations=5000, move_
 
         import fess.aux.ccd.cytvec as cv
 
-        cv.ccd_cython(moving, fixed, points, end_index-3, iterations) 
+        cv.ccd_cython(moving, fixed, points, end_index-3, iterations)
         rmsd = cbc.calc_rmsd(moving[end_index-3:end_index], fixed)
 
 
@@ -658,11 +655,11 @@ def align_and_close_loop(seq_len, chain, chain_loop, handles, move_all_angles=Tr
     @return: (r, loop_chain), where r is the rmsd of the closed loop
             and loop_chain is the closed loop
     '''
-    loop_atoms = bpdb.Selection.unfold_entities(chain_loop, 'A') 
-    
+    loop_atoms = bpdb.Selection.unfold_entities(chain_loop, 'A')
+
     ns = bpdb.NeighborSearch(loop_atoms)
     contacts1 = len(ns.search_all(0.8))
-    
+
     if handles[0][0] == 0:
         align_starts(chain, chain_loop, handles[0], end=1)
         loop_chain = chain_loop
@@ -723,7 +720,7 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
 
         if handles[0] != 0 and handles[1] != seq_len:
             align_starts(stem_chain, chain_unclosed_loop, [(a,b,i1,i2)], end=2)
-        
+
         loop_chain = chain_unclosed_loop.copy()
         (r, loop_chain) = align_and_close_loop(seq_len, stem_chain, loop_chain, [(a, b, i1, i2)], no_close=False)
 
@@ -731,12 +728,12 @@ def build_loop(stem_chain, loop_seq, (a,b,i1,i2), seq_len, iterations, consider_
             r_start = 0.
         else:
             '''
-            r_start = cuv.magnitude(loop_chain[handles[3]]['P'] - 
+            r_start = cuv.magnitude(loop_chain[handles[3]]['P'] -
                                      chain_unclosed_loop[handles[3]]['P'])
             '''
-            r_start = cuv.magnitude(loop_chain[handles[2]]['P'] - 
+            r_start = cuv.magnitude(loop_chain[handles[2]]['P'] -
                                      chain_unclosed_loop[handles[3]]['P'])
-            
+
 
         orig_loop_chain = loop_chain.copy()
 
@@ -817,7 +814,7 @@ def reconstruct_loop(chain, sm, ld, side=0, samples=40, consider_contacts=True, 
     add_loop_chain(chain, best_loop_chain, (a,b,i1,i2), bg.seq_length)
 
     return ((a,b,i1,i2), best_loop_chain, min_r)
-    
+
 
     #sys.stderr.flush()
 
@@ -944,7 +941,7 @@ def replace_bases(chain, cg):
         sca = side_chain_atoms[ress[i].resname.strip()]
         for aname in sca:
             ress[i].detach_child(aname)
-        
+
         sca = side_chain_atoms[new_res.resname.strip()]
         for aname in sca:
             ress[i].add(new_res[aname])
@@ -995,7 +992,7 @@ def get_ideal_stem(template_stem_length):
     template_filename = 'ideal_1_%d_%d_%d.pdb' % (tend1, tend2, tstart2)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        ideal_chain = list(bpdb.PDBParser().get_structure('test', 
+        ideal_chain = list(bpdb.PDBParser().get_structure('test',
                 op.join(conf.Configuration.stem_fragment_dir, template_filename)).get_chains())[0]
 
         chain = ftug.extract_define_residues([tstart1,tend1,tend2,tstart2], ideal_chain)
@@ -1042,7 +1039,7 @@ def align_source_to_target_fragment(target_chain, source_chain, sm, angle_def, l
     (sd, bd) = sm.bg.get_sides_plus(connections[0], ld)
 
     t_v = (target_chain[sm.bg.defines[connections[0]][sd]]["C3'"].get_vector().get_array(),
-           target_chain[sm.bg.defines[connections[0]][sd]]["C4'"].get_vector().get_array(), 
+           target_chain[sm.bg.defines[connections[0]][sd]]["C4'"].get_vector().get_array(),
            target_chain[sm.bg.defines[connections[0]][sd]]["O4'"].get_vector().get_array())
 
     s_v = (source_chain[angle_def.define[bd]]["C3'"].get_vector().get_array(),
@@ -1136,7 +1133,7 @@ def reconstruct_bulge_with_fragment_core(chain, source_chain, sm, ld, sd0, sd1, 
         add_loop_chain(chain, source_chain, h, h[3] - h[2])
         mend_breakpoint_new(chain, h[0], h[0]+1)
 
-    #(r, chain) = align_and_close_loop(seq_len, source_chain, chain, 
+    #(r, chain) = align_and_close_loop(seq_len, source_chain, chain,
 
 def reconstruct_bulge_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_angles=False):
     '''
@@ -1361,9 +1358,9 @@ def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from
     @param chain_from: The chain to excise from
     '''
     # get the range of the nucleotides
-    ranges_to = cg_to.define_range_iterator(elem_to, adjacent=True, 
+    ranges_to = cg_to.define_range_iterator(elem_to, adjacent=True,
                                             seq_ids=True)
-    ranges_from = cg_from.define_range_iterator(elem_from, adjacent=True, 
+    ranges_from = cg_from.define_range_iterator(elem_from, adjacent=True,
                                                 seq_ids=True)
 
     chains_to_align = []
@@ -1381,8 +1378,8 @@ def reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from
         r = 0.
         loop_chain = chains_to_align[-1]
         if close_loop:
-            (r, loop_chain) = align_and_close_loop(cg_to.seq_length, chain_to, 
-                                                       chains_to_align[-1], 
+            (r, loop_chain) = align_and_close_loop(cg_to.seq_length, chain_to,
+                                                       chains_to_align[-1],
                                                        [handles[-1]])
         fud.pv('elem_to, r')
         new_chains += [loop_chain]
@@ -1432,7 +1429,7 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
     pdb_filename = op.expanduser(op.join("/home/mescalin/pkerp/doarse/", angle_def.pdb_name, "temp.pdb"))
 
     cg_to = sm.bg
-    cg_from = ftmc.CoarseGrainRNA(cg_filename) 
+    cg_from = ftmc.CoarseGrainRNA(cg_filename)
 
     chain_to = chain
     chain_from = ftup.get_biggest_chain(pdb_filename)
@@ -1440,7 +1437,7 @@ def reconstruct_with_fragment(chain, sm, ld, fragment_library=dict(), move_all_a
     elem_to = ld
     elem_from = cg_from.get_node_from_residue_num(angle_def.define[0])
 
-    new_chains = reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from, 
+    new_chains = reconstruct_element(cg_to, cg_from, elem_to, elem_from, chain_to, chain_from,
                                      close_loop, reverse)
 
     return chain

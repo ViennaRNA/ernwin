@@ -12,6 +12,7 @@ import math
 import sys
 import collections as c
 import warnings
+import glob
 
 import fess.builder.config as cbc
 import forgi.threedee.model.coarse_grain as ftmc
@@ -98,41 +99,44 @@ class BulgeModel:
 
     def __str__(self):
         return str(self.mids)
-            
-def translate_chain(chain, translation):
+
+def translate_chain(chains, translation):
     '''
     Translate all of the atoms in a chain by a certain amount.
 
-    @param chain: A Bio.PDB.Chain instance to be translated.
-    @translation: A vector indicating the direction of the translation.
+    :param chains: A dict chain_id:Bio.PDB.Chain instance to be translated.
+    :translation: A vector indicating the direction of the translation.
     '''
-    atoms = bpdb.Selection.unfold_entities(chain, 'A')
 
-    for atom in atoms:
-        atom.transform(ftuv.identity_matrix, translation)
+    for chain in chains.values():
+        atoms = bpdb.Selection.unfold_entities(chain, 'A')
+        for atom in atoms:
+            atom.transform(ftuv.identity_matrix, translation)
 
-def rotate_chain(chain, rot_mat, offset):
+def rotate_chain(chains, rot_mat, offset):
     '''
     Move according to rot_mat for the position of offset.
 
-    @param chain: A Bio.PDB.Chain instance.
-    @param rot_mat: A left_multiplying rotation_matrix.
-    @param offset: The position from which to do the rotation.
+    :param chains: A dict chain_id:Bio.PDB.Chain instance.
+    :param rot_mat: A left_multiplying rotation_matrix.
+    :param offset: The position from which to do the rotation.
     '''
 
-    atoms = bpdb.Selection.unfold_entities(chain, 'A')
+    for chain in chains.values():
 
-    for atom in atoms:
-        #atom.transform(np.eye(3,3), -offset)
-        atom.coord -= offset
-        atom.transform(rot_mat, offset)
+        atoms = bpdb.Selection.unfold_entities(chain, 'A')
 
-def define_to_stem_model(cg, chain, define):
+        for atom in atoms:
+            #atom.transform(np.eye(3,3), -offset)
+            atom.coord -= offset
+            atom.transform(rot_mat, offset)
+
+def define_to_stem_model(cg, chains, define):
     '''
     Extract a StemModel from a Bio.PDB.Chain structure.
 
     The define is 4-tuple containing the start and end coordinates
-    of the stem on each strand. 
+    of the stem on each strand. 1GID_A.cg
 
     s1s s1e s2s s2e
 
@@ -142,11 +146,11 @@ def define_to_stem_model(cg, chain, define):
     '''
     stem = StemModel(name=define)
 
-    mids = cgg.get_mids(cg, chain, define)
-    #mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2])) 
+    mids = cgg.get_mids(cg, chains, define)
+    #mids = cgg.estimate_mids_core(chain, int(define[0]), int(define[3]), int(define[1]), int(define[2]))
 
     stem.mids = tuple([m.get_array() for m in mids])
-    stem.twists = cgg.get_twists(cg, chain, define)
+    stem.twists = cgg.get_twists(cg, chains, define)
 
     return stem
 
@@ -171,63 +175,84 @@ def get_stem_rotation_matrix(stem, (u, v, t), use_average_method=False):
 
     return rot_mat4
 
-def align_chain_to_stem(cg, chain, define, stem2, use_average_method=False):
-    stem1 = define_to_stem_model(cg, chain, define)
+def align_chain_to_stem(cg, chains, define, stem2, use_average_method=False):
+    stem1 = define_to_stem_model(cg, chains, define)
     tw1 = cgg.virtual_res_3d_pos_core(stem1.mids, stem1.twists, 2, 4)[1]
     tw2 = cgg.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
 
     '''
-    (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), 
-                                                       (stem1.twists[0] + stem1.twists[1]) / 2., 
-                                                       stem2.vec(), 
+    (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(),
+                                                       (stem1.twists[0] + stem1.twists[1]) / 2.,
+                                                       stem2.vec(),
                                                        (stem2.twists[0] + stem2.twists[1]) / 2.)
     '''
     if not use_average_method:
-        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), 
-                                                           stem1.twists[0], 
-                                                           stem2.vec(), 
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(),
+                                                           stem1.twists[0],
+                                                           stem2.vec(),
                                                            stem2.twists[0])
     else:
-        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(), 
-                                                           tw1, 
-                                                           stem2.vec(), 
+        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(),
+                                                           tw1,
+                                                           stem2.vec(),
                                                            tw2)
     rot_mat = get_stem_rotation_matrix(stem1, (math.pi-u, -v, -t), use_average_method)
-    rotate_chain(chain, np.linalg.inv(rot_mat), (stem1.mids[0] + stem1.mids[1]) / 2.)
-    translate_chain(chain, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
+    rotate_chain(chains, np.linalg.inv(rot_mat), (stem1.mids[0] + stem1.mids[1]) / 2.)
+    translate_chain(chains, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
 
-def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chain, stem_library=dict(), stem=None, use_average_method=True):
+def reconstruct_stem_core(cg_orig, stem_def, orig_def, new_chains, stem_library=dict(), stem=None, use_average_method=True):
     '''
     Reconstruct a particular stem.
+
+    :param cg_orig: The coarse-grain RNA that should be translated to PDB [?]
+    :param stem_def: The stem stats of the stem to be reconstructed.
+    :param orig_def: The define of the stem in the Cg to be reconstructed.
+    :param new_chains: A dict chainid:chain that will be filled with the reconstructed model
     '''
-    pdb_filename = op.expanduser(op.join('/home/mescalin/pkerp/doarse/', stem_def.pdb_name, "temp.pdb"))
-    cg_filename = op.expanduser(op.join('/home/mescalin/pkerp/doarse/', stem_def.pdb_name, "temp.cg"))
+    pdb_basename = stem_def.pdb_name.split(":")[0]
+    pdb_basename, _, chainname = pdb_basename.partition("_") #TODO: split at last underscore!!!
+    pdb_filename = op.expanduser(op.join('/scratch2/thiel/DATA/nonredundant_RNA_structures2.92/', pdb_basename+".pdb"))
 
-    cg = ftmc.CoarseGrainRNA(cg_filename)
+    glob_expr = op.expanduser(op.join('/scratch2/thiel/DATA/nonredundant_RNA_structures2.92/all_chain_cgs/', pdb_basename+"_*"+chainname+"*.cg"))
+    cg_filenames = glob.glob(glob_expr)
+
+    #Make sure the files exist.
+    with open(pdb_filename): pass
+
+    #Find the correct cg-file, if multiple exist (should not happen)
+    for cg_filename in cg_filenames:
+        cg = ftmc.CoarseGrainRNA(cg_filename)
+        if chainname in cg.chain_ids:
+            break
+    else:
+        log.error("File not found for pbd-basename %s, chain %s. Candiate files: %s",pdb_basename,  chainname, cg_filenames)
+        log.error("Glob-expr was %s", glob_expr)
+        log.error("Chains in last file were %s", cg.chain_ids)
+        raise ValueError("CG-File for stem-stat {} not found".format(stem_def.pdb_name))
     sd = cg.get_node_from_residue_num(stem_def.define[0])
-    chain = ftup.get_biggest_chain(pdb_filename)
-    chain = ftup.extract_subchain_from_res_list(chain, 
-                                       list(cg.define_residue_num_iterator(sd)))
+    if stem_def.define != cg.defines[sd]:
+        log.error("%s != %s for %s (%s)", stem_def.define, cg.defines[sd], sd, stem_def.pdb_name)
+        raise ValueError("The CG files where the stats where extracted and the cg file used for reconstruction are not consistent!")
 
-    align_chain_to_stem(cg, chain, sd, stem, use_average_method)
+
+    chains = ftup.get_all_chains(pdb_filename)
+    chains  = ftup.extract_subchains_from_seq_ids(chains,
+                                       cg.define_residue_num_iterator(sd, seq_ids=True))
+
+    align_chain_to_stem(cg, chains, sd, stem, use_average_method)
 
     for i in range(stem_def.bp_length):
-        #print "i:", i
-        if cg_orig.seq_ids[orig_def[0] + i - 1] in new_chain:
-            new_chain.detach_child(new_chain[orig_def[0] + i].id)
-
-        e = chain[cg.seq_ids[stem_def.define[0] + i-1]]
-        e.id = cg_orig.seq_ids[orig_def[0] + i - 1]
-        new_chain.add(e)
-
-        if cg_orig.seq_ids[orig_def[2] + i - 1] in new_chain:
-            new_chain.detach_child(new_chain[orig_def[2] + i].id)
-
-        e = chain[cg.seq_ids[stem_def.define[2] + i - 1]]
-        e.id = cg_orig.seq_ids[orig_def[2] + i-1] #(e.id[0], orig_def[2] + i, e.id[2])
-        new_chain.add(e)
-
-    return new_chain
+        for strand in range(2):
+            target_resid = cg_orig.seq_ids[orig_def[strand*2] + i - 1]
+            source_resid = cg.seq_ids[stem_def.define[strand*2] + i-1]
+            residue = chains[source_resid.chain][source_resid.resid]
+            #Change the resid to the target
+            residue.id = target_resid
+            if target_resid.chain not in new_chains:
+                new_chains[target_resid.chain] =  bpdb.Chain.Chain(target_resid.chain)
+            #Now, add the residue to the target chain
+            new_chains[target_resid.chain].add(residue)
+    return new_chains
 
 def extract_stem_from_chain(chain, stem_def):
     '''
@@ -266,7 +291,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     @param (s1b, s1e): Which side of the first stem to place the second on.
     '''
     stem = StemModel()
-    
+
     transposed_stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
     log.debug("Place new stem: transposed_stem1_basis: %s", transposed_stem1_basis)
     start_location = cgg.stem2_pos_from_stem1_1(transposed_stem1_basis, bulge_params.position_params())
@@ -282,7 +307,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
     mid2 = mid1 + stem_orientation
 
     stem.mids = (mid1, mid2)
-    
+
     log.debug("stem_params.twist_angle: %s", stem_params.twist_angle)
     twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
     log.debug("twist2: %s", twist2)
@@ -304,7 +329,7 @@ class SpatialModel:
                    elements and how they are connected.
 
 
-        '''        
+        '''
         self.stems = dict()
         self.bulges = dict()
 
@@ -324,7 +349,7 @@ class SpatialModel:
 
         self.bg = bg
         self.add_to_skip()
-        
+
         try:
             self.bg.add_all_virtual_residues()
         except (ftmc.RnaMissing3dError, AssertionError):
@@ -430,7 +455,7 @@ class SpatialModel:
     def change_mst(self, new_mst):
         """
         Set bg.mst to new_mst and recalculate invalid values.
-  
+
         Assumes new_mst is a valid minimal spanning tree.
         """
         old_only = self.bg.mst - new_mst
@@ -447,7 +472,7 @@ class SpatialModel:
         *  The multiloop segment d is broken.
         *  The mst is still connected.
         *  The coordinates of all coarse grain elements are not changed if `self.traverse_and_build` is called.
-  
+
         :param d: The ML segment that should be broken. E.g. "m1"
         :returns: The ML segment that was broken before but now was added to the build_order.
         """
@@ -471,11 +496,11 @@ class SpatialModel:
         elif len(missing_nodes)==2:
             #Delete requested Edge
             self.bg.mst.remove(d)
-          
+
             #Find connected parts of the structure.
             forest = []
             print("MST", self.bg.mst)
-            for m in self.bg.mst:                
+            for m in self.bg.mst:
                 neighbors = list(self.bg.edges[m])
                 m_and_s = [m]
                 for n in neighbors:
@@ -503,7 +528,7 @@ class SpatialModel:
                 neighbors = list(self.bg.edges[missing_node])
                 if set(neighbors) & forest[0] and set(neighbors) & forest[1]:
                     self.bg.mst.add(missing_node)
-                    new_node=missing_node      
+                    new_node=missing_node
                     break
             else:
                 raise ValueError("Cannot break loop {:0}. Cannot connect RNA if {:0} is broken.".format(d))
@@ -530,7 +555,7 @@ class SpatialModel:
         for d in self.bg.defines.keys():
             if d in self.bg.sampled:
                 line = self.bg.sampled[d]
-            else: 
+            else:
                 line=[]
             if d[0]=="s":
                 stat=self.bg.get_stem_stats(d)
@@ -548,7 +573,7 @@ class SpatialModel:
                 stat.pdb_name=line[0]
                 stat.define = line[2:]
                 #print(d,"DEFINE",  stat.define)
-            else: 
+            else:
                 pass
                 #print("MISSING, ", d)
             #print("mst",  self.bg.mst)
@@ -564,7 +589,7 @@ class SpatialModel:
         @param edge: The name of the edge.
         '''
         assert(edge[0] == 's')
-        
+
         return self.stems[edge].mids[0]
 
     def get_rotation(self, edge):
@@ -573,7 +598,7 @@ class SpatialModel:
         edge.
 
         Used in aligning a group of models around a single edge.
-        
+
         @param edge: The name of the target edge.
         '''
         assert(edge[0] == 's')
@@ -608,7 +633,7 @@ class SpatialModel:
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
         '''
-        Add a stem after a bulge. 
+        Add a stem after a bulge.
 
         The bulge parameters will determine where to place the stem in relation
         to the one before it (prev_stem). This one's length and twist are
@@ -675,12 +700,12 @@ class SpatialModel:
 
     """def __str__(self):
         return str(self.mids)"""
-    
+
     def _elements_to_coords(self):
         '''
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
         '''
-        # this should be changed in the future so that only stems whose 
+        # this should be changed in the future so that only stems whose
         # positions have changed have their virtual residue coordinates
         # re-calculated
         self.newly_added_stems = []#This is only called by traverse_and_build, where stems have already been placed. [d for d in self.bg.defines if d[0] == 's']
@@ -781,11 +806,11 @@ class SpatialModel:
 
         self.to_skip = to_skip
 
-    
+
     def new_traverse_and_build(self, start='start', max_steps=float('inf'), end=None, include_start=False):
         '''
         Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.
-        
+
         :param start: Optional; Start building the given element. (See include_start)
         :param max_staps: Optional; Build at most that many stems.
         :param end: Optional; End building once the given node is built.
@@ -804,7 +829,7 @@ class SpatialModel:
             if stemid=="s0": return 0
             if stemid.startswith('s'):
                 for i, stem_loop_stem in enumerate(build_order):
-                    if stemid==stem_loop_stem[2]: 
+                    if stemid==stem_loop_stem[2]:
                         if include:
                             return i
                         else:
@@ -821,7 +846,7 @@ class SpatialModel:
             # add the first stem in relation to a non-existent stem
             first_stem = "s0"
             log.debug("new_traverse_and_build: Setting self.stems[{}] (=first  stem)".format(first_stem))
-            self.stems[first_stem] = self.add_stem(first_stem, self.elem_defs[first_stem], StemModel(), 
+            self.stems[first_stem] = self.add_stem(first_stem, self.elem_defs[first_stem], StemModel(),
                                       ftms.AngleStat(), (0,1))
             self.stem_to_coords(first_stem)
             nodes.append(first_stem)
@@ -845,14 +870,14 @@ class SpatialModel:
             (s1, l, s2) = build_order[build_step]
             nodes += [l, s2]
             build_step +=1
-            
+
             prev_stem = self.stems[s1]
             angle_params = self.elem_defs[l]
             stem_params = self.elem_defs[s2]
             ang_type = self.bg.connection_type(l, [s1,s2])
             connection_ends = self.bg.connection_ends(ang_type)
 
-            # get the direction of the first stem (which is used as a 
+            # get the direction of the first stem (which is used as a
             # coordinate system)
             if connection_ends[0] == 0:
                 (s1b, s1e) = (1, 0)
@@ -861,11 +886,11 @@ class SpatialModel:
 
             # check which way the newly connected stem was added
             # if its 1-end was added, the its coordinates need to
-            # be reversed to reflect the fact it was added backwards                
+            # be reversed to reflect the fact it was added backwards
             log.debug("new_traverse_and_build: Setting self.stems[{}] (connected to {} via {})".format(s2, s1, l))
             #log.debug("angle_params {}, stem_params {}, ang_type {}, connection_ends {}".format(angle_params, stem_params, ang_type, connection_ends))
             #log.debug("prev. stem MIDS: {}, TWISTS: {}".format(prev_stem.mids, prev_stem.twists))
-            
+
             stem = self.add_stem(s2, stem_params, prev_stem,
                                  angle_params, (s1b, s1e))
 
@@ -875,19 +900,19 @@ class SpatialModel:
                 self.stems[s2] = stem
 
             self.stem_to_coords(s2)
-            
+
             #Optional end-criterion given as a node label.
             if end is not None and end in nodes:
                 break
-                
+
         self._finish_building()
         return nodes
 
     def ml_stat_deviation(self, ml, stat, stem1, stem2):
         """
-        Calculate the deviation in angstrom between the stem that would be placed using the given 
+        Calculate the deviation in angstrom between the stem that would be placed using the given
         stats for an open multiloop segment and the true stem position.
-        
+
         :param ml: A element name, e.g. "m0". Should correspond to a broken multiloop.
         :param stat: The fictive stat to use for this ml segment.
         """
@@ -898,7 +923,7 @@ class SpatialModel:
         ang_type = self.bg.connection_type(ml, [stem1,stem2])
         connection_ends = self.bg.connection_ends(ang_type)
 
-        # get the direction of the first stem (which is used as a 
+        # get the direction of the first stem (which is used as a
         # coordinate system)
         if connection_ends[0] == 0:
             (s1b, s1e) = (1, 0)
@@ -915,156 +940,8 @@ class SpatialModel:
         difference2 = abs(stem.mids[0]-ture_stem.mids[1]) + abs(stem.mids[1]-ture_stem.mids[0])
         log.info("Difference ml_stat_deviation = min({}, {})".format(difference1, difference2))
         return min(difference1, difference2)
+
     """
-    def traverse_and_build(self, start='start', fast=True, verbose=False, stat_source = None):
-        '''
-        Build a 3D structure from the graph in self.bg.
-        '''
-        build_order = self.bg.traverse_graph()
-
-        def buildorder_of(stemid):
-            '''
-            Returns the buildorder of the multi-/ interior loop before the stem with stemid.
-            @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
-            '''
-            if stemid=="s0": return 0
-            if stemid.startswith('s'):
-              for i, stem_loop_stem in enumerate(build_order):
-                  if stemid==stem_loop_stem[2]:
-                      return i
-            else:
-              for i, stem_loop_stem in enumerate(build_order):
-                  if stemid==stem_loop_stem[1]:
-                      return i
-            raise ValueError("{} not found in {}.".format(stemid,build_order))
-
-            
-        # add the first stem in relation to a non-existent stem
-        self.stems['s0'] = self.add_stem('s0', self.elem_defs['s0'], StemModel(), 
-                                      ftms.AngleStat(), (0,1))
-
-        self.stem_to_coords("s0")
-        counter = 0
-        i = 0
-        while i < len(build_order):
-            (s1, l, s2) = build_order[i]
-            #print(i, "<", len(build_order), l)
-            prev_stem = self.stems[s1]
-            angle_params = self.elem_defs[l]
-            stem_params = self.elem_defs[s2]
-            ang_type = self.bg.connection_type(l, [s1,s2])
-            connection_ends = self.bg.connection_ends(ang_type)
-
-            # get the direction of the first stem (which is used as a 
-            # coordinate system)
-            if connection_ends[0] == 0:
-                (s1b, s1e) = (1, 0)
-            elif connection_ends[0] == 1:
-                (s1b, s1e) = (0, 1)
-
-            stem = self.add_stem(s2, stem_params, prev_stem,
-                                 angle_params, (s1b, s1e))
-
-            # check which way the newly connected stem was added
-            # if its 1-end was added, the its coordinates need to
-            # be reversed to reflect the fact it was added backwards
-            if connection_ends[1] == 1:
-                self.stems[s2] = stem.reverse()
-            else:
-                self.stems[s2] = stem
-
-            self.stem_to_coords(s2)
-
-            #Nodes for energy calculation
-            nodes=set(it.chain(*[bo for bo in build_order[:i+1]]))
-
-            if self.junction_constraint_energy is not None and fast:
-                #Make sure, the sampled Multiloop segments fulfill the energy constraints.
-                s1, s2 = self.bg.edges[build_order[i][1]]
-                
-                assert self.junction_constraint_energy.eval_energy(self, nodes=nodes)==0., ("Multiloop"
-                            " does not fulfill the constraints: {}, i={},. build_order[i]={};"
-                            " Sampled as {}. Energy {}. Neighboring stems: {}: {}, {}: {}".format(self.junction_constraint_energy.bad_bulges,
-                            i, build_order[i], self.elem_defs[build_order[i][1]], self.junction_constraint_energy, s1, self.elem_defs[s1].pdb_name, s2, self.elem_defs[s2].pdb_name))
-
-                # Add all multiloop segments that are already determined at the current 
-                # build-step to the list of nodes for energy evaluation.
-                ml_nodes=set(x for x in self.bg.defines.keys() if x[0]=="m")
-                broken_multiloops = ml_nodes-set(it.chain(*[bo for bo in build_order]))
-                newnodes=set()
-                for n in broken_multiloops:
-                    loop=set(self.bg.find_bulge_loop(n, 200))
-                    if loop: #loop is empty for ml at 3'/ 5' end.
-                        if loop <= ( nodes | broken_multiloops ):
-                            newnodes.add(n)
-                #See if the determined (not sampled) multiloop segments fulfill the constraints.
-                #print ("Checking junction energy for {}".format((newnodes | nodes)))
-                ej = self.junction_constraint_energy.eval_energy( self, nodes=(newnodes | nodes) )             
-                if ej>0.:
-                    bad_loops=self.junction_constraint_energy.bad_bulges
-                    if verbose:
-                        warnings.warn("The 3D structure has to be resampled (it contained unsuitable multiloops)!")                
-                    random.shuffle(bad_loops)
-                    for bulgeid in bad_loops:
-                        try: newi=buildorder_of(bulgeid)
-                        except ValueError: continue #One ml-segment is not part of build-order.
-                        if newi<=i:
-                            i=newi
-                            break
-                        else: assert False
-                    else:
-                        assert False, ("Multiloop resampling Problem: At step i={}, encountered "
-                                       "Junction Energy ej={}, bad_loops={}. "
-                                       "Build_order(bad_loops[0])={}.".format(i, ej, 
-                                              bad_loops, buildorder_of(bad_loops[0])))
-                    d = build_order[i][1]
-                    self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))            
-                    counter += 1
-                    continue; #If the junction energy is non-zero, we do not bother with clashes 
-
-            if self.constraint_energy is not None:
-                e1 = self.constraint_energy.eval_energy(self, nodes=nodes)
-                if e1 > 0.:
-                    if fast:
-                        # find out what stems clash
-                        bad_stems=set(self.constraint_energy.bad_bulges)
-                        all_e=self.constraint_energy.eval_energy(self)
-                        if verbose:
-                            warnings.warn("The 3D structure has to be resampled (it contained clashes)!")                
-                        assert all_e>=e1, "A bug in the clash energy"
-                        clash_buildorders=set()
-                        for stemid in bad_stems:
-                            clash_buildorders.add(buildorder_of(stemid))
-                        assert min(clash_buildorders) < i or i==-1
-                        # We change one element between the first element in the clash 
-                        # and the currently built one
-                        i = random.randint(min(clash_buildorders), i)
-                    else:                        
-                        # pick a random node in the past
-                        i = random.randint(0, i)
-                    # resample its stats
-                    d = build_order[i][1]
-                    self.elem_defs[d] = random.choice(stat_source.get_possible_stats(self.bg, d))
-                    counter+=1;
-                    continue;
-            # All constraint energy is zero (or None) for the part of the RNA 
-            # that has been built so far.
-            i+=1
-            counter += 1
-            if self.constraint_energy is not None:
-                assert self.constraint_energy.eval_energy(self, nodes=nodes) == 0, "i={}".format(i)
-        if self.junction_constraint_energy is not None and fast: #Checking for logical bugs.
-            assert self.junction_constraint_energy.eval_energy(self)==0., (
-                        "bad_bulges={}\n{} define is {}. Buildorder {}".format(
-                                self.junction_constraint_energy.bad_bulges, 
-                                self.junction_constraint_energy.bad_bulges[-1],
-                                repr(self.bg.defines[self.junction_constraint_energy.bad_bulges[-1]]),
-                                buildorder_of(self.junction_constraint_energy.bad_bulges[-1])))
-        if self.constraint_energy is not None:
-            c_energy=self.constraint_energy.eval_energy(self)
-            assert c_energy == 0, "Constraint energy {} should be 0. Bad bulges: {}.".format(c_energy, self.constraint_energy.bad_bulges)
-        self._finish_building()
-
     def __deepcopy__(self, memo={}):
         # According to https://mail.python.org/pipermail/tutor/2009-June/069433.html
         # this allows for subclassing SpatialModel
@@ -1080,7 +957,7 @@ class SpatialModel:
             dup._conf_stats=None
         else:
             dup._conf_stats = copy.deepcopy(self._conf_stats, memo)
-        dup._default_conf_stats=self._default_conf_stats 
+        dup._default_conf_stats=self._default_conf_stats
         dup.bg = copy.deepcopy(self.bg, memo)
         return dup
     """
