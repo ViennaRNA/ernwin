@@ -47,7 +47,7 @@ class StatisticsCollector:
 class CombinedStatistics(StatisticsCollector):
     def __init__(self, collectors, separator=""):
         """
-        Used as a convenient way to combine several 
+        Used as a convenient way to combine several
         statisticsCollector instances into one object.
 
         :param collectors: A list of StatisticsCollector instances.
@@ -67,7 +67,7 @@ class CombinedStatistics(StatisticsCollector):
         """
         This only includes headers for which a history is written.
         """
-        return [ header for member in self._members for header in member.header_list 
+        return [ header for member in self._members for header in member.header_list
                  if member.history is not None and not member.silent ]
     @property
     def history(self):
@@ -161,7 +161,7 @@ class RMSDStatistics(StatisticsCollector):
                 self.best_cgs.insert_right((sm.bg.to_cg_string(),rmsd))
             if step % 10 == 0:
                 for i, bg in enumerate(self.best_cgs):
-                    with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                    with open(os.path.join(conf.Configuration.sampling_output_dir,
                               'best_rmsd{:d}.coord'.format(i)), 'w') as f:
                         f.write(bg[0])
             if self._showMinMax:
@@ -169,7 +169,7 @@ class RMSDStatistics(StatisticsCollector):
                     self._maxRMSD=rmsd
                 if self._showMinMax==True:
                     if rmsd<self._minRMSD:
-                        self._minRMSD=rmsd                
+                        self._minRMSD=rmsd
                     self.history[1].append( self._minRMSD )
                 self.history[0].append( rmsd )
                 self.history[-1].append( self._maxRMSD )
@@ -180,7 +180,7 @@ class RMSDStatistics(StatisticsCollector):
             else:
                 self.history[0].append( rmsd )
                 return "{:6.3f} A".format(rmsd)
-        else: 
+        else:
             return
 
 class EnergyTracking(StatisticsCollector):
@@ -190,7 +190,7 @@ class EnergyTracking(StatisticsCollector):
     def __init__(self, energy_function, background=False):
         """
         :param energy_function: The energy function which will be evaluated in every update step.
-        :param background: Bool. If true, call eval_energy with background=True and 
+        :param background: Bool. If true, call eval_energy with background=True and
               call accept_last_measure().
              .. warning:: If background is set to True, this class will call accept_last_measure()
                           of the energy function, which might have side-effects if a reference to
@@ -206,7 +206,7 @@ class EnergyTracking(StatisticsCollector):
             energy=self._energy_function.eval_energy(sm, background=True)
             self._energy_function.accept_last_measure()
         else:
-            energy=self._energy_function.eval_energy(sm)
+            energy=self._energy_function.eval_energy(sm, background=False)
         self.history[0].append(self._energy_function.shortname())
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy)==1:
@@ -237,14 +237,14 @@ class EnergyMeasure(StatisticsCollector):
         measure=self._energy_function.accepted_measures[-1]
         self.history[0].append(measure)
         return "{:10.3f}".format(measure)
-        
+
 class ShowTime(StatisticsCollector):
     """
     After every step, show the elapsed time (since start_time)
     """
     def __init__(self, start_time):
         """
-        :param start_time: A numeric value or the string "now". 
+        :param start_time: A numeric value or the string "now".
                            Elapsed time since start_time will be printed, collected.
         """
         super(ShowTime, self).__init__()
@@ -285,7 +285,7 @@ class Distance(StatisticsCollector):
         self._nuc2 = int(nuc2)
         self.header=["Distance_{}-{}".format(self._nuc1, self._nuc2)]
     def update(self, sm, step):
-        dist = ftuv.vec_distance(sm.bg.get_virtual_residue(self._nuc1, True), 
+        dist = ftuv.vec_distance(sm.bg.get_virtual_residue(self._nuc1, True),
                                  sm.bg.get_virtual_residue(self._nuc2, True))
         self.history[0].append(dist)
         return "{:6.2f} A".format(dist)
@@ -319,32 +319,32 @@ _statisticsDefaultOptions={
 class SamplingStatistics:
     def __init__(self, sm_orig, energy_functions=[], output_file=sys.stdout, options="all"):
         """
-        :param sm_orig: The Spatial Model against which to collect statistics. 
-                        .. warning:: This should not be modified. 
-                                     (Its best to create a new SpatialModel only for this 
+        :param sm_orig: The Spatial Model against which to collect statistics.
+                        .. warning:: This should not be modified.
+                                     (Its best to create a new SpatialModel only for this
                                      constructor with a deepcopy of the BulgeGraph used elsewhere.)
         :param enery_functions: A list of fbe.CombinedEnergy or fbe.EnergyFunction instances.
                       These energies will be evaluated with "background=False" every time
                       `update_statistics` is called.
                       If the energy used for sampling uses a background KDE, it makes sense to
                       pass a reference to this energy here as well.
-        :param output_file: A opened file handle or stdout. 
-                      If this is not stdout, and options["silent"] == False: Print to both 
+        :param output_file: A opened file handle or stdout.
+                      If this is not stdout, and options["silent"] == False: Print to both
                       stdout and the file.
-        :param options: What statistics to calculate and print, what files to save. 
-                      A string like "all" or a dictionary, which will be used to update 
+        :param options: What statistics to calculate and print, what files to save.
+                      A string like "all" or a dictionary, which will be used to update
                       the default option dictionary.
                       Key-Value pairs could be:
 
-                      * `"rog": True|False`: 
-                            Radius of Gyration                      
-                      * `"mcc": True|False`: 
+                      * `"rog": True|False`:
+                            Radius of Gyration
+                      * `"mcc": True|False`:
                             Matthews correlation coefficient to sm_orig
                             If sm_orig is missing 3D coordinates, this will always be false.
-                      * `"rmsd": True|False`: 
+                      * `"rmsd": True|False`:
                             Root Mean Square Deviation to sm_orig
-                            If sm_orig is missing 3D coordinates, 
-                            this will always be false.                       
+                            If sm_orig is missing 3D coordinates,
+                            this will always be false.
                       * `"extreme_rmsd": TRUE | FALSE | "max"`
                             Whether to show the minimal and maximal RMSD.
 
@@ -360,7 +360,7 @@ class SamplingStatistics:
                             The order is not relevant, unrecognized characters are ignored.
 
                       * `"constituing_energies": TRUE|FALSE|"no_clash"`
-                            Show the energies that generated the sampling energies 
+                            Show the energies that generated the sampling energies
                             (If the sampling energy is a CombinedEnergy)
                             "no_clash": Show constituing energies except clash energies.
                       * `"showtime": starttime|"now"|False`:
@@ -409,7 +409,7 @@ class SamplingStatistics:
             if not dr_col.silent:
                 collectors.append(Delimitor())
                 collectors.append(dr_col)
-        
+
         if self.options["distance"]:
             collectors.append(Delimitor())
             for n1,n2 in self.options["distance"]:
@@ -424,15 +424,15 @@ class SamplingStatistics:
 
         for m in self.options["measure"]: #This has to be AFTER tracking energies!
             collectors.append(EnergyMeasure(m))
-            
+
         if self.options["showtime"] is not False:
             collectors.append(ShowTime(self.options["showtime"]))
-        
+
         #Note: SortedCollection(maxlen=0) is valid!
         # should contain tuples: `(bg, energy)`
-        self.best_cgs = SortedCollection(key=lambda x: x[1], maxlen=self.options["save_n_best"]) 
+        self.best_cgs = SortedCollection(key=lambda x: x[1], maxlen=self.options["save_n_best"])
 
-        
+
         self.collector = CombinedStatistics(collectors)
 
     def printline(self, line):
@@ -458,9 +458,9 @@ class SamplingStatistics:
     def update_statistics(self, sm, energy, member_energies=[], change=""):
         """
         Add a new structure to the statistics.
-      
+
         :param sm: The spatial model.
-        :param energy: The energy used for sampling of the structure, or None. 
+        :param energy: The energy used for sampling of the structure, or None.
         :param member_energies: A list of tuples `(energy_shortname, value)`
         """
         self.step+=1
@@ -470,23 +470,23 @@ class SamplingStatistics:
                          fbe.StemVirtualResClashEnergy().shortname()]
         else:
             ignore_names=[]
-        line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies 
+        line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies
                                       if x[0] not in ignore_names)+" )")
         line.append(self.collector.update(sm, self.step))
         line.append(change)
         self.printline("\t".join(line))
-        
+
         if self.best_cgs.can_insert_right((None, energy)):
             self.best_cgs.insert_right((sm.bg.to_cg_string(), energy))
-        
+
         if self.step % 10 == 0:
             for i, cg_stri in enumerate(self.best_cgs):
-                with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                with open(os.path.join(conf.Configuration.sampling_output_dir,
                                       'best{:d}.coord'.format(i)), 'w') as f:
                     f.write(cg_stri[0])
-                              
+
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
             cg_stri = sm.bg.to_cg_string()
-            with open(os.path.join(conf.Configuration.sampling_output_dir, 
+            with open(os.path.join(conf.Configuration.sampling_output_dir,
                               'step{:06d}.coord'.format(self.step)), "w") as f:
                 f.write(cg_stri)
