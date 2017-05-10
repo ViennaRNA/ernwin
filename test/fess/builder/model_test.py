@@ -14,8 +14,9 @@ import forgi.threedee.model.similarity as ftmsim
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
-
+import math
 import numpy as np
+import numpy.testing as nptest
 import fess.builder.models as fbm
 from deepdiff import DeepDiff #Use fork from git@github.com:Bernhard10/deepdiff.git !!!
 
@@ -31,8 +32,8 @@ class TestAddLoop(unittest.TestCase):
         sm=fbm.SpatialModel(cg)
         sm.elem_defs={}
         sm.elem_defs["s0"]=self.example_stem_stat
-        sm.elem_defs["h0"]=self.example_hairpin_stat        
-        sm.stems['s0'] = sm.add_stem('s0', sm.elem_defs['s0'], fbm.StemModel(), 
+        sm.elem_defs["h0"]=self.example_hairpin_stat
+        sm.stems['s0'] = sm.add_stem('s0', sm.elem_defs['s0'], fbm.StemModel(),
                                       ftms.AngleStat(), (0,1))
         sm.add_loop("h0","s0")
         self.assertAlmostEqual(ftuv.magnitude(sm.bulges["h0"].mids[1] - sm.bulges["h0"].mids[0]), self.example_hairpin_stat.phys_length)
@@ -49,7 +50,7 @@ def value_from_diff(key, obj1, obj2):
               In the case of a key "root.elem_defs['m1'].pdb_name", the return values would be:
               "elem_defs", "elem_defs['m1'].pdb_name", [obj1.elem_defs['m1'], obj2.elem_defs['m1']]
     """
-    attributes=key.split(".")[1:] #([0] is "root")    
+    attributes=key.split(".")[1:] #([0] is "root")
     remainder=".".join(attributes) #For next iteration
     getitem=[]
     if not attributes:
@@ -60,7 +61,7 @@ def value_from_diff(key, obj1, obj2):
         for i, get in enumerate(gets):
             gets[i]=get.partition("]")[0]
     else:
-        gets=[]    
+        gets=[]
     attrib=attrib.split("[")[0]
     results=[]
     for a in obj1, obj2:
@@ -82,14 +83,14 @@ def assertModelsEqual(sm1, sm2, significant_digits=None, on_demand_keys=[], igno
                          after the decimal point.
     :on_demand_keys: A list of strings. Add this to ON_DEMAND_KEYS
     :on_demand_keys: A list of strings. Add this to IGNORE_KEYS
-    :var ON_DEMAND_KEYS: If this attribute evaluates to False for one of the two spatial models, 
+    :var ON_DEMAND_KEYS: If this attribute evaluates to False for one of the two spatial models,
                          do not report any changes.
     :var IGNORE_KEYS: Do not report any changes in this attribute.
     :raises: AssertionError, if the models are not equal.
     """
     ON_DEMAND_KEYS=["build_order", "mst", "ang_types", "closed_bulges", "bulges", "newly_added_stems", "stems", "_conf_stats" ]+on_demand_keys
     IGNORE_KEYS = ["newly_added_stems"]+ignore_keys
-    diff = DeepDiff(sm1, sm2, significant_digits=significant_digits) 
+    diff = DeepDiff(sm1, sm2, significant_digits=significant_digits)
     if diff=={}:
         return
     """
@@ -115,7 +116,7 @@ def assertModelsEqual(sm1, sm2, significant_digits=None, on_demand_keys=[], igno
         for key in list(diff.get(mode, {})):
             attribute, remainder, results = value_from_diff(key, sm1, sm2)
             while remainder:
-                if (attribute in IGNORE_KEYS or 
+                if (attribute in IGNORE_KEYS or
                    (attribute in ON_DEMAND_KEYS and (not results[0] or not results[1]))):
                     try:
                         del diff[mode][key] #A dictionary
@@ -157,7 +158,7 @@ def assert_connected_graph(bg):
             error = True
             error_msg.append("Missing multiloop {} connected to missing stem {}".format(remaining_ml, connections[1]))
     assert not error, "\n".join(error_msg)
-       
+
 
 class TestAsserts(unittest.TestCase):
     """Test, whether the costum asserts defined in this file work as intended."""
@@ -222,7 +223,7 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         #assertModelsEqual(self.sm1, self.sm2, 12)
     def test_extracting_stats_from_sm_after_building(self):
-        self.sm1.load_sampled_elems()        
+        self.sm1.load_sampled_elems()
         self.sm1.traverse_and_build()
         self.sm2.elem_defs={}
         for d in "i0", "s0", "s1", "h0":
@@ -234,11 +235,11 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
         self.sm1.load_sampled_elems()
         self.sm2.load_sampled_elems()
         self.sm2.traverse_and_build()
-        cg2_str = self.sm2.bg.to_cg_string() 
+        cg2_str = self.sm2.bg.to_cg_string()
         bg_loaded=ftmc.CoarseGrainRNA()
-        bg_loaded.from_cg_string(cg2_str) 
+        bg_loaded.from_cg_string(cg2_str)
         sm2_reloaded = fbm.SpatialModel( bg_loaded )
-        sm2_reloaded.load_sampled_elems()        
+        sm2_reloaded.load_sampled_elems()
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0)
         #assertModelsEqual(self.sm2, sm2_reloaded, 12)
         assertModelsEqual(self.sm1, sm2_reloaded, 12)
@@ -257,7 +258,7 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         #assertModelsEqual(self.sm1, self.sm2, 12)
     def test_extracting_stats_from_sm_after_building(self):
-        self.sm1.load_sampled_elems()        
+        self.sm1.load_sampled_elems()
         self.sm1.traverse_and_build()
         self.sm2.elem_defs={}
         for d in self.sm1.elem_defs:
@@ -266,33 +267,33 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
         #assertModelsEqual(self.sm1, self.sm2, 12)
     def test_extracting_stats_from_cg_after_building(self):
-        self.sm1.load_sampled_elems()        
+        self.sm1.load_sampled_elems()
         self.sm1.traverse_and_build()
         self.sm2.elem_defs={}
         cg1 = self.sm1.bg
         for d in cg1.defines:
             stats = cg1.get_stats(d)
             self.sm2.elem_defs[d] = stats[0]
-        self.sm2.traverse_and_build()        
-        assertModelsEqual(self.sm1, self.sm2, 12, ignore_keys=["sampled", "elem_defs"])    
+        self.sm2.traverse_and_build()
+        assertModelsEqual(self.sm1, self.sm2, 12, ignore_keys=["sampled", "elem_defs"])
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
     def test_building_does_not_change_structure(self):
         self.sm1.load_sampled_elems()
         self.sm2.load_sampled_elems()
         self.sm1.traverse_and_build()
         print("RMSD", ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg))
-        assertModelsEqual(self.sm1, self.sm2, 12) #Note: Coords do change!!!        
+        assertModelsEqual(self.sm1, self.sm2, 12) #Note: Coords do change!!!
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm1.bg, self.sm2.bg), 0)
 
     def test_save_and_load_does_not_change_coords(self):
         self.sm1.load_sampled_elems()
         self.sm2.load_sampled_elems()
         self.sm2.traverse_and_build()
-        cg2_str = self.sm2.bg.to_cg_string() 
+        cg2_str = self.sm2.bg.to_cg_string()
         bg_loaded=ftmc.CoarseGrainRNA()
-        bg_loaded.from_cg_string(cg2_str) 
+        bg_loaded.from_cg_string(cg2_str)
         sm2_reloaded = fbm.SpatialModel( bg_loaded )
-        sm2_reloaded.load_sampled_elems()        
+        sm2_reloaded.load_sampled_elems()
         assertModelsEqual(self.sm2, sm2_reloaded, 12)
         assertModelsEqual(self.sm1, sm2_reloaded, 12)
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0)
@@ -336,7 +337,7 @@ class TestModifyingMST(unittest.TestCase):
     @unittest.skip("Update for deepdiff V3")
     def test_use_sm_set_multiloop_break_segment_Pseudoknot(self):
         self.use_sm_set_multiloop_break_segment(self.sm_pseudoknot)
-        
+
     def change_and_reset_mst(self, sm):
         sm_copy=copy.deepcopy(sm)
         print("Original Bulges", np.array(sm.bulges["h1"]),"\n",
@@ -346,7 +347,7 @@ class TestModifyingMST(unittest.TestCase):
         missing_nodes = junction_nodes - sm.bg.mst
         missing_node, = missing_nodes
         #Changing the minimal spanning tree:
-        sm.bg.mst.remove("m1")        
+        sm.bg.mst.remove("m1")
         sm.bg.mst |= missing_nodes
         sm.bg.build_order = None #No longer valid
         sm.bg.ang_types = None
@@ -354,7 +355,7 @@ class TestModifyingMST(unittest.TestCase):
         sm.load_sampled_elems()
         print("Load sampled Elems Bulges", np.array(sm.bulges["h1"]),"\n",
               "...................Coords", sm.bg.coords["h1"])
-        sm.elem_defs[missing_node] = self.example_angle_stat 
+        sm.elem_defs[missing_node] = self.example_angle_stat
         sm.traverse_and_build(start='start')
         print("Traversed Bulges", np.array(sm.bulges["h1"]),"\n",
               "..........Coords", sm.bg.coords["h1"])
@@ -376,7 +377,7 @@ class TestModifyingMST(unittest.TestCase):
     def how_NOT_to_do_it_get_stats_from_broken_ml_segment(self, sm):
         """
         This is left in the code to demonstrate, why after changing the minimal spanning tree,
-        we must call sm.load_sampled_elems again. 
+        we must call sm.load_sampled_elems again.
         Assigning the stat to the newly added multiloop segment is NOT enough!!!
         """
         sm_copy=copy.deepcopy(sm)
@@ -384,7 +385,7 @@ class TestModifyingMST(unittest.TestCase):
         missing_nodes = junction_nodes - sm.bg.mst
         missing_node, = missing_nodes
         #Changing the minimal spanning tree:
-        sm.bg.mst.remove("m1")        
+        sm.bg.mst.remove("m1")
         sm.bg.mst |= missing_nodes
         sm.bg.build_order = None #No longer valid
         sm.bg.ang_types = None
@@ -405,21 +406,21 @@ class TestModifyingMST(unittest.TestCase):
         missing_nodes = junction_nodes - sm.bg.mst
         missing_node, = missing_nodes
         #Changing the minimal spanning tree:
-        sm.bg.mst.remove("m1")        
+        sm.bg.mst.remove("m1")
         sm.bg.mst |= missing_nodes
         sm.bg.build_order = None #No longer valid
-        sm.bg.ang_types = None        
+        sm.bg.ang_types = None
         #del sm.bg.sampled["m1"]
         del sm.elem_defs["m1"]
         build_order = sm.bg.traverse_graph()
         sm.load_sampled_elems()
         sm.traverse_and_build(start='start')
-        assertModelsEqual(sm_copy, sm, 11, ignore_keys=["build_order", "mst", "sampled", "elem_defs"]) #sm has different mst and the stats for the missing element from the new mst 
+        assertModelsEqual(sm_copy, sm, 11, ignore_keys=["build_order", "mst", "sampled", "elem_defs"]) #sm has different mst and the stats for the missing element from the new mst
 
     def use_sm_set_multiloop_break_segment(self, sm):
-        sm_copy=copy.deepcopy(sm)        
+        sm_copy=copy.deepcopy(sm)
         assert "m3" in sm_copy.bg.mst #The ML segment we want to break is not yet broken.
-        sm.set_multiloop_break_segment("m3")        
+        sm.set_multiloop_break_segment("m3")
         assert_connected_graph(sm.bg) #The graph remains connected.
         self.assertNotIn( "m3", sm.bg.mst) #We managed to break the ML at the desired position
         self.assertNotIn( "m3", sm.elem_defs)
@@ -443,16 +444,16 @@ class TestModifyingMSTWithoutLoadSampledElements(unittest.TestCase):
         assert_connected_graph(sm.bg) #The graph remains connected.
         self.assertNotIn( "m3", sm.bg.mst) #We managed to break the ML at the desired position
         self.assertNotIn( "m3", sm.elem_defs)
-        
+
 class TestModel(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
         self.real_stats_fn = 'test/fess/data/real.stats'
         self.filtered_stats_fn = 'test/fess/data/filtered_stats_1gid.csv'
 
-        self.filtered_stats = ftms.FilteredConformationStats(self.real_stats_fn, 
+        self.filtered_stats = ftms.FilteredConformationStats(self.real_stats_fn,
                                                              self.filtered_stats_fn)
-        
+
         self.stat_source = stat_container.StatStorage(self.real_stats_fn)
         self.sm = fbm.SpatialModel(self.cg)
         self.sm.sample_stats(self.stat_source)
@@ -473,7 +474,7 @@ class TestModel(unittest.TestCase):
         sm = fbm.SpatialModel(self.cg)
 
         sm.sample_stats(self.stat_source)
-        
+
     @unittest.expectedFailure
     def test_get_random_stem_stats(self):
         self.sm.get_random_stem_stats('s0')
@@ -494,24 +495,24 @@ class TestModel(unittest.TestCase):
 
         # the following tests take a long time to execute so they
         # are commented out
-        
+
         time1 = time.time()
         for i in range(10):
             cg = ftmc.CoarseGrainRNA('test/fess/data/4P8Z.cg')
             sm = fbm.SpatialModel(cg)
             sm.sample_stats()
 
-            sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(), 
-                                                    fbe.CoarseStemClashEnergy(), 
+            sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(),
+                                                    fbe.CoarseStemClashEnergy(),
            class TestModel(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
         self.real_stats_fn = 'test/fess/data/real.stats'
         self.filtered_stats_fn = 'test/fess/data/filtered_stats_1gid.csv'
 
-        self.filtered_stats = ftms.FilteredConformationStats(self.real_stats_fn, 
+        self.filtered_stats = ftms.FilteredConformationStats(self.real_stats_fn,
                                                              self.filtered_stats_fn)
-        
+
         self.stat_source = stat_container.StatStorage(self.real_stats_fn)
         self.sm = fbm.SpatialModel(self.cg)
         self.sm.sample_stats(self.stat_source)
@@ -538,20 +539,20 @@ class TestModel(unittest.TestCase):
             sm = fbm.SpatialModel(cg)
             sm.sample_stats()
 
-            sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(), 
-                                                    fbe.CoarseStemClashEnergy(), 
+            sm.constraint_energy = fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy(),
+                                                    fbe.CoarseStemClashEnergy(),
                                                     fbe.StemVirtualResClashEnergy()])
             sm.new_traverse_and_build()
         time2 = time.time()
 
         print >>sys.stderr, "new_traverse_and_build, elapsed time:", time2 - time1"""
-        
+
 class TestNewTraverse(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
         self.cg_copy = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
         self.sm = fbm.SpatialModel(self.cg)
-        real_stats_fn = 'test/fess/data/real.stats'        
+        real_stats_fn = 'test/fess/data/real.stats'
         self.stat_source = stat_container.StatStorage(real_stats_fn)
         self.cg2 = ftmc.CoarseGrainRNA()
         self.cg2.from_dotbracket("(((.(((.(((.(((...))).))).))).)))")
@@ -563,7 +564,7 @@ class TestNewTraverse(unittest.TestCase):
 
         self.sm2 = fbm.SpatialModel(self.cg2)
         self.sm2.sample_stats(self.stat_source)
-        
+
         self.sm3 = fbm.SpatialModel(self.cg3)
         self.sm3.sample_stats(self.stat_source)
 
@@ -580,7 +581,7 @@ class TestNewTraverse(unittest.TestCase):
         self.sm2.new_traverse_and_build()
         nodes = self.sm2.new_traverse_and_build(start = "i1")
         self.assertEqual(nodes, [ "i1", "s2", "i0", "s3"])
-     
+
     def test_new_traverse_and_build_with_step_return_value(self):
         self.sm2.new_traverse_and_build()
         nodes = self.sm2.new_traverse_and_build(max_steps = 2)
@@ -591,12 +592,12 @@ class TestNewTraverse(unittest.TestCase):
         nodes = self.sm2.new_traverse_and_build(start = "s1", max_steps = 1)
         self.assertEqual(nodes, [ "i1", "s2"])
 
-    def test_new_traverse_and_build_no_angles(self):   
+    def test_new_traverse_and_build_no_angles(self):
         nodes = self.sm3.new_traverse_and_build()
         self.assertEqual(nodes, ["s0"])
 
 
-    def test_new_traverse_and_build(self):   
+    def test_new_traverse_and_build(self):
         self.sm.load_sampled_elems()
         self.sm.new_traverse_and_build()
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
@@ -643,8 +644,22 @@ class TestNewTraverse(unittest.TestCase):
     def test_new_traverse_and_build_steps_really_builds(self):
         self.sm.load_sampled_elems()
         #We need to traverse_and_build at least once from the start!
-        self.sm.new_traverse_and_build()        
+        self.sm.new_traverse_and_build()
         print(self.sm.bg.traverse_graph())
         self.sm.elem_defs["i7"] = self.stat_source.sample_for(self.cg, "i7")
         self.sm.new_traverse_and_build(max_steps=5)
         self.assertGreater(ftmsim.cg_rmsd(self.sm.bg, self.cg_copy), 0)
+
+class ReconstructionTests(unittest.TestCase):
+    def test_get_stem_rotation_matrix(self):
+        stem1 = fbm.StemModel(mids=(np.array([0.,0.,0.]),np.array([0.,0.,10.])), twists=(np.array([0., 1., 0.]),np.array([0., -1., 0.])))
+        stem2 = fbm.StemModel(mids=(np.array([0.,0.,0.]),np.array([10.,0.,0.])), twists=(np.array([0., 1., 1.]),np.array([0., -1., -1.])))
+        rot_mat = fbm.get_stem_rotation_matrix(stem1, stem2)
+        #RotMat to euler-angles: nghiaho.com/?page_id=846
+        theta_x = math.atan2(rot_mat[2,1], rot_mat[2,2])
+        theta_y = math.atan2(-rot_mat[2,0], math.sqrt(rot_mat[2,1]**2+rot_mat[2,2]**2))
+        theta_z = math.atan2(rot_mat[1,0], rot_mat[0,0])
+        self.assertTrue(ftuv.is_almost_colinear(np.dot(stem1.vec(), rot_mat), np.array([10,0,0.])))
+        self.assertAlmostEqual(theta_x, 0)
+        self.assertAlmostEqual(theta_y, -math.pi/2)
+        self.assertAlmostEqual(theta_z, -math.pi/4)

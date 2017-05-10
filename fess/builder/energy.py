@@ -6,8 +6,8 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
-__metaclass__=object         
-                             
+__metaclass__=object
+
 from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
 from collections import defaultdict
 import random
@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 try:
   profile  #The @profile decorator from line_profiler (kernprof)
 except:
-  def profile(x): 
+  def profile(x):
     return x
 
 INCR = 0.01
@@ -56,7 +56,7 @@ INCR = 0.01
 def load_local_data(filename):
     '''
     Load a data file that is located within this
-    package. 
+    package.
 
     An example is something like 'stats/longrange.stats'.
 
@@ -72,7 +72,7 @@ class RandomEnergy(EnergyFunction):
     HELPTEXT = "       {:3}:  Random Energy".format(_shortname)
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         return self.prefactor * random.random() + self.adjustment
-    
+
 class ConstantEnergy(EnergyFunction):
     _shortname = "CNST"
     HELPTEXT = "       {:3}:  Constant Energy".format(_shortname)
@@ -81,12 +81,12 @@ class ConstantEnergy(EnergyFunction):
         if adjustment is not None:
             warnings.warn("Adjustment {} ignored for constant energy CNST".format(adjustment))
         return cls(prefactor)
-        
+
     def __init__(self, value = 0):
         super(ConstantEnergy, self).__init__(prefactor = value)
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         return self.prefactor + self.adjustment
-    
+
 class CheatingEnergy(EnergyFunction):
     _shortname = "CHE"
     HELPTEXT = "       {:3}:  Cheating Energy. Tries to minimize the RMSD.".format(_shortname)
@@ -102,7 +102,7 @@ class CheatingEnergy(EnergyFunction):
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         new_residues = ftug.bg_virtual_residues(cg)
         return  ftms.rmsd(self.real_residues, new_residues)**self.adjustment*self.prefactor
-        
+
 class ProjectionMatchEnergy(EnergyFunction):
     _shortname = "PRO"
     HELPTEXT = ("       {:3}:  Match Projection distances. \n"
@@ -110,17 +110,17 @@ class ProjectionMatchEnergy(EnergyFunction):
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, pro_distances, **kwargs):
         """
-        :param pro_distances: A dictionary tuple(str,str):float that maps pairs 
+        :param pro_distances: A dictionary tuple(str,str):float that maps pairs
                               of element names to distances in the projected plane (in Angstrom)
         """
         if adjustment is not None:
             warnings.warn("Adjustment {} ignored for PRO energy".format(adjustment))
         return cls(pro_distances, prefactor)
-        
+
     def __init__(self, distances={}, prefactor=None):
         """
-        :param directions: A dict where the keys are tuples of coarse grain element names 
-                           (e.g.: ("h1","m1")) and the values are the distance 
+        :param directions: A dict where the keys are tuples of coarse grain element names
+                           (e.g.: ("h1","m1")) and the values are the distance
                            IN THE PROJECTED PLANE (i.e. in the micrograph).
         """
         if prefactor is None:
@@ -149,30 +149,30 @@ class ProjectionMatchEnergy(EnergyFunction):
             Mf=int(2*math.pi*math.sin(theta)/df)
             for n in range(Mf):
                 phi=2*math.pi*n/Mf
-                points.append((math.sin(theta)*math.cos(theta), 
-                               math.sin(theta)*math.sin(phi), 
+                points.append((math.sin(theta)*math.cos(theta),
+                               math.sin(theta)*math.sin(phi),
                                math.cos(theta)))
-        return [np.array(p) for p in points if p[0]>=0]  
+        return [np.array(p) for p in points if p[0]>=0]
 
     def optimizeProjectionDistance(self, p):
         """
         :param c: A numpy array. The projection vector that HAS TO BE NORMALIZED
 
-        Let theta be the angle between the p, normal vector of the plane of projection, 
+        Let theta be the angle between the p, normal vector of the plane of projection,
         and the vector a which is projected onto that plain.
-        Then dist_2d=dist_3d*cos(alpha)=dist_3d*cos(90 degrees-theta) 
+        Then dist_2d=dist_3d*cos(alpha)=dist_3d*cos(90 degrees-theta)
         Then the angle theta is given by: cos(theta)=a*p/len(a) if p is normalized.
         Then dist_2d=dist_3d*sqrt(1-(a*p/len(a))^2)
         This means dist_2d^2=dist3d^2*(1-(a*p/len(a))^2)
         And dist_3d^2-dist2d^2=(a*p/len(a))^2 (Eq.1)
-        We now search for the projection angle p which best generates the projected 
+        We now search for the projection angle p which best generates the projected
         lengths given the current 3D structure.
         In the optimal case, Eq 1 holds for some values of p for all vectors a.
-        In the suboptimal case, there is a squared deviation d: 
+        In the suboptimal case, there is a squared deviation d:
         d=(a*p/len(a))^2-(dist_3d^2-dist2d^2)
-        We want to minimize the sum over all square deviations for all distances 
+        We want to minimize the sum over all square deviations for all distances
         considered in this energy function.
-        minimize sum(d)=sum((a*p/len(a))^2-(dist_3d^2-dist2d^2)) with respect to p 
+        minimize sum(d)=sum((a*p/len(a))^2-(dist_3d^2-dist2d^2)) with respect to p
         for all d, i.e. for all a, dist_3d, dist_2d considered.
         Under the side constraint that p has to be normalized.
         """
@@ -186,24 +186,24 @@ class ProjectionMatchEnergy(EnergyFunction):
             end=(ec[0]+ec[1])/2
             a=end-start
             lengthDifferenceExperiment=ftuv.magnitude(a)**2-dist**2
-            lengthDifferenceGivenP=(p[0]*a[0]+p[1]*a[1]+p[2]*a[2])**2          
-            # Add the deviation between (3d length-2d length)**2 observed vs calculated 
+            lengthDifferenceGivenP=(p[0]*a[0]+p[1]*a[1]+p[2]*a[2])**2
+            # Add the deviation between (3d length-2d length)**2 observed vs calculated
             # for the given projection angle
             x+=abs(lengthDifferenceGivenP-lengthDifferenceExperiment)
         return x
 
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
         """
-        Returns a measure that is zero for a perfect fit with the target 
-        projection distances and increases as the fit gets worse. 
+        Returns a measure that is zero for a perfect fit with the target
+        projection distances and increases as the fit gets worse.
 
         This function tries to minimize its value over all projection directions.
-        A global optimization is attempted and we are only interested in projection directions 
-        from the origin to points on half the unit sphere. Thus we first sample the energy for 
+        A global optimization is attempted and we are only interested in projection directions
+        from the origin to points on half the unit sphere. Thus we first sample the energy for
         multiple, equally distributed directions. From the best one we operform a local optimization.
 
-        For our specific purpose, where our starting points can give a good overview over 
-        the landscape, this is better and faster than more sophisticated 
+        For our specific purpose, where our starting points can give a good overview over
+        the landscape, this is better and faster than more sophisticated
         global optimization techniques.
         """
         self.cg=cg
@@ -216,21 +216,21 @@ class ProjectionMatchEnergy(EnergyFunction):
             if score<best_score:
                 best_start=direction
                 best_score=score
-        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction, 
+        opt=scipy.optimize.minimize(self.optimizeProjectionDistance, direction,
                                     constraints=c1, options={"maxiter":200} )
         if opt.success:
             self.projDir=opt.x
             score = math.sqrt(opt.fun)/len(self.distances)
             self._last_measure = score
             return self.prefactor*score
-        else:            
+        else:
             self._last_measure = 10**11
             return 10**11
 
     def accept_last_measure(self):
         super(ProjectionMatchEnergy, self).accept_last_measure()
         self.accepted_projDir=self.projDir
- 
+
 class FPPEnergy(EnergyFunction):
     _shortname = "FPP"
     name = "Four-Point-Projection-Energy"
@@ -274,18 +274,18 @@ class FPPEnergy(EnergyFunction):
         proj, angleA, offset_centroidA, bs = self._find_offset(cg, projection_direction, mirror = True)
         img1, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angleA), warn = False, virtual_residues = False)
         scoreA = fph.combined_distance(img1, self.ref_image)
-        proj, angleB, offset_centroidB, bs = self._find_offset(cg, projection_direction, mirror = False)        
+        proj, angleB, offset_centroidB, bs = self._find_offset(cg, projection_direction, mirror = False)
         img2, _ = proj.rasterize(self.ref_image.shape[0], bs, rotate = math.degrees(angleB), warn = False, virtual_residues = False)
         scoreB = fph.combined_distance(img2, self.ref_image)
         if scoreA<scoreB:
             cg.project_from = ftuv.normalize(-projection_direction)
-            score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, cg, 
-                                                          math.degrees(angleA), offset_centroidA, 
+            score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, cg,
+                                                          math.degrees(angleA), offset_centroidA,
                                                           None, distance=fph.combined_distance,
                                                           maxiter=200, virtual_atoms="selected")
         else:
-           score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, cg, 
-                                                         math.degrees(angleB), offset_centroidB, 
+           score, img, params = fph.locally_minimal_distance(self.ref_image, self.scale, cg,
+                                                         math.degrees(angleB), offset_centroidB,
                                                          None, distance=fph.combined_distance,
                                                          maxiter=200, virtual_atoms="selected")
         #lmimg = np.zeros_like(img)
@@ -308,7 +308,7 @@ class FPPEnergy(EnergyFunction):
         #plt.show()
         self._last_measure = score
         return score*self.prefactor
-    
+
     @profile
     def _find_offset(self, cg, projection_direction, mirror = False):
         if mirror: projection_direction = -projection_direction
@@ -324,17 +324,17 @@ class FPPEnergy(EnergyFunction):
 
         # The rotation (from optimal superposition)
         target = np.array(target)
-        current = np.array(current)    
+        current = np.array(current)
         rotationMatrix = ftms.optimal_superposition(current, target)
-        if mirror: 
+        if mirror:
             rotationMatrix[0,1] = -rotationMatrix[0,1]
-            rotationMatrix[1,0] = -rotationMatrix[1,0] 
+            rotationMatrix[1,0] = -rotationMatrix[1,0]
         c_rot = np.dot(current, rotationMatrix)
         bs = fph.get_box(proj, self.scale)
         offset_centroid = target - c_rot + np.array((bs[0],bs[2]))
         offset_centroid = ftuv.get_vector_centroid(offset_centroid)
         #The rotation angle in rad"""
-        angle = math.atan2(rotationMatrix[1,0], rotationMatrix[0,0])        
+        angle = math.atan2(rotationMatrix[1,0], rotationMatrix[0,0])
 
         #Calculate the bounding square using the offset.
         bs = fph.get_box(proj, self.scale, -offset_centroid)
@@ -343,7 +343,7 @@ class FPPEnergy(EnergyFunction):
     @profile
     def _generate_equations(self, cg):
         penalty = 0
-        #Preprocess: Calculate the projection angles for the shorthening of 
+        #Preprocess: Calculate the projection angles for the shorthening of
         # the 3 pairwise distances between landmarks.
         angles = []
         vectors3d = []
@@ -413,12 +413,12 @@ class DistanceExponentialEnergy(EnergyFunction):
             else:
                 clamp+=[cls(e1, e2, distance = adjustment, scale = prefactor )]
         return CombinedEnergy(clamp)
-        
+
     def __init__(self, from_elem, to_elem, distance=None, scale=None):
         '''
         Create an exponential distribution for the distance between two elements.
-        
-        Here the prefactor gives the steepness of the exponential curve, 
+
+        Here the prefactor gives the steepness of the exponential curve,
         while the adjustment gives the maximal distance that does not incur any penalty.
         '''
         if scale is None:
@@ -458,7 +458,7 @@ class DistanceExponentialEnergy(EnergyFunction):
         if self.adjustment != self._DEFAULT_CLAMP_DISTANCE:
             name = "{}{}".format(name, self.adjustment)
         return "{}({},{})".format(name,self.from_elem, self.to_elem)
-    
+
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         "This energy is always >0"
         closest_distance = self.get_distance(cg)
@@ -469,10 +469,10 @@ class DistanceExponentialEnergy(EnergyFunction):
         energy = -np.log(self.expon.pdf(closest_distance)) * 10.
 
         return energy
-    
 
 
-class StemVirtualResClashEnergy(EnergyFunction):    
+
+class StemVirtualResClashEnergy(EnergyFunction):
     '''
     Determine if the virtual residues clash.
     '''
@@ -533,7 +533,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 
             resn1 = cg.stem_side_vres_to_resn(key1[0], key1[2], key1[1])
             resn2 = cg.stem_side_vres_to_resn(key2[0], key2[2], key2[1])
-            
+
             #Adjacent residues cannot clash
             if abs(resn1 - resn2) == 1:
                 continue
@@ -549,7 +549,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
     def _virtual_residue_atom_clashes(self, cg, s1,i1,a1, s2, i2, a2):
         '''
         Check if any of the virtual residue atoms clash.
-        
+
         This is a reference implementation without KD-Trees.
         Thus it is only used for testing!
         '''
@@ -662,12 +662,12 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         if adjustment is not None:
             warnings.warn("Adjustment {} ignored for JUNCT JunctionConstraintEnergy".format(adjustment))
-        return cls(prefactor)    
+        return cls(prefactor)
     def __init__(self, prefactor = None):
         if prefactor is None:
-            prefactor = self._JUNCTION_DEFAULT_PREFACTOR 
+            prefactor = self._JUNCTION_DEFAULT_PREFACTOR
         super(RoughJunctionClosureEnergy, self).__init__(prefactor = prefactor)
-        
+
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         if nodes == None:
             nodes = cg.defines.keys()
@@ -678,14 +678,14 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         for bulge in all_bulges:
             bl = cg.get_bulge_dimensions(bulge)[0]
-            dist = ftug.junction_virtual_atom_distance(cg, bulge)            
+            dist = ftug.junction_virtual_atom_distance(cg, bulge)
             #
             #cutoff_distance = (bl) * 5.9 + 13.4
             #cutoff_distance = (bl) * 5.908 + 11.309
             #cutoff_distance = (bl) * 6.4 + 6.4
-            cutoff_distance = (bl) * 6.22 + 14.0 #Peter's cyclic coordinate descent            
-            # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long. 
-            
+            cutoff_distance = (bl) * 6.22 + 14.0 #Peter's cyclic coordinate descent
+            # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long.
+
             if (dist > cutoff_distance):
                 log.info("Junction closure: dist {} > cutoff {} for bulge {} with length {}".format(dist, cutoff_distance, bulge, bl))
                 self.bad_bulges += cg.find_bulge_loop(bulge, 200) + [bulge]
@@ -697,14 +697,14 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 def _iter_subgraphs(cg, use_subgraphs):
     """
     Generate a number of subgraphs. Used by generate_target_distribution of energies.
-    
+
     :param cg: The CoarseGrainRNA
     :param use_subgraphs: A bool or int. See documentation of the energy
-    
+
     :yields: A tuple (domain, nt_length)
     """
-    
-    
+
+
     if not use_subgraphs:
         return
     if isinstance(use_subgraphs, bool):
@@ -733,7 +733,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     HELPTEXT = "       {:3}:  Radius of gyration energy".format(_shortname)
     real_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration.csv')
     sampled_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration_sampled.csv')
-            
+
     def __init__(self, rna_length, adjustment=None, prefactor=None):
         """
         :param rna_length: The length in nucleotides of the RNA
@@ -742,22 +742,22 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
 
         if adjustment!=1:
             self._adjust_target_distribution()
-    
+
     @classmethod
     def generate_target_distribution(cls, cg_filenames, out_filename=None, use_subgraphs = False):
         """
         Generate the target distribution from the given cg-files and write it to a file
-        
+
         .. warning::
-        
+
             If out_filename is not given, this overwrites the file with the name given in
             `cls.real_stats_fn`.
-            
+
         :param cg_filenames: A filename or a list of filenames containing true RNA tertiary structures.
                              Typically these cg files have been generated from the pdb-files
                              using the script `pdb_to_cg.py` provided with forgi.
         :param out_filename: None or a filename relative to fess/
-        :param use_subgraphs: Include the radius of subgraphs of the cg-files to get 
+        :param use_subgraphs: Include the radius of subgraphs of the cg-files to get
                             more datapoints.
                             Either a bool or an integer.
                             If it is a bool, generate 100 subgraphs for each number of cg-elements possible.
@@ -772,7 +772,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         if isinstance(cg_filenames, str):
             cg_filenames = [cg_filenames]
         for fname in cg_filenames:
-            log.info("Processing file %s", fname)
+            log.debug("Processing file %s", fname)
             cg = ftmc.CoarseGrainRNA(fname)
             radii.append((cg.name, cg.seq_length, cg.radius_of_gyration("vres")))
             for subgraph, nt_length in _iter_subgraphs(cg, use_subgraphs):
@@ -784,8 +784,8 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
             for name, nt_len, rog in radii:
                 print("{:s} {:d} {:.10f}".format(name, nt_len, rog), file=f)
-             
-    
+
+
     def _get_cg_measure(self, cg):
         return cg.radius_of_gyration("fast")
 
@@ -826,28 +826,28 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
 
         The adjustment is treated as the estimated radius of the RNA. Thus the target distribution
         is a normal distribution with mean=0.77*ADJ and STDDEV=0.23*ADJ.
-        
+
         Remember that the ROG for polymers is defined as:
         ROG=SQRT(1/N*Sum(r)) for N points with the mean in the origin.
-  
+
         0.77 is roughly SQRT(3/5), which is the limes of the rog for m->inf many points
         in a 3D unit sphere with the nth point placed at radius (n/m)**1/3
         0.77-0.23 is roughly 1/SQRT(3), which is the limes of the rog for m->inf many points
         equally distributed along one or more diameters (in a star-like fashion)
         0.77+0.23 is 1, corresponding to all points on the surface of the sphere.
 
-        If the radius is estimated from electron microscopy data, 
+        If the radius is estimated from electron microscopy data,
         it is potentially smaller than the radius in 3D space if the shape of the RNA
         is not a perfect sphere.
-        This effect is accounted for by allowing values greater than 1*ADJ with a 
+        This effect is accounted for by allowing values greater than 1*ADJ with a
         non-neglectable probability
-        
+
         :param rnalength: Used for initial reference distribution
         """
         super(NormalDistributedRogEnergy, self).__init__(rna_length, adjustment, prefactor)
         self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])
         self.target_values = None
-        
+
     def _update_adj(self):
         super(RadiusOfGyrationEnergy, self)._update_adjustment()
         self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])
@@ -860,7 +860,7 @@ class AMinorEnergy(CoarseGrainEnergy):
     sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
     orientation_file = 'stats/aminor_orientations.csv'
     cutoff_dist = 30 #Do not consider elements above this distance for interactions.
-    
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
@@ -880,26 +880,26 @@ class AMinorEnergy(CoarseGrainEnergy):
             energies.append(ame2)
         return CombinedEnergy(energies)
     @classmethod
-    def generate_target_distribution(cls, cg_filenames, fr3d_out, out_filename=None, 
-                                     orientation_outfile = None, fr3d_query = "", 
+    def generate_target_distribution(cls, cg_filenames, fr3d_out, out_filename=None,
+                                     orientation_outfile = None, fr3d_query = "",
                                      use_subgraphs = False):
         """
         Generate the target distribution from the given cg-files and write it to a file.
-        Additionally generate a file with the relative orientation of all annotated 
+        Additionally generate a file with the relative orientation of all annotated
         A-Minor interactions.
-        
+
         .. warning::
-        
+
             If out_filename is not given, this overwrites the file with the name given in
             `cls.real_stats_fn`.
-        
+
         ..warning::
-        
-            The FR3D query needs to contain 3 nucleotides where the first is the Adenine and 
+
+            The FR3D query needs to contain 3 nucleotides where the first is the Adenine and
             the second and third form a basepair in a stem.
-            
+
         It needs FR3D output like this::
-        
+
             Filename Discrepancy       1       2       3 Cha   1-2   1-3   2-3 Con   1-2   1-3   2-3   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-3
                 1S72      0.0340  A  104  A  957  U 1009 900 ----  ----   cWW  AAA  1909  1885    24                                                                             -     -     -
 
@@ -907,20 +907,20 @@ class AMinorEnergy(CoarseGrainEnergy):
                              Typically these cg files have been generated from the pdb-files
                              using the script `pdb_to_cg.py` provided with forgi.
                              .. note::
-                             
-                                the first 4 characters of the CoarseGrainRNA's name must match the 
+
+                                the first 4 characters of the CoarseGrainRNA's name must match the
                                 pdb-id as reported by FR3D.
-                                
+
         :param fr3d_out: A file containing the annotations found by FR3D.
         :param out_filename: None or a filename relative to `fess/`
-        :param orientation_outfile: Where to store the list of relative orientations of 
-                                    Adenines and the Stems in A-Minor interactions and 
+        :param orientation_outfile: Where to store the list of relative orientations of
+                                    Adenines and the Stems in A-Minor interactions and
                                     in the background. Relative to "fess/"
         :param fr3d_query: Describe the FR3D-query that you used in a string.
                            It will be added as comment to the output file.
         """
         #Code in part copied from Peter's get_emlements.py
-        
+
         # If out-filenames are None, use the defaults.
         if out_filename is None:
             out_filename = cls.real_stats_fn
@@ -936,25 +936,25 @@ class AMinorEnergy(CoarseGrainEnergy):
         for fn in cg_filenames:
             cg = ftmc.CoarseGrainRNA(fn)
             all_cgs[cg.name[:4]].append(cg)
-        
+
         #Read the FR3D output
         with open(fr3d_out) as f:
-            aminor_geometries = fba.parse_fred(cls.cutoff_dist, all_cgs, f)        
+            aminor_geometries = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
         all_geometries = set()
         for pdb_id, cgs in all_cgs.items():
             for cg in cgs:
                 for loop in cg.defines:
-                    if loop[0]=="s": 
+                    if loop[0]=="s":
                         continue
                     for stem in cg.stem_iterator():
-                        if loop in cg.edges[stem]: 
+                        if loop in cg.edges[stem]:
                             continue
                         dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
-                        if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)):
+                        if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)) and not np.isnan(dist+angle1+angle2):
                             all_geometries.add(fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop))))
-                        
+
         #Print orientations to orientation_outfile
-        with open(orientation_outfile, "w") as f:                    
+        with open(orientation_outfile, "w") as f:
             cls._print_file_header(f, cg_filenames)
             print("# fr3d_out = {}".format(fr3d_out), file=f)
             print("# fr3d_query:", file=f)
@@ -968,12 +968,12 @@ class AMinorEnergy(CoarseGrainEnergy):
                 print("{pdb_id} {loop_type} {dist} {angle1} "
                       "{angle2} {is_interaction}".format(is_interaction = (entry in aminor_geometries),
                                                          **entry._asdict()), file = f)
-        
+
         prob_fun= {}
         for loop_type in "himft":
             log.info("Creating probability function for %s", loop_type)
-            prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries, 
-                                                                   all_geometries, 
+            prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries,
+                                                                   all_geometries,
                                                                    loop_type)
         #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
         with open(out_filename, "w") as f:
@@ -990,35 +990,39 @@ class AMinorEnergy(CoarseGrainEnergy):
             print("pdb_id rna_length loop_type total_prob", file=f)
             for cgs in all_cgs.values():
                 for cg in cgs:
+                    print("# CG:", file=f)
                     rna_length = cg.seq_length
                     for loop in cg.defines:
-                        if loop[0] == "s": 
+                        if loop[0] == "s":
                             continue
                         prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist)
-                        print("{} {} {} {}".format(cg.name, rna_length, loop[0], prob), file = f)
-                    print("# Subgraphs:", file=f)
-                    log.info("Now generating AMinor for Subgraphs")
+                        if not np.isnan(prob):
+                            print("{} {} {} {}".format(cg.name, rna_length, loop[0], prob), file = f)
+                    if use_subgraphs:
+                        print("# Subgraphs:", file=f)
+                        log.info("Now generating AMinor for Subgraphs")
                     i=0
                     for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
                         i+=1
                         log.info("Subgraph of length %s (%d th sg)", sg_length, i)
                         for loop in subgraph:
-                            if loop[0] == "s": 
+                            if loop[0] == "s":
                                 continue
                             prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist, domain = subgraph)
-                            print("{} {} {} {}".format(cg.name+".subgraph", sg_length, loop[0], prob), file = f)
+                            if not np.isnan(prob):
+                                print("{} {} {} {}".format(cg.name+".subgraph", sg_length, loop[0], prob), file = f)
         log.info("Successfully generated target distribution for AMinors.")
 
     def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
         """
         :param loop_type: A one-letter string giving the loop type. E.g. 'h' or 'i'
-        """        
+        """
         self.loop_type = loop_type
         super(AMinorEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
-        
+
 
         # Load the geometries (aminor and other)
-        all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#") 
+        all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#")
         all_geometries = all_geometries[ all_geometries["dist"] < self.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
         self.prob_function = fba.aminor_probability_function(aminor_geometries.itertuples(),
@@ -1042,7 +1046,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         distribution_lower_bound = 1.
         distribution_upper_bound = 1.
 
-        while (len(rdata) < 500 and len(rdata)<len(data)):        
+        while (len(rdata) < 500 and len(rdata)<len(data)):
             try:
                 distribution_lower_bound -= INCR
                 distribution_upper_bound += INCR
@@ -1050,21 +1054,21 @@ class AMinorEnergy(CoarseGrainEnergy):
                 rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
                                              data[:,0] < length * ( distribution_upper_bound ))]
             except KeyboardInterrupt:
-                print("len(rdata) is {}, len(data)={}, bound= {}...{}".format(len(rdata),len(data), 
+                print("len(rdata) is {}, len(data)={}, bound= {}...{}".format(len(rdata),len(data),
                      distribution_lower_bound ) * length, length * ( distribution_upper_bound ))
                 raise
         if len(rdata)==0:
             raise ValueError("No data found for distribution in file {}".format(filename))
-        
+
         rogs = rdata[:,1]
         return (self._get_distribution_from_values(rogs), rogs)
-    
+
     def eval_prob(self, cg, d):
         return fba.total_prob(d, cg, self.prob_func())
 
     def _get_cg_measure(self, cg):
         raise NotImplementedError("Not needed for A-Minor energy")
-        
+
     @property
     def name(self):
         if self.loop_type == 'i':
@@ -1078,7 +1082,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         """
         self._last_measure is more than one
         """
-        if self._last_measure is not None:        
+        if self._last_measure is not None:
             self.accepted_measures.extend(self._last_measure)
         self._step_complete()
 
@@ -1086,11 +1090,11 @@ class AMinorEnergy(CoarseGrainEnergy):
         """AMinor.rejectLastMeasure"""
         if len(self.accepted_measures) > 0 and self.num_loops>0:
             self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
-            
+
     def _get_num_loops(self, cg):
         possible_loops = [d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))]
         return len(possible_loops)
-    
+
     def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
         kr = self.target_distribution
         ks = self.reference_distribution
@@ -1099,11 +1103,11 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         if self.num_loops is None:
             self.num_loops=self._get_num_loops(cg)
-            
+
         self._last_measure = []
         for d in cg.defines.keys():
 
-            # the loop type is encoded as an integer so that the stats file can be 
+            # the loop type is encoded as an integer so that the stats file can be
             # loaded using numpy
             if self.types[d[0]] != self.loop_type or 'A' not in "".join(cg.get_define_seq_str(d)):
                 continue
@@ -1116,7 +1120,7 @@ class AMinorEnergy(CoarseGrainEnergy):
                 prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
                 self.prev_energy = energy
                 self.prev_cg = m
-                energy +=  -1 * self.prefactor * prev_energy                
+                energy +=  -1 * self.prefactor * prev_energy
             else:
                 energy +=  -np.log(kr(m))
         if plot_debug: #For debuging
@@ -1141,7 +1145,7 @@ class DoNotContribute(Exception):
 def _minimal_h_h_distance(cg, elem1, elem2_iterator):
     """
     Used by ShortestLoopDistancePerLoop-Energy.
-    
+
     :param cg: The CoarseGrain RNA
     :param elem1: A STRING. A name of a hairpin loop. e.g. "h1"
     :param elem2_iterator: A ITERATOR/ LIST. Element names to compare h1 with.
@@ -1157,7 +1161,7 @@ def _minimal_h_h_distance(cg, elem1, elem2_iterator):
         if dist < min_dist:
             min_dist = dist
     return min_dist
-    
+
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
     HELPTEXT = "       {:3}:  shortest loop distance per loop".format(_shortname)
@@ -1176,22 +1180,22 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         for hloop in cg.hloop_iterator():
             energies+= [cls(rna_length = cg.seq_length, loop_name = hloop, prefactor = prefactor, adjustment = adjustment)]
         return CombinedEnergy(energies)
-    
+
     @classmethod
     def generate_target_distribution(cls, cg_filenames, out_filename=None, use_subgraphs = False):
         """
         Generate the target distribution from the given cg-files and write it to a file
-        
+
         .. warning::
-        
+
             If out_filename is not given, this overwrites the file with the name given in
             `cls.real_stats_fn`.
-            
+
         :param cg_filenames: A filename or a list of filenames containing true RNA tertiary structures.
                              Typically these cg files have been generated from the pdb-files
                              using the script `pdb_to_cg.py` provided with forgi.
         :param out_filename: None or a filename relative to fess/
-        :param use_subgraphs: Include the radius of subgraphs of the cg-files to get 
+        :param use_subgraphs: Include the radius of subgraphs of the cg-files to get
                             more datapoints.
                             Either a bool or an integer.
                             If it is a bool, generate 100 subgraphs for each number of cg-elements possible.
@@ -1202,28 +1206,28 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             out_filename = cls.real_stats_fn
         else:
             out_filename = op.join("fess", out_filename)
-            
-    
+
+
         distances = []
         log.info("Generating target distribution for %s", cls.__name__)
         if isinstance(cg_filenames, str):
             cg_filenames = [cg_filenames]
-            
+
         loop_loop_distances = []
         for fname in cg_filenames:
             log.info("Processing file %s", fname)
             cg = ftmc.CoarseGrainRNA(fname)
             pdbid = cg.name
-            for h1 in cg.hloop_iterator():            
-                min_dist = _minimal_h_h_distance(cg, h1, cg.hloop_iterator())                
+            for h1 in cg.hloop_iterator():
+                min_dist = _minimal_h_h_distance(cg, h1, cg.hloop_iterator())
                 if min_dist<float("inf"):
-                    loop_loop_distances.append((pdbid, cg.seq_length, min_dist))                
+                    loop_loop_distances.append((pdbid, cg.seq_length, min_dist))
             pdbid = cg.name+".subgraph"
             for subgraph, nt_length in _iter_subgraphs(cg, use_subgraphs):
                 for h1 in subgraph:
-                    if h1[0]!="h": 
+                    if h1[0]!="h":
                         continue
-                    min_dist = _minimal_h_h_distance(cg, h1, (h for h in subgraph if h[0]=="h"))                  
+                    min_dist = _minimal_h_h_distance(cg, h1, (h for h in subgraph if h[0]=="h"))
                     if min_dist<float("inf"):
                         loop_loop_distances.append((pdbid, nt_length, min_dist))
 
@@ -1233,10 +1237,10 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
             for pdbid, nt_len, distance in loop_loop_distances:
                 print("{:s} {:d} {:.10f}".format(pdbid, nt_len, distance), file=f)
-        
-            
-    def __init__(self, rna_length, loop_name, prefactor=None, adjustment = None):        
-        
+
+
+    def __init__(self, rna_length, loop_name, prefactor=None, adjustment = None):
+
         #: Add equally distributed points to the target and reference distribution estimation (linspacepoints  lsp)
         #: Weight of the true data compared to the artificial points (integer)
         self._lsp_data_weight = 3
@@ -1263,13 +1267,13 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
         data=data[:, -1] #Ignore the nt-length and the pdb-id. Only look at the distances.
         if filename == self.sampled_stats_fn:
-            lsp=np.linspace(self._lsp_min, self._lsp_max, 
+            lsp=np.linspace(self._lsp_min, self._lsp_max,
                             num=self._lsp_reference_num_points )
         else:
-            lsp=[np.linspace(self._lsp_min, self._lsp_max, 
-                            num=self._lsp_target_num_points )]               
+            lsp=[np.linspace(self._lsp_min, self._lsp_max,
+                            num=self._lsp_target_num_points )]
         data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_artificial_weight)
-        
+
         return (self._get_distribution_from_values(data), data)
 
     def _get_cg_measure(self, cg):
@@ -1302,7 +1306,7 @@ class CombinedFunction(object):
         if not results or results[0] is None:
             return None
         return results
-    
+
 class CombinedEnergy(object):
     def __init__(self, energies=None, normalize=False):
         """
@@ -1311,21 +1315,21 @@ class CombinedEnergy(object):
         if energies is not None:
             super(CombinedEnergy, self).__setattr__("energies", energies)
         else:
-            super(CombinedEnergy, self).__setattr__("energies", [])   
+            super(CombinedEnergy, self).__setattr__("energies", [])
         super(CombinedEnergy, self).__setattr__("constituing_energies", [])
         super(CombinedEnergy, self).__setattr__("normalize", normalize)
-        
+
     def __setattr__(self, name, val):
         if name not in self.__dict__:
             for e in self.energies:
                 setattr(e, name, val)
         else:
             self.__dict__[name]=val
-            
+
     def __getattr__(self, name):
         #If no energies are present, do nothing (DON'T raise an error)
         if not self.energies:
-            return CombinedFunction([])   
+            return CombinedFunction([])
         log.debug("getattr delegating call to {}".format(name))
         attrs = []
         for e in self.energies:
@@ -1333,7 +1337,7 @@ class CombinedEnergy(object):
                 attrs.append(getattr(e, name))
             except AttributeError as e:
                 if hasattr(CoarseGrainEnergy, name):
-                    # If the function only exists for CoarseGrainedEnergies, 
+                    # If the function only exists for CoarseGrainedEnergies,
                     # but not for normal Energy functions,
                     # call it only on CoarseGrainedEenrgies.
                     pass
@@ -1346,19 +1350,19 @@ class CombinedEnergy(object):
             pass
         try:
             return "".join(attrs)
-        except: 
+        except:
             pass
         return CombinedFunction(attrs)
-        
+
     def uses_background(self):
         for e in self.energies:
             if isinstance(e, CoarseGrainEnergy):
                 return True
         return False
-    
+
     def iterate_energies(self):
         """
-        Iterate over all member enegies 
+        Iterate over all member enegies
         in a way that flattens nested CombinedEnergies.
         """
         for e in self.energies:
@@ -1367,7 +1371,7 @@ class CombinedEnergy(object):
                     yield e2
             else:
                 yield e
-   
+
     @property
     def shortname(self):
         name=[]
@@ -1389,32 +1393,32 @@ class CombinedEnergy(object):
         total_energy = 0.
         self.constituing_energies=[]
         num_contribs=0
-        
+
         for energy in self.energies:
-            contrib = energy.eval_energy(cg, background=background, nodes=nodes, 
+            contrib = energy.eval_energy(cg, background=background, nodes=nodes,
                                          use_accepted_measure=use_accepted_measure, plot_debug = plot_debug)
 
             if not np.isscalar(contrib):
                 raise TypeError
                 contrib, = contrib
-                
+
             self.constituing_energies.append((energy.shortname, contrib))
             total_energy += contrib
             num_contribs +=1
 
             if verbose:
-                print (energy.name, energy.shortname, contrib)            
+                print (energy.name, energy.shortname, contrib)
                 if energy.bad_bulges:
                     print("bad_bulges:", energy.bad_bulges)
             log.debug("{} ({}) contributing {}".format(energy.__class__.__name__, energy.shortname, contrib))
-            
 
-        if num_contribs>0:        
+
+        if num_contribs>0:
             if self.normalize:
                 total_energy=total_energy/num_contribs
         else:
             assert self.energies == []
-            
+
         if verbose:
             print ("--------------------------")
             print ("total_energy:", total_energy)
@@ -1425,10 +1429,10 @@ class CombinedEnergy(object):
         for en in self.energies:
             out_str += en.__class__.__name__ + " "
         return out_str
-        
+
     def __len__(self):
         return len(self.energies)
-    
+
     def hasinstance(self, cls):
         """
         Returns True, if any of the member energies is an instance of the given class
@@ -1474,7 +1478,7 @@ def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
 
 def _parseEnergyContributionString(contrib, num_steps):
     """
-    Helper function 
+    Helper function
     """
     if not contrib:
         return None
@@ -1499,17 +1503,17 @@ def _parseEnergyContributionString(contrib, num_steps):
             raise ValueError("Too many underscores in {}".format(contrib))
         frequency=num_steps / (math.ceil((end-start)/step)+1)
         assert frequency>1, numSteps
-    
+
         if frequency>=num_steps:
             raise ValueError("Could not parse energy program '{}': "
                              "Expected START_STEP_STOP, found {}, {}, {} which would "
-                             "lead to a change every {} simulation steps".format(contrib, start, step, 
+                             "lead to a change every {} simulation steps".format(contrib, start, step,
                                                                        end, frequency))
         return (start, step, frequency)
     else:
         return float(contrib)
 
-def get_argparse_help(): 
+def get_argparse_help():
     """
     Return a pre-formatted string that can be passed to "help" in argparse.add_argument,
     if the resulting argument is parsed with `energies_from_string`

@@ -1,11 +1,11 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
-                      int, map, next, oct, open, pow, range, round,
+                      map, next, oct, open, pow, range, round,
                       str, super, zip)
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
-__metaclass__=object         
+__metaclass__=object
 
 
 
@@ -23,7 +23,7 @@ log=logging.getLogger(__name__)
 try:
   profile  #The @profile decorator from line_profiler (kernprof)
 except:
-  def profile(x): 
+  def profile(x):
     return x
 
 @profile
@@ -42,39 +42,54 @@ def get_relative_orientation(cg, l1, l2):
                                           cg.coords[l1][1],
                                           cg.coords[l2][0],
                                           cg.coords[l2][1])
-
-    '''
-    angle1 = ftuv.vec_angle(cg.coords[l2][1] - cg.coords[l2][0],
-                           i2 - i1)
-    '''
-    angle1 = ftuv.vec_angle(cg.coords.get_direction(l2),
-                            cg.coords.get_direction(l1))
+    try:
+        angle1 = ftuv.vec_angle(cg.coords.get_direction(l2),
+                                cg.coords.get_direction(l1))
+    except ValueError:
+        if np.all(cg.coords.get_direction(l1) == 0):
+            angle1 = float('nan')
+        else:
+            raise
     #fud.pv('angle1')
 
     tw = cg.get_twists(l2)
 
-    if l2[0] != 's':
-        angle2 = ftuv.vec_angle((tw[0] + tw[1]) / 2.,
-                               i2 - i1)
-    else:
-        stem_len = cg.stem_length(l2)
-
-        # Where along the helix our A-residue points to the minor groove.
-        # This can be between residues. We express it as floating point nucleotide coordinates.
-        # So 0.0 means at the first basepair, while 1.5 means between the second and the third basepair.
-        pos = ftuv.magnitude(i2 - cg.coords[l2][0]) / ftuv.magnitude(cg.coords.get_direction(l2)) * (stem_len - 1)
-
-        # The vector pointing to the minor groove, even if we are not at a virtual residue (pos is a float value)
-        vec = ftug.virtual_res_3d_pos_core(cg.coords[l2], cg.twists[l2], pos, stem_len)[1]
-        angle2 = ftuv.vec_angle(vec,
-                               i2 - i1)
-
     dist = ftuv.vec_distance(i2, i1)
+
+    if dist==0:
+        angle2=float("nan")
+    else:
+        if l2[0] != 's':
+            try:
+                angle2 = ftuv.vec_angle((tw[0] + tw[1]) / 2.,
+                                   i2 - i1)
+            except ValueError:
+                if np.all((tw[0] + tw[1])==0):
+                    angle2=float("nan")
+                else:
+                    raise
+        else:
+            stem_len = cg.stem_length(l2)
+
+            # Where along the helix our A-residue points to the minor groove.
+            # This can be between residues. We express it as floating point nucleotide coordinates.
+            # So 0.0 means at the first basepair, while 1.5 means between the second and the third basepair.
+            pos = ftuv.magnitude(i2 - cg.coords[l2][0]) / ftuv.magnitude(cg.coords.get_direction(l2)) * (stem_len - 1)
+
+            # The vector pointing to the minor groove, even if we are not at a virtual residue (pos is a float value)
+            vec = ftug.virtual_res_3d_pos_core(cg.coords[l2], cg.twists[l2], pos, stem_len)[1]
+            try:
+                angle2 = ftuv.vec_angle(vec, i2 - i1)
+            except ValueError:
+                if np.all(vec==0):
+                    angle2=float("nan")
+                else:
+                    raise
 
     return dist, angle1, angle2
 
 
-    
+
 _AMGeometry = namedtuple("AMGeometry", ["pdb_id", "loop_name", "stem_name", "dist", "angle1", "angle2", "loop_sequence"])
 class AMGeometry(_AMGeometry):
     def _asdict(self):
@@ -84,7 +99,74 @@ class AMGeometry(_AMGeometry):
     @property
     def loop_type(self):
         return self.loop_name[0]
-    
+
+def _safe_resid_from_chain_res(chain, residue):
+    try:
+        return fgb.resid_from_str(str("{}:{}".format(chain,residue)))
+    except ValueError:
+        if residue.isdigit():
+            log.error("Chain is '{}', res is '{}'".format(chain, residue))
+            raise
+        else:
+            warnings.warn("Illegal residue number: '{}'.".format(residue))
+            return
+
+def _parse_fred_line(line, all_cgs):
+    parts = line.split()
+    if len(parts) < 10:
+        return
+    if parts[0] == "Filename":
+        return
+    pdb_id = parts[0]
+    if parts[0] in all_cgs:
+        cgs = all_cgs[parts[0]]
+        if len(cgs)==1:
+            cg, = cgs
+        else:
+            a_res = _safe_resid_from_chain_res(chain = parts[8][0], residue = parts[3])
+            if a_res is None:
+                return
+            for cg in cgs:
+                #Find the first matching cg.
+                if a_res in cg.seq_ids:
+                    break
+            else:
+                warnings.warn("No CoarseGrainRNA found among those with PDB-ID {} that contains resid {}".format(parts[0], a_res))
+                return
+    else:
+        warnings.warn("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}. Possible PDB-IDs are {}".format(parts[0], all_cgs.keys()))
+        return
+
+    # We now have the CoarseGrainRNA. Get the interacting cg-elements.
+    nums = []
+    for i in range(3):
+        seq_id = _safe_resid_from_chain_res(chain = parts[8][i], residue = parts[3+2*i])
+        if seq_id is None:
+            return
+        try:
+            nums.append(cg.seq_id_to_pos(seq_id))
+        except ValueError:
+            if seq_id.chain not in cg.chain_ids:
+                warnings.warn("Chain {!r} is not part of the cg {}.".format(seq_id.chain, cg.name))
+                return
+            else:
+                raise
+    nodes = list(map(lambda x: cg.get_node_from_residue_num(x), nums))
+    if nodes[1]!=nodes[2] or nodes[1][0]!="s":
+        warnings.warn("Parse_fred: No canonical stem: {} != {}.".format(nodes[1], nodes[2]))
+        return #only look at canonical stems.
+    if nodes[0][0]=="s":
+        warnings.warn("Parse_fred: Stem-Stem A-Minor not allowed: {} -> {}.".format(nodes[0], nodes[1], line))
+        return #No A-Minor between two stems.
+    if nodes[0] in cg.edges[nodes[1]]:
+        warnings.warn("Parse_fred:  A-Minor between adjacent elements not allowed: {} -> {}.".format(nodes[0], nodes[1]))
+        return #Only look at not connected elements
+    dist, angle1, angle2 = get_relative_orientation(cg, nodes[0], nodes[1])
+    if np.isnan(angle1+angle2+dist):
+        warnings.warn("Cannot get relative orientation. Zero-length element {}".format(nodes[0]))
+        return
+    return (AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0]))))
+
 def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     """
     Used by generate_target_distribution.
@@ -94,70 +176,36 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     """
     geometries = set()
     for line in fr3d_out:
-        log.debug("Line '%s'.read", line.strip())
-        parts = line.split()
-        if len(parts) < 10: 
-            continue
-        if parts[0] == "Filename": 
-            continue
-        pdb_id = parts[0]
-        if parts[0] in all_cgs:
-            cgs = all_cgs[parts[0]]
-            if len(cgs)==1:
-                cg, = cgs
-            else:
-                a_res = fgb.resid_from_str("{chain}:{res}".format(chain = parts[8][0], res = parts[3]))
-                for cg in cgs:
-                    if a_res in cg.seq_ids:
-                        break
-                    else:
-                        pass
-                else:
-                    log.warning("No CoarseGrainRNA found among those with PDB-ID {} that contains resid {}".format(parts[0], a_res))
-                    warnings.warn("No CoarseGrainRNA found among those with PDB-ID {} that contains resid {}".format(parts[0], a_res))
-                    continue
+        line=line.strip()
+        log.debug("Line '%s'.read", line)
+        geometry = _parse_fred_line(line, all_cgs)
+        if geometry is None:
+            if not (line.startswith("Filename") or line.startswith("#")):
+                log.warning("Skipping line {!r}".format(line))
+        elif geometry.dist>cutoff_dist:
+            log.info("Skipping because of %f > %f (=cutoff dist): %r",
+                     geometry.dist, cutoff_dist, line)
+        elif "A" not in geometry.loop_sequence:
+            warnings.warn("No adenine in loop %r for line %r", geometry.loop_name, line)
         else:
-            log.warning("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}. Possible PDB-IDs are {}".format(parts[0], all_cgs.keys()))
-            warnings.warn("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}. Possible PDB-IDs are {}".format(parts[0], all_cgs.keys()))
-            continue
-        try:
-            nums = []
-            for i in range(3):
-                nums.append(fgb.resid_from_str("{chain}:{res}".format(chain = parts[8][i], res = parts[3+2*i])))
-            nodes = list(map(lambda x: cg.get_node_from_residue_num(cg.seq_id_to_pos(x)), nums))
-        except Exception as e:
-            log.exception(e)
-            continue
-        if nodes[1]!=nodes[2] or nodes[1][0]!="s":
-            log.warning("Parse_fred: No canonical stem: {} != {}".format(nodes[1], nodes[2]))
-            continue #only look at canonical stems.
-        if nodes[0][0]=="s":
-            log.warning("Parse_fred: Stem-Stem A-Minor not allowed: {} -> {}".format(nodes[0], nodes[1]))
-            continue #No A-Minor between two stems.
-        if nodes[0] in cg.edges[nodes[1]]:
-            log.warning("Parse_fred:  A-Minor between adjacent elements not allowed: {} -> {}".format(nodes[0], nodes[1]))
-            continue #Only look at not connected elements
-        dist, angle1, angle2 = get_relative_orientation(cg, nodes[0], nodes[1])
-        if dist<=cutoff_dist and "A" in "".join(cg.get_define_seq_str(nodes[0])):
-            geometries.add(AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0]))))
+            geometries.add(geometry)
     return geometries
-
 
 
 def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
     """
     :param aminor_geometries: A list or iterator of AMGeometry instances which correspond to true interactions.
-    :param all_geometries: A list or iterator of AMGeometry instances which correspond to all combinations 
+    :param all_geometries: A list or iterator of AMGeometry instances which correspond to all combinations
                            of stems and loops, independent if it is an A-Minor-Interaction or not.
     :param loop_type: The type of the loop which donates the Adenine. A single letter string (e.g. "h", "i", ...)
-    :returns: A probability function which takes a triple (dist, angle1, angle2) and 
+    :returns: A probability function which takes a triple (dist, angle1, angle2) and
               returns the probability of this being an A-Minor interaction.
     """
-    aminor_geometries = np.array([[ x.dist, x.angle1, x.angle2 ] 
-                                  for x in aminor_geometries 
+    aminor_geometries = np.array([[ x.dist, x.angle1, x.angle2 ]
+                                  for x in aminor_geometries
                                   if  x.loop_type == loop_type])
-    all_geometries = np.array([[ x.dist, x.angle1, x.angle2 ] 
-                                  for x in all_geometries 
+    all_geometries = np.array([[ x.dist, x.angle1, x.angle2 ]
+                                  for x in all_geometries
                                   if  x.loop_type == loop_type])
     log.info("%d interactions and %d geometries given.", len(aminor_geometries), len(all_geometries))
     if len(aminor_geometries) == 0: #E.g. for f0
@@ -167,11 +215,9 @@ def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
     p_interaction = len(aminor_geometries)/ len(all_geometries)
     log.info("p_interaction = %s", p_interaction)
     p_geometry_given_interaction = scipy.stats.gaussian_kde(aminor_geometries.T)
+    log.info("p_geometry_given_interaction done. Calculating p_geometry_all")
     p_geometry_all = scipy.stats.gaussian_kde(all_geometries.T)
-    # According to Peter's Thesis:
-    #Gives always 0
-    p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point) / p_geometry_all(point)) * p_interaction 
-    
+
     def p_function(point):
         numerator = p_geometry_given_interaction(point)
         #log.info("Numerator: %s", numerator)
@@ -189,28 +235,28 @@ def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
 def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     """
     Return the maximal probability for the loop form any A-Minor interaction.
-    
+
     .. note::
-    
+
         This is equivalent to what was used in ernwin 0.1. It is now replaced by total_prob.
-    
-    
+
+
     This function tries for interaction of the loop with
-    all stems (except adjacent ones) and returns the maximum of 
+    all stems (except adjacent ones) and returns the maximum of
     the probabilities.
-    
+
     :param loop: The loop name, e.g. "h0"
-                 
+
                  .. warning::
-                 
-                    The loop type (hairpin/interior) should correspond to the loop-type used 
-                    for generating the probability function `prob_fun`
-                    
+
+                    The loop type (hairpin/interior) should correspond to the loop-type used
+                    for generating the probabilinfoity function `prob_fun`
+
     :param cg:          The CoarseGrainRNA.
-    :param prob_fun:    A probability function. A function that takes a triple (distance, angle1, angle2) 
-                        as returned by `get_relative_orientation` and returns a probability for 
+    :param prob_fun:    A probability function. A function that takes a triple (distance, angle1, angle2)
+                        as returned by `get_relative_orientation` and returns a probability for
                         this goemetry to correspond to an A-Minor interaction.
-    :param cutoff_dist: Do not consider interactions between elements more 
+    :param cutoff_dist: Do not consider interactions between elements more
                         than this many angstroms away.
     :param domain:      A list of element names. Only take these elements into account.
                         None to use the whole graph from cg.
@@ -227,10 +273,10 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
         if not ftuv.elements_closer_than(cg.coords[loop][0],
                                  cg.coords[loop][1],
                                  cg.coords[s][0],
-                                 cg.coords[s][1], 
+                                 cg.coords[s][1],
                                  cutoff_dist):
             continue
-            
+
         point = get_relative_orientation(cg, loop, s)
         p, = prob_fun(point)
         probs.append(p)
@@ -242,31 +288,31 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     return max_prob
 
 def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
-    #return max_prob(loop, cg, prob_fun, cutoff_dist, domain)
     """
     Return the total probability for the loop form any A-Minor interaction.
-    
+
     This function tries for interaction of the loop with
-    all stems (except adjacent ones) and returns p1+(1-p1)*p2+... 
+    all stems (except adjacent ones) and returns p1+(1-p1)*p2+...
     where p1, p2, ... are the individual probabilities.
-    
+
     :param loop: The loop name, e.g. "h0"
-                 
+
                  .. warning::
-                 
-                    The loop type (hairpin/interior) should correspond to the loop-type used 
+
+                    The loop type (hairpin/interior) should correspond to the loop-type used
                     for generating the probability function `prob_fun`
-                    
+
     :param cg:          The CoarseGrainRNA.
-    :param prob_fun:    A probability function. A function that takes a triple (distance, angle1, angle2) 
-                        as returned by `get_relative_orientation` and returns a probability for 
+    :param prob_fun:    A probability function. A function that takes a triple (distance, angle1, angle2)
+                        as returned by `get_relative_orientation` and returns a probability for
                         this goemetry to correspond to an A-Minor interaction.
-    :param cutoff_dist: Do not consider interactions between elements more 
+    :param cutoff_dist: Do not consider interactions between elements more
                         than this many angstroms away.
     :param domain:      A list of element names. Only take these elements into account.
                         None to use the whole graph from cg.
     """
     # Code moved here from fbe.AMinorEnergy.eval_prob
+    log.debug("Entering 'total_prob'")
     if domain is not None:
         stems = (s for s in domain if s[0]=="s")
     else:
@@ -278,12 +324,18 @@ def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
         if not ftuv.elements_closer_than(cg.coords[loop][0],
                                  cg.coords[loop][1],
                                  cg.coords[s][0],
-                                 cg.coords[s][1], 
+                                 cg.coords[s][1],
                                  cutoff_dist):
             continue
-            
+
         point = get_relative_orientation(cg, loop, s)
         p, = prob_fun(point)
+        if p>1:
+            warnings.warn("Probability at %s is %f>1 for %s %s with domain %s" %(point, p, cg.name, loop, domain))
+        log.debug("Adding p = %f to total_prob = %f", p, total_prob)
         total_prob += (1-total_prob)*p
     log.debug("total_prob: Returning: %s", total_prob)
+    if total_prob>1:
+        log.error("Probability >1 for %s %s with domain %s", cg.name, loop, domain)
+        assert False
     return total_prob

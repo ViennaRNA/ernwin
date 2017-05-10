@@ -41,7 +41,7 @@ import subprocess
 import operator
 import logging
 log = logging.getLogger(__name__)
-
+from fess.aux.utils import get_version_string
 
 
 #Magic numbers
@@ -403,7 +403,7 @@ def setup_deterministic(args):
 
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
-    logging.basicConfig()
+    logging.basicConfig(format="%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s")
     if args.verbose:
         logging.getLogger().setLevel(level=logging.INFO)
     else:
