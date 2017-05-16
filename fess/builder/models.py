@@ -136,30 +136,7 @@ def rotate_chain(chains, rot_mat, offset):
         if dev_from_cent>1:
             log.warning("{} not close to zero".format(dev_from_cent))
 
-def define_to_stem_model(cg, chains, elem_name):
-    '''
-    Extract a StemModel from a Bio.PDB.Chain structure.
 
-    @param chain: The Bio.PDB.Chain representation of the chain
-    @param define: The BulgeGraph element name, e.g. "s0"
-    @return: A StemModel with the coordinates and orientation of the stem.
-    '''
-    stem = StemModel(name=elem_name)
-
-    coords, twists = cgg.stem_from_chains(cg, chains, elem_name)
-
-    stem.mids = coords
-    stem.twists = twists
-
-    # Some validation:
-    atom_coords = []
-    for chain in chains.values():
-        for atom in bpdb.Selection.unfold_entities(chain, 'A'):
-            atom_coords.append(atom.coord)
-    s = np.sum(atom_coords, axis=0)
-    s = s/len(atom_coords)
-    log.debug("Center of atoms: %s, Center of mids: %s. Stem mids: %s", s, (stem.mids[1]+stem.mids[0])/2, stem.mids)
-    return stem
 
 def get_stem_rotation_matrix(stem, stem2, use_average_method=False):
     """
@@ -193,109 +170,9 @@ def get_stem_rotation_matrix(stem, stem2, use_average_method=False):
 
     return rot_mat4
 
-def align_chain_to_stem(cg, chains, elem_name, stem2, use_average_method=False):
-    """
-    :param cg: The coarse-grained RNA where the fragment is originally from.
-    :param chains: The PDB chains containing the original fragment.
-    :param elem_name: The element name of the stem in cg.
-    :param stem2: The target (cg-)stem. A StemModel object.
-    """
-    #The stem fragment we will rotate and translate
-    stem1 = define_to_stem_model(cg, chains, elem_name)
-
-    '''
-    (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(),
-                                                       (stem1.twists[0] + stem1.twists[1]) / 2.,
-                                                       stem2.vec(),
-                                                       (stem2.twists[0] + stem2.twists[1]) / 2.)
-    '''
-    if not use_average_method:
-        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(),
-                                                           stem1.twists[0],
-                                                           stem2.vec(),
-                                                           stem2.twists[0])
-    else:
-        tw1 = cgg.virtual_res_3d_pos_core(stem1.mids, stem1.twists, 2, 4)[1]
-        tw2 = cgg.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
-        (r, u, v, t) = cgg.get_stem_orientation_parameters(stem1.vec(),
-                                                           tw1,
-                                                           stem2.vec(),
-                                                           tw2)
-    rot_mat = get_stem_rotation_matrix(stem1, stem2, use_average_method)
-
-    assert np.allclose(ftuv.normalize(stem2.vec()),  ftuv.normalize(np.dot(stem1.vec(), rot_mat)))
-    rotate_chain(chains, rot_mat, (stem1.mids[0] + stem1.mids[1]) / 2.)
-    translate_chain(chains, (stem2.mids[0] + stem2.mids[1]) / 2. - (stem1.mids[0] + stem1.mids[1]) / 2.)
-
-    assert _validate_pdb_to_stem(stem2, chains, cg, elem_name)
-
-def _validate_pdb_to_stem(target_stem, chains, cg, elem_name):
-    """
-    :param target_stem: A StemModel to which the pdb chain should be aligned
-    :param chains: A dict {chain_id: Chain}
-    :param cg: The original coarse-grained representation of the pdb chains
-    :param elem_name: The elem_name in cg.
-    """
-    try:
-        pdb_stem = define_to_stem_model(cg, chains, elem_name)
-    except:
-        for chain in chains.values():
-            log.error([r.id for r in chain.get_residues()])
-        raise
-    d_start = ftuv.magnitude(pdb_stem.mids[0] - target_stem.mids[0])
-    d_end   = ftuv.magnitude(pdb_stem.mids[1] - target_stem.mids[1])
-    assert d_start<0.1, "{Distance between stem starts {} and {} is too big: {}".format(
-                                                    pdb_stem.mids[0], target_stem.mids[0], d_start)
-    assert d_start<0.1, "{Distance between stem ends {} and {} is too big: {}".format(
-                                                    pdb_stem.mids[1], target_stem.mids[1], d_end)
-    tw1_polar_pdb    = ftuv.spherical_cartesian_to_polar(pdb_stem.twists[0])
-    tw1_polar_target = ftuv.spherical_cartesian_to_polar(target_stem.twists[0])
-    d_twist_u = abs(tw1_polar_pdb[1]-tw1_polar_target[1])
-    d_twist_v = abs(tw1_polar_pdb[2]-tw1_polar_target[2])
-    assert d_twist_u<0.01, "Deviation of twist angle u too big: {:f}".format(d_twist_u)
-    assert d_twist_v<0.01, "Deviation of twist angle v too big: {:f}".format(d_twist_u)
-    return True
-
-def reconstruct_stem_core(cg_orig, stem_stats, orig_def, new_chains, stem, use_average_method=True):
-    '''
-    Reconstruct a particular stem.
-
-    :param cg_orig: The coarse-grain RNA that should be translated to PDB
-    :param stem_stats: The stem stats of the stem to be reconstructed.
-    :param orig_def: The define of the stem in the Cg to be reconstructed.
-    :param new_chains: A dict chainid:chain that will be filled with the reconstructed model
-    :param stem: A StemModel of the stem in the target RNA that will be reconstructed.
-    '''
-    from fess.builder.reconstructor import source_cg_from_stat_name
-    cg, chains = source_cg_from_stat_name(stem_stats)
-    #: The define of the stem in the original cg where the fragment is from
-    sd = cg.get_node_from_residue_num(stem_stats.define[0])
-    chains  = ftup.extract_subchains_from_seq_ids(chains,
-                                                  cg.define_residue_num_iterator(sd, seq_ids=True))
-    if stem_stats.define != cg.defines[sd]:
-        log.error("%s != %s for %s (%s)", stem_stats.define, cg.defines[sd], sd, stem_stats.pdb_name)
-        raise ValueError("The CG files where the stats where extracted and the cg file used for reconstruction are not consistent!")
 
 
-    align_chain_to_stem(cg, chains, sd, stem, use_average_method)
 
-    for i in range(stem_stats.bp_length):
-        for strand in range(2):
-            target_resid = cg_orig.seq_ids[ orig_def[strand*2] + i - 1 ]
-            source_resid = cg.seq_ids[ stem_stats.define[strand*2] + i - 1 ]
-            residue = chains[source_resid.chain][source_resid.resid]
-            #Change the resid to the target
-            residue.id = target_resid.resid
-            assert residue.id == target_resid.resid
-            if target_resid.chain not in new_chains:
-                log.info("Adding chain with id %r for residue %r", target_resid.chain, target_resid)
-                new_chains[target_resid.chain] =  bpdb.Chain.Chain(target_resid.chain)
-            #Now, add the residue to the target chain
-            new_chains[target_resid.chain].add(residue)
-
-    assert _validate_pdb_to_stem(define_to_stem_model(cg, chains, sd), new_chains, cg_orig, cg_orig.get_node_from_residue_num(orig_def[0]))
-
-    return new_chains
 
 def extract_stem_from_chain(chain, stem_def):
     '''
@@ -313,14 +190,7 @@ def extract_stem_from_chain(chain, stem_def):
     return c
 
 
-def reconstruct_stem(sm, stem_name, new_chain):
-    """See reconstruct_stem_core"""
-    stem = sm.stems[stem_name]
 
-    stem_def = sm.elem_defs[stem_name]
-    orig_def = sm.bg.defines[stem_name]
-
-    return reconstruct_stem_core(sm.bg, stem_def, orig_def, new_chain, stem)
 
 def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name=''):
     '''
