@@ -30,7 +30,7 @@ def parse_stats_file(file_handle):
         line=line.strip()
         if "#" in line:
             line = line.split('#')[0]
-        if not line: 
+        if not line:
             continue
         if line.startswith("stem"):
             stem_stat = ftmstats.StemStat(line)
@@ -48,9 +48,10 @@ def parse_stats_file(file_handle):
                           " Does the stat come from a faulty BulgeGraph?".format(angle_stat.pdb_name))
                 continue
             stats["angle"][(angle_stat.dim1, angle_stat.dim2, angle_stat.ang_type)].append(angle_stat)
-            # Adding the reverse does not work as intended and produces a lot of structures 
+            # Adding the reverse does not work as intended and produces a lot of structures
             # that do not fulfill the constraint energy.
             # stats["angle"][(angle_stat.dim1, angle_stat.dim2, -angle_stat.ang_type)].append(angle_stat)
+            # Note that CoarseGrainRNA.get_stats extracts two angle stats er angle.
         else:
             key = line.split()[0]
             if key not in ["3prime", "5prime", "loop"]:
@@ -62,7 +63,7 @@ def parse_stats_file(file_handle):
 def read_stats_file(filename):
     with open (filename) as f:
         return parse_stats_file(f)
-    
+
 letter_to_stat_type = {
     "s": "stem",
     "h": "loop",
@@ -71,8 +72,8 @@ letter_to_stat_type = {
     "m": "angle",
     "i": "angle"
 }
-    
-    
+
+
 class StatStorage(object):
     def __init__(self, filename, fallback_filenames = None):
         self.filename = filename
@@ -81,9 +82,9 @@ class StatStorage(object):
         self.fallbacks = fallback_filenames
         self._sources = None
         self._has_warned = set() #Only emit warnings about insufficient stats once.
-        
+
     @staticmethod
-    def _key_from_bg_and_elem(bg, elem):        
+    def _key_from_bg_and_elem(bg, elem):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem)
@@ -91,7 +92,7 @@ class StatStorage(object):
         else:
             return dims[0]
 
-    def _iter_stat_sources(self):                
+    def _iter_stat_sources(self):
         if self._sources is None:
             self._sources = [read_stats_file(self.filename)]
         for i in range(len(self.fallbacks)+1):
@@ -99,7 +100,7 @@ class StatStorage(object):
                 self._sources.append(read_stats_file(self.fallbacks[i-1]))
             yield self._sources[i]
         raise StopIteration
-    
+
     @lru_cache(maxsize = 128)
     def _possible_stats(self, stat_type, key, min_entries = 100):
         """
@@ -130,7 +131,7 @@ class StatStorage(object):
                 weights += [weight]*num_stats
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
-        
+
         return weights, choose_from
 
     """
@@ -138,23 +139,23 @@ class StatStorage(object):
         log.debug("Getting stats for {} of bg {}".format(elem, bg.name))
         return self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
     """
-    
+
     def sample_for(self, bg, elem, min_entries = 100):
         """
         Sample a stat for the given coarse-grained element elem of bulge graph bg.
-        
+
         During sampling, fallback-files (if used) have a lower weight
         depending on the number of possible stats in the main file.
-        
+
         .. note::
-        
-            A stat is a class holding an angle and distance based 
+
+            A stat is a class holding an angle and distance based
             description of a coarse-grained fragment.
-            
-        
+
+
         :param bg: A CoarseGrainRNA or BulgeGraph object
         :param elem: The element name, e.g. "s0"
-        :param min_entries: If less than min-entries stats are found, try to use 
+        :param min_entries: If less than min-entries stats are found, try to use
                     the fallback-files to gather enough stats to sample from.
         :param return: A singe Stat object, sampled from to possible stats.
         """
@@ -163,17 +164,17 @@ class StatStorage(object):
         r = random.uniform(0, sum(weights))
         for i, w in enumerate(weights):
             if r<=w:
-                return stats[i]                
+                return stats[i]
             r-=w
         assert False
         return stats[0] #Fallback if asserts are disabled. Should be unreachable.
-    
+
     def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
         """
         Iterate over all stats for the given element.
-        
-        If fallback-stats are present, a sample of the fallback_stats is 
-        generated every time the iterator is created and after iterating the 
+
+        If fallback-stats are present, a sample of the fallback_stats is
+        generated every time the iterator is created and after iterating the
         main stats iteration continues over the sample of the fallback stats.
         """
         key = self._key_from_bg_and_elem(bg, elem)
@@ -188,18 +189,18 @@ class StatStorage(object):
                 yield stat
             if not cycle:
                 break #Exhaust the generator
-    
 
-        
+
+
     def coverage_for(self, sampled_stat_names, bg, elem, min_entries = 100):
         """
         Count, what percentage of the stats have been used during sampling.
-        
+
         :param sampled_stat_names: A set of pdb_names of stats.
-        
+
         For the other parameters, see `self.sample_for`
         """
-        
+
         key = self._key_from_bg_and_elem(bg, elem)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         total_weight = sum(weights)
@@ -228,14 +229,14 @@ def seq_and_pyrpur_similarity(sequences, stat):
         print(repr(sequences[i]), repr(stat.seqs[i]))
         ib2 += identitical_bases(sequences[i].translate(translation), stat.seqs[i].translate(translation))
     return (ib2 + ib4 +1) / (sum(len(x) for x in sequences) * 2 +1) #^2 for ib4 and ib2
-    
+
 class SequenceDependentStatStorage(StatStorage):
     def __init__(self, filename, fallback_filenames = None, sequence_score = seq_and_pyrpur_similarity):
         self.sequence_score = sequence_score
         super(SequenceDependentStatStorage, self).__init__(filename, fallback_filenames)
-        
+
     @staticmethod
-    def _key_from_bg_and_elem(bg, elem):        
+    def _key_from_bg_and_elem(bg, elem):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem)
@@ -265,7 +266,7 @@ class SequenceDependentStatStorage(StatStorage):
             if key in source:
                 stats=source[key]
                 num_stats = len(stats)
-                choose_from.extend(stats)                
+                choose_from.extend(stats)
                 if not weights:
                     weight = 1
                 else:
@@ -275,6 +276,5 @@ class SequenceDependentStatStorage(StatStorage):
                     weights.append(weight*self.sequence_score(sequence, stat))
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
-        
-        return weights, choose_from
 
+        return weights, choose_from

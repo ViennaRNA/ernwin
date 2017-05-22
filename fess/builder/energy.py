@@ -731,7 +731,7 @@ def _iter_subgraphs(cg, use_subgraphs):
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
     HELPTEXT = "       {:3}:  Radius of gyration energy".format(_shortname)
-    real_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration.csv')
+    real_stats_fn = op.expanduser('stats/rog_target_dist_nr2.110.csv')
     sampled_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration_sampled.csv')
 
     def __init__(self, rna_length, adjustment=None, prefactor=None):
@@ -940,7 +940,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         #Read the FR3D output
         with open(fr3d_out) as f:
             aminor_geometries = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
-        all_geometries = set()
+        non_ame_geometries = set()
         for pdb_id, cgs in all_cgs.items():
             for cg in cgs:
                 for loop in cg.defines:
@@ -951,7 +951,11 @@ class AMinorEnergy(CoarseGrainEnergy):
                             continue
                         dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
                         if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)) and not np.isnan(dist+angle1+angle2):
-                            all_geometries.add(fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop))))
+                            geometry = fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop)))
+                            if geometry in aminor_geometries:
+                                log.info("Geometry %s is in aminor_geometries", geometry)
+                            else:
+                                non_ame_geometries.add(geometry)
 
         #Print orientations to orientation_outfile
         with open(orientation_outfile, "w") as f:
@@ -964,17 +968,21 @@ class AMinorEnergy(CoarseGrainEnergy):
             print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
             # HEADER
             print ("loop_type dist angle1 angle2 is_interaction", file=f)
-            for entry in all_geometries:
+            for entry in aminor_geometries:
                 print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction}".format(is_interaction = (entry in aminor_geometries),
+                      "{angle2} {is_interaction}".format(is_interaction = True,
+                                                         **entry._asdict()), file = f)
+            for entry in non_ame_geometries:
+                print("{pdb_id} {loop_type} {dist} {angle1} "
+                      "{angle2} {is_interaction}".format(is_interaction = False,
                                                          **entry._asdict()), file = f)
 
         prob_fun= {}
         for loop_type in "himft":
             log.info("Creating probability function for %s", loop_type)
             prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries,
-                                                                   all_geometries,
-                                                                   loop_type)
+                                                                  non_ame_geometries,
+                                                                  loop_type)
         #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
         with open(out_filename, "w") as f:
             log.info("Writing AMinor target_dist to %s", out_filename)
@@ -987,17 +995,12 @@ class AMinorEnergy(CoarseGrainEnergy):
                 for line in fr3d_query.splitlines():
                     print("#    "+line.strip(), file = f)
             print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
-            print("pdb_id rna_length loop_type total_prob", file=f)
+            print("pdb_id rna_length loop_type total_prob max_prob num_interactions", file=f)
             for cgs in all_cgs.values():
                 for cg in cgs:
                     print("# CG:", file=f)
                     rna_length = cg.seq_length
-                    for loop in cg.defines:
-                        if loop[0] == "s":
-                            continue
-                        prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist)
-                        if not np.isnan(prob):
-                            print("{} {} {} {}".format(cg.name, rna_length, loop[0], prob), file = f)
+                    cls._print_prob_lines(cg, rna_length, prob_fun, f)
                     if use_subgraphs:
                         print("# Subgraphs:", file=f)
                         log.info("Now generating AMinor for Subgraphs")
@@ -1005,12 +1008,8 @@ class AMinorEnergy(CoarseGrainEnergy):
                     for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
                         i+=1
                         log.info("Subgraph of length %s (%d th sg)", sg_length, i)
-                        for loop in subgraph:
-                            if loop[0] == "s":
-                                continue
-                            prob = fba.total_prob(loop, cg, prob_fun[loop[0]], cls.cutoff_dist, domain = subgraph)
-                            if not np.isnan(prob):
-                                print("{} {} {} {}".format(cg.name+".subgraph", sg_length, loop[0], prob), file = f)
+                        cls._print_prob_lines(cg, sg_length, prob_fun, f, subgraph)
+
         log.info("Successfully generated target distribution for AMinors.")
 
     def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
@@ -1025,9 +1024,11 @@ class AMinorEnergy(CoarseGrainEnergy):
         all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#")
         all_geometries = all_geometries[ all_geometries["dist"] < self.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
+        non_ame_geometries = all_geometries[not all_geometries["is_interaction"]]
+
         self.prob_function = fba.aminor_probability_function(aminor_geometries.itertuples(),
-                                                               all_geometries.itertuples(), #With pandas >=0.19 this yields namedtuples!
-                                                               self.loop_type)
+                                                             non_ame_geometries.itertuples(), #With pandas >=0.19 this yields namedtuples!
+                                                             self.loop_type)
 
         #: The number of coarse grain elements considered in this energy
         self.num_loops=None
@@ -1137,6 +1138,33 @@ class AMinorEnergy(CoarseGrainEnergy):
                 ax2.legend()
                 plt.show()
         return energy[0]
+
+    @classmethod
+    def _print_prob_lines(cls, cg, rna_length, prob_funs, file, domain = None):
+        """
+        Print the probabilities for all loops in this cg to the file file
+
+        :param cg: A CoarseGrainRNA
+        :param prob_funs: A dictionary {loop_type:probability_function} where
+                          loop_type is a letter ("i", "m", "h", "f" or "t")
+                          and probability function is a function like those
+                          returned by fba.aminor_probability_function
+        """
+        for loop in cg.defines:
+            if loop[0] == "s":
+                continue
+            t_prob = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
+            max_prob = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
+            num_interactions = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
+            if not np.isnan(t_prob*max_prob*num_interactions):
+                assert max_prob<=t_prob<=num_interactions, ("{} <=? {} "
+                                                           "<=? {}".format(max_prob,
+                                                                           t_prob,
+                                                                           num_interactions))
+                print("{} {} {} {} {} {}".format(cg.name, rna_length,
+                                                 loop[0], t_prob,
+                                                 max_prob, num_interactions),
+                      file = file)
 
 class DoNotContribute(Exception):
     pass

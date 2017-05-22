@@ -6,7 +6,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
-"""builder.py: This file contains classes, which take a spatial model without any 3D information 
+"""builder.py: This file contains classes, which take a spatial model without any 3D information
 and add 3D information to it."""
 
 __author__ = "Bernhard Thiel"
@@ -60,8 +60,8 @@ def _determined_broken_ml_segments(built_nodes, bg):
 
 class Builder(object):
     """
-    Build a structure with arbitrary stats from the stat-source, 
-    that fulfill all constraint energies but are 
+    Build a structure with arbitrary stats from the stat-source,
+    that fulfill all constraint energies but are
     not representative samples from the conformation space.
     """
     def __init__(self, stat_source, junction_energy=None, clash_energy=None):
@@ -69,11 +69,11 @@ class Builder(object):
         self.junction_energy = junction_energy
         self.clash_energy = clash_energy
         self.clash_only_tries = 100
-    
+
     def build_n(self, sm, n):
         """
         Return a list of initialized copies of the spatial model
-        
+
         :param sm: The spatial model
         :param n: The number of builds you like to get.
         """
@@ -89,11 +89,11 @@ class Builder(object):
         if self.clash_energy is not None or self.junction_energy is not None:
             self._build_with_energies(sm)
         log.info("Done to build")
-        
+
     def build(self, sm):
         """
         Initialize the spatial model with random stats
-        
+
         :param sm: The SpatialModel
         """
         sm.sample_stats(self.stat_source)
@@ -141,7 +141,7 @@ class Builder(object):
     def _check_sampled_ml(self, sm, ml):
         """
         Raises an error if the sampled multiloop segment does not fulfill the junction closure energy
-        
+
         :param sm: The spatial model
         :param ml: The name of the junction segment we need to check (e.g. "m0")
         :raises: ValueError, if the ml-segment dioes not fulfill the energy
@@ -150,23 +150,23 @@ class Builder(object):
         if self.junction_energy is None:
             return
         if self.junction_energy.eval_energy(sm.bg, nodes = ml)!=0:
-                    dist = ftug.junction_virtual_atom_distance(sm.bg, ml)            
+                    dist = ftug.junction_virtual_atom_distance(sm.bg, ml)
                     raise ValueError("Multiloop {} does not fulfill the constraints. "
                                      "Sampled as {}, "
                                      "distance = {}".format(ml, sm.elem_defs[ml], dist))
-                                     
+
     def _get_bad_ml_segments(self, sm, nodes):
         """
-        Return a list of bulges that are part of nodes and belog to a multiloop that doesn't 
+        Return a list of bulges that are part of nodes and belog to a multiloop that doesn't
         fulfill the energy
-        
+
         :param sm: The spatial model
         :param nodes: The built nodes of this spatial model. Only take these nodes and
                       fully defined ml-segments into account.
         :returns: A list of ml-elements that are part of a bad loop,
                   or an empty list, if the junction constriant energy is zero.
         """
-        if self.junction_energy is None: 
+        if self.junction_energy is None:
             return []
         det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
         ej = self.junction_energy.eval_energy( sm.bg, nodes=det_br_nodes)
@@ -181,10 +181,10 @@ class Builder(object):
         """
         Return a list of interior loops and multiloop segments between the
         first stem in nodes that has a clash and the end of the structure.
-        
+
         :param sm: The spatial model
         :param nodes: Only take these nodes into account
-        :returns: A list of i and m element that were built after the first stem 
+        :returns: A list of i and m element that were built after the first stem
                   with clashes, or an empty list is no clashes are detected.
         """
         if self.clash_energy is None:
@@ -199,26 +199,26 @@ class Builder(object):
             log.debug("Clash nodes {}".format(clash_nodes))
             return clash_nodes
         return []
-        
+
     def _rebuild_clash_only(self, sm, nodes, changable):
         """
         Tries to rebuild part of the structure to remove clashes.
-        
+
         .. note::
-        
-            This is more efficient than self._build_with_energies if only clashes should be 
+
+            This is more efficient than self._build_with_energies if only clashes should be
             removed from a substructure because it avoids unnecessary energy evaluations.
-        
+
         :param sm: The spatial model to build
         :param nodes: Take only these nodes into account for energy calculation
         :param changable: Only try to change on of these nodes. A list!
         :param tries: maximal tries before giving up and returning False
-        
+
         :returns: True, if a clash_free structure was built.
         """
         if self.clash_energy is None:
             return True
-        if not changable: 
+        if not changable:
             return False
         for i in range(self.clash_only_tries):
             node = random.choice(changable)
@@ -230,7 +230,7 @@ class Builder(object):
                 return True
         log.debug("_rebuild_clash_only for {} was not successful.".format(nodes, i))
         return False
-    
+
 class FairBuilder(Builder):
     @profile
     def __init__(self, stat_source, output_dir = None, store_failed=False, junction_energy=None, clash_energy=None):
@@ -249,7 +249,7 @@ class FairBuilder(Builder):
             self._attempt_to_build(sm)
             if self._fulfills_junction_energy(sm) and self._fulfills_clash_energy(sm):
                 return
-    
+
     def _attempt_to_build(self, sm):
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
@@ -271,11 +271,11 @@ class FairBuilder(Builder):
                             else:
                                 if j == bad_junctions[-1]:
                                     add=True
-                        f.write("{}: junction {}\n".format(self._failed_save_counter, 
+                        f.write("{}: junction {}\n".format(self._failed_save_counter,
                                                          list(set(bad_junctions))))
                 return False
         return True
-    
+
     def _fulfills_clash_energy(self, sm):
         if self.clash_energy is not None:
             if self.clash_energy.eval_energy(sm.bg)>0:
@@ -288,19 +288,19 @@ class FairBuilder(Builder):
                         f.write("{}: clash {}\n".format(self._failed_save_counter, self.clash_energy.bad_bulges))
                 return False
         return True
-    
+
     def _store_failed(self, sm):
         self._failed_save_counter += 1
-        with open(os.path.join(self.output_dir, 
+        with open(os.path.join(self.output_dir,
                               'failed{:06d}.coord'.format(self._failed_save_counter)), "w") as f:
             f.write(sm.bg.to_cg_string())
- 
+
     def _store_success(self, sm):
         self._success_save_counter += 1
-        with open(os.path.join(self.output_dir, 
+        with open(os.path.join(self.output_dir,
                               'build{:06d}.coord'.format(self._success_save_counter)), "w") as f:
             f.write(sm.bg.to_cg_string())
-            
+
     @profile
     def success_probability(self, sm, target_attempts=None, target_structures=None, store_success = True):
         if target_attempts is None and target_structures is None:
@@ -329,7 +329,7 @@ class FairBuilder(Builder):
                  "junctions, {} of the remaining structures have clashes, "
                  "{} were successful.".format(attempts, junction_failures, clashes, success))
         log.info("{:.0%} % junction failures, {:.0%}% clash, {:.0%}% "
-                 " are ok.".format(junction_failures/attempts, clashes/attempts, success/attempts))           
+                 " are ok.".format(junction_failures/attempts, clashes/attempts, success/attempts))
         good_j = attempts - junction_failures
         if good_j>0:
             log.info("For structures with good junctions: {:.0%}% clash, {:.0%}% "
@@ -337,9 +337,13 @@ class FairBuilder(Builder):
         return success, attempts, junction_failures, clashes
 
 class DimerizationBuilder(FairBuilder):
-    #As summerized in the review doi:10.1016/0920-5632(96)00042-4
+    #Inspired by dimerization for SAWs, as summerized in the review doi:10.1016/0920-5632(96)00042-4
     def __init__(self, stat_source, output_dir = None, store_failed=False, junction_energy=None, clash_energy=None):
         """
+        Build all multiloops independently and then attempt to connect them
+        via building of the rest of the structure. Reject the whole structure,
+        if connecting of multiloops fails.
+
         :param store_failed: BOOL. Should structures, that do not fulfill the clash energy, be stored?
         :param output_dir: Where failed structures will be saved
         """
@@ -355,14 +359,14 @@ class DimerizationBuilder(FairBuilder):
 
     def _fulfills_junction_energy(self, sm, nodes=None):
         """
-        In contrast to the super-class, this does not store failures, 
+        In contrast to the super-class, this does not store failures,
         because we are only looking at partial structures here.
         """
         if self.junction_energy is not None:
             if self.junction_energy.eval_energy(sm.bg, nodes=nodes)>0:
                 return False
         return True
-    
+
     def _change_multi_loop(self, sm, multi_loop):
         node = random.choice(multi_loop)
         sm.elem_defs[node] = self.stat_source.sample_for(sm.bg, node)

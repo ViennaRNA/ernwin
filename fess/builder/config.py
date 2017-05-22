@@ -21,7 +21,7 @@ class Configuration:
     template_residues = None # This is changed programatically. It should always be None in this file.
 
     # The JAR3D dir should contain the jar3d-related files defined in the following 3 configuration values.
-    # Further more, ernwin will create the directories 'cgs' and 'pdbs'
+    # Further more, ernwin will create the subdirectories 'cgs' and 'pdbs'
     jar3d_dir = '~/JAR3D'
     jar3d_jar = 'jar3d_2014-12-11.jar' #Download from http://rna.bgsu.edu/data/jar3d/models/ and strore in jar3d_dir
     jar3d_motif = 'Internal Loop Motif Atlas Release 1.18.json' #Download from http://rna.bgsu.edu/rna3dhub/motifs/release/il/current and strore in jar3d_dir
