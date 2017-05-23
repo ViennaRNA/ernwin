@@ -192,7 +192,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     return geometries
 
 
-def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
+def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_type):
     """
     :param aminor_geometries: A list or iterator of AMGeometry instances which correspond to true interactions.
     :param all_geometries: A list or iterator of AMGeometry instances which correspond to all combinations
@@ -204,31 +204,31 @@ def aminor_probability_function(aminor_geometries, all_geometries, loop_type):
     aminor_geometries = np.array([[ x.dist, x.angle1, x.angle2 ]
                                   for x in aminor_geometries
                                   if  x.loop_type == loop_type])
-    all_geometries = np.array([[ x.dist, x.angle1, x.angle2 ]
-                                  for x in all_geometries
+    non_aminor_geometries = np.array([[ x.dist, x.angle1, x.angle2 ]
+                                  for x in non_aminor_geometries
                                   if  x.loop_type == loop_type])
-    log.info("%d interactions and %d geometries given.", len(aminor_geometries), len(all_geometries))
+    log.info("%d interactions and %d non-interactions given.", len(aminor_geometries), len(non_aminor_geometries))
     if len(aminor_geometries) == 0: #E.g. for f0
         return lambda x: np.array([0])
     # Overall Probability/ Frequency of A-Minor interactions
-    log.info("len(aminor_geometries)=%d, len(all_geometries)=%d", len(aminor_geometries), len(all_geometries))
-    p_interaction = len(aminor_geometries)/ len(all_geometries)
+    log.info("len(aminor_geometries)=%d, len(non_aminor_geometries)=%d", len(aminor_geometries), len(non_aminor_geometries))
+    p_interaction = len(aminor_geometries)/( len(non_aminor_geometries) + len(aminor_geometries))
     log.info("p_interaction = %s", p_interaction)
     p_geometry_given_interaction = scipy.stats.gaussian_kde(aminor_geometries.T)
     log.info("p_geometry_given_interaction done. Calculating p_geometry_all")
-    p_geometry_all = scipy.stats.gaussian_kde(all_geometries.T)
+    p_geometry_non_interaction = scipy.stats.gaussian_kde(non_aminor_geometries.T)
 
     def p_function(point):
         numerator = p_geometry_given_interaction(point)
         #log.info("Numerator: %s", numerator)
-        denom = p_geometry_all(point)
+        denom = p_geometry_non_interaction(point)+numerator
         #log.info("Denominator: %s", denom)
         #log.info("p_interaction %s", p_interaction)
         return numerator/denom*p_interaction
 
     # The version below was used by Peter to avoid too small denominators in case of pseudoknots.
     # Can give probabilities >1
-    p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point)) / p_geometry_all(point) + p_geometry_given_interaction(point)
+    #p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point)) / p_geometry_all(point) + p_geometry_given_interaction(point)
     #return p_interaction_given_geometry
     return p_function
 
@@ -261,35 +261,14 @@ def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     :param domain:      A list of element names. Only take these elements into account.
                         None to use the whole graph from cg.
     """
-    # Code moved here from fbe.AMinorEnergy.eval_prob
-    if domain is not None:
-        stems = (s for s in domain if s[0]=="s")
-    else:
-        stems = cg.stem_iterator()
-    probs = []
-    for s in stems:
-        if s in cg.edges[loop]:
-            continue
-        if not ftuv.elements_closer_than(cg.coords[loop][0],
-                                 cg.coords[loop][1],
-                                 cg.coords[s][0],
-                                 cg.coords[s][1],
-                                 cutoff_dist):
-            continue
+    total_prob = max(_iter_probs(loop, cg, prob_fun, cutoff_dist, domain))
+    log.debug("Number of interactions is: %f", total_prob)
+    return total_prob
 
-        point = get_relative_orientation(cg, loop, s)
-        p, = prob_fun(point)
-        probs.append(p)
-    if len(probs) == 0:
-        log.debug("max_prob: Returning zero.")
-        return 0
-    max_prob = max(probs)
-    log.debug("max_prob: Returning max(probs): %s", max_prob)
-    return max_prob
 
 def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     """
-    Return the total probability for the loop form any A-Minor interaction.
+    Return the total probability for the loop to form at least one A-Minor interaction.
 
     This function tries for interaction of the loop with
     all stems (except adjacent ones) and returns p1+(1-p1)*p2+...
@@ -313,11 +292,63 @@ def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
     """
     # Code moved here from fbe.AMinorEnergy.eval_prob
     log.debug("Entering 'total_prob'")
+    total_prob = 0
+    for p in _iter_probs(loop, cg, prob_fun, cutoff_dist, domain):
+        log.debug("Adding p = %f to total_prob = %f", p, total_prob)
+        total_prob += (1-total_prob)*p
+    log.debug("total_prob: Returning: %s", total_prob)
+    if total_prob>1:
+        log.error("Probability >1 for %s %s with domain %s", cg.name, loop, domain)
+        assert False
+    return total_prob
+
+def num_interactions(loop, cg, prob_fun, cutoff_dist, domain = None):
+    """
+    Return the expected number of A-Minor interactions this loop is involved in.
+
+    This function tries for interaction of the loop with
+    all stems (except adjacent ones) and returns pthe sum of
+    the individual probabilities.
+
+    :param loop: The loop name, e.g. "h0"
+
+                 .. warning::
+
+                    The loop type (hairpin/interior) should correspond to the loop-type used
+                    for generating the probability function `prob_fun`
+
+    :param cg:          The CoarseGrainRNA.
+    :param prob_fun:    A probability function. A function that takes a triple (distance, angle1, angle2)
+                        as returned by `get_relative_orientation` and returns a probability for
+                        this goemetry to correspond to an A-Minor interaction.
+    :param cutoff_dist: Do not consider interactions between elements more
+                        than this many angstroms away.
+    :param domain:      A list of element names. Only take these elements into account.
+                        None to use the whole graph from cg.
+    """
+    total_prob = sum(_iter_probs(loop, cg, prob_fun, cutoff_dist, domain))
+    log.debug("Number of interactions is: %f", total_prob)
+    return total_prob
+
+def _iter_probs(loop, cg, prob_fun, cutoff_dist, domain = None):
+    """
+    Iterate over all stems and yield the probability for an interaction with loop.
+
+    .. warning ::
+
+        Do not rely on len(list(_iter_probs))!
+        This function yields a single zero as a last element,
+        which does not correspond to any stem.
+        This is required to make sure at least one value is yielded in cases
+        where no stem is close enough for interactions.
+
+    For params: See the documentation of total_prob
+    """
+    log.debug("Entering 'num_interactions'")
     if domain is not None:
         stems = (s for s in domain if s[0]=="s")
     else:
         stems = cg.stem_iterator()
-    total_prob = 0
     for s in stems:
         if s in cg.edges[loop]:
             continue
@@ -327,15 +358,9 @@ def total_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
                                  cg.coords[s][1],
                                  cutoff_dist):
             continue
-
         point = get_relative_orientation(cg, loop, s)
         p, = prob_fun(point)
         if p>1:
             warnings.warn("Probability at %s is %f>1 for %s %s with domain %s" %(point, p, cg.name, loop, domain))
-        log.debug("Adding p = %f to total_prob = %f", p, total_prob)
-        total_prob += (1-total_prob)*p
-    log.debug("total_prob: Returning: %s", total_prob)
-    if total_prob>1:
-        log.error("Probability >1 for %s %s with domain %s", cg.name, loop, domain)
-        assert False
-    return total_prob
+        yield(p)
+    yield 0 #Always yield at least one number, so max(_iter_probs(...)) does not raise an error

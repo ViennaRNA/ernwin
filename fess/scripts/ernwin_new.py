@@ -80,6 +80,11 @@ def get_parser():
                         help = "Try to build the structure using a fair \n"
                                "but slow algorithm.\n "
                                "This flag implies --start-from-scratch")
+    parser.add_argument('--fair-building-d', action="store_true",
+                        help = "EXPERIMENTAL! Like --fair-building, but use a \n"
+                               "potentially faster and experimental algorithm \n"
+                               "that is inspired by dimerization method for SAWs.\n "
+                               "This flag implies --start-from-scratch")
     parser.add_argument('--eval-energy', default=False, action='store_true',
                         help='Evaluate the energy of the input structure and\n'
                              'exit without sampling.')
@@ -457,11 +462,22 @@ def setup_deterministic(args):
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
     #Initialize the stat_container
-    stat_source = stat_container.StatStorage(args.stats_file, args.fallback_stats_files)
+    if args.jar3d:
+        jared_out    = op.join(config.Configuration.sampling_output_dir, "jar3d.stats")
+        jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
+        motifs = fma.annotate_structure(cg, jared_tmp, cg.name.split('_')[0])
+        fma.print_stats_for_motifs(motifs, filename = jared_out, temp_dir = config.Configuration.sampling_output_dir )
+        #Here, all stats are fallback stats for the JAR3D hits.
+        new_fallbacks = [args.stats_file]
+        if args.fallback_stats_files is not None:
+            new_fallbacks += args.fallback_stats_files
+        stat_source = stat_container.StatStorage(jared_out, new_fallbacks)
+    else:
+        stat_source = stat_container.StatStorage(args.stats_file, args.fallback_stats_files)
 
 
-    if args.clustered_angle_stats or args.jar3d:
-        print("ERROR: --clustered-angle-stats and --jar3d are currently not implemented!", file=sys.stderr)
+    if args.clustered_angle_stats:
+        print("ERROR: --clustered-angle-stats is currently not implemented (and probably will be removed in the future)!", file=sys.stderr)
         sys.exit(1)
 
     #LOAD THE SM(s)
@@ -570,7 +586,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source, 
     if args.no_rmsd:
         options["rmsd"] = False
         options["acc"]  = False
-    if args.fair_building:
+    if args.fair_building or agrs.fair_building_d:
         args.start_from_scratch = True
     if not args.start_from_scratch and not args.rmsd_to:
         options["extreme_rmsd"] = "max" #We start at 0 RMSD. Saving the min RMSD is useless.
@@ -699,9 +715,14 @@ def main(args):
                         except:
                             pass
 
-        elif args.fair_building:
-            builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
-            success, attempts, failed_mls, clashes = builder.success_probability(sm, target_attempts=args.iterations, store_success = True)
+        elif args.fair_building or args.fair_building_d:
+            if args.fair_building and args.fair_building_d:
+                raise ValueError("--fair-building and --fair-building-d are mutually exclusive")
+            if args.fair_building:
+                builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
+            elif args.fair_building_d:
+                builder = fbb.DimerizationBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
+            success, attempts, failed_mls, clashes = builder.success_probability(sm, target_structures=args.iterations, target_attempts=100*args.iterations, store_success = True)
             print("SUCCESS:", success, attempts, failed_mls, clashes)
             print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+
                    "{} times a multiloop was not closed. {} clashes occurred."

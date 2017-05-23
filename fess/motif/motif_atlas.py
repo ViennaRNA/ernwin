@@ -5,7 +5,7 @@ import sys
 from optparse import OptionParser
 
 import forgi.utilities.debug as fud
-
+import forgi.graph.bulge_graph as fgb
 class MotifEntry:
     '''
     An entry in a motif.
@@ -13,7 +13,7 @@ class MotifEntry:
     This records the pdb file that this motif came from as well
     as the nucleotides it contains.
     '''
-    
+
     def __init__(self, line):
         # the define should indicate starting and ending nucleotides
         # of contiguous regions in a alternating fashion:
@@ -40,7 +40,7 @@ class MotifEntry:
             sparts = part.split('|')
 
             # find contiguous regions of nucleotides
-            resnum = int(sparts[4].strip('"'))
+            resnum = fgb.resid_from_str("{}:{}".format(parts[2],int(parts[4].strip('"'))))
             self.define += [resnum]
 
         print line, self.define
@@ -77,12 +77,11 @@ class MotifAlignment:
             self.chains.add(sparts[2])
             #print "sparts:", sparts
 
-            # find contiguous regions of nucleotides
-            resnum = int(sparts[4].strip('"'))
+            resnum = fgb.resid_from_str("{}:{}".format(sparts[2],int(sparts[4].strip('"'))))
             self.residues += [resnum]
 
     def __str__(self):
-        return "%s %s | %s" % (self.struct, 
+        return "%s %s | %s" % (self.struct,
                                " ".join(map(str, self.residues[:self.chainbreak])),
                                " ".join(map(str, self.residues[self.chainbreak:])))
 
@@ -90,7 +89,7 @@ class Motif:
     '''
     A motif from the BGSU motif atlas.
     '''
-    
+
     def __init__(self, json_motif):
         '''
         Initialize a motif using the lines from the csv representation
@@ -107,7 +106,7 @@ class Motif:
 
     def parse_alignment(self, json_motif):
         '''
-        Go through all the alignments in this motif and parse 
+        Go through all the alignments in this motif and parse
         them for their source structure as well as involved nucleotides.
 
         @param json_motif: The section of the motif atlas json file

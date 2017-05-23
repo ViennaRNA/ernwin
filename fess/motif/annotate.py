@@ -11,6 +11,9 @@ import forgi.utilities.debug as fud
 import forgi.threedee.model.coarse_grain as ftmc
 import sys
 import forgi.graph.bulge_graph as fgb
+import logging
+
+log = logging.getLogger(__name__)
 all = [ "annotate_structure" ]
 
 JARED_DIR = op.expanduser(cbc.Configuration.jar3d_dir)
@@ -64,38 +67,33 @@ def annotate_structure(cg, temp_dir, exclude_structure=None, jared_file=None, il
 
 
 
-def get_cg_from_pdb(pdb_file, chain_id, temp_dir=None, cg_filename=None):
+def get_cg_from_pdb(pdb_file, chains, temp_dir=None, cg_filename=None):
     '''
     Get a BulgeGraph from a pdb file.
-    
-    @param pdb_file: The filename of the pdb file
-    @param chain_id: The chain within the file for which to load the BulgeGraph.
+
+    :param pdb_file: The filename of the pdb file
+    :param chains: The chain ids within the file for which to load the BulgeGraph.
+                   If more than one chain is given, they must be connected.
+    :param cg_filename: If given, write the cg to this file
     '''
     if temp_dir is not None:
         temp_dir = op.join(temp_dir, 'cg_temp')
 
-    print("Creating CG RNA for:", pdb_file, file=sys.stderr)
-    cg = ftmc.from_pdb(pdb_file, chain_id=chain_id,
-                      intermediate_file_dir=temp_dir,
-                      remove_pseudoknots=False)
+    log.info("Creating CG RNA for: %s", pdb_file)
+    cg = ftmc.from_pdb(pdb_file, chain_id = chains, remove_pseudoknots = False)
 
     if cg_filename is not None:
-        if not op.exists(op.dirname(cg_filename)):
-            os.makedirs(op.dirname(cg_filename))
-
-        with open(cg_filename, 'w') as f:
-            f.write(cg.to_cg_string())
-
-    #print >>sys.stderr, "Loading cg representation from pdb:", pdb_file, "chain id:", chain_id
+        cg.to_file(cg_filename)
     return cg
 
-def get_coarse_grain_file(struct_name, chain_id, temp_dir=None):
+def get_coarse_grain_files(struct_name, chains, temp_dir=None):
     '''
-    Load the coarse-grain file for a particular chain in a structure.
+    Load all connected coarse-grain files for a structure.
+    Download the corresponding pdb, if needed.
 
-    @param struct_name: The name of the structure (i.e. '1Y26')
-    @param chain_id: The identifier of the chain for which to return the cg
-                     representation (i.e. 'A')
+    :param struct_name: The name of the structure (i.e. '1Y26')
+    :param chains: A sequence of chain_ids. If more than one chain_id is given,
+                   the chains have to be connected by at least one basepair.
     @return: A forgi.graph.bulge_graph structure describing this chain.
     '''
     CG_DIR = op.join(JARED_DIR, "cgs")
@@ -107,113 +105,84 @@ def get_coarse_grain_file(struct_name, chain_id, temp_dir=None):
     if not op.exists(CG_DIR):
         os.makedirs(CG_DIR)
 
-    cg_filename = op.join(CG_DIR, struct_name + "_" + chain_id + ".cg")
+    cg_filename = op.join(CG_DIR, struct_name+"_"+"-".join(sorted(chains)))
 
     # do we already have the cg representation
     if op.exists(cg_filename):
-        return fgb.BulgeGraph(cg_filename)
+        return ftmc.CoarseGrainRNA(cg_filename)
     else:
         pdb_filename = op.join(PDB_DIR, struct_name + ".pdb")
-        #print >>sys.stderr, "no cg representation found... looking for pdb file:", pdb_filename
 
         #do we at least have a pdb file
         if op.exists(pdb_filename):
-            #print >>sys.stderr, "Found!"
-            return get_cg_from_pdb(pdb_filename, chain_id, 
+            return get_cg_from_pdb(pdb_filename, chains,
                                    temp_dir=temp_dir, cg_filename=cg_filename)
         else:
-            # take it from the top (the RCSB, of course)
-            #print >>sys.stderr, "No pdb file found, downloading from the RCSB..."
-            print ("Downloading pdb for:", struct_name, file=sys.stderr)
+            log.info ("Downloading pdb for: %s", struct_name)
             import urllib2
             response = urllib2.urlopen('http://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=pdb&compression=NO&structureId=%s' % (struct_name))
             html = response.read()
-            
-            #print >>sys.stderr, "Done. Saving in:", pdb_filename
+
 
             with open(pdb_filename, 'w') as f:
                 f.write(html)
                 f.flush()
 
-                return get_cg_from_pdb(pdb_filename, chain_id, temp_dir=temp_dir,
+                return get_cg_from_pdb(pdb_filename, chains, temp_dir=temp_dir,
                                       cg_filename=cg_filename)
 
-    # does the structure exist in CG_DIR?
-        # load it and return
-    # else
-        # does the pdb file exist in PDB_DIR?
-            # create a CG representation and save it in CG_DIR
-            # return the CG representation
-        # else
-            # download the file from the pdb
-            # create a CG representation and save it in CG_DIR
-            # return the CG representation
-    
 
-def motifs_to_cg_elements(motifs, temp_dir=None, filename=None):
+def print_stats_for_motifs(motifs, filename, temp_dir=None, ):
     '''
     Convert all of the motif alignments to coarse-grain element names. This
     requires that the coarse grain representation of the pdb file from
     which the motif comes from be loaded and the element name be determined
     from the nucleotides within the motif.
 
-    @param motifs: A dictionary indexed by an element name. The values are the
+    :param motifs: A dictionary indexed by an element name. The values are the
                    json motif object from the BGSU motif atlas.
-    @return: A dictionary indexed by an element name containing a list of
-             tuples describing where this element can be found in the source
-             alignment structures.
+    :param filename: The filename where the stats will be written to.
     '''
     new_motifs = clcs.defaultdict(list)
+    i=0
+    with open(filename, "w") as file_:
+        for key in motifs:
+            for motif_entry in motifs[key]:
+                for a in motif_entry['alignment']:
+                    alignment = ma.MotifAlignment(motif_entry['alignment'][a],
+                                            motif_entry['chainbreak'])
 
-    for key in motifs:
-        for motif_entry in motifs[key]:
-            for a in motif_entry['alignment']:
-                alignment = ma.MotifAlignment(motif_entry['alignment'][a],
-                                        motif_entry['chainbreak'])
+                    try:
+                        cg = get_coarse_grain_files(alignment.struct,
+                                                 temp_dir=temp_dir, chains = alignment.chains)
+                    except fgb.GraphConstructionError as e:
+                        log.warning("Skipping JAR3D entry for {}. Could not "
+                                    "construct BulgeGraph because: {}".format(alignment, e))
+                        continue
 
-                if len(alignment.chains) > 1:
-                    continue
+                    elements = set()
+                    for r in alignment.residues:
+                        log.info(r)
+                        r = cg.seq_ids.index(r)+1
+                        elements.add(cg.get_node_from_residue_num(r))
 
-                alignment_chain = list(alignment.chains)[0]
-                cg = get_coarse_grain_file(alignment.struct,
-                                           alignment_chain,
-                                          temp_dir=temp_dir)
+                    loop_elements = set()
+                    for e in elements:
+                        if e[0] != 's':
+                            loop_elements.add(e)
 
-                elements = []
-                for r in alignment.residues:
-                    elements += [cg.get_node_from_residue_num(r, seq_id=True)]
+                    try:
+                        element_id, = loop_elements
+                    except (TypeError, ValueError):
+                        log.warning("Skipping JAR3D entry for %s. Elements %s in cg do not match JAR3D.",alignment, elements)
+                        continue
 
-                iloop_elements = set()
-                for e in elements:
-                    if e[0] == 'i':
-                        iloop_elements.add(e)
-
-                #here we should probably verify that all the nucleotides in the
-                #alignment are present in the define of the cg element
-                if len(iloop_elements) > 0:
-                    element_id = list(iloop_elements)[0]
-                    new_motifs[key] += [(alignment.struct, alignment_chain, 
-                                         element_id, cg.defines[element_id])]
-
-    if filename:    
-        if filename=="STDOUT":
-            print_motifs(new_motifs, motifs, sys.stdout)
-        if filename=="STDERR":
-            print_motifs(new_motifs, motifs, sys.stderr)
-        else:
-            with open(filename, "w") as file_:
-                print_motifs(new_motifs, motifs, file_)
-
-    return new_motifs
-    
-def print_motifs(new_motifs, motifs, file_):
-    for key in new_motifs:
-        for (pdb_name, chain_id, elem_name, define) in new_motifs[key]:
-            if len(define) == 4:
-                print(key, pdb_name + "_" + chain_id, len(define), " ".join(map(str, [define[1] - define[0] + 1, define[3] - define[2] + 1])), " ".join(map(str, define)), '"' + motifs[key][0]['common_name'] + '"', file=file_)
-                
-            else:
-                print(key, pdb_name + "_" + chain_id, len(define), " ".join(map(str, [define[1] - define[0] + 1, 0])), " ".join(map(str, define)), '"' + motifs[key][0]['common_name'] + '"', file=file_)
+                    stats = cg.get_stats(element_id)
+                    for stat in stats:
+                        i+=1
+                        # To ensure unique stat-ids, we use 'j' to identify JAR3D followed by an increasing integer.
+                        stat.pdb_name = stat.pdb_name+":{}_j{}".format(element_id[0], i)
+                        print(stat, file = file_)
 
 def cg_to_jared_input(cg):
     '''
@@ -231,7 +200,7 @@ def cg_to_jared_input(cg):
     for il in bg.iloop_iterator():
         # get a tuple containing the sequence on each strand
         seqs = bg.get_define_seq_str(il, adjacent=True)
-        il_id = ">%s_%s" % (bg.name, 
+        il_id = ">%s_%s" % (bg.name,
                                   "_".join(map(str, bg.defines[il])))
         out_str += il_id + "\n"
         out_str += "*".join(seqs) + "\n"
@@ -264,7 +233,7 @@ def parse_jared_output(sequence_results, motif_atlas_file=None, exclude_structur
             #We assign to subdata, but never access the corresponding part of data later on!
             warnings.simplefilter("ignore")
             subdata['score'] = subdata['score'].astype(float)
-        subdata = subdata.sort(columns='score', ascending=False)
+        subdata = subdata.sort_values(by='score', ascending=False)
         for i, row in subdata.iterrows():
             # only take the top scoring motif
             motif_id = row['motifId'].split('.')[0]
@@ -295,7 +264,7 @@ def parse_jared_output(sequence_results, motif_atlas_file=None, exclude_structur
             else:
                 print ('x', motif, motif_id, motif_entry['common_name'], motif_entry['alignment'])
 
-    
+
             # only return the top scoring motif
             break
 

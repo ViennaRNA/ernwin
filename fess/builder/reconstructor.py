@@ -353,12 +353,12 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     equally big breaks in the chain on both sides of the fragment.
 
 
-    @param cg_to: The coarse-grain representation of the target chain
-    @param cg_from: The coarse-grain representation of the source chain
-    @param elem_to: The element to replace
-    @param elem_from: The source element
-    @param chains_to: A dict chainid:chain. The chains to graft onto
-    @param chains_from: A dict chainid:chain. The chains to excise from
+    :param cg_to: The coarse-grain representation of the target chain
+    :param cg_from: The coarse-grain representation of the source chain
+    :param elem_to: The element to replace
+    :param elem_from: The source element
+    :param chains_to: A dict chainid:chain. The chains to graft onto
+    :param chains_from: A dict chainid:chain. The chains to excise from
     '''
 
     assert elem_from[0]==elem_to[0]
@@ -366,11 +366,14 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     define_a_to = cg_to.define_a(elem_to)
     define_a_from = cg_from.define_a(elem_from)
     assert len(define_a_to) == len(define_a_from)
+
+
     # The defines translated to seq_ids.
     closing_bps_to = []
     closing_bps_from = []
     for nt in define_a_to:
         closing_bps_to.append(cg_to.seq_ids[nt-1])
+
     for nt in define_a_from:
         closing_bps_from.append(cg_from.seq_ids[nt-1])
     # Seq_ids of all nucleotides in the loop that will be inserted
@@ -378,6 +381,8 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     for i in range(0, len(define_a_from), 2):
         for nt in range(define_a_from[i], define_a_from[i+1]+1):
             seq_ids_a_from.append(cg_from.seq_ids[nt-1])
+
+
     #The loop fragment to insert in a dict {chain_id:chain}
     try:
         pdb_fragment_to_insert = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
@@ -391,6 +396,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     # that will be used for alignment.
     log.info("Closing_bps _from are %s", closing_bps_from)
     alignment_positions = []
+    # At the beginning/ end of the chain, only f,t and s elements are allowed.
     if elem_from[0]=="t": #Use only left part of define
         alignment_positions.append((closing_bps_from[0], closing_bps_to[0]))
     elif elem_from[0]=="f": #Use only right part of define
@@ -425,6 +431,29 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             chains_to[resid_to.chain] =  bpdb.Chain.Chain(resid_to.chain)
         #Now, add the residue to the target chain
         chains_to[resid_to.chain].add(residue)
+
+    # Now we need to mend gaps created by imperfect alignment.
+    gaps_to_mend = []
+    if elem_from[0]!="f":
+        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[0]-1],
+                               cg_to.seq_ids[define_a_to[0]] ] )
+    if elem_from[0]!="t":
+        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[1]-2],
+                               cg_to.seq_ids[define_a_to[1]-1] ] )
+    if elem_from[0]=="i":
+        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[2]-1],
+                               cg_to.seq_ids[define_a_to[2]] ] )
+        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[3]-2],
+                               cg_to.seq_ids[define_a_to[3]-1] ] )
+    for gap in gaps_to_mend:
+        mend_breakpoint(chains_to, gap)
+
+def mend_breakpoints(chains_to, gap):
+    """
+    :param gap: A list of res_ids, which can be moved to mend the gap.
+    """
+    raise NotImplementedError("Error")
+
 
 def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
     """
@@ -502,8 +531,8 @@ def align_residues(res_dir, res_ref):
     dv = av[res_dir.resname.strip()]
     rv = av[res_ref.resname.strip()]
 
-    dir_points = np.array([res_dir[v].get_vector().get_array() for v in dv])
-    ref_points = np.array([res_ref[v].get_vector().get_array() for v in rv])
+    dir_points = np.array([res_dir[v].coord for v in dv])
+    ref_points = np.array([res_ref[v].coord for v in rv])
 
     dir_centroid = cuv.get_vector_centroid(dir_points)
     ref_centroid = cuv.get_vector_centroid(ref_points)
@@ -567,6 +596,9 @@ def replace_bases(chains, cg):
                 residue.add(new_res[aname])
 
             residue.resname = target_name
+
+
+
 
 def reorder_residues(chains, cg):
     '''
