@@ -586,7 +586,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source, 
     if args.no_rmsd:
         options["rmsd"] = False
         options["acc"]  = False
-    if args.fair_building or agrs.fair_building_d:
+    if args.fair_building or args.fair_building_d:
         args.start_from_scratch = True
     if not args.start_from_scratch and not args.rmsd_to:
         options["extreme_rmsd"] = "max" #We start at 0 RMSD. Saving the min RMSD is useless.

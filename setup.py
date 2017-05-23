@@ -58,6 +58,6 @@ setup(cmdclass={'build_py': build_py},
                              'stats/aminors_1jj2_sampled.csv',
 			     'stats/combined.stats',
                              'stats/all.stats',
-                             'stats/all_nr2.92.stats']},
+                             'stats/all_nr2.110.stats']},
       scripts=['fess/scripts/ernwin_new.py']
      )
