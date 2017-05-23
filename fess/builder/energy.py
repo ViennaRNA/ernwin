@@ -879,6 +879,51 @@ class AMinorEnergy(CoarseGrainEnergy):
         if ame2._get_num_loops(cg)>0:
             energies.append(ame2)
         return CombinedEnergy(energies)
+        
+    @classmethod
+    def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False):
+        """
+        :param cgs: A dict {pdb_id: [cg, cg,...]}
+        
+        
+        """
+        # Create the probability functions
+        all_geometries = pd.read_csv(load_local_data(orientation_infile), delimiter=' ', comment="#")
+        all_geometries = all_geometries[ all_geometries["dist"] < cls.cutoff_dist ]
+        aminor_geometries = all_geometries[all_geometries["is_interaction"]]
+        non_ame_geometries = all_geometries[not all_geometries["is_interaction"]]
+        prob_fun= {}
+        for loop_type in "himft":
+          log.info("Creating probability function for %s", loop_type)
+          prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries.itertuples(),
+                                                             non_ame_geometries.itertuples(),
+                                                             loop_type)
+
+    
+        #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
+        with open(out_filename, "w") as f:
+            log.info("Writing AMinor target_dist to %s", out_filename)
+            cls._print_file_header(f, cg_filenames)
+            print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
+            print("# Probabilities from {}".format(orientation_infile), file=f)
+
+            print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
+            print("pdb_id rna_length loop_type total_prob max_prob num_interactions", file=f)
+            for cgs in cgs.values():
+                for cg in cgs:
+                    print("# CG:", file=f)
+                    rna_length = cg.seq_length
+                    cls._print_prob_lines(cg, rna_length, prob_fun, f)
+                    if use_subgraphs:
+                        print("# Subgraphs:", file=f)
+                        log.info("Now generating AMinor for Subgraphs")
+                    i=0
+                    for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
+                        i+=1
+                        log.info("Subgraph of length %s (%d th sg)", sg_length, i)
+                        cls._print_prob_lines(cg, sg_length, prob_fun, f, subgraph)
+
+        log.info("Successfully generated target distribution for AMinors.")    
     @classmethod
     def generate_target_distribution(cls, cg_filenames, fr3d_out, out_filename=None,
                                      orientation_outfile = None, fr3d_query = "",
@@ -976,41 +1021,10 @@ class AMinorEnergy(CoarseGrainEnergy):
                 print("{pdb_id} {loop_type} {dist} {angle1} "
                       "{angle2} {is_interaction}".format(is_interaction = False,
                                                          **entry._asdict()), file = f)
+        cls._generate_target_dist_given_orientation(all_cgs, out_filename, 
+                                                    orientation_outfile, use_subgraphs)
 
-        prob_fun= {}
-        for loop_type in "himft":
-            log.info("Creating probability function for %s", loop_type)
-            prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries,
-                                                                  non_ame_geometries,
-                                                                  loop_type)
-        #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
-        with open(out_filename, "w") as f:
-            log.info("Writing AMinor target_dist to %s", out_filename)
-            cls._print_file_header(f, cg_filenames)
-            print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
-            print("# Probabilities from {}".format(orientation_outfile), file=f)
-            print("# fr3d_out = {}".format(fr3d_out), file=f)
-            if fr3d_query:
-                print("# fr3d_query:", file=f)
-                for line in fr3d_query.splitlines():
-                    print("#    "+line.strip(), file = f)
-            print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
-            print("pdb_id rna_length loop_type total_prob max_prob num_interactions", file=f)
-            for cgs in all_cgs.values():
-                for cg in cgs:
-                    print("# CG:", file=f)
-                    rna_length = cg.seq_length
-                    cls._print_prob_lines(cg, rna_length, prob_fun, f)
-                    if use_subgraphs:
-                        print("# Subgraphs:", file=f)
-                        log.info("Now generating AMinor for Subgraphs")
-                    i=0
-                    for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
-                        i+=1
-                        log.info("Subgraph of length %s (%d th sg)", sg_length, i)
-                        cls._print_prob_lines(cg, sg_length, prob_fun, f, subgraph)
 
-        log.info("Successfully generated target distribution for AMinors.")
 
     def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
         """
