@@ -323,7 +323,7 @@ class FairBuilder(Builder):
             if store_success:
                 self._store_success(sm)
             success+=1
-            if target_structures is not None and len(models)>target_structures:
+            if target_structures is not None and success>target_structures:
                 break
         log.info("Success_probability for fair building: {} attempts, thereof {} with failed "
                  "junctions, {} of the remaining structures have clashes, "
@@ -352,7 +352,7 @@ class DimerizationBuilder(FairBuilder):
     def _attempt_to_build(self, sm):
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
-        for multi_loop in self.find_ml_only_multiloops():
+        for multi_loop in sm.bg.find_ml_only_multiloops():
             while not self._fulfills_junction_energy(sm, multi_loop):
                 self._change_multi_loop(sm, multi_loop)
         assert self._fulfills_junction_energy(sm)
