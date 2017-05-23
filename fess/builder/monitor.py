@@ -394,10 +394,6 @@ class LocalFragmentCoverage(StatisticsCollector):
         self._known_fragments = defaultdict(set)
         #: The elem_defs as {elem : pdb_name} from the previouse iteration, to avoid recalculation.  
         self._prev_elem_defs = {elem : None for elem in cg.defines}
-    @property
-    def header(self):
-        return ["\t".join("Local-Coverage-{}".format(elem) for elem in sorted(self._coverage))]
-            
             
     def update(self, sm, step):
         if not self.silent:

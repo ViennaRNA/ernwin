@@ -10,6 +10,7 @@ import subprocess
 import fess
 import forgi
 import forgi.graph.bulge_graph as fgb
+from fess import __version__
 __metaclass__=type
 
 def get_all_subclasses(cls, include_base = False):
