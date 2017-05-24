@@ -800,7 +800,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         distribution_lower_bound = 1.0
         target_len=500
         target_len=min(target_len,len(data[:]))
-        while (len(rdata) < target_len):
+        while (len(rdata) < 500 and len(rdata)<len(data)):
             distribution_lower_bound -= INCR
             distribution_upper_bound += INCR
 
