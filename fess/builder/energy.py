@@ -707,6 +707,8 @@ def _iter_subgraphs(cg, use_subgraphs):
 
     if not use_subgraphs:
         return
+    if len(cg.defines)<=5:
+        return
     if isinstance(use_subgraphs, bool):
         target_range = it.repeat(range(3, len(cg.defines)-2), 100) # range starts at 3, because this is the
                                                                # smallest length containing 2 stems.
@@ -881,17 +883,20 @@ class AMinorEnergy(CoarseGrainEnergy):
         return CombinedEnergy(energies)
         
     @classmethod
-    def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False):
+    def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False, cg_filenames = []):
         """
         :param cgs: A dict {pdb_id: [cg, cg,...]}
         
         
         """
+        if orientation_infile.startswith("fess"):
+            orientation_infile = orientation_infile[5:]
+
         # Create the probability functions
         all_geometries = pd.read_csv(load_local_data(orientation_infile), delimiter=' ', comment="#")
         all_geometries = all_geometries[ all_geometries["dist"] < cls.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
-        non_ame_geometries = all_geometries[not all_geometries["is_interaction"]]
+        non_ame_geometries = all_geometries[np.invert(all_geometries["is_interaction"])]
         prob_fun= {}
         for loop_type in "himft":
           log.info("Creating probability function for %s", loop_type)
@@ -1022,7 +1027,7 @@ class AMinorEnergy(CoarseGrainEnergy):
                       "{angle2} {is_interaction}".format(is_interaction = False,
                                                          **entry._asdict()), file = f)
         cls._generate_target_dist_given_orientation(all_cgs, out_filename, 
-                                                    orientation_outfile, use_subgraphs)
+                                                    orientation_outfile, use_subgraphs, cg_filenames)
 
 
 
@@ -1038,7 +1043,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#")
         all_geometries = all_geometries[ all_geometries["dist"] < self.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
-        non_ame_geometries = all_geometries[not all_geometries["is_interaction"]]
+        non_ame_geometries = all_geometries[np.invert(all_geometries["is_interaction"])]
 
         self.prob_function = fba.aminor_probability_function(aminor_geometries.itertuples(),
                                                              non_ame_geometries.itertuples(), #With pandas >=0.19 this yields namedtuples!
