@@ -118,6 +118,7 @@ class Builder(object):
                     #The junction-energy is ok. Now we look at the clash energy
                     bad_segments = self._get_bad_clash_segments(sm, built_nodes)
                     if not bad_segments or self._rebuild_clash_only(sm, built_nodes, [x for x in bad_segments if x[0] == "i"]):
+                        log.debug("clashfree.")
                         #All clashes were removed
                         assert self._get_bad_clash_segments(sm, built_nodes) == []
                         bad_segments = []

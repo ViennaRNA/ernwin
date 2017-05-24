@@ -739,7 +739,8 @@ class SpatialModel:
             Returns the buildorder of the multi-/ interior loop before the stem with stemid.
             @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
             """
-            if stemid=="s0": return 0
+            if stemid == "s0":
+                return int(include)
             if stemid.startswith('s'):
                 for i, stem_loop_stem in enumerate(build_order):
                     if stemid==stem_loop_stem[2]:
@@ -755,12 +756,12 @@ class SpatialModel:
                         return i
             raise ValueError("{} not found in {}.".format(stemid,build_order))
         nodes = []
-        if start == "start" or start == "s0":
+        if start == "start" or (start == "s0" and include_start):
             # add the first stem in relation to a non-existent stem
             first_stem = "s0"
             log.debug("new_traverse_and_build: Setting self.stems[{}] (=first  stem)".format(first_stem))
             self.stems[first_stem] = self.add_stem(first_stem, self.elem_defs[first_stem], StemModel(),
-                                      ftms.AngleStat(), (0,1))
+                                                   ftms.AngleStat(), (0,1))
             self.stem_to_coords(first_stem)
             nodes.append(first_stem)
             build_step = 0
