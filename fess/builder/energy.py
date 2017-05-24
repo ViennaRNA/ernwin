@@ -734,7 +734,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
     HELPTEXT = "       {:3}:  Radius of gyration energy".format(_shortname)
     real_stats_fn = op.expanduser('stats/rog_target_dist_nr2.110.csv')
-    sampled_stats_fn = op.expanduser('stats/subgraph_radius_of_gyration_sampled.csv')
+    sampled_stats_fn = op.expanduser('stats/rog_reference_dist_nr2.110.csv')
 
     def __init__(self, rna_length, adjustment=None, prefactor=None):
         """
@@ -804,10 +804,11 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             distribution_lower_bound -= INCR
             distribution_upper_bound += INCR
 
-            rdata = data[np.logical_and( data[:,1] > ( distribution_lower_bound ) * length,
-                                         data[:,1] < length * ( distribution_upper_bound ))]
+            mask_upper = data.iloc[:,1] < length * ( distribution_upper_bound )
+            mask_lower = data.iloc[:,1] > ( distribution_lower_bound ) * length
+            rdata = data.loc[ mask_upper & mask_lower ]
 
-        rogs = rdata[:,2]
+        rogs = rdata.iloc[:,2]
         rogs=np.array(rogs)
 
         return (self._get_distribution_from_values(rogs), rogs)
@@ -858,9 +859,9 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     HELPTEXT = "       {:3}:  A-Minor energy".format(_shortname)
-    real_stats_fn = 'stats/aminors_1s72.csv'
-    sampled_stats_fn = 'stats/aminors_1jj2_sampled.csv'
-    orientation_file = 'stats/aminor_orientations.csv'
+    real_stats_fn = 'stats/ame_target_dist_nr2.110.csv'
+    sampled_stats_fn = 'stats/ame_reference_dist_nr2.110.csv'
+    orientation_file = 'stats/ame_orientation_nr2.110.csv'
     cutoff_dist = 30 #Do not consider elements above this distance for interactions.
 
     @classmethod
@@ -881,13 +882,13 @@ class AMinorEnergy(CoarseGrainEnergy):
         if ame2._get_num_loops(cg)>0:
             energies.append(ame2)
         return CombinedEnergy(energies)
-        
+
     @classmethod
     def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False, cg_filenames = []):
         """
         :param cgs: A dict {pdb_id: [cg, cg,...]}
-        
-        
+
+
         """
         if orientation_infile.startswith("fess"):
             orientation_infile = orientation_infile[5:]
@@ -904,7 +905,8 @@ class AMinorEnergy(CoarseGrainEnergy):
                                                              non_ame_geometries.itertuples(),
                                                              loop_type)
 
-    
+
+        log.info("OUT filename is %s", out_filename)
         #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
         with open(out_filename, "w") as f:
             log.info("Writing AMinor target_dist to %s", out_filename)
@@ -928,7 +930,7 @@ class AMinorEnergy(CoarseGrainEnergy):
                         log.info("Subgraph of length %s (%d th sg)", sg_length, i)
                         cls._print_prob_lines(cg, sg_length, prob_fun, f, subgraph)
 
-        log.info("Successfully generated target distribution for AMinors.")    
+        log.info("Successfully generated target distribution for AMinors.")
     @classmethod
     def generate_target_distribution(cls, cg_filenames, fr3d_out, out_filename=None,
                                      orientation_outfile = None, fr3d_query = "",
@@ -976,6 +978,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             out_filename = cls.real_stats_fn
         else:
             out_filename = op.join("fess", out_filename)
+        log.info("OUT filename is %s", out_filename)
         if orientation_outfile is None:
             orientation_outfile = cls.orientation_file
         else:
@@ -1026,7 +1029,7 @@ class AMinorEnergy(CoarseGrainEnergy):
                 print("{pdb_id} {loop_type} {dist} {angle1} "
                       "{angle2} {is_interaction}".format(is_interaction = False,
                                                          **entry._asdict()), file = f)
-        cls._generate_target_dist_given_orientation(all_cgs, out_filename, 
+        cls._generate_target_dist_given_orientation(all_cgs, out_filename,
                                                     orientation_outfile, use_subgraphs, cg_filenames)
 
 
@@ -1084,7 +1087,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         return (self._get_distribution_from_values(rogs), rogs)
 
     def eval_prob(self, cg, d):
-        return fba.total_prob(d, cg, self.prob_func())
+        return fba.total_prob(d, cg, self.prob_function, self.cutoff_dist)
 
     def _get_cg_measure(self, cg):
         raise NotImplementedError("Not needed for A-Minor energy")
@@ -1112,7 +1115,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
 
     def _get_num_loops(self, cg):
-        possible_loops = [d for d in cg.defines.keys() if self.types[d[0]] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))]
+        possible_loops = [d for d in cg.defines.keys() if d[0] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))]
         return len(possible_loops)
 
     def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
@@ -1129,11 +1132,11 @@ class AMinorEnergy(CoarseGrainEnergy):
 
             # the loop type is encoded as an integer so that the stats file can be
             # loaded using numpy
-            if self.types[d[0]] != self.loop_type or 'A' not in "".join(cg.get_define_seq_str(d)):
+            if d[0] != self.loop_type or 'A' not in "".join(cg.get_define_seq_str(d)):
                 continue
 
 
-            m = self.eval_prob(cg, d)[0]
+            m = self.eval_prob(cg, d)
             self._last_measure.append(m)
 
             if background:
@@ -1212,8 +1215,8 @@ def _minimal_h_h_distance(cg, elem1, elem2_iterator):
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
     HELPTEXT = "       {:3}:  shortest loop distance per loop".format(_shortname)
-    real_stats_fn = 'stats/loop_loop3_distances_native.csv'
-    sampled_stats_fn = 'stats/loop_loop3_distances_sampled.csv'
+    real_stats_fn = 'stats/sld_target_dist_nr2.110.csv'
+    sampled_stats_fn = 'stats/sld_reference_dist_nr2.110.csv'
 
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
@@ -1312,13 +1315,14 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
 
     def _get_distribution_from_file(self, filename, length):
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
-        data=data[:, -1] #Ignore the nt-length and the pdb-id. Only look at the distances.
+        data=data.iloc[:,-1].as_matrix() #Ignore the nt-length and the pdb-id. Only look at the distances.
         if filename == self.sampled_stats_fn:
             lsp=np.linspace(self._lsp_min, self._lsp_max,
                             num=self._lsp_reference_num_points )
         else:
-            lsp=[np.linspace(self._lsp_min, self._lsp_max,
-                            num=self._lsp_target_num_points )]
+            lsp=np.linspace(self._lsp_min, self._lsp_max,
+                            num=self._lsp_target_num_points )
+
         data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_artificial_weight)
 
         return (self._get_distribution_from_values(data), data)
