@@ -600,7 +600,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         if nodes is None:
             nodes = cg.defines.keys()
 
-        if len([stem for stem in nodes if stem[0]=="s"])==1:
+        if len([stem for stem in nodes if stem[0]=="s"])<2:
             # Special case, if only one stem is present.
             return 0.
 
