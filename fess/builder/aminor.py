@@ -207,7 +207,7 @@ def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_t
     non_aminor_geometries = np.array([[ x.dist, x.angle1, x.angle2 ]
                                   for x in non_aminor_geometries
                                   if  x.loop_type == loop_type])
-    log.info("%d interactions and %d non-interactions given.", len(aminor_geometries), len(non_aminor_geometries))
+    log.info("%d interactions and %d non-interactions given for loop type %s.", len(aminor_geometries), len(non_aminor_geometries), loop_type)
     if len(aminor_geometries) == 0: #E.g. for f0
         return lambda x: np.array([0])
     # Overall Probability/ Frequency of A-Minor interactions
