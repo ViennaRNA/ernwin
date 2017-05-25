@@ -997,15 +997,24 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         #Read the FR3D output
         with open(fr3d_out) as f:
-            aminor_geometries = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
+            aminor_geometries, problematic_pdbids = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
+        for amg in aminor_geometries:
+            if amg.pdb_id in problematic_pdbids:
+                aminor_geometries.remove(amg)
         non_ame_geometries = set()
         for pdb_id, cgs in all_cgs.items():
+            if pdb_id in problematic_pdbids: 
+                continue
             for cg in cgs:
                 for loop in cg.defines:
                     if loop[0]=="s":
                         continue
+                    if loop in cg.incomplete_elements: 
+                      continue
                     for stem in cg.stem_iterator():
                         if loop in cg.edges[stem]:
+                            continue
+                        if stem in cg.incomplete_elements: 
                             continue
                         dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
                         if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)) and not np.isnan(dist+angle1+angle2):
@@ -1182,6 +1191,8 @@ class AMinorEnergy(CoarseGrainEnergy):
             if loop[0] == "s":
                 continue
             if "A" not in "".join(cg.get_define_seq_str(loop)):
+                continue
+            if loop in cg.incomplete_elements: 
                 continue
             t_prob = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
             max_prob = fba.max_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
