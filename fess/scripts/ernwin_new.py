@@ -14,6 +14,7 @@ import copy
 import os
 import random
 import math
+import re
 import os.path as op
 import contextlib
 import forgi.threedee.model.coarse_grain as ftmc
@@ -397,6 +398,9 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args):
 def energy_from_string(e, cg, original_sm, args):
     if e=="D":
         return fbe.energies_from_string("ROG,AME,SLD", cg)
+    elif re.match("(\d+)D", e):
+        match = re.match("(\d+)D", e)
+        return fbe.energies_from_string("{pf}ROG,{pf}AME,{pf}SLD".format(pf=match.group(1)), cg)
     elif e=="N":
         return fbe.CombinedEnergy([],[])
     else:
@@ -683,10 +687,11 @@ def main(args):
                         r_energy, s = e_and_s
                         # Replica exchange does not support --track-energies
                         if isinstance(r_energy, fbe.CombinedEnergy):
-                            energies_to_track=r_energy.uncalibrated_energies
+                            energies_to_track=r_energy.energies
                         elif isinstance(r_energy, fbe.CoarseGrainEnergy):
                             energies_to_track=[r_energy]
-                        stat=setup_stat(out_files[i], s, args, energies_to_track, original_sm, out_dirs[i], stat_source)
+                        stat=setup_stat(out_files[i], s, args, energies_to_track, original_sm,
+                                        stat_source, save_dir=out_dirs[i])
                         if i>0: #Only have first temperature print to stdout.
                             stat.options["silent"] = True
                         for e in r_energy.iterate_energies():
@@ -707,7 +712,7 @@ def main(args):
                         raise
                     finally:
                         for sampler in samplers:
-                            sampler.stats.collector.to_file()
+                            sampler.stats_collector.collector.to_file()
                 finally:
                     for f in out_files:
                         try:

@@ -221,7 +221,7 @@ def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_t
     def p_function(point):
         numerator = p_geometry_given_interaction(point)
         #log.info("Numerator: %s", numerator)
-        denom = p_geometry_non_interaction(point)+numerator
+        denom = p_geometry_non_interaction(point)*(1-p_interaction)+numerator*p_interaction
         #log.info("Denominator: %s", denom)
         #log.info("p_interaction %s", p_interaction)
         return numerator/denom*p_interaction

@@ -445,8 +445,8 @@ _statisticsDefaultOptions={
 
 
 class SamplingStatistics:
-    def __init__(self, sm_orig, energy_functions=[], stat_source=None, output_file=sys.stdout, options="all",
-                 output_directory = None):
+    def __init__(self, sm_orig, energy_functions=[], stat_source=None, output_file=sys.stdout,
+                 options="all", output_directory = None):
         """
         :param sm_orig: The Spatial Model against which to collect statistics. 
                         .. warning:: This should not be modified. 
