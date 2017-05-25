@@ -1181,7 +1181,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         for loop in cg.defines:
             if loop[0] == "s":
                 continue
-            if "A" not in "".join(cg.get_define_seq_str(d)):
+            if "A" not in "".join(cg.get_define_seq_str(loop)):
                 continue
             t_prob = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
             max_prob = fba.max_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
