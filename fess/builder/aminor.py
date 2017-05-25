@@ -174,6 +174,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     :param all_cgs: A dictionary PDB_id (4-letter): [CoarseGrainRNA, ...]
     :param fr3d_out: A file opened for reading.
     """
+    problematic_pdbids = set()
     geometries = set()
     for line in fr3d_out:
         line=line.strip()
@@ -182,6 +183,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
         if geometry is None:
             if not (line.startswith("Filename") or line.startswith("#")):
                 log.warning("Skipping line {!r}".format(line))
+                problematic_pdbids.add(line.split()[0])
         elif geometry.dist>cutoff_dist:
             log.info("Skipping because of %f > %f (=cutoff dist): %r",
                      geometry.dist, cutoff_dist, line)
@@ -189,7 +191,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
             warnings.warn("No adenine in loop %r for line %r", geometry.loop_name, line)
         else:
             geometries.add(geometry)
-    return geometries
+    return geometries, problematic_pdbids
 
 
 def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_type):
