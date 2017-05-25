@@ -89,6 +89,8 @@ class StatStorage(object):
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem)
             return tuple([dims[0], dims[1], ang_type])
+        elif elem[0]=="h" and dims[0]<3:
+            return 3 #Hairpins<3 probably means missing residues. Just return the smalles possible dimension
         else:
             return dims[0]
 
