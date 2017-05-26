@@ -124,6 +124,26 @@ class NElementMover(Mover):
         sm.new_traverse_and_build(start = "start")
         return "".join(movestring)
 
+class OneOrMoreElementMover(NElementMover):
+    HELPTEXT = ("{:25} In every move, randomly replace \n"
+                "{:25} 1 to n fragments.".format("OneOrMoreElementMover[N]", ""))
+    def __init__(self, stat_source, max_n=2):
+        """
+        Change more than one element per iteration step.
+        
+        :param n: INT, How many elements should be moved in each step.
+        """
+        super(OneOrMoreElementMover, self).__init__(stat_source)
+        self._possible_n = list(range(1, int(max_n)+1))
+    @property
+    def _n_moves(self):
+        return random.choice(self._possible_n)
+    @_n_moves.setter
+    def _n_moves(self, val):
+        # The setter is called in the init function of the superclass.
+        # Just ignore it
+        pass
+        
 class ConnectedElementMover(NElementMover):
     """
     Change more than 1 connected elements per move step
@@ -190,7 +210,10 @@ class MlRelaxationMover(Mover):
     segments of this multiloop until the loop closure energy is zero.
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("MlRelaxationMover"))
-    pass
+    def __init__(self, stat_source):
+        raise NotImplementedError()
+        
+
 
 
 ####################################################################################################
