@@ -725,9 +725,11 @@ def main(args):
                 raise ValueError("--fair-building and --fair-building-d are mutually exclusive")
             if args.fair_building:
                 builder = fbb.FairBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
+                max_attempts = args.iterations*100
             elif args.fair_building_d:
                 builder = fbb.DimerizationBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
-            success, attempts, failed_mls, clashes = builder.success_probability(sm, target_structures=args.iterations, target_attempts=100*args.iterations, store_success = True)
+                max_attempts = args.iterations*10
+            success, attempts, failed_mls, clashes = builder.success_probability(sm, target_structures=args.iterations, target_attempts=max_attempts, store_success = True)
             print("SUCCESS:", success, attempts, failed_mls, clashes)
             print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+
                    "{} times a multiloop was not closed. {} clashes occurred."
