@@ -353,7 +353,8 @@ class DimerizationBuilder(FairBuilder):
     def _attempt_to_build(self, sm):
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
-        for multi_loop in sm.bg.find_ml_only_multiloops():
+        for multi_loop in sm.bg.find_mlonly_multiloops():
+            log.debug("Sampling multiloop %r", multi_loop)
             while not self._fulfills_junction_energy(sm, multi_loop):
                 self._change_multi_loop(sm, multi_loop)
         assert self._fulfills_junction_energy(sm)
@@ -369,6 +370,6 @@ class DimerizationBuilder(FairBuilder):
         return True
 
     def _change_multi_loop(self, sm, multi_loop):
-        node = random.choice(multi_loop)
+        node = random.choice(list(set(multi_loop) & sm.bg.mst))
         sm.elem_defs[node] = self.stat_source.sample_for(sm.bg, node)
         sm.new_traverse_and_build(start=node)
