@@ -733,6 +733,8 @@ def main(args):
                    "{} times a multiloop was not closed. {} clashes occurred."
                    " Structure has {} defines and is {} nts long.".format(failed_mls, clashes, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
         else: #Normal sampling
+            sm.bg.to_file(os.path.join(config.Configuration.sampling_output_dir, 
+                      'initial.coord'))
             #Track energies without background for comparison with constituing energies
             if isinstance(energy, fbe.CombinedEnergy):
                 energies_to_track+=energy.energies
