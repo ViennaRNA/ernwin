@@ -155,7 +155,7 @@ class ConnectedElementMover(NElementMover):
         if not self._prev_stats:
             return super(ConnectedElementMover, self)._get_elem_and_stat(sm)
         #Get all cg-elements connected to the changed element that have not yet been changed
-        neighbors = { d for changed_elem in self._prev_stats for d in sm.bg.edges[changed_elem] if d not in self._prev_stats}
+        neighbors = { d for changed_elem in self._prev_stats for d in sm.bg.edges[changed_elem] if d not in self._prev_stats and d in sm.bg.mst}
         elem = random.choice(list(neighbors))
         new_stat = self.stat_source.sample_for(sm.bg, elem)
         return elem, new_stat
