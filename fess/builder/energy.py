@@ -738,8 +738,8 @@ def _iter_subgraphs(cg, use_subgraphs):
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
     HELPTEXT = "       {:3}:  Radius of gyration energy".format(_shortname)
-    real_stats_fn = op.expanduser('stats/rog_target_dist_nr2.110.csv')
-    sampled_stats_fn = op.expanduser('stats/rog_reference_dist_nr2.110.csv')
+    real_stats_fn = op.expanduser('stats/rog_target_dist_1S72_0.csv')
+    sampled_stats_fn = op.expanduser('stats/rog_reference_dist_1S72_0.csv')
 
     def __init__(self, rna_length, adjustment=None, prefactor=None):
         """
@@ -864,9 +864,9 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     HELPTEXT = "       {:3}:  A-Minor energy".format(_shortname)
-    real_stats_fn = 'stats/ame_target_dist_nr2.110.csv'
-    sampled_stats_fn = 'stats/ame_reference_dist_nr2.110.csv'
-    orientation_file = 'stats/ame_orientation_nr2.110.csv'
+    real_stats_fn = 'stats/ame_target_dist_1S72_0.csv'
+    sampled_stats_fn = 'stats/ame_reference_dist_1S72_0.csv'
+    orientation_file = 'stats/ame_orientation_1S72_0.csv'
     cutoff_dist = 30 #Do not consider elements above this distance for interactions.
 
     @classmethod
@@ -1078,28 +1078,9 @@ class AMinorEnergy(CoarseGrainEnergy):
         log.info("Getting distribution from file %s", filename)
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
         data = data[ data["loop_type"]==self.loop_type]
-        data = data.as_matrix(["rna_length", "total_prob"])
-        rdata = []
-
-        distribution_lower_bound = 1.
-        distribution_upper_bound = 1.
-
-        while (len(rdata) < 500 and len(rdata)<len(data)):
-            try:
-                distribution_lower_bound -= INCR
-                distribution_upper_bound += INCR
-
-                rdata = data[np.logical_and( data[:,0] > ( distribution_lower_bound ) * length,
-                                             data[:,0] < length * ( distribution_upper_bound ))]
-            except KeyboardInterrupt:
-                print("len(rdata) is {}, len(data)={}, bound= {}...{}".format(len(rdata),len(data),
-                     distribution_lower_bound ) * length, length * ( distribution_upper_bound ))
-                raise
-        if len(rdata)==0:
-            raise ValueError("No data found for distribution in file {}".format(filename))
-
-        rogs = rdata[:,1]
-        return (self._get_distribution_from_values(rogs), rogs)
+        
+        values = self._values_within_nt_range(data, length, "num_interactions", "rna_length" )
+        return (self._get_distribution_from_values(values), values)
 
     def eval_prob(self, cg, d):
         return fba.total_prob(d, cg, self.prob_function, self.cutoff_dist)
@@ -1234,8 +1215,8 @@ def _minimal_h_h_distance(cg, elem1, elem2_iterator):
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
     HELPTEXT = "       {:3}:  shortest loop distance per loop".format(_shortname)
-    real_stats_fn = 'stats/sld_target_dist_nr2.110.csv'
-    sampled_stats_fn = 'stats/sld_reference_dist_nr2.110.csv'
+    real_stats_fn = 'stats/sld_target_dist_1S72_0.csv'
+    sampled_stats_fn = 'stats/sld_reference_dist_1S72_0.csv'
 
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
@@ -1333,8 +1314,11 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_name))
 
     def _get_distribution_from_file(self, filename, length):
-        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
-        data=data.iloc[:,-1].as_matrix() #Ignore the nt-length and the pdb-id. Only look at the distances.
+        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#", names=["pdb_id","nt_length","dist"])
+
+        data = self._values_within_nt_range(data, length, "dist", "nt_length" )
+
+
         if filename == self.sampled_stats_fn:
             lsp=np.linspace(self._lsp_min, self._lsp_max,
                             num=self._lsp_reference_num_points )
@@ -1557,7 +1541,7 @@ def _parseEnergyContributionString(contrib, num_steps):
         if len(a)==2:
             start=float(a[0])
             end=float(a[1])
-            if abs(start-end)<1.2:
+            if abs(start-end)<5.0:
                 step=0.1
             elif abs(start-end)>100:
                 step=10
@@ -1572,7 +1556,7 @@ def _parseEnergyContributionString(contrib, num_steps):
         else:
             raise ValueError("Too many underscores in {}".format(contrib))
         frequency=num_steps / (math.ceil((end-start)/step)+1)
-        assert frequency>1, numSteps
+        assert frequency>1, num_steps
 
         if frequency>=num_steps:
             raise ValueError("Could not parse energy program '{}': "
