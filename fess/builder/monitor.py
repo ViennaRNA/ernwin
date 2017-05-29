@@ -135,6 +135,33 @@ class ROGStatistics(StatisticsCollector):
         assert stri[1]=="A", stri
         return float(stri[0])
 
+class AsphericityStatistics(StatisticsCollector):
+    """
+    Store and print the Asphericity.
+    """        
+    header=["Asphericity"]
+    def update(self, sm, step):
+        rog=ftur.asphericity(sm.bg.get_ordered_stem_poss())
+        self.history[0].append(rog)
+        return "{:6.2f}".format(rog)
+    @staticmethod
+    def parse_value(stri):
+        return float(stri)
+        
+class AnisotropyStatistics(StatisticsCollector):
+    """
+    Store and print the Anisotropy.
+    """        
+    header=["Anisotropy"]
+    def update(self, sm, step):
+        rog=ftur.anisotropy(sm.bg.get_ordered_stem_poss())
+        self.history[0].append(rog)
+        return "{:6.2f}".format(rog)
+    @staticmethod
+    def parse_value(stri):
+        return float(stri)
+        
+        
 class ACCStatistics(StatisticsCollector):
     """
     Store and print the Adjacency Correlation Coefficient
@@ -440,7 +467,9 @@ _statisticsDefaultOptions={
     "save_n_best": 0,
     "save_min_rmsd": 0,
     "measure" : [],
-    "distance": []
+    "distance": [],
+    "asphericity": True,
+    "anisotropy": True
 }
 
 
@@ -539,6 +568,12 @@ class SamplingStatistics:
                 collectors.append(Delimitor())
                 collectors.append(dr_col)
         
+        if self.options["asphericity"]: 
+            collectors.append(Delimitor())
+            collectors.append(AsphericityStatistics())
+        if self.options["anisotropy"]: 
+            collectors.append(AnisotropyStatistics())
+            
         if self.options["distance"]:
             collectors.append(Delimitor())
             for n1,n2 in self.options["distance"]:
