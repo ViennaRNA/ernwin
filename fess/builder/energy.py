@@ -1109,6 +1109,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         """AMinor.rejectLastMeasure"""
         if len(self.accepted_measures) > 0 and self.num_loops>0:
             self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
+        self._step_complete()
 
     def _get_num_loops(self, cg):
         possible_loops = [d for d in cg.defines.keys() if d[0] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))]

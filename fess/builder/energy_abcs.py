@@ -287,11 +287,14 @@ class CoarseGrainEnergy(EnergyFunction):
         """
         Update the reference distribution based on the accepted values
         """
+        log.debug("Resampling background KDE for %s. Now %d accepted measures", type(self).__name__, len(self.accepted_measures))
         values = self.accepted_measures
+        log.debug("Density of ref before resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
         if True: #if len(values) > 100: #if True, because accepted measures contain the initial values from the file
             new_kde = self._get_distribution_from_values(values)
             if new_kde is not None:
                 self.reference_distribution = new_kde
+                log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
         #else:
         #    warnings.warn("Not enough accepted measures to perform resampling. Only {}".format(len(self.accepted_measures)))
     @abstractmethod
@@ -316,7 +319,7 @@ class CoarseGrainEnergy(EnergyFunction):
                 raise
         if len(rdata)==0:
             raise ValueError("No data found for distribution")
-
+        log.info("%d datapoints", len(rdata))
         return rdata[target_col]        
     def _get_distribution_from_values(self, values):
         '''
