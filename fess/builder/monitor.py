@@ -224,6 +224,7 @@ class RMSDStatistics(StatisticsCollector):
                 self._maxRMSD = float("-inf")
             else:
                 self.header = [mode]
+
     def update(self, sm, step):
         if not self.silent:
             curr_vress=sm.bg.get_ordered_virtual_residue_poss()
@@ -286,8 +287,8 @@ class EnergyTracking(StatisticsCollector):
             energy=self._energy_function.eval_energy(sm.bg, background=True)
             self._energy_function.accept_last_measure()
         else:
-            energy=self._energy_function.eval_energy(sm.bg)
-        self.history[0].append(self._energy_function.shortname)
+            energy=self._energy_function.eval_energy(sm.bg, background=False)
+        self.history[0].append(self._energy_function.shortname())
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy)==1:
             energy="{:10.3f}".format(energy[0])
@@ -373,7 +374,7 @@ class Delimitor(StatisticsCollector):
     def __init__(self, delimitor="|"):
         super(Delimitor, self).__init__()
         self._delimitor=delimitor
-        self.history = None    
+        self.history = None
         self.header= ["|"]
     def update(self, sm, step):
         return self._delimitor
@@ -615,6 +616,7 @@ class SamplingStatistics:
         """Print to both STDOUT and the log file."""
         if self.output_file != sys.stdout and not self.options["silent"]:
             print (line)
+
         if self.output_file != None:
             print(line, file=self.output_file)
             self.output_file.flush()
