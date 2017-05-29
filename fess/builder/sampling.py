@@ -124,3 +124,5 @@ class MCMCSampler:
         except RuntimeError as e:
             #This warning will be ignored in ReplicaExchangeSimulations
             warnings.warn(e.message, NoopRevertWarning)
+        # We need to recaluculate the prev_energy, because Energy might have been recalibrated.
+        self.prev_energy = self.energy_function.eval_energy(self.sm.bg)
