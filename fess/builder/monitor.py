@@ -288,7 +288,7 @@ class EnergyTracking(StatisticsCollector):
             self._energy_function.accept_last_measure()
         else:
             energy=self._energy_function.eval_energy(sm.bg, background=False)
-        self.history[0].append(self._energy_function.shortname())
+        self.history[0].append(self._energy_function.shortname)
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy)==1:
             energy="{:10.3f}".format(energy[0])
