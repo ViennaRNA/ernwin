@@ -715,7 +715,7 @@ def _iter_subgraphs(cg, use_subgraphs):
     if len(cg.defines)<=5:
         return
     if isinstance(use_subgraphs, bool):
-        target_range = it.repeat(range(3, len(cg.defines)-2), 100) # range starts at 3, because this is the
+        target_range = list(range(3, len(cg.defines)-2))*100 # range starts at 3, because this is the
                                                                # smallest length containing 2 stems.
                                                                # For the same reason, we use len(defines)-2
                                                                # to exclude the complete RNA
@@ -727,13 +727,43 @@ def _iter_subgraphs(cg, use_subgraphs):
 
     known_sgs = set([tuple(sorted(cg.defines.keys()))])
     for l in  target_range:
-        subgraph =  cg.random_subgraph(l)
+        try:
+            subgraph =  cg.random_subgraph(l)
+        except:
+            log.error("Could not create subgraph with %s elements", l)
+            raise
         assert len(subgraph) == len(set(subgraph))
         subgraph_t = tuple(sorted(subgraph))
         if subgraph_t not in known_sgs: #No duplicates. We sample without replacement
             known_sgs.add(subgraph_t)
             nt_length = sum(cg.element_length(elem) for elem in subgraph)
             yield subgraph, nt_length
+
+class CheatingDistributionEnergy(CoarseGrainEnergy):
+    _shortname = "CDE"
+    HELPTEXT = ("       {:3}:  Cheating Energy that samples RMSDs from \n"
+                 "             an exponential distribution with parameter\n"
+                 "             lambda = adjustment.".format(_shortname))
+    real_stats_fn = None
+    sampled_stats_fn = "stats/cde_reference_dist_nr2.110.csv"
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+        return cls(cg, prefactor, adjustment)
+    def __init__(self, ref_cg, prefactor = None, adjustment = None):
+        super(CheatingDistributionEnergy, self).__init__(ref_cg.seq_length, 
+                                                         prefactor = prefactor, 
+                                                         adjustment = adjustment)
+        self.real_residues = ftug.bg_virtual_residues(ref_cg)
+    def _get_values_from_file(self, filename, rna_length):
+        vals = []
+        for line in load_local_data(filename):
+            vals.append(float(line))
+        return vals
+    def _get_cg_measure(self, cg):
+        new_residues = ftug.bg_virtual_residues(cg)
+        return  ftms.rmsd(self.real_residues, new_residues)
+    def _set_target_distribution(self):
+        self.target_distribution = lambda x: self.adjustment*np.exp(-self.adjustment*x)
 
 class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     _shortname = "ROG"
@@ -746,9 +776,6 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         :param rna_length: The length in nucleotides of the RNA
         """
         super(RadiusOfGyrationEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
-
-        if adjustment!=1:
-            self._adjust_target_distribution()
 
     @classmethod
     def generate_target_distribution(cls, cg_filenames, out_filename=None, use_subgraphs = False):
@@ -796,7 +823,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
     def _get_cg_measure(self, cg):
         return cg.radius_of_gyration("fast")
 
-    def _get_distribution_from_file(self, filename, length):
+    def _get_values_from_file(self, filename, length):
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
 
         rdata = []
@@ -816,8 +843,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         rogs = rdata.iloc[:,2]
         rogs=np.array(rogs)
 
-        return (self._get_distribution_from_values(rogs), rogs)
-
+        return rogs
 
 class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
     _shortname = "NDR"
@@ -827,7 +853,9 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
                "             and 0.23*ADJ stddev\n"
                "             [0.77 is a rough estimate for the relation between\n"
                "             perimeter and radius of gyration]\n".format(_shortname))
-
+    real_stats_fn = None
+    sampled_stats_fn = op.expanduser('stats/rog_reference_dist_nr2.110.csv')
+    
     def __init__(self, rna_length, adjustment, prefactor=None):
         """
         A Subclass of the Radius of Gyration energy with a normal distributed target distribution.
@@ -853,11 +881,8 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
         :param rnalength: Used for initial reference distribution
         """
         super(NormalDistributedRogEnergy, self).__init__(rna_length, adjustment, prefactor)
-        self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])
-        self.target_values = None
 
-    def _update_adj(self):
-        super(RadiusOfGyrationEnergy, self)._update_adjustment()
+    def _set_target_distribution(self):
         self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])
 
 
@@ -1074,7 +1099,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         sn = super(AMinorEnergy, self).shortname
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_type))
 
-    def _get_distribution_from_file(self, filename, length):
+    def _get_values_from_file(self, filename, length):
         log.info("Getting distribution from file %s", filename)
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
         data = data[ data["loop_type"]==self.loop_type]
@@ -1099,7 +1124,7 @@ class AMinorEnergy(CoarseGrainEnergy):
             raise ValueError("No data found for distribution in file {}".format(filename))
 
         rogs = rdata[:,1]
-        return (self._get_distribution_from_values(rogs), rogs)
+        return rogs
 
     def eval_prob(self, cg, d):
         return fba.total_prob(d, cg, self.prob_function, self.cutoff_dist)
@@ -1130,7 +1155,8 @@ class AMinorEnergy(CoarseGrainEnergy):
             self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
 
     def _get_num_loops(self, cg):
-        possible_loops = [d for d in cg.defines.keys() if d[0] == self.loop_type and 'A' in "".join(cg.get_define_seq_str(d))]
+        possible_loops = [d for d in cg.defines.keys() if d[0] == self.loop_type and 
+                          'A' in "".join(cg.get_define_seq_str(d))]
         return len(possible_loops)
 
     def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
@@ -1168,8 +1194,10 @@ class AMinorEnergy(CoarseGrainEnergy):
                 ax2 = ax1.twinx()
                 ax1.plot(xs, ks(xs), label="referecne distribution")
                 ax1.plot(xs, kr(xs), label="target distribution")
-                ax2.plot(xs, -(np.log(kr(xs) + 0.00000001 * ks(xs)) - np.log(ks(xs))), label="energy", color="red")
-                ax1.plot(self.accepted_measures, [1]*len(self.accepted_measures), "o", label="Accepted Measures")
+                ax2.plot(xs, -(np.log(kr(xs) + 0.00000001 * ks(xs)) - np.log(ks(xs))),
+                         label="energy", color="red")
+                ax1.plot(self.accepted_measures, [1]*len(self.accepted_measures), "o",
+                         label="Accepted Measures")
                 plt.title(self.shortname)
                 ax1.legend(loc="lower left")
                 ax2.legend()
@@ -1196,7 +1224,8 @@ class AMinorEnergy(CoarseGrainEnergy):
                 continue
             t_prob = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
             max_prob = fba.max_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
-            num_interactions = fba.num_interactions(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
+            num_interactions = fba.num_interactions(loop, cg, prob_funs[loop[0]], 
+                                                    cls.cutoff_dist, domain)
             if not np.isnan(t_prob*max_prob*num_interactions):
                 assert max_prob<=t_prob<=num_interactions, ("{} <=? {} "
                                                            "<=? {}".format(max_prob,
@@ -1247,7 +1276,8 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         """
         energies=[]
         for hloop in cg.hloop_iterator():
-            energies+= [cls(rna_length = cg.seq_length, loop_name = hloop, prefactor = prefactor, adjustment = adjustment)]
+            energies+= [cls(rna_length = cg.seq_length, loop_name = hloop, 
+                            prefactor = prefactor, adjustment = adjustment)]
         return CombinedEnergy(energies)
 
     @classmethod
@@ -1260,14 +1290,16 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             If out_filename is not given, this overwrites the file with the name given in
             `cls.real_stats_fn`.
 
-        :param cg_filenames: A filename or a list of filenames containing true RNA tertiary structures.
+        :param cg_filenames: A filename or a list of filenames containing true RNA 
+                             tertiary structures.
                              Typically these cg files have been generated from the pdb-files
                              using the script `pdb_to_cg.py` provided with forgi.
         :param out_filename: None or a filename relative to fess/
         :param use_subgraphs: Include the radius of subgraphs of the cg-files to get
                             more datapoints.
                             Either a bool or an integer.
-                            If it is a bool, generate 100 subgraphs for each number of cg-elements possible.
+                            If it is a bool, generate 100 subgraphs for each number 
+                            of cg-elements possible.
                             If it is an integer: generate that many subgraphs with random length.
 
         """
@@ -1311,17 +1343,11 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     def __init__(self, rna_length, loop_name, prefactor=None, adjustment = None):
 
         #: Add equally distributed points to the target and reference distribution estimation (linspacepoints  lsp)
-        #: Weight of the true data compared to the artificial points (integer)
-        self._lsp_data_weight = 3
-        #: Weight of the artificial data (usually 1 or 0)
-        self._lsp_artificial_weight = 1
-        #: How many artificial points to add to the reference distribution
-        self._lsp_reference_num_points = 30
-        #: How many artificial points to add to the target distribution
-        self._lsp_target_num_points = 15
-        #: Start of the range from which to create artificial ppoints
+        #: Weight of the uniformal distribution that will be averaged to the KDE 
+        self._lsp_weight = 0.1
+        #: Start of the range for the uniformal distribution
         self._lsp_min = 3
-        #: End of the range for artificial points
+        #: End of the range for the uniformal distribution
         self._lsp_max = 300
 
         super(ShortestLoopDistancePerLoop, self).__init__(rna_length, prefactor, adjustment)
@@ -1332,20 +1358,25 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         sn = super(ShortestLoopDistancePerLoop, self).shortname
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_name))
 
-    def _get_distribution_from_file(self, filename, length):
+    def _get_values_from_file(self, filename, length):
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
         data=data.iloc[:,-1].as_matrix() #Ignore the nt-length and the pdb-id. Only look at the distances.
-        if filename == self.sampled_stats_fn:
-            lsp=np.linspace(self._lsp_min, self._lsp_max,
-                            num=self._lsp_reference_num_points )
-        else:
-            lsp=np.linspace(self._lsp_min, self._lsp_max,
-                            num=self._lsp_target_num_points )
+        return data
 
-        data=np.concatenate([data]*self._lsp_data_weight+[lsp]*self._lsp_artificial_weight)
-
-        return (self._get_distribution_from_values(data), data)
-
+    def _get_distribution_from_values(self, values):
+        f = super(ShortestLoopDistancePerLoop, self)._get_distribution_from_values(values)
+        log.debug("Getting distributions")
+        def kde_with_uniform(measure):
+            x1 = f(measure)
+            assert self._lsp_max>self._lsp_min
+            if np.all(measure<self._lsp_max) and np.all(measure>self._lsp_min):
+                x2=1/(self._lsp_max-self._lsp_min)
+            else:
+                x2=0
+            log.debug("Mixed distr: x1 = %s, x2 = %s", x1, x2)
+            return (1-self._lsp_weight)*x1+self._lsp_weight*x2
+        return kde_with_uniform
+        
     def _get_cg_measure(self, cg):
         min_dist = _minimal_h_h_distance(cg, self.loop_name, cg.hloop_iterator())
         return min_dist
@@ -1543,7 +1574,10 @@ def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
             # http://stackoverflow.com/a/2677263
             args = inspect.getargspec(cls.from_cg).args
             missing_arg = set(args)-set(["cls", "cg", "prefactor", "adjustment"]+list(kwargs.keys()))
-            raise TypeError("The following required Keyword-Arguments for energy {} are missing: {}".format(match.group(2), list(missing_arg)))
+            if missing_arg:
+                raise TypeError("The following required Keyword-Arguments for energy {} are missing: {}".format(match.group(2), list(missing_arg)))
+            else:
+                raise
     return CombinedEnergy(energies)
 
 def _parseEnergyContributionString(contrib, num_steps):

@@ -170,11 +170,13 @@ class EnergyFunction(object):
         Called by accept/reject last measure. 
         If required, update "temperature" in simulated annealing simulations.
         """
+        log.info("EnergyFunction step complete")
         self.step+=1
         if self.step % self._pf_update_freq == 0 and self.step>0:
             self._update_pf()
         if self.step % self._adj_update_freq == 0 and self.step>0:
             self._update_adj()
+            
     def _update_pf(self):
         self.prefactor += self._pf_stepwidth
     def _update_adj(self):
@@ -184,6 +186,9 @@ class CoarseGrainEnergy(EnergyFunction):
     """
     A base-class for Energy functions that use a background distribution.
     """
+    #: Change this to anything but "kde" to use a beta distribution (UNTESTED).
+    dist_type = "kde"
+    
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
@@ -196,10 +201,7 @@ class CoarseGrainEnergy(EnergyFunction):
     def __init__(self, rna_length, prefactor=None, adjustment=None):
         super(CoarseGrainEnergy, self).__init__(prefactor, adjustment)
         
-        #: Change this to anything but "kde" to use a beta distribution (UNTESTED).
-        self.dist_type = "kde"
-        
-        self.reset_kdes(rna_length)
+        self.reset_distributions(rna_length)
         
         #: The previous evaluated energy
         self.prev_energy = None
@@ -236,17 +238,22 @@ class CoarseGrainEnergy(EnergyFunction):
         print("# Working directory: {}".format(os.getcwd()), file=file_)
         print("# Version: {}".format(get_version_string().strip()), file=file_)
 
-    def plot_distributions(self, from_=None, to_=None):
+    def plot_distributions(self, from_=None, to_=None, val = None):
         """
         :param from_: Minimal value of x-axis
         :param to_:   Maximal value of x-axis
         """
         import matplotlib.pyplot as plt
-        
         if from_ is None:
-            from_ = min(it.chain(self.accepted_measures, self.target_values))
+            try:
+                from_ = min(it.chain(self.accepted_measures, self.target_values))
+            except AttributeError:
+                from_ = min(self.accepted_measures)*0.8
         if to_ is None:
-            to_ = max(it.chain(self.accepted_measures, self.target_values))
+            try:
+                to_ = max(it.chain(self.accepted_measures, self.target_values))
+            except AttributeError:
+                to_ = max(self.accepted_measures)*1.2
         xs=np.linspace(from_, to_, 2000)
         fig,ax1 = plt.subplots()
         ax2 = ax1.twinx()
@@ -258,24 +265,36 @@ class CoarseGrainEnergy(EnergyFunction):
         plt.title(self.shortname)
         ax1.legend(loc="lower left")
         ax2.legend()
+        if val is not None:
+            ax1.plot([val,val], [0, max(self.target_distribution(xs))], "g-")
+        
         plt.show(block = False)
 
-    def reset_kdes(self, rna_length):
+    def reset_distributions(self, rna_length):
         """
         Reset the reference and target distribution to the values from files.
         
         :param rna_length: The length of the RNA in nucleotides.
         """
-        self.reference_distribution, am = self._get_distribution_from_file(self.sampled_stats_fn, rna_length)
-        self.accepted_measures = list(am)
-        self.target_distribution, self.target_values =  self._get_distribution_from_file(self.real_stats_fn, rna_length)
-        if self.adjustment!=1:
-            self._adjust_target_distribution()
+        if self.sampled_stats_fn is not None:
+            self.accepted_measures = list(self._get_values_from_file(self.sampled_stats_fn, rna_length))
+        #If sampled_stats_fn is None, we assume accepted_measures is given in the constructor
+        try:
+            self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
+        except AttributeError as e:
+            log.error("Either sampled_stats_fn or accepted_measures has to be set before calling"
+                      " CoarseGrainEnergy.__init__ or CoarseGrainEnergy.reset_distribution for %s.",
+                      type(self).__name__)
+            raise
+        if self.real_stats_fn is not None:
+            self.target_values =  self._get_values_from_file(self.real_stats_fn, rna_length)
+        self._set_target_distribution()
 
     def _step_complete(self):
         """
         Call superclass _step_complete and resample background_kde every n steps.
         """
+        log.info("CoarseGrainedEnergy step complete")
         super(CoarseGrainEnergy, self)._step_complete()
         if self.step % self.kde_resampling_frequency == 0:
             self._resample_background_kde()
@@ -284,17 +303,18 @@ class CoarseGrainEnergy(EnergyFunction):
         """
         Update the reference distribution based on the accepted values
         """
+        log.info("Resampling background KDE")
         values = self.accepted_measures
-        if True: #if len(values) > 100: #if True, because accepted measures contain the initial values from the file
-            new_kde = self._get_distribution_from_values(values)
-            if new_kde is not None:
-                self.reference_distribution = new_kde
-        #else:
-        #    warnings.warn("Not enough accepted measures to perform resampling. Only {}".format(len(self.accepted_measures)))
+        new_kde = self._get_distribution_from_values(values)
+        if new_kde is not None:
+            self.reference_distribution = new_kde
+        else:
+            log.warning("Distribution is None. Cannot change background_kde")
     @abstractmethod
-    def _get_distribution_from_file(self):
+    def _get_values_from_file(self):
         raise NotImplementedError
-    def _get_distribution_from_values(self, values):
+    @classmethod
+    def _get_distribution_from_values(cls, values):
         '''
         Return a probability distribution from the given values.
 
@@ -303,11 +323,11 @@ class CoarseGrainEnergy(EnergyFunction):
         '''
 
         log.debug("Getting distribution from values of shape {}".format(np.shape(values)))
-        if self.dist_type == "kde":
+        if cls.dist_type == "kde":
             try:
                 k = scipy.stats.gaussian_kde(values)
             except np.linalg.linalg.LinAlgError:
-                log.exception()
+                log.exception("")
                 return None
         else:        
             floc = -0.1
@@ -334,7 +354,7 @@ class CoarseGrainEnergy(EnergyFunction):
             m = self._get_cg_measure(cg)
 
         if plot_debug: #For debuging
-            self.plot_distribution()
+            self.plot_distributions(val=m)
         try:
             log.debug("Measure is {:1.4f}".format(m))
         except ValueError:
@@ -357,8 +377,9 @@ class CoarseGrainEnergy(EnergyFunction):
             return -energy
 
     def _update_adj(self):
-        super(RadiusOfGyrationEnergy, self)._update_adjustment()
-        self._adjust_target_distribution()
+        super(CoarseGrainEnergy, self)._update_adj()
+        self._set_target_distribution()
         
-    def _adjust_target_distribution(self):
+    def _set_target_distribution(self):
+        log.info("Adjusting target distribution (base class)")
         self.target_distribution = self._get_distribution_from_values(self.target_values*self.adjustment)
