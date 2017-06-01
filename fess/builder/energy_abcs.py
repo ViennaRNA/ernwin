@@ -310,7 +310,7 @@ class CoarseGrainEnergy(EnergyFunction):
         new_kde = self._get_distribution_from_values(values)
         if new_kde is not None:
             self.reference_distribution = new_kde
-                log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
+            log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
         else:
             log.warning("Distribution is None. Cannot change background_kde")
     @abstractmethod
