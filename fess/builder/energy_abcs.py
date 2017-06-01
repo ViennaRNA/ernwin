@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 
 DEFAULT_ENERGY_PREFACTOR = 30
-
+INCR = 0.01
 
 
 class EnergyFunction(object):
@@ -170,16 +170,17 @@ class EnergyFunction(object):
         Called by accept/reject last measure. 
         If required, update "temperature" in simulated annealing simulations.
         """
-        log.info("EnergyFunction step complete")
+        log.debug("step complete called on %s instance at %s.",type(self).__name__, hex(id(self)))
         self.step+=1
-        if self.step % self._pf_update_freq == 0 and self.step>0:
+        if self.step % self._pf_update_freq < 1 and self.step>0:
             self._update_pf()
-        if self.step % self._adj_update_freq == 0 and self.step>0:
+        log.debug("step: %s  %% _adj_update_freq: %s = %s", self.step, self._adj_update_freq, self.step % self._adj_update_freq)
+        if self.step % self._adj_update_freq < 1 and self.step>0:
             self._update_adj()
-            
     def _update_pf(self):
         self.prefactor += self._pf_stepwidth
     def _update_adj(self):
+        log.debug("Updating adjustment from %s to %s", self.adjustment, self.adjustment+self._adj_stepwidth)
         self.adjustment += self._adj_stepwidth
 
 class CoarseGrainEnergy(EnergyFunction):
@@ -244,6 +245,7 @@ class CoarseGrainEnergy(EnergyFunction):
         :param to_:   Maximal value of x-axis
         """
         import matplotlib.pyplot as plt
+        
         if from_ is None:
             try:
                 from_ = min(it.chain(self.accepted_measures, self.target_values))
@@ -303,16 +305,39 @@ class CoarseGrainEnergy(EnergyFunction):
         """
         Update the reference distribution based on the accepted values
         """
-        log.info("Resampling background KDE")
+        log.debug("Resampling background KDE for %s. Now %d accepted measures", type(self).__name__, len(self.accepted_measures))
         values = self.accepted_measures
         new_kde = self._get_distribution_from_values(values)
         if new_kde is not None:
             self.reference_distribution = new_kde
+                log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
         else:
             log.warning("Distribution is None. Cannot change background_kde")
     @abstractmethod
     def _get_values_from_file(self):
         raise NotImplementedError
+
+    def _values_within_nt_range(self, data, length, target_col, length_col="nt_length"):
+        rdata = []
+
+        distribution_lower_bound = 1.
+        distribution_upper_bound = 1.
+
+        while (len(rdata) < 500 and len(rdata)<len(data)):
+            try:
+                distribution_lower_bound -= INCR
+                distribution_upper_bound += INCR
+                rdata = data[data[length_col] > distribution_lower_bound * length]
+                rdata = rdata[rdata[length_col] < length * distribution_upper_bound]
+            except KeyboardInterrupt:
+                log.error("len(rdata) is {}, len(data)={}, bound= {}...{}".format(len(rdata),len(data),
+                     distribution_lower_bound ) * length, length * ( distribution_upper_bound ))
+                raise
+        if len(rdata)==0:
+            raise ValueError("No data found for distribution")
+        log.info("%d datapoints", len(rdata))
+        return rdata[target_col]  
+
     @classmethod
     def _get_distribution_from_values(cls, values):
         '''

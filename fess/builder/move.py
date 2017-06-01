@@ -59,7 +59,7 @@ class Mover:
         for elem, stat in self._prev_stats.items():
             sm.elem_defs[elem] = stat
         self._prev_stats = {}
-        sm.new_traverse_and_build(start='start')
+        sm.new_traverse_and_build(start='start', include_start = True)
 
 class ExhaustiveMover(Mover):
     HELPTEXT = ("{:25} Try all fragment combinations for \n"
@@ -121,7 +121,7 @@ class NElementMover(Mover):
                 movestring.append(self._move(sm, elem, new_stat))
             if i>100000: 
                 raise RuntimeError("Caught in an endless loop (?)")
-        sm.new_traverse_and_build(start = "start")
+        sm.new_traverse_and_build(start = "start", include_start=True)
         return "".join(movestring)
 
 class OneOrMoreElementMover(NElementMover):
@@ -178,7 +178,7 @@ class WholeMLMover(Mover):
         while self._has_incomplete_ml(sm):
             elem, new_stat = self._get_elem_and_stat(sm)
             movestring.append(self._move(sm, elem, new_stat))
-        sm.new_traverse_and_build(start = "start")
+        sm.new_traverse_and_build(start = "start", include_start = True)
         return "".join(movestring)
     def _has_incomplete_ml(self, sm):
         if not self._prev_stats:
