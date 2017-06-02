@@ -603,9 +603,9 @@ class SpatialModel:
     def stem_to_coords(self, stem):
         sm = self.stems[stem]
         if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
-            log.debug("Changing stem {}: {} to {}".format(stem, self.bg.coords[stem], (sm.mids[0], sm.mids[1])))
+            log.debug("Changing stem %s: %s to %s",stem, self.bg.coords[stem], (sm.mids[0], sm.mids[1]))
         if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
-            log.debug("Changing stem twist {} : {} to {}".format(stem, self.bg.twists[stem], (sm.twists[0], sm.twists[1])))
+            log.debug("Changing stem twist %s : %s to %s", stem, self.bg.twists[stem], (sm.twists[0], sm.twists[1]))
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
 

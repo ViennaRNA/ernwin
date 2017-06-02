@@ -172,7 +172,7 @@ class EnergyFunction(object):
         """
         log.debug("step complete called on %s instance at %s.",type(self).__name__, hex(id(self)))
         self.step+=1
-        if self.step % self._pf_update_freq < 1 and self.step>0:
+        if self.step % self._pf_update_freq <1 and self.step>0:
             self._update_pf()
         log.debug("step: %s  %% _adj_update_freq: %s = %s", self.step, self._adj_update_freq, self.step % self._adj_update_freq)
         if self.step % self._adj_update_freq < 1 and self.step>0:
@@ -209,6 +209,25 @@ class CoarseGrainEnergy(EnergyFunction):
         
         #: Resample the reference distribution every n steps
         self.kde_resampling_frequency = 3
+
+
+    @abstractproperty
+    def sampled_stats_fn(self):
+        """
+        Can be overridden by class-level variable.
+        
+        A filename containing the target_distribution or None
+        """
+        raise NotImplementedError
+    @abstractproperty
+    def HELPTEXT(self):
+        """
+        Can be overridden by class-level variable.
+        
+        A filename containing the reference_distribution
+        """
+        raise NotImplementedError
+
     
     @classmethod
     @abstractmethod
@@ -279,15 +298,16 @@ class CoarseGrainEnergy(EnergyFunction):
         :param rna_length: The length of the RNA in nucleotides.
         """
         if self.sampled_stats_fn is not None:
+            log.debug("Loading sapmled measures into accepted_measures")
             self.accepted_measures = list(self._get_values_from_file(self.sampled_stats_fn, rna_length))
         #If sampled_stats_fn is None, we assume accepted_measures is given in the constructor
-        try:
+        if self.accepted_measures:
             self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
-        except AttributeError as e:
-            log.error("Either sampled_stats_fn or accepted_measures has to be set before calling"
-                      " CoarseGrainEnergy.__init__ or CoarseGrainEnergy.reset_distribution for %s.",
-                      type(self).__name__)
-            raise
+        else:
+            raise ValueError("Either sampled_stats_fn or accepted_measures has to be set "
+                             "before calling CoarseGrainEnergy.__init__ or "
+                             "CoarseGrainEnergy.reset_distribution "
+                             "for {}.".format(type(self).__name__))
         if self.real_stats_fn is not None:
             self.target_values =  self._get_values_from_file(self.real_stats_fn, rna_length)
         self._set_target_distribution()
@@ -310,11 +330,13 @@ class CoarseGrainEnergy(EnergyFunction):
         new_kde = self._get_distribution_from_values(values)
         if new_kde is not None:
             self.reference_distribution = new_kde
-                log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
+            log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
         else:
             log.warning("Distribution is None. Cannot change background_kde")
+            
+    @classmethod
     @abstractmethod
-    def _get_values_from_file(self):
+    def _get_values_from_file(cls, filename, nt_length):
         raise NotImplementedError
 
     def _values_within_nt_range(self, data, length, target_col, length_col="nt_length"):
@@ -407,4 +429,5 @@ class CoarseGrainEnergy(EnergyFunction):
         
     def _set_target_distribution(self):
         log.info("Adjusting target distribution (base class)")
-        self.target_distribution = self._get_distribution_from_values(self.target_values*self.adjustment)
+        scaled_vals = np.asarray(self.target_values)*self.adjustment
+        self.target_distribution = self._get_distribution_from_values(scaled_vals)
