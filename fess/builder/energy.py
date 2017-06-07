@@ -820,7 +820,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         return cg.radius_of_gyration("fast")
 
     def _get_values_from_file(self, filename, length):
-        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
+        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#", names=["pdb_id","nt_length","rog"])
 
         rdata = []
 

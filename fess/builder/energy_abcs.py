@@ -339,7 +339,8 @@ class CoarseGrainEnergy(EnergyFunction):
     def _get_values_from_file(cls, filename, nt_length):
         raise NotImplementedError
 
-    def _values_within_nt_range(self, data, length, target_col, length_col="nt_length"):
+    @staticmethod
+    def _values_within_nt_range(data, length, target_col, length_col="nt_length"):
         rdata = []
 
         distribution_lower_bound = 1.
