@@ -136,6 +136,9 @@ def get_parser():
     parser.add_argument('--debug', type=str, help="A comma-seperated list of modules for which debug output will be activated. (E.g. fess.builder)")
 
     #Controll Stats for sampling
+    parser.add_argument('--freeze', type=str,
+                            help= "A comma-seperated list of cg-element names.\n"
+                                  "These elements will not be changed during samplig.")
     parser.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.110.stats"),
                         help= "A filename.\n"
                               "A file containing all the stats to sample from\n"
@@ -484,19 +487,20 @@ def setup_deterministic(args):
         print("ERROR: --clustered-angle-stats is currently not implemented (and probably will be removed in the future)!", file=sys.stderr)
         sys.exit(1)
 
+    frozen=args.freeze.split(",")
     #LOAD THE SM(s)
     if args.replica_exchange:
         sm = []
         for i in range(args.replica_exchange):
             #Initialize the spatial models
-            sm.append(fbm.SpatialModel(copy.deepcopy(cg)))
+            sm.append(fbm.SpatialModel(copy.deepcopy(cg), frozen_elements=frozen))
             if args.mst_breakpoints:
                 bps = args.mst_breakpoints.split(",")
                 for bp in bps:
                     sm.set_multiloop_break_segment(bp)
     else:
         #Initialize the spatial model
-        sm=fbm.SpatialModel(cg)
+        sm=fbm.SpatialModel(cg, frozen_elements=frozen)
         if args.mst_breakpoints:
             bps = args.mst_breakpoints.split(",")
             for bp in bps:
@@ -562,7 +566,7 @@ def setup_deterministic(args):
         if args.constraint_energy in ["D","B","C"]:
             sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
 
-    # It should not matter, which sm (in case of RE) I use,
+    # It should not matter, which sm (in case of RE) I use for the mover,
     # as long as it corresponds to the correct bulge graph (i.e. 2D structure).
     mover = fbmov.mover_from_string(args.move_set, stat_source, original_sm)
 
@@ -735,7 +739,7 @@ def main(args):
                    "{} times a multiloop was not closed. {} clashes occurred."
                    " Structure has {} defines and is {} nts long.".format(failed_mls, clashes, len(sm.bg.defines), sm.bg.seq_length), file=out_file)
         else: #Normal sampling
-            sm.bg.to_file(os.path.join(config.Configuration.sampling_output_dir, 
+            sm.bg.to_file(os.path.join(config.Configuration.sampling_output_dir,
                       'initial.coord'))
             #Track energies without background for comparison with constituing energies
             if isinstance(energy, fbe.CombinedEnergy):

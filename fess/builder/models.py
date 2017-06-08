@@ -234,7 +234,7 @@ class SpatialModel:
     as length statistics.
     '''
 
-    def __init__(self, bg):
+    def __init__(self, bg, frozen_elements = None):
         '''
         Initialize the structure.
 
@@ -246,19 +246,17 @@ class SpatialModel:
         self.stems = dict()
         self.bulges = dict()
 
+        if frozen_elements is None:
+            self.frozen_elements = set()
+        else:
+            self.frozen_elements = set(frozen_elements)
 
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
         self.constraint_energy = None
         self.junction_constraint_energy = None
 
-        # We probably do not need the following 2:
-        self.closed_bulges = []
-        self.newly_added_stems = []
-
-
-
-        self.elem_defs = None
+        self.elem_defs=dict()
 
         self.bg = bg
         self.add_to_skip()
@@ -270,9 +268,11 @@ class SpatialModel:
             pass
 
     def sample_stats(self, stat_source):
-        self.elem_defs = dict()
 
         for d in self.bg.defines:
+            #Frozen elements are only sampled once, if they couldn't be loaded.
+            if d in self.frozen_elements and d in self.elem_defs:
+                continue
             if d[0] == 'm':
                 if self.bg.get_angle_type(d) is None:
                     # this section isn't sampled because a multiloop
@@ -286,6 +286,8 @@ class SpatialModel:
 
 
     def resample(self, d, stat_source):
+        if d in self.frozen_elements:
+            warnings.warn("Changing fixed element {}".format(d))
         self.elem_defs[d] = stat_source.sample_for(self.bg, d)
         '''
         if d[0] == 's':
@@ -346,6 +348,7 @@ class SpatialModel:
 
         direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
         end_mid = start_mid + direction
+        log.debug("loop added from %s to %s", start_mid, end_mid)
         self.bulges[name] = BulgeModel((start_mid, end_mid))
 
     def find_start_node(self):
@@ -461,10 +464,9 @@ class SpatialModel:
         '''
         Load information from the CoarseGrainRNA into self.elem_defs
 
-        ..note: This is called by the __init__ function of the MCMCSampler to avoid building the structure from scratch.
+        ..note: This is called by the Builder to avoid building the structure from scratch.
         '''
         build_order = self.bg.traverse_graph()
-        self.elem_defs=dict()
         for d in self.bg.defines.keys():
             if d in self.bg.sampled:
                 line = self.bg.sampled[d]
@@ -572,16 +574,11 @@ class SpatialModel:
         loops = list(self.bg.hloop_iterator())
         fiveprime = list(self.bg.floop_iterator())
         threeprime = list(self.bg.tloop_iterator())
-        self.closed_bulges = []
 
         for d in self.bg.defines.keys():
             if d[0] != 's':
-                if d in loops:
+                if d in loops or d in fiveprime or d in threeprime:
                     log.debug("Adding loop {} (connected to {})".format(d, list(self.bg.edges[d])[0]))
-                    self.add_loop(d, list(self.bg.edges[d])[0])
-                elif d in fiveprime:
-                    self.add_loop(d, list(self.bg.edges[d])[0])
-                elif d in threeprime:
                     self.add_loop(d, list(self.bg.edges[d])[0])
                 else:
                     connections = self.bg.connections(d)
@@ -598,36 +595,26 @@ class SpatialModel:
                     s2mid = self.stems[connections[1]].mids[s2b]
 
                     self.bulges[d] = BulgeModel((s1mid, s2mid))
-                    self.closed_bulges += [d]
 
     def stem_to_coords(self, stem):
         sm = self.stems[stem]
+
         if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
             log.debug("Changing stem %s: %s to %s",stem, self.bg.coords[stem], (sm.mids[0], sm.mids[1]))
         if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
             log.debug("Changing stem twist %s : %s to %s", stem, self.bg.twists[stem], (sm.twists[0], sm.twists[1]))
+
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
 
         cgg.add_virtual_residues(self.bg, stem)
 
-    """def __str__(self):
-        return str(self.mids)"""
-
-    def _elements_to_coords(self):
+    def _loops_to_coords(self):
         '''
         Add all of the stem and bulge coordinates to the BulgeGraph data structure.
         '''
-        # this should be changed in the future so that only stems whose
-        # positions have changed have their virtual residue coordinates
-        # re-calculated
-        self.newly_added_stems = []#This is only called by traverse_and_build, where stems have already been placed. [d for d in self.bg.defines if d[0] == 's']
 
-        #for stem in self.stems.keys():
-        for stem in self.newly_added_stems:
-            self.stem_to_coords(stem)
-
-        log.debug("_elements_to_coords: Adding bulge coodinates from stems")
+        log.debug("_loops_to_coords: Adding bulge coodinates from stems")
         self.bg.add_bulge_coords_from_stems()
 
         for d in self.bg.hloop_iterator():
@@ -638,7 +625,7 @@ class SpatialModel:
                 log.error("Connected to stem {} with coords {} and {}".format(connected, self.bg.coords[connected][0], self.bg.coords[connected][1]))
                 assert False, "Bulge {}, Difference {}".format(d, bm.mids[0]-self.bg.coords[connected][1])
             self.bg.coords[d] = np.array([bm.mids[0], bm.mids[1]])
-        for d in ["f1", "t1"]:
+        for d in it.chain(self.bg.floop_iterator(), self.bg.tloop_iterator()):
             if d in self.bg.defines:
                 bm = self.bulges[d]
                 connected, =self.bg.edges[d]
@@ -691,7 +678,7 @@ class SpatialModel:
     def _finish_building(self):
         log.debug("Finish building")
         self.fill_in_bulges_and_loops()
-        self._elements_to_coords()
+        self._loops_to_coords()
         self.save_sampled_elems()
 
     def add_to_skip(self):
@@ -733,7 +720,7 @@ class SpatialModel:
         '''
         log.debug("new_traverse_and_build(self, start={}, max_steps={}, end={})".format(start, max_steps, end))
         build_order = self.bg.traverse_graph()
-
+        log.debug("build_order: %s", build_order)
         def buildorder_of(stemid, include = False):
             """
             Returns the buildorder of the multi-/ interior loop before the stem with stemid.
@@ -818,7 +805,6 @@ class SpatialModel:
             #Optional end-criterion given as a node label.
             if end is not None and end in nodes:
                 break
-
         self._finish_building()
         return nodes
 
