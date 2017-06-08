@@ -6,7 +6,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
-                             
+
 from abc import ABCMeta, abstractmethod, abstractproperty
 import numpy as np
 import scipy.stats
@@ -30,16 +30,16 @@ class EnergyFunction(object):
     The base class for energy functions.
     '''
     __metaclass__ = ABCMeta
-    
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
         Factory function. Return this energy for the given cg.
-        
+
         :returns: An instance if this class or a CombinedEnergy containing instances of this class.
         """
         return cls(prefactor, adjustment)
-    
+
     def __init__(self, prefactor = None, adjustment = None):
         if prefactor is None:
             prefactor = DEFAULT_ENERGY_PREFACTOR
@@ -51,46 +51,46 @@ class EnergyFunction(object):
 
         #: The measure encountered during last energy evaluation
         self._last_measure = None
-        #: The reference distribution. 
-        #: In the case of EnergyFunctions that are not CoarseGrainEnergy instances, 
+        #: The reference distribution.
+        #: In the case of EnergyFunctions that are not CoarseGrainEnergy instances,
         #: this is only used to dump the measures to a file.
         self.accepted_measures = []
-        
-        #: The energy function can be adjusted with a prefactor (weight) 
+
+        #: The energy function can be adjusted with a prefactor (weight)
         #: and an adjustment (offset from the target value)
         self.prefactor, self._pf_stepwidth, self._pf_update_freq = self._parse_prefactor(prefactor)
         self.adjustment, self._adj_stepwidth, self._adj_update_freq = self._parse_prefactor(adjustment)
-        
-        #: How many sampling steps have been performed 
+
+        #: How many sampling steps have been performed
         #: (Used for reference ratio method and simulated annealing)
         self.step=0
-        
+
         #: Name and shortname of the energy
-        # We need to check the class, not the instance, because implementation of name as a property 
+        # We need to check the class, not the instance, because implementation of name as a property
         # in subclasses may raise an error on incompletely initialized instanzes.
-        if not hasattr(type(self), "name"): 
+        if not hasattr(type(self), "name"):
             self.name = self.__class__.__name__.lower()
-            
+
     def accept_last_measure(self):
         """
         The last measure should contribute to the new reference distribution.
-        
+
         The structure evaluated with the last call to eval_energy was accepted
-        during sampling. Thus the corresponding measure should be included in 
+        during sampling. Thus the corresponding measure should be included in
         the reference distribution. (Reference ratio method)
         """
-        if self._last_measure is not None:        
+        if self._last_measure is not None:
             self.accepted_measures.append(self._last_measure)
         self._step_complete()
-   
+
     def reject_last_measure(self):
         """
         The last measure of the reference distribution should be duplicated.
-        
+
         The structure evaluated with the last call to eval_energy was rejected
-        during sampling. Thus the last accepted measure should be adefaultdictdded a second 
+        during sampling. Thus the last accepted measure should be adefaultdictdded a second
         time to the reference distribution. (Reference ratio method)
-        """        
+        """
         if len(self.accepted_measures) > 0:
             self.accepted_measures.append(self.accepted_measures[-1])
         self._step_complete()
@@ -99,10 +99,10 @@ class EnergyFunction(object):
     def _shortname(self):
         """
         A shortcut for the energy name. Ideally 3 to 4 letters, all-caps.
-        
+
         This should be implemented by a simple class-level variable.
-        
-        It is used to generate energies from commandline-options 
+
+        It is used to generate energies from commandline-options
         (via fess.builder.energy.energies_from_string).
         Further more, the `shortname` property `_shortname` it for the description of the energy.
         """
@@ -112,12 +112,12 @@ class EnergyFunction(object):
     def HELPTEXT(self):
         """
         A preformatted helptext describing the energy.
-        
-        This is used by get_argparse_help and intended for 
+
+        This is used by get_argparse_help and intended for
         output on the commandline via argparse's `--help` option.
         """
         raise NotImplementedError
-    
+
     @property
     def shortname(self):
         if self.prefactor==DEFAULT_ENERGY_PREFACTOR:
@@ -130,12 +130,12 @@ class EnergyFunction(object):
             adj=self.adjustment
         return "{}{}{}".format(pre, self._shortname, adj)
 
-        return 
+        return
 
     @abstractmethod
     def eval_energy(self, cg, background=True, nodes=None):
         raise NotImplementedError
-    
+
     def dump_measures(self, base_directory, iteration=None):
         '''
         Dump all of the accepted measures collected so far
@@ -150,11 +150,11 @@ class EnergyFunction(object):
             with open(output_file + ".%d" % (iteration), 'w') as f:
                 f.write(" ".join(map("{:.4f}".format,self.accepted_measures)))
                 f.write("\n")
-    
+
     def _parse_prefactor(self, prefactor):
         """
         Creates a tuple from a scalar or returns a given tuple
-        
+
         :param prefactor: A number or a 3-tuple
         :returns: A tuple prefactor, stepwidth, update_frequency
         """
@@ -166,8 +166,8 @@ class EnergyFunction(object):
     def _step_complete(self):
         """
         Bookkeeping after every performed sampling step (NOT energy evaluation).
-        
-        Called by accept/reject last measure. 
+
+        Called by accept/reject last measure.
         If required, update "temperature" in simulated annealing simulations.
         """
         log.debug("step complete called on %s instance at %s.",type(self).__name__, hex(id(self)))
@@ -189,24 +189,24 @@ class CoarseGrainEnergy(EnergyFunction):
     """
     #: Change this to anything but "kde" to use a beta distribution (UNTESTED).
     dist_type = "kde"
-    
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
         """
         Factory function. Return this energy for the given cg.
-        
+
         :returns: An instance if this class or a CombinedEnergy which is empty or contains instances of this class.
         """
         return cls(rna_length = cg.seq_length, prefactor=prefactor, adjustment=adjustment)
 
     def __init__(self, rna_length, prefactor=None, adjustment=None):
         super(CoarseGrainEnergy, self).__init__(prefactor, adjustment)
-        
+
         self.reset_distributions(rna_length)
-        
+
         #: The previous evaluated energy
         self.prev_energy = None
-        
+
         #: Resample the reference distribution every n steps
         self.kde_resampling_frequency = 3
 
@@ -215,7 +215,7 @@ class CoarseGrainEnergy(EnergyFunction):
     def sampled_stats_fn(self):
         """
         Can be overridden by class-level variable.
-        
+
         A filename containing the target_distribution or None
         """
         raise NotImplementedError
@@ -223,31 +223,31 @@ class CoarseGrainEnergy(EnergyFunction):
     def HELPTEXT(self):
         """
         Can be overridden by class-level variable.
-        
+
         A filename containing the reference_distribution
         """
         raise NotImplementedError
 
-    
+
     @classmethod
     @abstractmethod
     def generate_target_distribution(cls, *args, **kwargs):
         """
         Provide an implementation how the target distribution (and all other required files)
         can be generated. Document this method well to ensure reproducibility.
-        
-        This must be implemented as a classmethod, so changes to the class will 
+
+        This must be implemented as a classmethod, so changes to the class will
         be reflected in the target distribution.
         """
         raise NotImplementedError
-    
+
     @staticmethod
     def _print_file_header(file_, cg_filenames):
         """
         Print a header to files generated with `generate_target_distribution`.
-        
+
         This should allow for easy reproducibility where possible.
-        
+
         :param file_: A file opened for writing
         :param cg_filenames: A list of strings (filenames)
         """
@@ -264,7 +264,7 @@ class CoarseGrainEnergy(EnergyFunction):
         :param to_:   Maximal value of x-axis
         """
         import matplotlib.pyplot as plt
-        
+
         if from_ is None:
             try:
                 from_ = min(it.chain(self.accepted_measures, self.target_values))
@@ -280,7 +280,7 @@ class CoarseGrainEnergy(EnergyFunction):
         ax2 = ax1.twinx()
         ax1.plot(xs, self.reference_distribution(xs), label="sampled")
         ax1.plot(xs, self.target_distribution(xs), label="target")
-        ax2.plot(xs, -(np.log(self.target_distribution(xs) + 0.00000001 * 
+        ax2.plot(xs, -(np.log(self.target_distribution(xs) + 0.00000001 *
                      self.reference_distribution(xs)) - np.log(self.reference_distribution(xs))),
                  label="energy", color="red")
         plt.title(self.shortname)
@@ -288,13 +288,13 @@ class CoarseGrainEnergy(EnergyFunction):
         ax2.legend()
         if val is not None:
             ax1.plot([val,val], [0, max(self.target_distribution(xs))], "g-")
-        
+
         plt.show(block = False)
 
     def reset_distributions(self, rna_length):
         """
         Reset the reference and target distribution to the values from files.
-        
+
         :param rna_length: The length of the RNA in nucleotides.
         """
         if self.sampled_stats_fn is not None:
@@ -320,7 +320,7 @@ class CoarseGrainEnergy(EnergyFunction):
         super(CoarseGrainEnergy, self)._step_complete()
         if self.step % self.kde_resampling_frequency == 0:
             self._resample_background_kde()
-    
+
     def _resample_background_kde(self):
         """
         Update the reference distribution based on the accepted values
@@ -333,20 +333,20 @@ class CoarseGrainEnergy(EnergyFunction):
             log.debug("Density of ref AFTER resampling = %s", self.reference_distribution(self.accepted_measures[-1]))
         else:
             log.warning("Distribution is None. Cannot change background_kde")
-            
+
     @classmethod
     @abstractmethod
     def _get_values_from_file(cls, filename, nt_length):
         raise NotImplementedError
 
     @staticmethod
-    def _values_within_nt_range(data, length, target_col, length_col="nt_length"):
+    def _values_within_nt_range(data, length, target_col, length_col="nt_length", target_len=500):
         rdata = []
 
         distribution_lower_bound = 1.
         distribution_upper_bound = 1.
 
-        while (len(rdata) < 500 and len(rdata)<len(data)):
+        while (len(rdata) < target_len and len(rdata)<len(data)):
             try:
                 distribution_lower_bound -= INCR
                 distribution_upper_bound += INCR
@@ -359,7 +359,7 @@ class CoarseGrainEnergy(EnergyFunction):
         if len(rdata)==0:
             raise ValueError("No data found for distribution")
         log.info("%d datapoints", len(rdata))
-        return rdata[target_col]  
+        return rdata[target_col]
 
     @classmethod
     def _get_distribution_from_values(cls, values):
@@ -377,7 +377,7 @@ class CoarseGrainEnergy(EnergyFunction):
             except np.linalg.linalg.LinAlgError:
                 log.exception("")
                 return None
-        else:        
+        else:
             floc = -0.1
             fscale =  1.5 * max(values)
             f = scipy.stats.beta.fit(values, floc=floc, fscale=fscale)
@@ -386,12 +386,12 @@ class CoarseGrainEnergy(EnergyFunction):
     @abstractmethod
     def _get_cg_measure(self, cg):
         raise NotImplementedError
-    
+
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False, plot_debug=False):
         '''
         A generic function which simply evaluates the energy based on the
         previously calculated probability distributions.
-        
+
         :param use_accepted_measure: Do not calculate the measure from the cg. Instead use the
                                      last accepted measure.
         :param plot_debug: Plot the distributions for debugging
@@ -407,10 +407,10 @@ class CoarseGrainEnergy(EnergyFunction):
             log.debug("Measure is {:1.4f}".format(m))
         except ValueError:
             log.exception("m is {}".format(repr(m)))
-            
-            
+
+
         self._last_measure = m
-        
+
         if background:
             ref_val = self.reference_distribution(m)
             tar_val = self.target_distribution(m)
@@ -427,7 +427,7 @@ class CoarseGrainEnergy(EnergyFunction):
     def _update_adj(self):
         super(CoarseGrainEnergy, self)._update_adj()
         self._set_target_distribution()
-        
+
     def _set_target_distribution(self):
         log.info("Adjusting target distribution (base class)")
         scaled_vals = np.asarray(self.target_values)*self.adjustment
