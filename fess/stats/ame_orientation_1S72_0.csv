@@ -15,7 +15,7 @@
 #    NTs (III): 519 1362 639
 #    
 # cutoff_dist = 30 A
-loop_type dist angle1 angle2 is_interaction
+PDB_ID loop_type dist angle1 angle2 is_interaction
 1S72 i 20.5732523626 0.914153674872 2.68599091238 True
 1S72 m 1.86165631929 1.80847727682 1.89031472197 True
 1S72 h 13.5531060275 2.03067816584 1.96560307552 True

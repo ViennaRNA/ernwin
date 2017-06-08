@@ -1055,14 +1055,14 @@ class AMinorEnergy(CoarseGrainEnergy):
                 print("#    "+line, file = f)
             print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
             # HEADER
-            print ("loop_type dist angle1 angle2 is_interaction", file=f)
+            print ("pdb_id loop_type dist angle1 angle2 is_interaction loop_sequence", file=f)
             for entry in aminor_geometries:
                 print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction}".format(is_interaction = True,
+                      "{angle2} {is_interaction} {loop_sequence}".format(is_interaction = True,
                                                          **entry._asdict()), file = f)
             for entry in non_ame_geometries:
                 print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction}".format(is_interaction = False,
+                      "{angle2} {is_interaction} {loop_sequence}".format(is_interaction = False,
                                                          **entry._asdict()), file = f)
         cls._generate_target_dist_given_orientation(all_cgs, out_filename,
                                                     orientation_outfile, use_subgraphs, cg_filenames)
