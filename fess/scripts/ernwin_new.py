@@ -136,7 +136,7 @@ def get_parser():
     parser.add_argument('--debug', type=str, help="A comma-seperated list of modules for which debug output will be activated. (E.g. fess.builder)")
 
     #Controll Stats for sampling
-    parser.add_argument('--freeze', type=str,
+    parser.add_argument('--freeze', type=str, default="",
                             help= "A comma-seperated list of cg-element names.\n"
                                   "These elements will not be changed during samplig.")
     parser.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.110.stats"),

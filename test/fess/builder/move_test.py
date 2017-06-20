@@ -37,7 +37,7 @@ class TestMoverBaseClassConstruction(unittest.TestCase):
 
 class TestMoverBaseClassPrivateMembers(unittest.TestCase):
     longMessage = True
-    def setUp(self):        
+    def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
         self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
         cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((......)))))", seq="GGCGCAAAAAAGCGCC")
@@ -88,7 +88,7 @@ class TestMoverBaseClassPrivateMembers(unittest.TestCase):
         self.assertEqual(movestring, "s0:test:s_0->new:s_0;")
 
 class TestMoverBaseClassPublicAPI(unittest.TestCase):
-    def setUp(self):        
+    def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
         self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
         cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....(((((......)))))..)))))")
@@ -120,7 +120,7 @@ class TestNMoverPublicAPI(TestMoverBaseClassPublicAPI):
             if self.sm.elem_defs[elem].pdb_name!=stats_old[elem].pdb_name:
                 changed.add(elem)
         self.assertEqual(len(changed), 2, "Exactely 2 (different) elements should have been changed.")
-        
+
     def test_move_changes_multiple4(self):
         stats_old = copy.deepcopy(self.sm.elem_defs)
         self.assertEqual(self.mover4._n_moves, 4)
@@ -142,7 +142,8 @@ class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
         for i in range(RAND_REPETITIONS):
             elem, new_stat = self.mover_realstats._get_elem_and_stat(self.sm)
             elems[elem]+=1
-            self.assertNotIn(new_stat.pdb_name, stats, "ExhaustiveMover should sample every stat only once!")
+            self.assertNotIn(new_stat.pdb_name, stats,
+                             "ExhaustiveMover with single element should sample every stat only once!")
             stats.add(new_stat.pdb_name)
             self.assertEqual(elem, "s0")
             self.assertIsInstance(new_stat, ftmstat.StemStat)
@@ -152,7 +153,18 @@ class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
         with self.assertRaises(StopIteration):
             for i in range(12): #More iterations than stats for s0
                 self.mover_limitedstats._get_elem_and_stat(self.sm)
-                
+
+    def test_iter_moves_many(self):
+        cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....)))))", seq="GGCGCAAAAAGCGCC")
+        self.sm = SpatialModel(cg)
+
+        mov = fbmov.ExhaustiveMover(self.stat_source_limited, ["s0", "h0"], self.sm )
+        move_list = list(mov._iter_moves(self.sm))
+        self.assertEqual([x[0] for x in move_list], ["s0", "h0", "s0", "h0"])
+        self.assertEqual([x[1].pdb_name for x in move_list],
+                         ["test:s_0", "test:h_1", "test:s_0", "test:h_2"])
+
+
 class TestExhaustiveExplorerPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
         super(TestExhaustiveExplorerPublicAPI, self).setUp()
@@ -165,7 +177,7 @@ class TestConnectedElementMoverPublicAPI(TestNMoverPublicAPI):
         self.mover = fbmov.ConnectedElementMover(self.stat_source_real, 2)
         self.mover4 = fbmov.ConnectedElementMover(self.stat_source_real, 4)
 
-    def test_move_changes_connected(self):            
+    def test_move_changes_connected(self):
         for i in range(RAND_REPETITIONS):
             sm = copy.deepcopy(self.sm)
             stats_old = copy.deepcopy(sm.elem_defs)
@@ -221,4 +233,3 @@ class TestConvenienceFunctions(unittest.TestCase):
         self.assertEqual(mover._n_moves, 4)
         mover = fbmov.mover_from_string("WholeMLMover", self.stat_source)
         self.assertIsInstance(mover, fbmov.WholeMLMover)
-

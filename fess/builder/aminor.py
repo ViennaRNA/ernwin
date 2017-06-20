@@ -18,6 +18,9 @@ import warnings
 import logging
 import numpy as np
 import scipy.stats
+
+from logging_exceptions import log_to_exception
+
 log=logging.getLogger(__name__)
 
 try:
@@ -103,9 +106,10 @@ class AMGeometry(_AMGeometry):
 def _safe_resid_from_chain_res(chain, residue):
     try:
         return fgb.resid_from_str(str("{}:{}".format(chain,residue)))
-    except ValueError:
+    except ValueError as e:
         if residue.isdigit():
-            log.error("Chain is '{}', res is '{}'".format(chain, residue))
+            with log_to_exception(log, e):
+                log.error("Chain is '{}', res is '{}'".format(chain, residue))
             raise
         else:
             warnings.warn("Illegal residue number: '{}'.".format(residue))

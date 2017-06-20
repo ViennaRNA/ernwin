@@ -6,3 +6,4 @@ deepdiff
 networkx
 future
 forgi==0.4
+logging_exceptions==0.1

@@ -274,7 +274,7 @@ class SpatialModel:
             if d in self.frozen_elements and d in self.elem_defs:
                 continue
             if d[0] == 'm':
-                if self.bg.get_angle_type(d) is None:
+                if self.bg.get_angle_type(d, allow_broken = False) is None:
                     # this section isn't sampled because a multiloop
                     # is broken here
                     continue
@@ -484,16 +484,21 @@ class SpatialModel:
                     if bo[1]==d:
                         stat=self.bg.get_bulge_angle_stats_core(d,(bo[0],bo[2]))
                         break
+                else: #Not in build_order. Probably broken ml segment
+                    assert d[0]=="m"
+                    #If it was frozen, we add its stats to elem_defs.
+                    if d in self.frozen_elements:
+                        s1,s2 = sorted(self.bg.edges[d], key=lambda x: self.bg.defines[x][0])
+                        stat=self.bg.get_bulge_angle_stats_core(d,(s1,s2))
+                    else:
+                        #Do not add this element to elem_defs!
+                        continue
             if line: #Use original define and pdb_name.
                 stat.pdb_name=line[0]
                 stat.define = line[2:]
-                #print(d,"DEFINE",  stat.define)
-            else:
-                pass
-                #print("MISSING, ", d)
-            #print("mst",  self.bg.mst)
-            if d in self.bg.mst or d[0] in ["t", "f", "h"]:
-                self.elem_defs[d]=stat
+
+            self.elem_defs[d]=stat
+
 
     def get_transform(self, edge):
         '''
@@ -808,7 +813,7 @@ class SpatialModel:
         self._finish_building()
         return nodes
 
-    def ml_stat_deviation(self, ml, stat, stem1, stem2):
+    def ml_stat_deviation(self, ml, stat):
         """
         Calculate the deviation in angstrom between the stem that would be placed using the given
         stats for an open multiloop segment and the true stem position.
@@ -816,30 +821,15 @@ class SpatialModel:
         :param ml: A element name, e.g. "m0". Should correspond to a broken multiloop.
         :param stat: The fictive stat to use for this ml segment.
         """
-        stem1, stem2 = self.bg.edges[ml] #Arbitrary direction
-        prev_stem = self.stems[stem1]
-        angle_params = self.elem_defs[ml]
-        stem_params = self.elem_defs[stem2]
-        ang_type = self.bg.connection_type(ml, [stem1,stem2])
-        connection_ends = self.bg.connection_ends(ang_type)
+        stat1, stat2 = self.bg.get_stats(ml)
 
-        # get the direction of the first stem (which is used as a
-        # coordinate system)
-        if connection_ends[0] == 0:
-            (s1b, s1e) = (1, 0)
-        elif connection_ends[0] == 1:
-            (s1b, s1e) = (0, 1)
-
-
-        stem = self.add_stem(stem2, stem_params, prev_stem,
-                                 angle_params, (s1b, s1e))
-        if connection_ends[1] == 1:
-            stem = stem.reverse()
-        true_stem = self.stems[stem2]
-        difference1 = abs(stem.mids[0]-ture_stem.mids[0]) + abs(stem.mids[1]-ture_stem.mids[1])
-        difference2 = abs(stem.mids[0]-ture_stem.mids[1]) + abs(stem.mids[1]-ture_stem.mids[0])
-        log.info("Difference ml_stat_deviation = min({}, {})".format(difference1, difference2))
-        return min(difference1, difference2)
+        if stat.ang_type == stat1.ang_type:
+            virtual_stat = stat1
+        else:
+            assert stat.ang_type == stat2.ang_type
+            virtual_stat = stat2
+        diff = stat.diff(virtual_stat, next_stem_length = 3)
+        return diff
 
     """
     def __deepcopy__(self, memo={}):

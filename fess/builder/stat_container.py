@@ -87,7 +87,7 @@ class StatStorage(object):
     def _key_from_bg_and_elem(bg, elem):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
-            ang_type = bg.get_angle_type(elem)
+            ang_type = bg.get_angle_type(elem, allow_broken = True)
             return tuple([dims[0], dims[1], ang_type])
         elif elem[0]=="h" and dims[0]<3:
             return 3 #Hairpins<3 probably means missing residues. Just return the smalles possible dimension
@@ -241,7 +241,7 @@ class SequenceDependentStatStorage(StatStorage):
     def _key_from_bg_and_elem(bg, elem):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
-            ang_type = bg.get_angle_type(elem)
+            ang_type = bg.get_angle_type(elem, allow_broken = True)
             return tuple([dims[0], dims[1], ang_type]), bg.get_define_seq_str(elem, adjacent = True)
         else:
             return dims[0], tuple(bg.get_define_seq_str(elem))

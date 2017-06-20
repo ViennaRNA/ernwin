@@ -16,6 +16,7 @@ import time
 import copy
 import os.path
 import numpy as np
+import pandas as pd
 from ..aux.SortedCollection import SortedCollection
 import warnings
 import logging
@@ -26,7 +27,7 @@ __metaclass__=type
 class StatisticsCollector(object):
     """
     A base class for Spatial-Model Statistic objects.
-    """       
+    """
     header=[] #This is used for outfile-parsing.
     def __init__(self, *args, **kwargs):
         """
@@ -57,7 +58,7 @@ class StatisticsCollector(object):
 class CombinedStatistics(StatisticsCollector):
     def __init__(self, collectors, separator=""):
         """
-        Used as a convenient way to combine several 
+        Used as a convenient way to combine several
         statisticsCollector instances into one object.
 
         :param collectors: A list of StatisticsCollector instances.
@@ -77,7 +78,7 @@ class CombinedStatistics(StatisticsCollector):
         """
         This only includes headers for which a history is written.
         """
-        return [ header for member in self._members for header in member.header_list 
+        return [ header for member in self._members for header in member.header_list
                  if member.history is not None and not member.silent ]
     @property
     def history(self):
@@ -106,24 +107,34 @@ class CombinedStatistics(StatisticsCollector):
             for i in range(length):
                 try:
                     line = []
-                    for j, h in enumerate(history):
-                        line.append(str(h[i]))
+                    for h in history:
+                        if isinstance(h[i], list):
+                            if self._joiner == ",":
+                                j = " "
+                            else:
+                                j=","
+                            line.append(j.join(map(str, h[i])))
+                        else:
+                            line.append(str(h[i]))
                 except Exception as e:
                     log.error("Members are: {}".format(", ".join(map(str, self._members))))
                     log.exception("Could not dump complete history to file 'monitor.txt': {} occurred for history column {} line {}".format(type(e).__name__, j, i))
                     return
                 else:
                     print( self._joiner.join(line), file=f)
+        for member in self._members:
+            if hasattr(member, 'to_file'):
+                member.to_file()
 
-        
-                
-            
+
+
+
 
 
 class ROGStatistics(StatisticsCollector):
     """
     Store and print the Radius of Gyration.
-    """        
+    """
     header=["ROG"]
     def update(self, sm, step):
         rog=ftur.radius_of_gyration(sm.bg.get_ordered_stem_poss())
@@ -138,7 +149,7 @@ class ROGStatistics(StatisticsCollector):
 class AsphericityStatistics(StatisticsCollector):
     """
     Store and print the Asphericity.
-    """        
+    """
     header=["Asphericity"]
     def update(self, sm, step):
         rog=ftur.asphericity(sm.bg.get_ordered_stem_poss())
@@ -147,11 +158,11 @@ class AsphericityStatistics(StatisticsCollector):
     @staticmethod
     def parse_value(stri):
         return float(stri)
-        
+
 class AnisotropyStatistics(StatisticsCollector):
     """
     Store and print the Anisotropy.
-    """        
+    """
     header=["Anisotropy"]
     def update(self, sm, step):
         rog=ftur.anisotropy(sm.bg.get_ordered_stem_poss())
@@ -160,12 +171,12 @@ class AnisotropyStatistics(StatisticsCollector):
     @staticmethod
     def parse_value(stri):
         return float(stri)
-        
-        
+
+
 class ACCStatistics(StatisticsCollector):
     """
     Store and print the Adjacency Correlation Coefficient
-    """            
+    """
     header=[ "ACC" ]
     def __init__(self, reference_sm):
         super(ACCStatistics, self).__init__()
@@ -236,7 +247,7 @@ class RMSDStatistics(StatisticsCollector):
                 self.best_cgs.insert_right((sm.bg.to_cg_string(),rmsd))
             if step % 10 == 0:
                 for i, bg in enumerate(self.best_cgs):
-                    with open(os.path.join(conf.Configuration.sampling_output_dir, 
+                    with open(os.path.join(conf.Configuration.sampling_output_dir,
                               'best_rmsd{:d}.coord'.format(i)), 'w') as f:
                         f.write(bg[0])
             if self._showMinMax:
@@ -244,7 +255,7 @@ class RMSDStatistics(StatisticsCollector):
                     self._maxRMSD=rmsd
                 if self._showMinMax==True:
                     if rmsd<self._minRMSD:
-                        self._minRMSD=rmsd                
+                        self._minRMSD=rmsd
                     self.history[1].append( self._minRMSD )
                 self.history[0].append( rmsd )
                 self.history[-1].append( self._maxRMSD )
@@ -255,7 +266,7 @@ class RMSDStatistics(StatisticsCollector):
             else:
                 self.history[0].append( rmsd )
                 return "{:6.3f} A".format(rmsd)
-        else: 
+        else:
             return
     @staticmethod
     def parse_value(stri):
@@ -271,7 +282,7 @@ class EnergyTracking(StatisticsCollector):
     def __init__(self, energy_function, background=False):
         """
         :param energy_function: The energy function which will be evaluated in every update step.
-        :param background: Bool. If true, call eval_energy with background=True and 
+        :param background: Bool. If true, call eval_energy with background=True and
               call accept_last_measure().
              .. warning:: If background is set to True, this class will call accept_last_measure()
                           of the energy function, which might have side-effects if a reference to
@@ -301,7 +312,7 @@ class EnergyTracking(StatisticsCollector):
     @property
     def header_str(self):
         return "Tracked Energy"
-    
+
     @staticmethod
     def parse_value(stri):
         stri = stri.split()
@@ -335,7 +346,7 @@ class ShowTime(StatisticsCollector):
     header = [ "time" ]
     def __init__(self, start_time):
         """
-        :param start_time: A numeric value or the string "now". 
+        :param start_time: A numeric value or the string "now".
                            Elapsed time since start_time will be printed, collected.
         """
         super(ShowTime, self).__init__()
@@ -369,7 +380,7 @@ class ShowTime(StatisticsCollector):
 class Delimitor(StatisticsCollector):
     """
     A dummy collector that always prints a delimitor and does not save any Statistics
-    """        
+    """
     header = [] #Empty header, because no need to parse the dilimiter in file-parsing mode.
     def __init__(self, delimitor="|"):
         super(Delimitor, self).__init__()
@@ -390,7 +401,7 @@ class Distance(StatisticsCollector):
         self._nuc2 = int(nuc2)
         self.header=["Distance_{}-{}".format(self._nuc1, self._nuc2)]
     def update(self, sm, step):
-        dist = ftuv.vec_distance(sm.bg.get_virtual_residue(self._nuc1, True), 
+        dist = ftuv.vec_distance(sm.bg.get_virtual_residue(self._nuc1, True),
                                  sm.bg.get_virtual_residue(self._nuc2, True))
         self.history[0].append(dist)
         return "{:6.2f} A".format(dist)
@@ -402,7 +413,7 @@ class Distance(StatisticsCollector):
 class LocalFragmentCoverage(StatisticsCollector):
     """
     What fraction of different stats (fragments) were accepted.
-    
+
     Related: 10.1002/prot.24987
     """
     header_str = "Local-Coverage"
@@ -420,9 +431,9 @@ class LocalFragmentCoverage(StatisticsCollector):
         self._coverage = {elem : 0. for elem in cg.defines}
         #: For each element, store the pdb_names of stats that have been accepted at least once
         self._known_fragments = defaultdict(set)
-        #: The elem_defs as {elem : pdb_name} from the previouse iteration, to avoid recalculation.  
+        #: The elem_defs as {elem : pdb_name} from the previouse iteration, to avoid recalculation.
         self._prev_elem_defs = {elem : None for elem in cg.defines}
-            
+
     def update(self, sm, step):
         if not self.silent:
             elem_defs = {elem: stat.pdb_name for elem, stat in sm.elem_defs.items()}
@@ -443,8 +454,55 @@ class LocalFragmentCoverage(StatisticsCollector):
         assert stri[-1]=="%"
         return float(stri[:-1])/100
 
-        
-        
+
+
+class MlClosingOptions(StatisticsCollector):
+    """
+    How many stats from the stat container would fit the broken multiloops?
+    """
+    header_str="Fitting_ml_stats"
+    header = [ header_str ]
+    def __init__(self, stat_source, cutoff = 3):
+        super(MlClosingOptions, self).__init__()
+        self._stat_source = stat_source
+        self._cutoff = cutoff
+        self.complete_multiloops = []
+
+    def update(self, sm, step):
+        if not self.silent:
+            self.history[0].append([])
+            count = 0
+            for ml in sm.bg.mloop_iterator():
+                if ml not in sm.bg.mst:
+                    count += self._find_stats_for(ml, sm)
+            return '{:3d}'.format(count)
+
+    def _find_stats_for(self, ml, sm):
+        count = 0
+        for stat in self._stat_source.iterate_stats_for(sm.bg, ml):
+            diff = sm.ml_stat_deviation(ml, stat)
+            if diff< self._cutoff:
+                self.history[0][-1].append('{}:{}'.format(stat.pdb_name, diff))
+                all_mls = {}
+                for m in  sm.bg.mloop_iterator():
+                    if m in sm.bg.mst:
+                        all_mls[m]=sm.elem_defs[m].pdb_name
+                    elif m==ml:
+                        all_mls[m]=stat.pdb_name
+                    else:
+                        all_mls[m]=None
+                self.complete_multiloops.append(all_mls)
+                count +=1
+        return count
+
+    @staticmethod
+    def parseValue(stri):
+        return int(stri)
+
+    def to_file(self):
+        df = pd.DataFrame(self.complete_multiloops)
+        df.to_csv(os.path.join(conf.Configuration.sampling_output_dir,"ml_closing_options.txt"))
+
 ###################################################################################################
 ##########
 ###################################################################################################
@@ -470,7 +528,8 @@ _statisticsDefaultOptions={
     "measure" : [],
     "distance": [],
     "asphericity": True,
-    "anisotropy": True
+    "anisotropy": True,
+    "ml_closing": True
 }
 
 
@@ -478,32 +537,32 @@ class SamplingStatistics:
     def __init__(self, sm_orig, energy_functions=[], stat_source=None, output_file=sys.stdout,
                  options="all", output_directory = None):
         """
-        :param sm_orig: The Spatial Model against which to collect statistics. 
-                        .. warning:: This should not be modified. 
-                                     (Its best to create a new SpatialModel only for this 
+        :param sm_orig: The Spatial Model against which to collect statistics.
+                        .. warning:: This should not be modified.
+                                     (Its best to create a new SpatialModel only for this
                                      constructor with a deepcopy of the BulgeGraph used elsewhere.)
         :param enery_functions: A list of fbe.CombinedEnergy or fbe.EnergyFunction instances.
                       These energies will be evaluated with "background=False" every time
                       `update_statistics` is called.
                       If the energy used for sampling uses a background KDE, it makes sense to
                       pass a reference to this energy here as well.
-        :param output_file: A opened file handle or stdout. 
-                      If this is not stdout, and options["silent"] == False: Print to both 
+        :param output_file: A opened file handle or stdout.
+                      If this is not stdout, and options["silent"] == False: Print to both
                       stdout and the file.
-        :param options: What statistics to calculate and print, what files to save. 
-                      A string like "all" or a dictionary, which will be used to update 
+        :param options: What statistics to calculate and print, what files to save.
+                      A string like "all" or a dictionary, which will be used to update
                       the default option dictionary.
                       Key-Value pairs could be:
 
-                      * `"rog": True|False`: 
-                            Radius of Gyration                      
-                      * `"mcc": True|False`: 
+                      * `"rog": True|False`:
+                            Radius of Gyration
+                      * `"mcc": True|False`:
                             Matthews correlation coefficient to sm_orig
                             If sm_orig is missing 3D coordinates, this will always be false.
-                      * `"rmsd": True|False`: 
+                      * `"rmsd": True|False`:
                             Root Mean Square Deviation to sm_orig
-                            If sm_orig is missing 3D coordinates, 
-                            this will always be false.                       
+                            If sm_orig is missing 3D coordinates,
+                            this will always be false.
                       * `"extreme_rmsd": TRUE | FALSE | "max"`
                             Whether to show the minimal and maximal RMSD.
 
@@ -519,7 +578,7 @@ class SamplingStatistics:
                             The order is not relevant, unrecognized characters are ignored.
 
                       * `"constituing_energies": TRUE|FALSE|"no_clash"`
-                            Show the energies that generated the sampling energies 
+                            Show the energies that generated the sampling energies
                             (If the sampling energy is a CombinedEnergy)
                             "no_clash": Show constituing energies except clash energies.
                       * `"showtime": starttime|"now"|False`:
@@ -568,20 +627,20 @@ class SamplingStatistics:
             if not dr_col.silent:
                 collectors.append(Delimitor())
                 collectors.append(dr_col)
-        
-        if self.options["asphericity"]: 
+
+        if self.options["asphericity"]:
             collectors.append(Delimitor())
             collectors.append(AsphericityStatistics())
-        if self.options["anisotropy"]: 
+        if self.options["anisotropy"]:
             collectors.append(AnisotropyStatistics())
-            
+
         if self.options["distance"]:
             collectors.append(Delimitor())
             for n1,n2 in self.options["distance"]:
                 collectors.append(Distance(n1,n2))
 
         collectors.append(Delimitor())
-        
+
         if self.options["local_coverage"]:
             collectors.append(LocalFragmentCoverage(stat_source, sm_orig.bg))
             collectors.append(Delimitor())
@@ -593,15 +652,19 @@ class SamplingStatistics:
 
         for m in self.options["measure"]: #This has to be AFTER tracking energies!
             collectors.append(EnergyMeasure(m))
-            
+
+        if self.options["ml_closing"] is not False:
+            collectors.append(Delimitor())
+            collectors.append(MlClosingOptions(stat_source))
+
         if self.options["showtime"] is not False:
             collectors.append(ShowTime(self.options["showtime"]))
-        
+
         #Note: SortedCollection(maxlen=0) is valid!
         # should contain tuples: `(bg, energy)`
-        self.best_cgs = SortedCollection(key=lambda x: x[1], maxlen=self.options["save_n_best"]) 
+        self.best_cgs = SortedCollection(key=lambda x: x[1], maxlen=self.options["save_n_best"])
 
-        
+
         self.collector = CombinedStatistics(collectors)
 
         if output_directory is None:
@@ -635,9 +698,9 @@ class SamplingStatistics:
     def update_statistics(self, sm, energy, member_energies=[], change=""):
         """
         Add a new structure to the statistics.
-      
+
         :param sm: The spatial model.
-        :param energy: The energy used for sampling of the structure, or None. 
+        :param energy: The energy used for sampling of the structure, or None.
         :param member_energies: A list of tuples `(energy_shortname, value)`
         """
         self.step+=1
@@ -647,24 +710,24 @@ class SamplingStatistics:
                          fbe.StemVirtualResClashEnergy().shortname]
         else:
             ignore_names=[]
-        line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies 
+        line.append("( "+" ".join("{} {:10.3f}".format(*x) for x in member_energies
                                       if x[0] not in ignore_names)+" )")
         line.append(self.collector.update(sm, self.step))
         line.append(change)
         self.printline("\t".join(line))
-        
+
         if self.best_cgs.can_insert_right((None, energy)):
             self.best_cgs.insert_right((sm.bg.to_cg_string(), energy))
-        
+
         if self.step % 10 == 0:
             for i, cg_stri in enumerate(self.best_cgs):
-                with open(os.path.join(self.out_dir, 
+                with open(os.path.join(self.out_dir,
                                       'best{:d}.coord'.format(i)), 'w') as f:
                     f.write(cg_stri[0])
-                              
+
         if self.options["step_save"]>0 and self.step % self.options["step_save"] ==0:
             cg_stri = sm.bg.to_cg_string()
-            with open(os.path.join(self.out_dir, 
+            with open(os.path.join(self.out_dir,
                               'step{:06d}.coord'.format(self.step)), "w") as f:
                 f.write(cg_stri)
 
@@ -672,18 +735,18 @@ class SamplingStatistics:
 class OutfileParser(object):
     def __init__(self):
         self._collectors = None
-    def _get_lookup_table(self):        
+    def _get_lookup_table(self):
         """
-        Return a dictionary with headers as keys and 
+        Return a dictionary with headers as keys and
         StatisticCollector classes (not instances) as values
         """
         return {h : cls for cls in StatisticsCollector.__subclasses__() if not cls == CombinedStatistics for h in cls.header }
-    
+
     def _collector_from_header(self, header):
         """
         Return the StatisticsCollector subclass which supports the given header.
-        
-        Note that the header ((in the parsed file) might contain additional 
+
+        Note that the header ((in the parsed file) might contain additional
         characters to the right that are not present in the classes header list.
         Thus, if key-based lookup fails, this method falls back to startswith()
         """
@@ -694,7 +757,7 @@ class OutfileParser(object):
                 if header.startswith(key):
                     return cls
         return None
-    
+
     def _init_collector_lookup(self, headers):
         self._lookup_table = self._get_lookup_table()
         self._collectors = []
@@ -711,7 +774,7 @@ class OutfileParser(object):
             data = None
             for line in file:
                 line=line.strip()
-                if not line: 
+                if not line:
                     continue
                 elif line.startswith("# Random Seed:"):
                     meta["seed"] = int(line.split()[-1])
@@ -721,7 +784,7 @@ class OutfileParser(object):
                     fields = line.split()
                     meta["ernwin_version"] = fields[3].rstrip(",")
                     meta["forgi_version"] = fields[5]
-                elif line.startswith("#"): 
+                elif line.startswith("#"):
                     continue
                 elif headers is None:
                     headers = line.split("\t")

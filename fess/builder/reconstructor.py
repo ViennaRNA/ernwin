@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import warnings
+import glob
 
 import itertools as it
 import fess.builder.models as models
@@ -14,10 +15,13 @@ import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as cuv
 ftuv = cuv
 import forgi.utilities.debug as fud
+import forgi.utilities.stuff as fus
 
 import fess.builder.ccd as cbc
 
 import forgi.threedee.model.similarity as brmsd
+import forgi.threedee.model.stats as ftms
+
 import forgi.graph.bulge_graph as fgb
 #import borgy.aux.Barnacle as barn
 #import fess.aux.CPDB.BarnacleCPDB as barn
@@ -38,6 +42,7 @@ import fess.builder.config as conf
 import copy, time
 import random as rand
 
+from logging_exceptions import log_to_exception
 import logging
 log=logging.getLogger(__name__)
 
@@ -72,24 +77,30 @@ class Reconstructor(object):
             r = ftup.pdb_rmsd(chains[c], chains_in_file[c], superimpose = False)[1]
             assert r<0.001, "r={} for chain {}".format(r, c)
         '''
-
+        gaps_to_mend = []
         for loop in sm.bg.defines:
             if loop[0]=="s": continue
-            self._reconstruct_with_fragment(chains, sm, loop)
+            gaps_to_mend.extend(self._reconstruct_with_fragment(chains, sm, loop))
         ftup.output_multiple_chains(chains.values(), "reconstr_all.pdb")
 
         replace_bases(chains, sm.bg)
         ftup.output_multiple_chains(chains.values(), "base_replaced.pdb")
         reorder_residues(chains, sm.bg)
+        chains = mend_breakpoints(chains, gaps_to_mend)
+        ftup.output_multiple_chains(chains.values(), "mended.pdb")
         return chains
 
-    def _get_source_cg_and_chain(self, stat):
+    def _get_source_cg_and_chain(self, stat, sm):
         """
         Load the fragment defined in the stat from the fragment library as pdb and cg.
 
         :param stat: The forgi.threedee.model.stats.StemStat or ftms.AngleStat or ftms.LoopStat object.
+        :param sm: The SpatialModel to reconstruct. Used, if it contains stats not sampled but loaded directly.
         """
         stat_name = stat.pdb_name
+        if stat_name == sm.bg.name and sm.bg.chains:
+            return sm.bg, sm.bg.chains
+
         pdb_basename = stat_name.split(":")[0]
         pdb_filename = op.expanduser(op.join(self.pdb_library_path, "".join(pdb_basename.split("_")[:-1])+".pdb"))
         cg_filename = op.expanduser(op.join(self.cg_library_path, pdb_basename+".cg"))
@@ -100,7 +111,12 @@ class Reconstructor(object):
         cg = ftmc.CoarseGrainRNA(cg_filename) #The cg with the template
 
         chains = ftup.get_all_chains(pdb_filename)
-        chains = {c.id:c for c in chains}
+        new_chains = []
+        for chain in chains:
+            chain = ftup.clean_chain(chain)
+            new_chains.append(chain)
+        chains = {c.id:c for c in new_chains}
+
         return cg, chains
 
     def _reconstruct_stem(self, sm, stem_name, new_chains):
@@ -111,18 +127,22 @@ class Reconstructor(object):
         :param stem_name: The name of the stem to be reconstructed.
         :param new_chains: A dict chainid:chain that will be filled with the reconstructed model
         '''
+        assert stem_name[0]=="s"
         stem = sm.stems[stem_name]
         stem_stat = sm.elem_defs[stem_name]
         orig_def = sm.bg.defines[stem_name]
         cg_orig = sm.bg
-        cg, chains = self._get_source_cg_and_chain(stem_stat)
+        cg, chains = self._get_source_cg_and_chain(stem_stat, sm)
         #: The define of the stem in the original cg where the fragment is from
         sd = cg.get_node_from_residue_num(stem_stat.define[0])
         chains  = ftup.extract_subchains_from_seq_ids(chains,
                                                       cg.define_residue_num_iterator(sd, seq_ids=True))
         if stem_stat.define != cg.defines[sd]:
-            log.error("%s != %s for %s (%s)", stem_stat.define, cg.defines[sd], sd, stem_stat.pdb_name)
-            raise ValueError("The CG files where the stats where extracted and the cg file used for reconstruction are not consistent!")
+            err = ValueError("The CG files where the stats where extracted and "
+                             "the cg file used for reconstruction are not consistent!")
+            with log_to_exception(log, err):
+                log.error("%s != %s for stem %s (%s)", stem_stat.define, cg.defines[sd], sd, stem_stat.pdb_name)
+            raise
 
         _align_chain_to_stem(cg, chains, sd, stem, self.stem_use_average_method)
 
@@ -161,19 +181,27 @@ class Reconstructor(object):
         try:
             angle_stat = sm.elem_defs[ld]
         except KeyError:
-            # Not part of the minimal spanning tree. We probably need to do use CCD or BARNACLE
-            warnings.warn("ML that is not part o the MST is not yet implemented!")
-            return
+            s1,s2 = sorted(sm.bg.edges[ld], key=lambda x: sm.bg.defines[x][0])
+            log.warning("Not part of MST. Trying to extract stat from SM")
+            angle_stat=sm.bg.get_bulge_angle_stats_core(ld,(s1,s2))
 
-        cg_from, chains_from = self._get_source_cg_and_chain(angle_stat)
+        cg_from, chains_from = self._get_source_cg_and_chain(angle_stat, sm)
         cg_to = sm.bg
         chains_to = chains
         elem_to = ld
+        if not angle_stat.define:
+            # A zero-length multiloop. We do not need to insert any fragment.
+            return []
+
         elem_from = cg_from.get_node_from_residue_num(angle_stat.define[0])
 
-        insert_element(cg_to, cg_from, elem_to, elem_from, chains_to, chains_from)
+        if isinstance(angle_stat, ftms.AngleStat):
+            angle_type = angle_stat.ang_type
+        else:            # LoopStat has no angle type
+            angle_type = 0
+        return insert_element(cg_to, cg_from, elem_to, elem_from,
+                              chains_to, chains_from, angle_type)
 
-        return chains
 
 def _align_chain_to_stem(cg, chains, elem_name, stem2, use_average_method=True):
     """
@@ -247,9 +275,10 @@ def _validate_pdb_to_stem(target_stem, chains, cg, elem_name):
     """
     try:
         pdb_stem = _define_to_stem_model(cg, chains, elem_name)
-    except:
-        for chain in chains.values():
-            log.error([r.id for r in chain.get_residues()])
+    except Exception as e:
+        with log_to_exception(log, e):
+            for chain in chains.values():
+                log.error([r.id for r in chain.get_residues()])
         raise
     d_start = ftuv.magnitude(pdb_stem.mids[0] - target_stem.mids[0])
     d_end   = ftuv.magnitude(pdb_stem.mids[1] - target_stem.mids[1])
@@ -336,7 +365,7 @@ def get_stem_rotation_matrix(stem, stem2, use_average_method=False):
     return rot_mat4
 
 def insert_element(cg_to, cg_from, elem_to, elem_from,
-                   chains_to, chains_from):
+                   chains_to, chains_from, angle_type):
     '''
     Take an element (elem_from) from one dict of chains (chains_from, cg_from) and
     insert it on the new chain while aligning on the adjoining elements.
@@ -358,7 +387,9 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     :param elem_to: The element to replace
     :param elem_from: The source element
     :param chains_to: A dict chainid:chain. The chains to graft onto
-    :param chains_from: A dict chainid:chain. The chains to excise from
+    :pamend_ram chains_from: A dict chainid:chain. The chains to excise from
+
+    :returns: a list of tuples containing gaps to mend
     '''
 
     assert elem_from[0]==elem_to[0]
@@ -367,15 +398,26 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     define_a_from = cg_from.define_a(elem_from)
     assert len(define_a_to) == len(define_a_from)
 
-
     # The defines translated to seq_ids.
     closing_bps_to = []
     closing_bps_from = []
-    for nt in define_a_to:
-        closing_bps_to.append(cg_to.seq_ids[nt-1])
 
-    for nt in define_a_from:
-        closing_bps_from.append(cg_from.seq_ids[nt-1])
+    # We need to distinguish between loops and angles
+    if len(define_a_to)==2 or angle_type>=0:
+        for nt in define_a_to:
+            closing_bps_to.append(cg_to.seq_ids[nt-1])
+        for nt in define_a_from:
+            closing_bps_from.append(cg_from.seq_ids[nt-1])
+    elif len(define_a_to)==4 and angle_type<0:
+        for nt in define_a_to:
+            closing_bps_to.append(cg_to.seq_ids[nt-1])
+        closing_bps_from=[ cg_from.seq_ids[define_a_from[2]-1],
+                           cg_from.seq_ids[define_a_from[3]-1],
+                           cg_from.seq_ids[define_a_from[1]-1],
+                           cg_from.seq_ids[define_a_from[0]-1],
+                         ]
+    else:
+        assert False
     # Seq_ids of all nucleotides in the loop that will be inserted
     seq_ids_a_from = []
     for i in range(0, len(define_a_from), 2):
@@ -386,25 +428,27 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     #The loop fragment to insert in a dict {chain_id:chain}
     try:
         pdb_fragment_to_insert = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
-    except:
-        log.error("Could not extract fragment %s from pdb: "
-                  " At least one of the seq_ids %s not found."
-                  " Chains are %s", elem_from, seq_ids_a_from, chains_from.keys())
+    except Exception as e:
+        with log_to_exception(log, e):
+            log.error("Could not extract fragment %s from pdb: "
+                      " At least one of the seq_ids %s not found."
+                      " Chains are %s", elem_from, seq_ids_a_from, chains_from.keys())
         raise
 
     # A list of tuples (seq_id_from, seq_id_to) for the nucleotides
     # that will be used for alignment.
     log.info("Closing_bps _from are %s", closing_bps_from)
     alignment_positions = []
-    # At the beginning/ end of the chain, only f,t and s elements are allowed.
-    if elem_from[0]=="t": #Use only left part of define
-        alignment_positions.append((closing_bps_from[0], closing_bps_to[0]))
-    elif elem_from[0]=="f": #Use only right part of define
+    assert elem_from[0]!="s", "No stems allowed in insert_element"
+    if elem_from[0]=="f":
         alignment_positions.append((closing_bps_from[1], closing_bps_to[1]))
-    else: #Use all flanking nucleotides
-        assert elem_from[0]!="s", "No stems allowed in insert_element"
-        for i in range(len(closing_bps_from)):
+    elif elem_from[0]=="t":
+        alignment_positions.append((closing_bps_from[0], closing_bps_to[0]))
+    else:
+        for i in range(len(closing_bps_from)): #
             alignment_positions.append((closing_bps_from[i], closing_bps_to[i]))
+
+    log.debug("Calling align_on_nucleotides for %s", elem_to)
     align_on_nucleotides(chains_from, chains_to, alignment_positions)
 
     #The defines and seq_ids WITHOUT adjacent elements
@@ -445,15 +489,41 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
                                cg_to.seq_ids[define_a_to[2]] ] )
         gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[3]-2],
                                cg_to.seq_ids[define_a_to[3]-1] ] )
-    for gap in gaps_to_mend:
-        mend_breakpoint(chains_to, gap)
-
-def mend_breakpoints(chains_to, gap):
+    return gaps_to_mend
+def mend_breakpoints(chains, gap):
     """
     :param gap: A list of res_ids, which can be moved to mend the gap.
     """
-    raise NotImplementedError("Error")
-
+    #raise NotImplementedError("Error")
+    try:
+        import moderna
+    except ImportError:
+        warnings.warn("Cannot mend gaps in sequence, because ModeRNA is not installed!")
+        return chains
+    mod_models = {}
+    with fus.make_temp_directory() as tmpdir:
+        ftup.output_multiple_chains(chains.values(), op.join(tmpdir, "tmp.pdb"))
+        for g in gap:
+            if g[0].chain != g[1].chain:
+                log.warning("Not mending gap between multiple chains: %s and %s",
+                            g[0], g[1])
+                continue
+            if g[0].chain not in mod_models:
+                mod_models[g[0].chain] =  moderna.load_model(op.join(tmpdir, "tmp.pdb"), g[0].chain)
+            moderna.fix_backbone(mod_models[g[0].chain], g[0].resid[1], g[1].resid[1])
+            moderna.write_model(mod_models[g[0].chain], op.join(tmpdir, "tmp.pdb"))
+        for chain_id, model in mod_models.items():
+            moderna.write_model(model,  op.join(tmpdir, "mended_{}.pdb".format(chain_id)))
+        #Load back to Biopython
+        mended_chains = {}
+        for chain_id in chains.keys():
+            if chain_id in mod_models:
+                mended_chains[chain_id] = ftup.get_first_chain(
+                                                op.join(tmpdir,
+                                                        "mended_{}.pdb".format(chain_id)))
+            else:
+                mended_chains[chain_id] = chains[chain_id]
+        return mended_chains
 
 def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
     """
@@ -507,8 +577,8 @@ def _compare_cg_chains_partial(cg, chains):
             resid = fgb.RESID(chain.id, res.id)
             pdb_coords = res["C1'"].coord
             cg_coords = cg.virtual_atoms(cg.seq_ids.index(resid)+1)["C1'"]
-            if ftuv.magnitude(pdb_coords-cg_coords)>2:
-                log.error("Residue %s, C1' coords %s do not "
+            if ftuv.magnitude(pdb_coords-cg_coords)>4:
+                log.warning("Residue %s, C1' coords %s do not "
                           "match the cg-coords (virtual atom) %s by %f", resid, pdb_coords,
                           cg_coords, ftuv.magnitude(pdb_coords-cg_coords))
 
@@ -579,7 +649,7 @@ def replace_bases(chains, cg):
             #num = ress[i].id[1]
             old_name = residue.resname.strip()
             cg_seq_num = cg.seq_ids.index(fgb.RESID(chain = chain_name, resid = residue.id))
-            target_name = cg.seq[cg_seq_num]
+            target_name = cg.seq[cg_seq_num+1] #Sequence uses 1-based indexing
             if target_name == old_name:
                 #Don't replace the correct residues
                 log.debug("Not replacing %s by %s", old_name, target_name )
