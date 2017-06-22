@@ -12,6 +12,8 @@ import random
 import logging
 import inspect
 
+import numpy as np
+
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
 
@@ -235,13 +237,13 @@ class LocalMLMover(Mover):
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("MlRelaxationMover"))
     def _get_elems(self, sm):
-        all_mls = list(sm.bg.mloop_iterator())
+        all_mls = list( sm.bg.mloop_iterator() )
         if len(all_mls)<2:
             raise ValueError("LocalMLMover needs at least 2 multiloop"
                              " segments in the sm")
         ml2 = "xxx"
-        while ml2[0]!="m":
-            ml1 = random.choice(list(sm.bg.mloop_iterator()))
+        while ml2[0]!="m" or ml2 not in sm.bg.mst or ml1 not in sm.bg.mst:
+            ml1 = random.choice(all_mls)
             ml2 = sm.bg._get_next_ml_segment(ml1)
         return ml1, ml2
 
@@ -252,35 +254,36 @@ class LocalMLMover(Mover):
         stem1, = stems1 - middle_stem
         stem2, = stems2 - middle_stem
         middle_stem, = middle_stem
-        stem1_vec, twist1, _,_,bulge1 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml1,
+        stem1_vec, twist1, msv,mst,bulge1 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml1,
                                                 [stem1, middle_stem])
-        _,_,stem2_vec, twist2, bulge2 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml2,
+        msv1,mst1,stem2_vec, twist2, bulge2 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml2,
                                                 [middle_stem, stem2])
+        log.error("Middle stem one: %s, two: %s, twist one %s two %s", msv, msv1, mst, mst1)
         virtual_bulge = bulge1+bulge2
-        # Get the orientations for orienting these two stems
         r, u, v, t = ftug.get_stem_orientation_parameters(stem1_vec, twist1,
-                                                                stem2_vec, twist2)
+                                                          stem2_vec, twist2)
         r1, u1, v1 = ftug.get_stem_separation_parameters(stem1_vec, twist1, virtual_bulge)
         log.error("%s %s", r, r1)
         return u, v, t, r1, u1, v1
 
+    def _virtual_stem_from_bulge(self, prev_stem_basis,  stat):
+        transposed_stem1_basis = prev_stem_basis.transpose()
+        start_location = ftug.stem2_pos_from_stem1_1(transposed_stem1_basis, stat.position_params())
+        stem_orientation = ftug.stem2_orient_from_stem1_1(transposed_stem1_basis,
+                                                          [1] + list(stat.orientation_params()))
+        twist1 = ftug.twist2_orient_from_stem1_1(transposed_stem1_basis, stat.twist_params())
+        return start_location, stem_orientation, twist1
+
     def _sum_of_stats(self, stat1, stat2):
         st_basis = ftuv.standard_basis
-        stat1_orient = [1]
-        stat1_orient.extend(stat1.orientation_params())
-        middle_stem_orient = ftug.stem2_orient_from_stem1_1(st_basis.transpose(),
-                                                            stat1_orient)
-        middle_twist = ftug.twist2_orient_from_stem1_1(st_basis.transpose(), stat1.twist_params())
-        end_stem_orient = ftug.stem2_orient_from_stem1(middle_stem_orient,
-                                                       middle_twist,
-                                                       [1]+list(stat2.orientation_params()))
-        middle_basis = ftuv.create_orthonormal_basis(middle_stem_orient, middle_twist)
-        end_twist =  ftug.twist2_orient_from_stem1_1(middle_basis.transpose(), stat1.twist_params())
-        overall_seperation = ( ftuv.spherical_polar_to_cartesian(stat1.position_params()) +
-                               ftuv.spherical_polar_to_cartesian(stat2.position_params()) )
+        bulge1, stem1, twist1 = self._virtual_stem_from_bulge(ftuv.standard_basis, stat1)
+        middle_basis = ftuv.create_orthonormal_basis(-stem1, twist1)
+        bulge2, stem2, twist2 = self._virtual_stem_from_bulge(middle_basis, stat2)
+
+        overall_seperation = bulge1 + bulge2
         # overall stat
         r, u, v, t = ftug.get_stem_orientation_parameters(st_basis[0], st_basis[1],
-                                                          end_stem_orient, end_twist)
+                                                          stem2, twist2)
         r1, u1, v1 = ftug.get_stem_separation_parameters(st_basis[0], st_basis[1], overall_seperation)
         return u, v, t, r1, u1, v1
 
@@ -288,9 +291,13 @@ class LocalMLMover(Mover):
         ml1, ml2 = self._get_elems(sm)
         virtual_stat = self._get_virtual_stat(sm, ml1, ml2)
         virtual_stat2 = self._sum_of_stats(sm.bg.get_stats(ml1)[0], sm.bg.get_stats(ml2)[0])
+
         if virtual_stat != virtual_stat2 :
+            log.error("%s, %s, (%s, %s)", ml1, ml2, sm.bg.sampled[ml1],
+                                           sm.bg.sampled[ml2])
             log.error(virtual_stat)
             log.error(virtual_stat2)
+
         assert False
 ####################################################################################################
 ### Command line parsing
