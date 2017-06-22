@@ -11,6 +11,10 @@ import itertools as it
 import random
 import logging
 import inspect
+
+import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.threedee.utilities.vector as ftuv
+
 from ..aux.utils import get_all_subclasses
 
 log=logging.getLogger(__name__)
@@ -26,9 +30,12 @@ class Mover:
         #: A list of tuples  (elemenmt_name, stat)
         self._prev_stats = None
 
-    def _get_elem_and_stat(self, sm):
+    def _get_elem(self, sm):
         possible_elements = sm.bg.get_mst() - sm.frozen_elements
-        elem = random.choice(list(possible_elements))
+        return random.choice(list(possible_elements))
+
+    def _get_elem_and_stat(self, sm):
+        elem = self._get_elem(sm)
         new_stat = self.stat_source.sample_for(sm.bg, elem)
         return elem, new_stat
 
@@ -162,15 +169,18 @@ class ConnectedElementMover(NElementMover):
     HELPTEXT = ("{:25} In every move, randomly replace \n"
                 "{:25} n adjacent fragments.".format("ConnectedElementMover(N)", ""))
 
-    def _get_elem_and_stat(self, sm):
+    def _get_elem(self, sm):
         if not self._prev_stats:
-            return super(ConnectedElementMover, self)._get_elem_and_stat(sm)
-        #Get all cg-elements connected to the changed element that have not yet been changed
+            return super(ConnectedElementMover, self)._get_elem(sm)
         neighbors = { d for changed_elem in self._prev_stats for d in sm.bg.edges[changed_elem]
                         if d not in self._prev_stats
                             and d in sm.bg.mst
                             and d not in sm.frozen_elements }
-        elem = random.choice(list(neighbors))
+        return random.choice(list(neighbors))
+
+
+    def _get_elem_and_stat(self, sm):
+        elem = self._get_elem(sm)
         new_stat = self.stat_source.sample_for(sm.bg, elem)
         return elem, new_stat
 
@@ -218,18 +228,70 @@ class WholeMLMover(Mover):
             new_stat = self.stat_source.sample_for(sm.bg, elem)
             return elem, new_stat
 
-class MlRelaxationMover(Mover):
+class LocalMLMover(Mover):
     """
-    Change a random element and if it ewas a multiloop segment, change the other multiloop
-    segments of this multiloop until the loop closure energy is zero.
+    Change two connected ML elements in a way that does not change the parts
+    of the RNA attached to the two ends of the connected elements.
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("MlRelaxationMover"))
-    def __init__(self, stat_source):
-        raise NotImplementedError()
+    def _get_elems(self, sm):
+        all_mls = list(sm.bg.mloop_iterator())
+        if len(all_mls)<2:
+            raise ValueError("LocalMLMover needs at least 2 multiloop"
+                             " segments in the sm")
+        ml2 = "xxx"
+        while ml2[0]!="m":
+            ml1 = random.choice(list(sm.bg.mloop_iterator()))
+            ml2 = sm.bg._get_next_ml_segment(ml1)
+        return ml1, ml2
 
+    def _get_virtual_stat(self, sm, ml1, ml2):
+        stems1 = sm.bg.edges[ml1]
+        stems2 = sm.bg.edges[ml2]
+        middle_stem = stems1 & stems2
+        stem1, = stems1 - middle_stem
+        stem2, = stems2 - middle_stem
+        middle_stem, = middle_stem
+        stem1_vec, twist1, _,_,bulge1 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml1,
+                                                [stem1, middle_stem])
+        _,_,stem2_vec, twist2, bulge2 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml2,
+                                                [middle_stem, stem2])
+        virtual_bulge = bulge1+bulge2
+        # Get the orientations for orienting these two stems
+        r, u, v, t = ftug.get_stem_orientation_parameters(stem1_vec, twist1,
+                                                                stem2_vec, twist2)
+        r1, u1, v1 = ftug.get_stem_separation_parameters(stem1_vec, twist1, virtual_bulge)
+        log.error("%s %s", r, r1)
+        return u, v, t, r1, u1, v1
 
+    def _sum_of_stats(self, stat1, stat2):
+        st_basis = ftuv.standard_basis
+        stat1_orient = [1]
+        stat1_orient.extend(stat1.orientation_params())
+        middle_stem_orient = ftug.stem2_orient_from_stem1_1(st_basis.transpose(),
+                                                            stat1_orient)
+        middle_twist = ftug.twist2_orient_from_stem1_1(st_basis.transpose(), stat1.twist_params())
+        end_stem_orient = ftug.stem2_orient_from_stem1(middle_stem_orient,
+                                                       middle_twist,
+                                                       [1]+list(stat2.orientation_params()))
+        middle_basis = ftuv.create_orthonormal_basis(middle_stem_orient, middle_twist)
+        end_twist =  ftug.twist2_orient_from_stem1_1(middle_basis.transpose(), stat1.twist_params())
+        overall_seperation = ( ftuv.spherical_polar_to_cartesian(stat1.position_params()) +
+                               ftuv.spherical_polar_to_cartesian(stat2.position_params()) )
+        # overall stat
+        r, u, v, t = ftug.get_stem_orientation_parameters(st_basis[0], st_basis[1],
+                                                          end_stem_orient, end_twist)
+        r1, u1, v1 = ftug.get_stem_separation_parameters(st_basis[0], st_basis[1], overall_seperation)
+        return u, v, t, r1, u1, v1
 
-
+    def move(self, sm):
+        ml1, ml2 = self._get_elems(sm)
+        virtual_stat = self._get_virtual_stat(sm, ml1, ml2)
+        virtual_stat2 = self._sum_of_stats(sm.bg.get_stats(ml1)[0], sm.bg.get_stats(ml2)[0])
+        if virtual_stat != virtual_stat2 :
+            log.error(virtual_stat)
+            log.error(virtual_stat2)
+        assert False
 ####################################################################################################
 ### Command line parsing
 ####################################################################################################
