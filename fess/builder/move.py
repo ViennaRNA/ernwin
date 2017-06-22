@@ -11,6 +11,7 @@ import itertools as it
 import random
 import logging
 import inspect
+import math
 
 import numpy as np
 
@@ -258,12 +259,12 @@ class LocalMLMover(Mover):
                                                 [stem1, middle_stem])
         msv1,mst1,stem2_vec, twist2, bulge2 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml2,
                                                 [middle_stem, stem2])
-        log.error("Middle stem one: %s, two: %s, twist one %s two %s", msv, msv1, mst, mst1)
+        log.debug("Middle stem one: %s, two: %s, twist one %s two %s", msv, msv1, mst, mst1)
         virtual_bulge = bulge1+bulge2
         r, u, v, t = ftug.get_stem_orientation_parameters(stem1_vec, twist1,
                                                           stem2_vec, twist2)
         r1, u1, v1 = ftug.get_stem_separation_parameters(stem1_vec, twist1, virtual_bulge)
-        log.error("%s %s", r, r1)
+        log.debug("%s %s", r, r1)
         return u, v, t, r1, u1, v1
 
     def _virtual_stem_from_bulge(self, prev_stem_basis,  stat):
@@ -287,18 +288,73 @@ class LocalMLMover(Mover):
         r1, u1, v1 = ftug.get_stem_separation_parameters(st_basis[0], st_basis[1], overall_seperation)
         return u, v, t, r1, u1, v1
 
+    def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat):
+        """
+        Compare the ith stat of the first choices,
+        to the first until ith stat of the second choices
+        """
+        if i>len(choices1):
+            return None
+        stat1 = choices1[i]
+        for j in range(min(i+1, len(choices2))):
+            stat2 = choices2[j]
+            if self._is_similar(self._sum_of_stats(stat1, stat2),
+                               virtual_stat):
+                return stat1, stat2
+        return None
+
+    def _find_stats_for(self, ml1, ml2, sm):
+        virtual_stat = self._get_virtual_stat(sm, ml1, ml2)
+        choices1 = list(self.stat_source.iterate_stats_for(sm.bg, ml1))
+        choices2 = list(self.stat_source.iterate_stats_for(sm.bg, ml2))
+        random.shuffle(choices1)
+        random.shuffle(choices2)
+        maxlen = max(len(choices1), len(choices2))
+        try:
+            for i in range(maxlen):
+                result = self._find_stats_ith_iteration(i, choices1, choices2, virtual_stat)
+                if result is not None:
+                    stat1, stat2 = result
+                    log.info("Found stat combination in %sth iteration", i)
+                    return stat1, stat2
+                result = self._find_stats_ith_iteration(i, choices2, choices1, virtual_stat)
+                if result is not None:
+                    stat2, stat1 = result
+                    log.info("Found stat combination in %sth iteration", i)
+                    return stat1, stat2
+        except KeyboardInterrupt:
+            log.error("Interrupted in %sth iteration (out of %s)", i, maxlen)
+            raise
+        return None, None
+
+    def _is_similar(self, params1, params2):
+        for i in range(6):
+            if i==3:
+                continue #A length, not an angle
+            if abs(params1[i]-params2[i])>math.radians(1):
+                log.debug("%d th parameter not similar: %f and %f", i, params1[i], params2[i])
+                return False
+            if abs(params1[3]-params2[3])>0.5: #angstron
+                log.debug("Length not similar: %f and %f", params1[3], params2[3] )
+                return False
+            log.debug("Similar!")
+            return True
+
     def move(self, sm):
         ml1, ml2 = self._get_elems(sm)
-        virtual_stat = self._get_virtual_stat(sm, ml1, ml2)
-        virtual_stat2 = self._sum_of_stats(sm.bg.get_stats(ml1)[0], sm.bg.get_stats(ml2)[0])
+        stat1, stat2 = self._find_stats_for(ml1, ml2, sm)
+        if stat1 is stat2 is None:
+            log.warning("Could not move elements %s and %s. "
+                        "No isosteric combination of stats found.", ml1, ml2)
+            return "no_change"
+        else:
+            movestring = []
+            self._prev_stats = {}
+            movestring.append(self._move(sm, ml1, stat1))
+            movestring.append(self._move(sm, ml2, stat2))
+            sm.new_traverse_and_build(start = "start", include_start = True)
+            return "".join(movestring)
 
-        if virtual_stat != virtual_stat2 :
-            log.error("%s, %s, (%s, %s)", ml1, ml2, sm.bg.sampled[ml1],
-                                           sm.bg.sampled[ml2])
-            log.error(virtual_stat)
-            log.error(virtual_stat2)
-
-        assert False
 ####################################################################################################
 ### Command line parsing
 ####################################################################################################

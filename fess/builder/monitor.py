@@ -529,7 +529,7 @@ _statisticsDefaultOptions={
     "distance": [],
     "asphericity": True,
     "anisotropy": True,
-    "ml_closing": True
+    "ml_closing": False
 }
 
 
