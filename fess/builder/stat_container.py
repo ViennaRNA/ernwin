@@ -84,7 +84,7 @@ class StatStorage(object):
         self._has_warned = set() #Only emit warnings about insufficient stats once.
 
     @staticmethod
-    def _key_from_bg_and_elem(bg, elem):
+    def key_from_bg_and_elem(bg, elem):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
@@ -126,7 +126,7 @@ class StatStorage(object):
                 log.debug("Appending {} stats from source.".format(len(stats)))
                 choose_from.extend(stats)
                 if not weights:
-                    weight = 1
+                    weight = 1 #All stats from the first stat_source always has weight 1, even if there are more than min_entries stats.
                 else:
                     remaining_total_weight = min_entries - sum(weights)
                     weight = min(1, remaining_total_weight/len(stats))
@@ -161,7 +161,7 @@ class StatStorage(object):
                     the fallback-files to gather enough stats to sample from.
         :param return: A singe Stat object, sampled from to possible stats.
         """
-        key = self._key_from_bg_and_elem(bg, elem)
+        key = self.key_from_bg_and_elem(bg, elem)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         r = random.uniform(0, sum(weights))
         for i, w in enumerate(weights):
@@ -171,15 +171,7 @@ class StatStorage(object):
         assert False
         return stats[0] #Fallback if asserts are disabled. Should be unreachable.
 
-    def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
-        """
-        Iterate over all stats for the given element.
-
-        If fallback-stats are present, a sample of the fallback_stats is
-        generated every time the iterator is created and after iterating the
-        main stats iteration continues over the sample of the fallback stats.
-        """
-        key = self._key_from_bg_and_elem(bg, elem)
+    def iterate_stats(self, elem, key, min_entries = 100, cycle = False):
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         stat_samples = []
         for i, w in enumerate(weights):
@@ -192,6 +184,16 @@ class StatStorage(object):
             if not cycle:
                 break #Exhaust the generator
 
+    def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
+        """
+        Iterate over all stats for the given element.
+
+        If fallback-stats are present, a sample of the fallback_stats is
+        generated every time the iterator is created and after iterating the
+        main stats iteration continues over the sample of the fallback stats.
+        """
+        key = self.key_from_bg_and_elem(bg, elem)
+        return self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries)
 
 
     def coverage_for(self, sampled_stat_names, bg, elem, min_entries = 100):
@@ -203,7 +205,7 @@ class StatStorage(object):
         For the other parameters, see `self.sample_for`
         """
 
-        key = self._key_from_bg_and_elem(bg, elem)
+        key = self.key_from_bg_and_elem(bg, elem)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         total_weight = sum(weights)
         coverage = 0.
@@ -238,7 +240,7 @@ class SequenceDependentStatStorage(StatStorage):
         super(SequenceDependentStatStorage, self).__init__(filename, fallback_filenames)
 
     @staticmethod
-    def _key_from_bg_and_elem(bg, elem):
+    def key_from_bg_and_elem(bg, elem):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)

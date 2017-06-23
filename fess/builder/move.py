@@ -17,6 +17,7 @@ import numpy as np
 
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.model.stats as ftms
 
 from ..aux.utils import get_all_subclasses
 
@@ -248,24 +249,6 @@ class LocalMLMover(Mover):
             ml2 = sm.bg._get_next_ml_segment(ml1)
         return ml1, ml2
 
-    def _get_virtual_stat(self, sm, ml1, ml2):
-        stems1 = sm.bg.edges[ml1]
-        stems2 = sm.bg.edges[ml2]
-        middle_stem = stems1 & stems2
-        stem1, = stems1 - middle_stem
-        stem2, = stems2 - middle_stem
-        middle_stem, = middle_stem
-        stem1_vec, twist1, msv,mst,bulge1 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml1,
-                                                [stem1, middle_stem])
-        msv1,mst1,stem2_vec, twist2, bulge2 = ftug.get_stem_twist_and_bulge_vecs(sm.bg, ml2,
-                                                [middle_stem, stem2])
-        log.debug("Middle stem one: %s, two: %s, twist one %s two %s", msv, msv1, mst, mst1)
-        virtual_bulge = bulge1+bulge2
-        r, u, v, t = ftug.get_stem_orientation_parameters(stem1_vec, twist1,
-                                                          stem2_vec, twist2)
-        r1, u1, v1 = ftug.get_stem_separation_parameters(stem1_vec, twist1, virtual_bulge)
-        log.debug("%s %s", r, r1)
-        return u, v, t, r1, u1, v1
 
     def _virtual_stem_from_bulge(self, prev_stem_basis,  stat):
         transposed_stem1_basis = prev_stem_basis.transpose()
@@ -276,6 +259,8 @@ class LocalMLMover(Mover):
         return start_location, stem_orientation, twist1
 
     def _sum_of_stats(self, stat1, stat2):
+        vec_asserts = ftuv.USE_ASSERTS
+        ftuv.USE_ASSERTS = False
         st_basis = ftuv.standard_basis
         bulge1, stem1, twist1 = self._virtual_stem_from_bulge(ftuv.standard_basis, stat1)
         middle_basis = ftuv.create_orthonormal_basis(-stem1, twist1)
@@ -286,62 +271,85 @@ class LocalMLMover(Mover):
         r, u, v, t = ftug.get_stem_orientation_parameters(st_basis[0], st_basis[1],
                                                           stem2, twist2)
         r1, u1, v1 = ftug.get_stem_separation_parameters(st_basis[0], st_basis[1], overall_seperation)
-        return u, v, t, r1, u1, v1
+        dims = stat1.dim1+stat2.dim1
+        ftuv.USE_ASSERTS = vec_asserts
+        return ftms.AngleStat("virtual", stat1.pdb_name+"+"+stat2.pdb_name, dims, 1000, u, v, t, r1,
+                                        u1, v1, 0, [], "")
 
-    def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat):
+    def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat, forward= True):
         """
         Compare the ith stat of the first choices,
         to the first until ith stat of the second choices
         """
-        if i>len(choices1):
+        if forward:
+            choicesA, choicesB= choices1, choices2
+        else:
+            choicesB, choicesA= choices1, choices2
+
+        if i>=len(choicesA):
             return None
-        stat1 = choices1[i]
-        for j in range(min(i+1, len(choices2))):
-            stat2 = choices2[j]
-            if self._is_similar(self._sum_of_stats(stat1, stat2),
-                               virtual_stat):
-                return stat1, stat2
+        statA = choicesA[i]
+        for j in range(min(i+forward, len(choicesB))):
+            statB = choicesB[j]
+            if forward:
+                if self._is_similar(self._sum_of_stats(statA, statB),
+                                    virtual_stat):
+                    return statA, statB
+            else:
+                if self._is_similar(self._sum_of_stats(statB, statA),
+                                    virtual_stat):
+                    return statB, statA
         return None
 
     def _find_stats_for(self, ml1, ml2, sm):
-        virtual_stat = self._get_virtual_stat(sm, ml1, ml2)
-        choices1 = list(self.stat_source.iterate_stats_for(sm.bg, ml1))
-        choices2 = list(self.stat_source.iterate_stats_for(sm.bg, ml2))
+        virtual_stat = ftug.get_virtual_stat(sm.bg, ml1, ml2)
+
+        stem1a, stem1b = sm.bg.connections(ml1)
+        stem2a, stem2b = sm.bg.connections(ml2)
+        ang1 = 1
+        ang2 = 1
+        if stem1b == stem2b:
+            ml1, ml2 = ml2, ml1
+            ang2 = -1
+        elif stem1a ==stem2a:
+            ang1 = -1
+
+        key1 = self.stat_source.key_from_bg_and_elem(sm.bg, ml1)
+        key2 = self.stat_source.key_from_bg_and_elem(sm.bg, ml2)
+        key1 = key1[0], key1[1], ang1*key1[2]
+        key2 = key2[0], key2[1], ang1*key2[2]
+        choices1 = list(self.stat_source.iterate_stats(ml1, key1))
+        choices2 = list(self.stat_source.iterate_stats(ml2, key2))
         random.shuffle(choices1)
         random.shuffle(choices2)
         maxlen = max(len(choices1), len(choices2))
         try:
             for i in range(maxlen):
-                result = self._find_stats_ith_iteration(i, choices1, choices2, virtual_stat)
-                if result is not None:
-                    stat1, stat2 = result
-                    log.info("Found stat combination in %sth iteration", i)
-                    return stat1, stat2
-                result = self._find_stats_ith_iteration(i, choices2, choices1, virtual_stat)
-                if result is not None:
-                    stat2, stat1 = result
-                    log.info("Found stat combination in %sth iteration", i)
-                    return stat1, stat2
-        except KeyboardInterrupt:
+                for forward in [True, False]:
+                    result = self._find_stats_ith_iteration(i, choices1, choices2, virtual_stat, forward)
+                    if result is not None:
+                        log.info("Stat found after %sth iteration. Forward==%s", i, forward)
+                        return result
+        except Exception as e:
             log.error("Interrupted in %sth iteration (out of %s)", i, maxlen)
             raise
         return None, None
 
-    def _is_similar(self, params1, params2):
-        for i in range(6):
-            if i==3:
-                continue #A length, not an angle
-            if abs(params1[i]-params2[i])>math.radians(1):
-                log.debug("%d th parameter not similar: %f and %f", i, params1[i], params2[i])
+    def _is_similar(self, vstat1, vstat2):
+        CUTOFF_ANGLE = math.radians(6)
+        CUTOFF_DIST = 4
+        if abs(vstat1.r1-vstat2.r1)>CUTOFF_DIST:
+            return False
+        for attr in ["u", "v", "u1", "v1", "t"]:
+            if abs(getattr(vstat1, attr) - getattr(vstat2, attr))>CUTOFF_ANGLE:
                 return False
-            if abs(params1[3]-params2[3])>0.5: #angstron
-                log.debug("Length not similar: %f and %f", params1[3], params2[3] )
-                return False
-            log.debug("Similar!")
-            return True
-
+        return True
     def move(self, sm):
         ml1, ml2 = self._get_elems(sm)
+
+        if sm.bg.define_a(ml2)[0]<sm.bg.define_a(ml1)[0]:
+            ml1, ml2 = ml2, ml1
+
         stat1, stat2 = self._find_stats_for(ml1, ml2, sm)
         if stat1 is stat2 is None:
             log.warning("Could not move elements %s and %s. "

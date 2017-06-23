@@ -698,6 +698,21 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         return energy
 
+def FragmentBasedJunctionClosureEnergy(CoarseGrainEnergy):
+    @classmethod
+    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+        energies = []
+        mst = cg.get_mst()
+        for ml in cg.mloop_iterator():
+            if ml not in mst:
+                energies.append(cls(ml, prefactor, adjustment))
+        return CombinedEnergy(energies)
+    def __init__(self, element, prefactor = None, adjustment = None):
+        self._element = element
+        super(CheatingDistributionEnergy, self).__init__(0,
+                                                         prefactor = prefactor,
+                                                         adjustment = adjustment)
+
 def _iter_subgraphs(cg, use_subgraphs):
     """
     Generate a number of subgraphs. Used by generate_target_distribution of energies.

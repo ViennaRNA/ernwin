@@ -790,9 +790,6 @@ class SpatialModel:
             elif connection_ends[0] == 1:
                 (s1b, s1e) = (0, 1)
 
-            # check which way the newly connected stem was added
-            # if its 1-end was added, the its coordinates need to
-            # be reversed to reflect the fact it was added backwards
             log.debug("new_traverse_and_build: Setting self.stems[{}] (connected to {} via {})".format(s2, s1, l))
             #log.debug("angle_params {}, stem_params {}, ang_type {}, connection_ends {}".format(angle_params, stem_params, ang_type, connection_ends))
             #log.debug("prev. stem MIDS: {}, TWISTS: {}".format(prev_stem.mids, prev_stem.twists))
@@ -800,6 +797,9 @@ class SpatialModel:
             stem = self.add_stem(s2, stem_params, prev_stem,
                                  angle_params, (s1b, s1e))
 
+            # check which way the newly connected stem was added
+            # if its 1-end was added, the its coordinates need to
+            # be reversed to reflect the fact it was added backwards
             if connection_ends[1] == 1:
                 self.stems[s2] = stem.reverse()
             else:
