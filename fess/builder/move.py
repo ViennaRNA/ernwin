@@ -243,20 +243,11 @@ class LocalMLMover(Mover):
         if len(all_mls)<2:
             raise ValueError("LocalMLMover needs at least 2 multiloop"
                              " segments in the sm")
-        ml2 = "xxx"
-        while ml2[0]!="m" or ml2 not in sm.bg.mst or ml1 not in sm.bg.mst:
-            ml1 = random.choice(all_mls)
-            ml2 = sm.bg._get_next_ml_segment(ml1)
+        ml1 = random.choice(all_mls)
+        ml2 = sm.bg._get_next_ml_segment(ml1)
         return ml1, ml2
 
 
-    def _virtual_stem_from_bulge(self, prev_stem_basis,  stat):
-        transposed_stem1_basis = prev_stem_basis.transpose()
-        start_location = ftug.stem2_pos_from_stem1_1(transposed_stem1_basis, stat.position_params())
-        stem_orientation = ftug.stem2_orient_from_stem1_1(transposed_stem1_basis,
-                                                          [1] + list(stat.orientation_params()))
-        twist1 = ftug.twist2_orient_from_stem1_1(transposed_stem1_basis, stat.twist_params())
-        return start_location, stem_orientation, twist1
 
     def _sum_of_stats(self, stat1, stat2):
         vec_asserts = ftuv.USE_ASSERTS
@@ -269,12 +260,12 @@ class LocalMLMover(Mover):
         overall_seperation = bulge1 + bulge2
         # overall stat
         r, u, v, t = ftug.get_stem_orientation_parameters(st_basis[0], st_basis[1],
-                                                          stem2, twist2)
+                                                              stem2, twist2)
         r1, u1, v1 = ftug.get_stem_separation_parameters(st_basis[0], st_basis[1], overall_seperation)
         dims = stat1.dim1+stat2.dim1
         ftuv.USE_ASSERTS = vec_asserts
         return ftms.AngleStat("virtual", stat1.pdb_name+"+"+stat2.pdb_name, dims, 1000, u, v, t, r1,
-                                        u1, v1, 0, [], "")
+                              u1, v1, 0, [], "")
 
     def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat, forward= True):
         """
@@ -292,12 +283,10 @@ class LocalMLMover(Mover):
         for j in range(min(i+forward, len(choicesB))):
             statB = choicesB[j]
             if forward:
-                if self._is_similar(self._sum_of_stats(statA, statB),
-                                    virtual_stat):
+                if virtual_stat.is_similar_to(self._sum_of_stats(statA, statB)):
                     return statA, statB
             else:
-                if self._is_similar(self._sum_of_stats(statB, statA),
-                                    virtual_stat):
+                if virtual_stat.is_similar_to(self._sum_of_stats(statB, statA)):
                     return statB, statA
         return None
 
@@ -310,16 +299,9 @@ class LocalMLMover(Mover):
         ang2 = 1
         if stem1b == stem2b:
             ml1, ml2 = ml2, ml1
-            ang2 = -1
-        elif stem1a ==stem2a:
-            ang1 = -1
 
-        key1 = self.stat_source.key_from_bg_and_elem(sm.bg, ml1)
-        key2 = self.stat_source.key_from_bg_and_elem(sm.bg, ml2)
-        key1 = key1[0], key1[1], ang1*key1[2]
-        key2 = key2[0], key2[1], ang1*key2[2]
-        choices1 = list(self.stat_source.iterate_stats(ml1, key1))
-        choices2 = list(self.stat_source.iterate_stats(ml2, key2))
+        choices1 = list(self.stat_source.iterate_stats_for(sm.bg, ml1))
+        choices2 = list(self.stat_source.iterate_stats_for(sm.bg, ml2))
         random.shuffle(choices1)
         random.shuffle(choices2)
         maxlen = max(len(choices1), len(choices2))
@@ -335,15 +317,7 @@ class LocalMLMover(Mover):
             raise
         return None, None
 
-    def _is_similar(self, vstat1, vstat2):
-        CUTOFF_ANGLE = math.radians(6)
-        CUTOFF_DIST = 4
-        if abs(vstat1.r1-vstat2.r1)>CUTOFF_DIST:
-            return False
-        for attr in ["u", "v", "u1", "v1", "t"]:
-            if abs(getattr(vstat1, attr) - getattr(vstat2, attr))>CUTOFF_ANGLE:
-                return False
-        return True
+
     def move(self, sm):
         ml1, ml2 = self._get_elems(sm)
 
@@ -362,6 +336,7 @@ class LocalMLMover(Mover):
             movestring.append(self._move(sm, ml2, stat2))
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
+
 
 ####################################################################################################
 ### Command line parsing

@@ -47,6 +47,10 @@ def load_sampled_elements(sm):
     return True
 
 def _determined_broken_ml_segments(built_nodes, bg):
+    """
+    Return a list of (broken) ml segments that are fully determined by the nodes
+    in built_nodes.
+    """
     ml_nodes=set(x for x in bg.defines.keys() if x[0]=="m")
     broken_multiloops = ml_nodes-set(itertools.chain(*[bo for bo in bg.traverse_graph()]))
     broken_determined_nodes=set()
@@ -231,6 +235,37 @@ class Builder(object):
                 return True
         log.debug("_rebuild_clash_only for {} was not successful.".format(nodes, i))
         return False
+
+class WholeMlBuilder(Builder):
+    def _get_bad_ml_segments(self, sm, nodes):
+        """
+        Return a list of broken ml-segments that are not similar to any stat
+        in the stat_source or do not fulfill the junction energy (if present)
+
+        :param sm: The spatial model
+        :param nodes: The built nodes of this spatial model. Only take these nodes and
+                      fully defined ml-segments into account.
+        :returns: A list of ml-elements that are part of a bad loop,
+                  or an empty list, if the junction constriant energy is zero.
+        """
+        #First, get the nodes not fulfilling the junction energy (if present)
+        bad_bulges = super(self, WholeMlBuilder)._get_bad_ml_segments(sm, nodes)
+        # In addition
+        det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
+        for node in det_br_nodes:
+            for stat in self.stat_source.
+
+        if self.junction_energy is None:
+            return []
+        det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
+        ej = self.junction_energy.eval_energy( sm.bg, nodes=det_br_nodes)
+        log.debug("Junction Energy for nodes {} (=> {}) is {}".format(nodes, det_br_nodes, ej))
+        if ej>0:
+            bad_loop_nodes =  [ x for x in self.junction_energy.bad_bulges if x in nodes and x[0]=="m"]
+            log.debug("Bad loop nodes = {}".format(bad_loop_nodes))
+            return bad_loop_nodes
+        return []
+
 
 class FairBuilder(Builder):
     @profile

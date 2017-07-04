@@ -12,6 +12,9 @@ import random
 from collections import defaultdict
 import logging
 import string
+from logging_exceptions import log_to_exception
+
+
 log = logging.getLogger(__name__)
 try:
     from functools import lru_cache #python 3.2
@@ -39,8 +42,9 @@ def parse_stats_file(file_handle):
             angle_stat = ftmstats.AngleStat()
             try:
                 angle_stat.parse_line(line)
-            except:
-                print("Could not parse line '{}'".format(line), file=sys.stderr)
+            except Exception as e:
+                with log_to_exception(log, e):
+                    log.error("Could not parse file due to error parsing line '{}'".format(line))
                 raise
             if len(angle_stat.define) > 0 and angle_stat.define[0] == 1: #An angle at the beginning of a structure
                 #I guess this should never happen, if the stats do not stem from faulty bulge graphs.
@@ -162,6 +166,7 @@ class StatStorage(object):
         :param return: A singe Stat object, sampled from to possible stats.
         """
         key = self.key_from_bg_and_elem(bg, elem)
+        log.debug("Calling _possible_stats with %r, %r", letter_to_stat_type[elem[0]], key)
         weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
         r = random.uniform(0, sum(weights))
         for i, w in enumerate(weights):
@@ -216,8 +221,15 @@ class StatStorage(object):
 
 def identitical_bases(seq1, seq2):
     if len(seq1) != len(seq2):
-        raise ValueError("Pairwise identity is only defined for strings of same length. "
-                         "Found {} and {}. Seq1={}".format(len(seq1), len(seq2), seq1[:10]))
+        # This is an interim solution while the stats still contain adjacent nucleotides for stems.
+        # If stem stats have adjacent=False and all others adjacent=True, we can raise the ValueError again
+        if len(seq2)==len(seq1)+2:
+            seq2 = seq2[1:-1]
+        else:
+            log.debug("Sequences do not have the same length: %s %s.", seq1, seq2)
+            return 0
+            # raise ValueError("Pairwise identity is only defined for strings of same length. "
+            #                  "Found {} and {}. Seq1={}".format(len(seq1), len(seq2), seq1[:10]))
     s = 0
     for i in range(len(seq1)):
         s+= (seq1[i]==seq2[i])
@@ -230,9 +242,10 @@ def seq_and_pyrpur_similarity(sequences, stat):
     for i in range(len(sequences)): #single or double stranded
         #identical bases 4-letter and 2-letter alphabeth
         ib4 += identitical_bases(sequences[i], stat.seqs[i])
-        print(repr(sequences[i]), repr(stat.seqs[i]))
         ib2 += identitical_bases(sequences[i].translate(translation), stat.seqs[i].translate(translation))
-    return (ib2 + ib4 +1) / (sum(len(x) for x in sequences) * 2 +1) #^2 for ib4 and ib2
+    score = (ib2 + ib4 +1) / (sum(len(x) for x in sequences) * 2 +1) #^2 for ib4 and ib2
+    #log.debug("Score is %f", score)
+    return score
 
 class SequenceDependentStatStorage(StatStorage):
     def __init__(self, filename, fallback_filenames = None, sequence_score = seq_and_pyrpur_similarity):
@@ -244,9 +257,9 @@ class SequenceDependentStatStorage(StatStorage):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
-            return tuple([dims[0], dims[1], ang_type]), bg.get_define_seq_str(elem, adjacent = True)
+            return tuple([dims[0], dims[1], ang_type]), tuple(bg.get_define_seq_str(elem, adjacent = True))
         else:
-            return dims[0], tuple(bg.get_define_seq_str(elem))
+            return dims[0], tuple(bg.get_define_seq_str(elem, adjacent = elem[0]!="s"))
 
 
     @lru_cache(maxsize = 256)
@@ -277,8 +290,13 @@ class SequenceDependentStatStorage(StatStorage):
                     remaining_total_weight = min_entries - sum(weights)
                     weight = min(1, remaining_total_weight/len(stats))
                 for stat in stats:
+                    #log.debug("Evaluating score for %s %s %s", key, sequence, stat)
                     weights.append(weight*self.sequence_score(sequence, stat))
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
 
+        log.info("For key %s: %s stats with weight in range %s-%s", key, len(choose_from), min(weights), max(weights))
+        if len(choose_from)<20:
+            for i, w in enumerate(weights):
+                log.debug("     Weight %f: %s", w, choose_from[i].seqs)
         return weights, choose_from

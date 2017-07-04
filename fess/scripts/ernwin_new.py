@@ -147,6 +147,8 @@ def get_parser():
                         help= "A list of fallback stats file that can be uses if insufficient stats "
                               "are found in the normal stats file for a coarse-grained element.\n"
                               "If more than one file is given, the files are used in the order specified.\n")
+    parser.add_argument('--sequence-based', action="store_true",
+                        help= "Take the sequence into account when choosing stats.")
 
     parser.add_argument('--clustered-angle-stats', type=str, action="store",
                         help= "A filename.\n"
@@ -468,6 +470,10 @@ def setup_deterministic(args):
         if args.output_file:
             ofilename=os.path.join(config.Configuration.sampling_output_dir, args.output_file)
 
+    if args.sequence_based:
+        StatSourceClass = stat_container.SequenceDependentStatStorage
+    else:
+        StatSourceClass = stat_container.StatStorage
     #Initialize the stat_container
     if args.jar3d:
         jared_out    = op.join(config.Configuration.sampling_output_dir, "jar3d.stats")
@@ -478,9 +484,9 @@ def setup_deterministic(args):
         new_fallbacks = [args.stats_file]
         if args.fallback_stats_files is not None:
             new_fallbacks += args.fallback_stats_files
-        stat_source = stat_container.StatStorage(jared_out, new_fallbacks)
+        stat_source = StatSourceClass(jared_out, new_fallbacks)
     else:
-        stat_source = stat_container.StatStorage(args.stats_file, args.fallback_stats_files)
+        stat_source = StatSourceClass(args.stats_file, args.fallback_stats_files)
 
 
     if args.clustered_angle_stats:

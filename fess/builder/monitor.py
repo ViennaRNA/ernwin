@@ -740,7 +740,9 @@ class OutfileParser(object):
         Return a dictionary with headers as keys and
         StatisticCollector classes (not instances) as values
         """
-        return {h : cls for cls in StatisticsCollector.__subclasses__() if not cls == CombinedStatistics for h in cls.header }
+        return {h : cls for cls in StatisticsCollector.__subclasses__() 
+                if not cls == CombinedStatistics
+                for h in cls.header }
 
     def _collector_from_header(self, header):
         """

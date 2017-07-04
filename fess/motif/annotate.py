@@ -235,7 +235,8 @@ def parse_jared_output(sequence_results, motif_atlas_file=None, exclude_structur
             subdata['score'] = subdata['score'].astype(float)
         subdata = subdata.sort_values(by='score', ascending=False)
         for i, row in subdata.iterrows():
-            # only take the top scoring motif
+            if not row["passedCutoff"]:
+                continue
             motif_id = row['motifId'].split('.')[0]
             motif_entry = atlas.motifs[motif_id]
             res_num = int(motif.split('_')[-1])
@@ -244,7 +245,7 @@ def parse_jared_output(sequence_results, motif_atlas_file=None, exclude_structur
                 if atlas.struct_in_motif(motif_id, exclude_structure):
                     # this motif comes from the given structure so we'll exclude it
                     # when reporting the results
-                    #print "** Excluding entry...", cg.get_node_from_residue_num(res_num), motif_id, motif_entry['common_name']
+                    log.warning("Excluding JAR3D hit %s %s %s, because it is from the input structure.", cg.get_node_from_residue_num(res_num), motif_id, motif_entry['common_name'])
                     continue
 
             if cg:
@@ -263,9 +264,5 @@ def parse_jared_output(sequence_results, motif_atlas_file=None, exclude_structur
                     found_motifs[element_name] += [motif_entry]
             else:
                 print ('x', motif, motif_id, motif_entry['common_name'], motif_entry['alignment'])
-
-
-            # only return the top scoring motif
-            break
 
     return found_motifs
