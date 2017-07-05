@@ -77,6 +77,11 @@ def get_parser():
     parser.add_argument('--start-from-scratch', default=False, action='store_true',
                         help="Do not attempt to start at the input conformation.\n"
                              "(Automatically True for fasta files.)")
+    parser.add_argument('--restricitve-ml-building', default=False, action='store_true',
+                        help="During building of initial structure\n"
+                             "demand that even segments not part of the mst\n"
+                             "fit to the stats. This might lead to longer run time\n"
+                             "or prevent the program from ever finishing.")
     parser.add_argument('-f', '--fair-building', action="store_true",
                         help = "Try to build the structure using a fair \n"
                                "but slow algorithm.\n "
@@ -622,7 +627,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source, 
                                      output_directory = save_dir)
     return stat
 
-def setup_sampler(sm, energy, stat, resample, mover, stat_source):
+def setup_sampler(sm, energy, stat, resample, mover, stat_source, builder = fbb.Builder):
     if not resample:
         # Build the first spatial model.
         log.info("Trying to load sampled elements...")
@@ -634,7 +639,7 @@ def setup_sampler(sm, energy, stat, resample, mover, stat_source):
     if resample:
         log.info("Sampling all stats to build structure from scratch.")
         sm.sample_stats(stat_source)
-    clashfree_builder = fbb.Builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
+    clashfree_builder = builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
     clashfree_builder.accept_or_build(sm)
 
     sampler = fbs.MCMCSampler(sm, energy, mover, stat)
@@ -669,6 +674,11 @@ def main(args):
         seed_num = random.randint(0,4294967295) #sys.maxint) #4294967295 is maximal value for numpy
     random.seed(seed_num)
     np.random.seed(seed_num)
+
+    if args.restricitve_ml_building:
+        builder = fbb.WholeMlBuilder
+    else:
+        builder = fbb.Builder
 
     #Main function, dependent on random.seed
     with open_for_out(ofilename) as out_file:
@@ -710,7 +720,7 @@ def main(args):
                                       "--fpp-landmarks {}".format(i, e.scale, e.ref_image,
                                                               ":".join(",".join(map(str,x)) for x in e.landmarks)),
                                       file=out_file)
-                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source))
+                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source, builder=builder))
                     try:
                         if args.parallel:
                             fbr.start_parallel_replica_exchange(samplers, args.iterations)
@@ -761,7 +771,7 @@ def main(args):
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
                               file=out_file)
                 sampler = setup_sampler(sm, energy, stat, resample=args.start_from_scratch,
-                                        mover = mover, stat_source = stat_source)
+                                        mover = mover, stat_source = stat_source, builder=builder)
                 for i in range(args.iterations):
                     sampler.step()
                 print ("# Everything done. Terminated normally", file=out_file)

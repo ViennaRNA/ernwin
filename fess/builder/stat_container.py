@@ -176,8 +176,9 @@ class StatStorage(object):
         assert False
         return stats[0] #Fallback if asserts are disabled. Should be unreachable.
 
-    def iterate_stats(self, elem, key, min_entries = 100, cycle = False):
-        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
+    def iterate_stats(self, stat_type, key, min_entries = 100, cycle = False):
+        log.debug("Iterate stats")
+        weights, stats = self._possible_stats(stat_type, key, min_entries)
         stat_samples = []
         for i, w in enumerate(weights):
             r = random.random()
@@ -198,7 +199,11 @@ class StatStorage(object):
         main stats iteration continues over the sample of the fallback stats.
         """
         key = self.key_from_bg_and_elem(bg, elem)
+        log.debug("Key is %s, elem is %s, elem[0] is %s", key, elem, elem[0])
+        log.debug("letter_to_stat_type[elem[0]] is %s", letter_to_stat_type[elem[0]])
+        log.debug("elem is %s", elem )
         return self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries)
+
 
 
     def coverage_for(self, sampled_stat_names, bg, elem, min_entries = 100):

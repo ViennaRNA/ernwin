@@ -244,28 +244,8 @@ class LocalMLMover(Mover):
             raise ValueError("LocalMLMover needs at least 2 multiloop"
                              " segments in the sm")
         ml1 = random.choice(all_mls)
-        ml2 = sm.bg._get_next_ml_segment(ml1)
+        ml2 = sm.bg.get_next_ml_segment(ml1)
         return ml1, ml2
-
-
-
-    def _sum_of_stats(self, stat1, stat2):
-        vec_asserts = ftuv.USE_ASSERTS
-        ftuv.USE_ASSERTS = False
-        st_basis = ftuv.standard_basis
-        bulge1, stem1, twist1 = self._virtual_stem_from_bulge(ftuv.standard_basis, stat1)
-        middle_basis = ftuv.create_orthonormal_basis(-stem1, twist1)
-        bulge2, stem2, twist2 = self._virtual_stem_from_bulge(middle_basis, stat2)
-
-        overall_seperation = bulge1 + bulge2
-        # overall stat
-        r, u, v, t = ftug.get_stem_orientation_parameters(st_basis[0], st_basis[1],
-                                                              stem2, twist2)
-        r1, u1, v1 = ftug.get_stem_separation_parameters(st_basis[0], st_basis[1], overall_seperation)
-        dims = stat1.dim1+stat2.dim1
-        ftuv.USE_ASSERTS = vec_asserts
-        return ftms.AngleStat("virtual", stat1.pdb_name+"+"+stat2.pdb_name, dims, 1000, u, v, t, r1,
-                              u1, v1, 0, [], "")
 
     def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat, forward= True):
         """
@@ -283,10 +263,10 @@ class LocalMLMover(Mover):
         for j in range(min(i+forward, len(choicesB))):
             statB = choicesB[j]
             if forward:
-                if virtual_stat.is_similar_to(self._sum_of_stats(statA, statB)):
+                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statA, statB)):
                     return statA, statB
             else:
-                if virtual_stat.is_similar_to(self._sum_of_stats(statB, statA)):
+                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statB, statA)):
                     return statB, statA
         return None
 
@@ -300,6 +280,7 @@ class LocalMLMover(Mover):
         if stem1b == stem2b:
             ml1, ml2 = ml2, ml1
 
+        log.debug("Finding stats for %s and %s", ml1, ml2)
         choices1 = list(self.stat_source.iterate_stats_for(sm.bg, ml1))
         choices2 = list(self.stat_source.iterate_stats_for(sm.bg, ml2))
         random.shuffle(choices1)
