@@ -17,11 +17,21 @@ import math
 import re
 import os.path as op
 import contextlib
+import itertools as it
+import subprocess
+import operator
+import logging
+
+import scipy.ndimage
+import numpy as np
+
+
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.graph.bulge_graph as fgb
 import forgi.utilities.debug as fud
+import forgi.utilities.commandline_utils as fuc
 from fess.builder import energy as fbe
 from fess.builder import models as fbm
 from fess.builder import sampling as fbs
@@ -35,32 +45,14 @@ from fess import data_file, __version__
 import fess
 import forgi
 from fess.motif import annotate as fma
-import scipy.ndimage
-import numpy as np
-import itertools as it
-import subprocess
-import operator
-import logging
-log = logging.getLogger(__name__)
 from fess.aux.utils import get_version_string
 
+log = logging.getLogger(__name__)
 
 #Magic numbers
 DEFAULT_ENERGY_PREFACTOR=30
 
 
-@contextlib.contextmanager
-def open_for_out(filename=None):
-    "From http://stackoverflow.com/a/17603000/5069869"
-    if filename and filename != '-':
-        fh = open(filename, 'w')
-    else:
-        fh = sys.stdout
-    try:
-        yield fh
-    finally:
-        if fh is not sys.stdout:
-            fh.close()
 
 def get_parser():
     """
@@ -68,10 +60,8 @@ def get_parser():
 
     :returns: an instance of argparse.ArgumentParser
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    #Argument(s)
-    parser.add_argument('rna', nargs=1, help='A *.fa or *.cg/*.coord file holding the RNA to analyze.')
-    #Options
+    parser = fuc.get_parser_any_cgs("ERNWIN: Coarse-grained sampling of RNA 3D structures.", nargs=1, parser_kwargs={"formatter_class":argparse.RawTextHelpFormatter})
+
     #Modify general behavior
     parser.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
     parser.add_argument('--start-from-scratch', default=False, action='store_true',
@@ -137,9 +127,6 @@ def get_parser():
     parser.add_argument('-o', '--output-dir-suffix', action='store', type=str,
                         default="", help="Suffix attached to the name from the fasta-file, \n"
                                          "used as name for the subfolder with all structures.")
-    parser.add_argument('-v', '--verbose', action='store_true', help="be verbose")
-    parser.add_argument('--debug', type=str, help="A comma-seperated list of modules for which debug output will be activated. (E.g. fess.builder)")
-
     #Controll Stats for sampling
     parser.add_argument('--freeze', type=str, default="",
                             help= "A comma-seperated list of cg-element names.\n"
@@ -169,7 +156,7 @@ def get_parser():
                                                    "Requires the correct paths to jar3d to be set in\n "
                                                    "fess.builder.config.py"   )
     #Controlling the energy
-    parser.add_argument('-c', '--constraint-energy', default="D", action='store', type=str,
+    parser.add_argument('--constraint-energy', default="D", action='store', type=str,
                                     help="The type of constraint energy to use. \n"
                                          "D=Default    clash- and junction closure energy\n"
                                          "B=Both       same as 'D'\n"
@@ -423,33 +410,7 @@ def setup_deterministic(args):
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
     logging.basicConfig(format="%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s")
-    if args.verbose:
-        logging.getLogger().setLevel(level=logging.INFO)
-    else:
-        logging.getLogger().setLevel(level=logging.ERROR)
-    if args.debug:
-        modules = args.debug.split(",")
-        for module in modules:
-            logging.getLogger(module).setLevel(logging.DEBUG)
-            log.debug("Showing debugging output for '{}'".format(module))
-
-    #Load the RNA from file
-    rnafile, = args.rna #Tuple unpacking
-    if rnafile[-3:] == '.fa':
-        cg = ftmc.CoarseGrainRNA()
-        try:
-            with open(rnafile) as fastafile:
-                cg.from_fasta(fastafile.read())
-        except IOError as e:
-            print("ERROR: Could not open file '{}' for reading:".format(rnafile),e, file=sys.stderr)
-            sys.exit(1)
-    else:
-        cg = ftmc.CoarseGrainRNA(rnafile)
-
-    if not cg.defines:
-        print("Could not load Coarse Grained RNA. "
-              "Was the input file in fasta (with a filename ending in .fa) or cg format?",file=sys.stderr)
-        sys.exit(1)
+    cg, = fuc.parse_any_cgs(args, nargs=1, rna_type="cg", enable_logging=True) #Set loglevel as a sideeffect
     if "s0" not in cg.defines:
         print("No sampling can be done for structures without a stem",file=sys.stderr)
         sys.exit(1)
@@ -520,13 +481,7 @@ def setup_deterministic(args):
 
     #Load the reference sm (if given)
     if args.rmsd_to:
-        if args.rmsd_to.endswith(".pdb"):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                pdb = list(bp.PDBParser().get_structure('reference', args.rmsd_to).get_chains())[0]
-                original_sm  = fbm.SpatialModel(ftmc.from_pdb(pdb))
-        else:
-            original_sm=fbm.SpatialModel(ftmc.CoarseGrainRNA(args.rmsd_to))
+        original_sm=fbm.SpatialModel(fuc.load_rna(args.rmsd_to, rna_type="3d", allow_many=False))
     else:
         if args.replica_exchange:
             original_sm=fbm.SpatialModel(copy.deepcopy(sm[-1].bg))
@@ -681,7 +636,7 @@ def main(args):
         builder = fbb.Builder
 
     #Main function, dependent on random.seed
-    with open_for_out(ofilename) as out_file:
+    with fuc.open_for_out(ofilename, force=True) as out_file:
         # Print some information for reproducibility to the log file.
         print ("# Random Seed: {}".format(seed_num), file=out_file)
         print ("# Command: `{}`".format(" ".join(sys.argv)), file=out_file)
