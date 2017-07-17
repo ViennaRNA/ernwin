@@ -60,7 +60,7 @@ def get_parser():
 
     :returns: an instance of argparse.ArgumentParser
     """
-    parser = fuc.get_parser_any_cgs("ERNWIN: Coarse-grained sampling of RNA 3D structures.", nargs=1, parser_kwargs={"formatter_class":argparse.RawTextHelpFormatter})
+    parser = fuc.get_rna_input_parser("ERNWIN: Coarse-grained sampling of RNA 3D structures.", nargs=1, parser_kwargs={"formatter_class":argparse.RawTextHelpFormatter})
 
     #Modify general behavior
     parser.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
@@ -366,7 +366,7 @@ def getFPPArgs(cg, args):
         landmarks = [ tuple(x) for x in selected["triples"] ]
     return {fpp_landmarks : landmarks, fpp_scale : scale, fpp_ref_image : ref_image}
 
-def parseCombinedEnergyString(stri,  cg, reference_cg, args):
+def parseCombinedEnergyString(stri,  cg, reference_cg, args, stat_source=None):
     """
     Parses an energy string, as used for the --energy commandline option
     :param stri: The combined energy string.
@@ -390,9 +390,9 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args):
     if "FPP" in stri:
         kwargs.update(getFPPArgs(cg, args))
 
-    return fbe.energies_from_string(stri, cg, args.iterations, **kwargs)
+    return fbe.energies_from_string(stri, cg, args.iterations, stat_source=stat_source, **kwargs)
 
-def energy_from_string(e, cg, original_sm, args):
+def energy_from_string(e, cg, original_sm, args, stat_source):
     if e=="D":
         return fbe.energies_from_string("ROG,AME,SLD", cg)
     elif re.match("(\d+)D", e):
@@ -401,7 +401,7 @@ def energy_from_string(e, cg, original_sm, args):
     elif e=="N":
         return fbe.CombinedEnergy([],[])
     else:
-        return parseCombinedEnergyString(e, cg, original_sm.bg, args)
+        return parseCombinedEnergyString(e, cg, original_sm.bg, args, stat_source)
 
 def setup_deterministic(args):
     """
@@ -410,7 +410,7 @@ def setup_deterministic(args):
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
     logging.basicConfig(format="%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s")
-    cg, = fuc.parse_any_cgs(args, nargs=1, rna_type="cg", enable_logging=True) #Set loglevel as a sideeffect
+    cg, = fuc.cgs_from_args(args, nargs=1, rna_type="cg", enable_logging=True) #Set loglevel as a sideeffect
     if "s0" not in cg.defines:
         print("No sampling can be done for structures without a stem",file=sys.stderr)
         sys.exit(1)
@@ -498,7 +498,7 @@ def setup_deterministic(args):
             rep_energies = [args.energy]*args.replica_exchange
         energy = []
         for e in rep_energies:
-            energy.append(energy_from_string(e, cg, original_sm, args))
+            energy.append(energy_from_string(e, cg, original_sm, args, stat_source=stat_source))
         #Initialize energies to track
         energies_to_track=[]
         if args.track_energies:
@@ -515,7 +515,7 @@ def setup_deterministic(args):
                 s.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
     else:
         #Initialize the requested energies
-        energy = energy_from_string(args.energy, cg, original_sm, args)
+        energy = energy_from_string(args.energy, cg, original_sm, args, stat_source=stat_source)
 
         #Initialize energies to track
         energies_to_track=[]

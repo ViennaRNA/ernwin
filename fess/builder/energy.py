@@ -8,29 +8,11 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              unicode, xrange, StandardError)
 __metaclass__=object
 
-from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
 from collections import defaultdict
 import random
-import numpy as np
-import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
 import warnings
-import scipy.stats
-import scipy.optimize
-import scipy.ndimage
-import scipy.misc
-import forgi.threedee.utilities.vector as ftuv
-import forgi.threedee.model.coarse_grain as ftmc
-import forgi.threedee.utilities.graph_pdb as ftug
-import fess.builder.aminor as fba
-import fess.builder.models as cbm
-import forgi.projection.hausdorff as fph
-import forgi.projection.projection2d as fpp
-import forgi.threedee.model.similarity as ftms
-import forgi.threedee.model.descriptors as ftmd
-from ..aux.utils import get_all_subclasses, get_version_string
 import os.path as op
 import os
-import pandas as pd
 import pkgutil as pu
 import StringIO
 import math
@@ -41,6 +23,32 @@ import itertools
 from pprint import pprint
 import logging
 import time
+
+import numpy as np
+import scipy.stats
+import scipy.optimize
+import scipy.ndimage
+import scipy.misc
+import pandas as pd
+
+import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
+
+from logging_exceptions import log_to_exception
+
+import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.projection.hausdorff as fph
+import forgi.projection.projection2d as fpp
+import forgi.threedee.model.similarity as ftms
+import forgi.threedee.model.descriptors as ftmd
+
+
+from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
+import fess.builder.aminor as fba
+import fess.builder.models as cbm
+from ..aux.utils import get_all_subclasses, get_version_string
+
 log = logging.getLogger(__name__)
 
 
@@ -698,20 +706,49 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         return energy
 
-def FragmentBasedJunctionClosureEnergy(CoarseGrainEnergy):
+class FragmentBasedJunctionClosureEnergy(EnergyFunction):
+    _shortname = "FJC"
+    HELPTEXT = ("       {:3}:  An energy that searches depends on the best  \n"
+                 "             an exponential distribution with parameter\n"
+                 "             lambda = adjustment.".format(_shortname))
     @classmethod
-    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+    def from_cg(cls, cg, prefactor, adjustment, stat_source, **kwargs):
         energies = []
         mst = cg.get_mst()
         for ml in cg.mloop_iterator():
             if ml not in mst:
-                energies.append(cls(ml, prefactor, adjustment))
+                energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
-    def __init__(self, element, prefactor = None, adjustment = None):
-        self._element = element
-        super(CheatingDistributionEnergy, self).__init__(0,
-                                                         prefactor = prefactor,
-                                                         adjustment = adjustment)
+    def __init__(self, element, stat_source, angular_weight=50, prefactor = None, adjustment = None):
+        self.element = element
+        self.stat_source = stat_source
+        # A deviation of 1 rad is equivalent to a deviation of how many angstrom
+        self.angular_weight = angular_weight
+        super(FragmentBasedJunctionClosureEnergy, self).__init__(prefactor = prefactor,
+                                                                 adjustment = adjustment)
+    def _stat_deviation(self, stat, virtual_stat):
+        deviation = abs(stat.r1-virtual_stat.r1)
+        log.debug("R-deviation: %s", deviation)
+        for attr in ["u", "v", "u1", "v1", "t"]:
+            angular_dev = abs(getattr(stat, attr)-getattr(virtual_stat, attr))
+            log.debug("Angular dev %s weighted to %s", angular_dev, angular_dev*self.angular_weight)
+            deviation=max(deviation, angular_dev*self.angular_weight)
+        return deviation
+
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+        if nodes is not None and self.element not in nodes:
+            return 0.
+        target_stat, = [ s for s in cg.get_stats(self.element)
+                         if s.ang_type == cg.get_angle_type(self.element, allow_broken = True) ]
+        best_deviation = float('inf')
+        for stat in self.stat_source.iterate_stats_for(cg, self.element):
+            curr_dev = self._stat_deviation(stat, target_stat)
+            if curr_dev < best_deviation:
+                best_deviation = curr_dev
+                self.used_stat = stat
+        log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
+                                                                      self.element, best_deviation)
+        return (best_deviation**self.adjustment)*self.prefactor
 
 def _iter_subgraphs(cg, use_subgraphs):
     """
@@ -1547,13 +1584,20 @@ def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
     :param kwargs: The keyword args will be passed on to the energie's from_cg methos.
     """
     contributions = contribution_string.split(",")
-    energy_classes = { cls._shortname: cls for cls in get_all_subclasses(EnergyFunction) if not cls == CoarseGrainEnergy }
+    energy_subclasses = get_all_subclasses(EnergyFunction)
+    log.info("Found the following subclasses of EnergyFunction: %s", energy_subclasses )
+    energy_classes = { cls._shortname: cls for cls in energy_subclasses if not cls == CoarseGrainEnergy }
     energies = []
     for contrib in contributions:
         match = re.match(r"([^A-Z]*)([A-Z]+)(.*)", contrib)
         if match is None:
             raise ValueError("Contribution {} not understood".format(contrib))
-        cls = energy_classes[match.group(2)]
+        try:
+            cls = energy_classes[match.group(2)]
+        except KeyError as e:
+            with log_to_exception(log, e):
+                log.error("Valid energie functions are: %s", ", ".join(energy_classes.keys()))
+            raise
         pre = _parseEnergyContributionString(match.group(1), num_steps)
         adj = _parseEnergyContributionString(match.group(3), num_steps)
         try:
