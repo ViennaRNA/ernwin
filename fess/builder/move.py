@@ -232,12 +232,112 @@ class WholeMLMover(Mover):
             new_stat = self.stat_source.sample_for(sm.bg, elem)
             return elem, new_stat
 
+class WholeMLStatSearch(Mover):
+    HELPTEXT = ("{:25} Not yet implemented\n".format("WholeMLStatSearch"))
+
+    identity_stat = ftms.AngleStat("virtual", "identity", 0, 1000, math.pi/2, math.pi, math.pi, 0,
+                                   float("nan"), float("nan"), 0, [], "")
+
+    def _get_elems(self, sm):
+        loops = sm.bg.find_mlonly_multiloops()
+        regular_multiloops = [ m for m in loops
+                               if "regular_multiloop" in sm.bg.describe_multiloop(m) ]
+        if len(regular_multiloops)==0:
+            raise ValueError("{} needs at least 1 regular multiloop. "
+                             "(Pseudoknots and external loops are not yet supported.)")
+        return random.choice(regular_multiloops)
+    def move(self, sm):
+        self.counter = 0
+        elems = self._get_elems(sm)
+        stats = self._find_stats_for(elems, sm)
+        log.info("Tried %d combinations", self.counter)
+        if not stats:
+            log.warning("Could not move multiloop %s. "
+                        "No suitable combination of stats found.", elems)
+            return "no_change"
+        else:
+            movestring = []
+            self._prev_stats = {}
+            for ml, stat in stats:
+                movestring.append(self._move(sm, ml, stat))
+            sm.new_traverse_and_build(start = "start", include_start = True)
+            return "".join(movestring)
+    def _find_stats_for(self, elems, sm):
+        """
+        :param elems: ML segments. Need to be ordered!
+        """
+        choices = { elem : list(self.stat_source.iterate_stats_for(sm.bg, elem)) for elem in elems }
+        for stat_choices in choices.values():
+            random.shuffle(stat_choices) # For performance reasons lists are shuffled in place
+        maxlen = max(len(c) for c in choices.values())
+        log.info("maxlen %s", maxlen)
+        for i in range(maxlen):
+            for first_elem in choices.keys():
+                sampled_stats = self._find_stats_ith_iteration(i, first_elem, elems, choices, sm.bg)
+                if sampled_stats is not None:
+                    return sampled_stats
+            if i>0 and i%50==0:
+                log.info("Nothing found after %d iterations. Still searching.", i)
+        return None
+    def _find_stats_ith_iteration(self, i, first_elem, elems, choices, cg):
+        first_elem_index = elems.index(first_elem)
+        # Of the selected ml-segment, only look at the ith stat and compare it
+        # to all possible combinations of the first i stats for other elements.
+        first_elem_stat = choices[first_elem][i]
+        log.info("i = %d. elems = %s, first_elem %s", i, elems, first_elem)
+        for choice_indices in it.product(range(i), repeat=len(elems)-1):
+            log.debug("Choice_indices %s", choice_indices)
+            sampled_stats = {}
+            # For the ml-segments AFTER the first_elem, only try stats until the (i-1)th
+            if any(choice_indices[elem_nr]==i for elem_nr in range(first_elem_index, len(elems)-1)):
+                continue
+            for elem_nr in range(len(choice_indices)):
+                if elem_nr>=first_elem_index:
+                    log.debug("elem_nr == %d --> %d", elem_nr, elem_nr+1)
+                    ml = elems[elem_nr+1]
+                else:
+                    log.debug("elem_nr %d", elem_nr)
+                    ml = elems[elem_nr]
+                assert ml != first_elem
+                sampled_stats[ml] = choices[ml][choice_indices[elem_nr]]
+            sampled_stats[first_elem] = first_elem_stat
+            if self._check_overall_stat(sampled_stats, elems, cg):
+                return sampled_stats
+        return None
+    def _check_overall_stat(self, sampled_stats, elems, cg):
+        self.counter+=1
+        log.debug("Checking sampled_stats %s for elems %s", sampled_stats, elems)
+        partial_sum_stat = None
+        for elem in elems:
+            at = cg.get_angle_type(elem, allow_broken = True)
+            if at in [-3, -2, 4]:
+                next_stat = - sampled_stats[elem]
+            else:
+                next_stat = sampled_stats[elem]
+            if partial_sum_stat is None:
+                partial_sum_stat = next_stat
+            else:
+                partial_sum_stat = ftug.sum_of_stats(partial_sum_stat, next_stat)
+        if not(1.535<abs(partial_sum_stat.u)<1.606):
+            log.debug("u is not pi/: %s", partial_sum_stat.v)
+            return False
+        if not(3.106<abs(partial_sum_stat.v)<3.176):
+            log.debug("v is not pi: %s", partial_sum_stat.v)
+            return False
+        if not(3.106<abs(partial_sum_stat.t)<3.176):
+            log.debug("t is not pi: %s", partial_sum_stat.t)
+            return False
+        if partial_sum_stat.r1>3:
+            log.debug("Position change is too big: %s", partial_sum_stat.r1)
+            return False
+        return True
+
 class LocalMLMover(Mover):
     """
     Change two connected ML elements in a way that does not change the parts
     of the RNA attached to the two ends of the connected elements.
     """
-    HELPTEXT = ("{:25} Not yet implemented\n".format("MlRelaxationMover"))
+    HELPTEXT = ("{:25} Not yet implemented\n".format("LocalMLMover"))
     def _get_elems(self, sm):
         all_mls = list( sm.bg.mloop_iterator() )
         if len(all_mls)<2:
@@ -245,6 +345,7 @@ class LocalMLMover(Mover):
                              " segments in the sm")
         ml1 = random.choice(all_mls)
         ml2 = sm.bg.get_next_ml_segment(ml1)
+        log.info("Moving elements %s and %s. MST is %s.", ml1, ml2, sm.bg.mst)
         return ml1, ml2
 
     def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat, forward= True):
@@ -275,8 +376,6 @@ class LocalMLMover(Mover):
 
         stem1a, stem1b = sm.bg.connections(ml1)
         stem2a, stem2b = sm.bg.connections(ml2)
-        ang1 = 1
-        ang2 = 1
         if stem1b == stem2b:
             ml1, ml2 = ml2, ml1
 
@@ -293,11 +392,13 @@ class LocalMLMover(Mover):
                     if result is not None:
                         log.info("Stat found after %sth iteration. Forward==%s", i, forward)
                         return result
+                if i>0 and i%50==0:
+                    log.info("Search of stats: Nothing found in %d th iteration", i)
+
         except Exception as e:
             log.error("Interrupted in %sth iteration (out of %s)", i, maxlen)
             raise
         return None, None
-
 
     def move(self, sm):
         ml1, ml2 = self._get_elems(sm)
