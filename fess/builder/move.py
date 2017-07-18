@@ -13,6 +13,12 @@ import logging
 import inspect
 import math
 
+try:
+    from types import SimpleNamespace
+except ImportError: #<python3.3
+    class SimpleNamespace:
+        pass
+
 import numpy as np
 
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -56,8 +62,13 @@ class Mover:
         return movestring
 
     def _move(self, sm, elem, new_stat):
-        prev_stat = sm.elem_defs[elem]
-        self._prev_stats[elem] = prev_stat
+        try:
+            prev_stat = sm.elem_defs[elem]
+        except KeyError:
+            prev_stat = SimpleNamespace()
+            prev_stat.pdb_name = "UNSET"
+        else:
+            self._prev_stats[elem] = prev_stat
         sm.elem_defs[elem]=new_stat
         return "{}:{}->{};".format(elem, prev_stat.pdb_name, new_stat.pdb_name)
 
@@ -258,7 +269,7 @@ class WholeMLStatSearch(Mover):
         else:
             movestring = []
             self._prev_stats = {}
-            for ml, stat in stats:
+            for ml, stat in stats.items():
                 movestring.append(self._move(sm, ml, stat))
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
@@ -276,7 +287,7 @@ class WholeMLStatSearch(Mover):
                 sampled_stats = self._find_stats_ith_iteration(i, first_elem, elems, choices, sm.bg)
                 if sampled_stats is not None:
                     return sampled_stats
-            if i>0 and i%50==0:
+            if i%50==0:
                 log.info("Nothing found after %d iterations. Still searching.", i)
         return None
     def _find_stats_ith_iteration(self, i, first_elem, elems, choices, cg):
@@ -285,11 +296,13 @@ class WholeMLStatSearch(Mover):
         # to all possible combinations of the first i stats for other elements.
         first_elem_stat = choices[first_elem][i]
         log.info("i = %d. elems = %s, first_elem %s", i, elems, first_elem)
-        for choice_indices in it.product(range(i), repeat=len(elems)-1):
+        for choice_indices in it.product(range(i+1), repeat=len(elems)-1):
             log.debug("Choice_indices %s", choice_indices)
             sampled_stats = {}
             # For the ml-segments AFTER the first_elem, only try stats until the (i-1)th
+            log.debug("Range (%d, %d): %s", first_elem_index, len(elems)-1, list(range(first_elem_index, len(elems)-1)))
             if any(choice_indices[elem_nr]==i for elem_nr in range(first_elem_index, len(elems)-1)):
+                log.debug("continue")
                 continue
             for elem_nr in range(len(choice_indices)):
                 if elem_nr>=first_elem_index:
@@ -346,6 +359,7 @@ class LocalMLMover(Mover):
         ml1 = random.choice(all_mls)
         ml2 = sm.bg.get_next_ml_segment(ml1)
         log.info("Moving elements %s and %s. MST is %s.", ml1, ml2, sm.bg.mst)
+        log.info("Elem_defs for: %s", list(sm.elem_defs.keys()))
         return ml1, ml2
 
     def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat, forward= True):
@@ -414,7 +428,9 @@ class LocalMLMover(Mover):
         else:
             movestring = []
             self._prev_stats = {}
+            log.info("Moving %s, elem_defs=%s", ml1, list(sm.elem_defs.keys()))
             movestring.append(self._move(sm, ml1, stat1))
+            log.info("Moving %s, elem_defs=%s", ml2, list(sm.elem_defs.keys()))
             movestring.append(self._move(sm, ml2, stat2))
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
