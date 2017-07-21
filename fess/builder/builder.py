@@ -237,44 +237,6 @@ class Builder(object):
         log.debug("_rebuild_clash_only for {} was not successful.".format(nodes, i))
         return False
 
-class WholeMlBuilder(Builder):
-    # TODO: MOVE this code to an energy!
-    def _get_bad_ml_segments(self, sm, nodes):
-        """
-        Return a list of broken ml-segments that are not similar to any stat
-        in the stat_source or do not fulfill the junction energy (if present)
-
-        :param sm: The spatial model
-        :param nodes: The built nodes of this spatial model. Only take these nodes and
-                      fully defined ml-segments into account.
-        :returns: A list of ml-elements that are part of a bad loop,
-                  or an empty list, if the junction constriant energy is zero.
-        """
-        #First, get the nodes not fulfilling the junction energy (if present)
-        bad_bulges = super(WholeMlBuilder, self)._get_bad_ml_segments(sm, nodes)
-        # In addition
-        det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
-        for node in det_br_nodes:
-            target_stat, = [ s for s in sm.bg.get_stats(node) if s.ang_type == sm.bg.get_angle_type(node, allow_broken = True) ]
-            for i, stat in enumerate(self.stat_source.iterate_stats_for(sm.bg, node)):
-                if stat.is_similar_to(target_stat):
-                    sm.elem_defs[node]=stat
-                    log.debug("Found stat fitting %s after %d iterations: %s", node, i, stat.pdb_name)
-                    break
-            else: #Did not break
-                log.debug("No stat fitting %s found after %d iterations!", node, i)
-                bad_loop_nodes =  [ x for x in sm.bg.shortest_mlonly_multiloop(node) if x in nodes and x[0]=="m"]
-                assert bad_loop_nodes, "A strange pseudoknot. TODO"
-                log.debug("bad_loop_nodes %s because node  %s not fitting any stat", bad_loop_nodes,  node )
-                bad_bulges+=bad_loop_nodes
-        return bad_bulges
-    def accept_or_build(self, sm):
-        log.info("building without constraint energy...")
-        sm.new_traverse_and_build()
-        # We use build_with_energies, even if there are no constraint energies,
-        # because we check the broken ML-segments in this builder.
-        self._build_with_energies(sm)
-        log.info("Done to build")
 class FairBuilder(Builder):
     @profile
     def __init__(self, stat_source, output_dir = None, store_failed=False, junction_energy=None, clash_energy=None):

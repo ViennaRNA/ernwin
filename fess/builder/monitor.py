@@ -102,6 +102,7 @@ class CombinedStatistics(StatisticsCollector):
     def to_file(self):
         history=self.history
         length = len(history[0])
+        j=None
         with open(os.path.join(conf.Configuration.sampling_output_dir,"monitor.txt"), "w") as f:
             print("#"+self._joiner.join(h for member in self._members for h in member.header if not member.silent and member.history is not None ), file=f)
             for i in range(length):
@@ -295,9 +296,11 @@ class EnergyTracking(StatisticsCollector):
         self.history = [ [], [] ]
     def update(self, sm, step):
         if self._background:
+            log.debug("EnergyTracking calling eval_energy with background")
             energy=self._energy_function.eval_energy(sm.bg, background=True)
             self._energy_function.accept_last_measure()
         else:
+            log.debug("EnergyTracking calling eval_energy without background")
             energy=self._energy_function.eval_energy(sm.bg, background=False)
         self.history[0].append(self._energy_function.shortname)
         self.history[1].append(energy)
@@ -740,7 +743,7 @@ class OutfileParser(object):
         Return a dictionary with headers as keys and
         StatisticCollector classes (not instances) as values
         """
-        return {h : cls for cls in StatisticsCollector.__subclasses__() 
+        return {h : cls for cls in StatisticsCollector.__subclasses__()
                 if not cls == CombinedStatistics
                 for h in cls.header }
 

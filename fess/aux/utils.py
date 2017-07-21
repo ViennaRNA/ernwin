@@ -10,7 +10,6 @@ import subprocess
 import logging
 
 import forgi
-import forgi.graph.bulge_graph as fgb
 
 import fess
 from fess import __version__
@@ -50,5 +49,5 @@ def get_version_string():
             label = subprocess.check_output(["get_ernwin_version"])
         except OSError:
             #In production, use the version variable
-            label = "ernwin {}, forgi {}".format(__version__, fgb.__version__)
+            label = "ernwin {}, forgi {}".format(__version__, forgi.__version__)
     return label

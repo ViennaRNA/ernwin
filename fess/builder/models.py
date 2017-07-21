@@ -486,10 +486,9 @@ class SpatialModel:
                         break
                 else: #Not in build_order. Probably broken ml segment
                     assert d[0]=="m"
-                    #If it was frozen, we add its stats to elem_defs.
-                    if d in self.frozen_elements:
-                        s1,s2 = sorted(self.bg.edges[d], key=lambda x: self.bg.defines[x][0])
-                        stat=self.bg.get_bulge_angle_stats_core(d,(s1,s2))
+                    #If it was frozen or stored in the file, we add its stats to elem_defs.
+                    if line or d in self.frozen_elements:
+                        stat,=[s for s in self.bg.get_bulge_angle_stats(d) if s.ang_type==self.bg.get_angle_type(d, allow_broken=True)]
                     else:
                         #Do not add this element to elem_defs!
                         continue

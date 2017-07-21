@@ -62,53 +62,52 @@ def get_parser():
     """
     parser = fuc.get_rna_input_parser("ERNWIN: Coarse-grained sampling of RNA 3D structures.", nargs=1, parser_kwargs={"formatter_class":argparse.RawTextHelpFormatter})
 
-    #Modify general behavior
-    parser.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
-    parser.add_argument('--start-from-scratch', default=False, action='store_true',
+    general_behavior = parser.add_argument_group("General behaviour",
+                                    description="These options modify the general bahaviour of ERNWIN")
+    general_behavior.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
+    general_behavior.add_argument('--start-from-scratch', default=False, action='store_true',
                         help="Do not attempt to start at the input conformation.\n"
                              "(Automatically True for fasta files.)")
-    parser.add_argument('--restricitve-ml-building', default=False, action='store_true',
-                        help="During building of initial structure\n"
-                             "demand that even segments not part of the mst\n"
-                             "fit to the stats. This might lead to longer run time\n"
-                             "or prevent the program from ever finishing.")
-    parser.add_argument('-f', '--fair-building', action="store_true",
+    general_behavior.add_argument('-f', '--fair-building', action="store_true",
                         help = "Try to build the structure using a fair \n"
                                "but slow algorithm.\n "
                                "This flag implies --start-from-scratch")
-    parser.add_argument('--fair-building-d', action="store_true",
+    general_behavior.add_argument('--fair-building-d', action="store_true",
                         help = "EXPERIMENTAL! Like --fair-building, but use a \n"
                                "potentially faster and experimental algorithm \n"
                                "that is inspired by dimerization method for SAWs.\n "
                                "This flag implies --start-from-scratch")
-    parser.add_argument('--eval-energy', default=False, action='store_true',
+    general_behavior.add_argument('--eval-energy', default=False, action='store_true',
                         help='Evaluate the energy of the input structure and\n'
                              'exit without sampling.')
-    parser.add_argument('--seed', action='store', help="Seed for the random number generator.",
+    general_behavior.add_argument('--seed', action='store', help="Seed for the random number generator.",
                         type=int)
-    parser.add_argument('--move-set', default="Mover", help = fbmov.get_argparse_help())
-    parser.add_argument('--mst-breakpoints', type=str, help="During initial MST creation, prefer to \n"
+    general_behavior.add_argument('--move-set', default="Mover", help = fbmov.get_argparse_help())
+    general_behavior.add_argument('--mst-breakpoints', type=str, help="During initial MST creation, prefer to \n"
                                                             "break the multiloops at the indicated nodes.\n"
                                                             "A comma-seperated list. E.g. 'm0,m10,m12'")
-    parser.add_argument('--replica-exchange', type=int, help="Experimental")
-    parser.add_argument('--parallel', action="store_true", help="Only useful for replica exchange. Spawn parallel processes.")
-    #Controll output
-    parser.add_argument('--save-n-best', default=3,
+    general_behavior.add_argument('--replica-exchange', type=int, help="Experimental")
+    general_behavior.add_argument('--parallel', action="store_true", help="Only useful for replica exchange. Spawn parallel processes.")
+
+    output_options = parser.add_argument_group("Controlling output",
+                                    description="These options control the output or ERNWIN")
+
+    output_options.add_argument('--save-n-best', default=3,
                         help='Save the best (lowest energy) n structures.', type=int)
-    parser.add_argument('--save-min-rmsd', default=3,
+    output_options.add_argument('--save-min-rmsd', default=3,
                         help='Save the best (lowest rmsd) n structures.', type=int)
-    parser.add_argument('--step-save', default=0, help="Save the structure at every n'th step.",
+    output_options.add_argument('--step-save', default=0, help="Save the structure at every n'th step.",
                          type=int)
-    parser.add_argument('--dump-energies', default=False, action='store_true',
+    output_options.add_argument('--dump-energies', default=False, action='store_true',
                         help='Dump the measures used for energy calculation to file') #UNUSED OPTION. REMOVE
-    parser.add_argument('--no-rmsd', default=False,
+    output_options.add_argument('--no-rmsd', default=False,
                         help='Refrain from trying to calculate the rmsd.', action='store_true')
-    parser.add_argument('--rmsd-to', action='store', type=str,
+    output_options.add_argument('--rmsd-to', action='store', type=str,
                         help="A *.cg/ *.coord or *.pdb file.\n"
                              "Calculate the RMSD and MCC relative to the structure\n"
                              "in this file, not to the structure used as starting\n"
                              "point for sampling.")
-    parser.add_argument('--dist', type=str,
+    output_options.add_argument('--dist', type=str,
                         help="One or more pairs of nucleotide positions.\n"
                              "The distance between these nucleotifdes will be \n"
                              "calculated.\n"
@@ -116,33 +115,35 @@ def get_parser():
                              "          nucleoitide 1 and 15 and the distance \n"
                              "          between nucleotide 3 and 20.")
     #Controll output files
-    parser.add_argument('--output-file', action='store', type=str, default="out.log",
+    output_options.add_argument('--output-file', action='store', type=str, default="out.log",
                         help="Filename for output (log). \n"
                              "This file will be created inside the --output-base-dir.\n"
                              "Default: out.log")
-    parser.add_argument('--output-base-dir', action='store', type=str, default="",
+    output_options.add_argument('--output-base-dir', action='store', type=str, default="",
                         help="Base dir for the output. \n"
                               "In this directory, a subfolder with the name\n"
                               "from the fasta-file will be generated")
-    parser.add_argument('-o', '--output-dir-suffix', action='store', type=str,
+    output_options.add_argument('-o', '--output-dir-suffix', action='store', type=str,
                         default="", help="Suffix attached to the name from the fasta-file, \n"
                                          "used as name for the subfolder with all structures.")
-    #Controll Stats for sampling
-    parser.add_argument('--freeze', type=str, default="",
+
+    stat_options = parser.add_argument_group("Choosing stats",
+                                    description="These options control what stats ERNWIN uses for sampling")
+    stat_options.add_argument('--freeze', type=str, default="",
                             help= "A comma-seperated list of cg-element names.\n"
                                   "These elements will not be changed during samplig.")
-    parser.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.110.stats"),
+    stat_options.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.110.stats"),
                         help= "A filename.\n"
                               "A file containing all the stats to sample from\n"
                               " for all coarse grained elements")
-    parser.add_argument('--fallback-stats-files', nargs = '+', type=str,
+    stat_options.add_argument('--fallback-stats-files', nargs = '+', type=str,
                         help= "A list of fallback stats file that can be uses if insufficient stats "
                               "are found in the normal stats file for a coarse-grained element.\n"
                               "If more than one file is given, the files are used in the order specified.\n")
-    parser.add_argument('--sequence-based', action="store_true",
+    stat_options.add_argument('--sequence-based', action="store_true",
                         help= "Take the sequence into account when choosing stats.")
 
-    parser.add_argument('--clustered-angle-stats', type=str, action="store",
+    stat_options.add_argument('--clustered-angle-stats', type=str, action="store",
                         help= "A filename.\n"
                               "If given, use this instead of --stats-file for the\n"
                               " angle stats (interior and multi loops).\n"
@@ -151,50 +152,53 @@ def get_parser():
                               "This is used to sample equally from all CLUSTERS of\n"
                               "angle stats and is used to compensate for unequally\n"
                               "populated clusters.")
-    parser.add_argument('--jar3d', action="store_true", help="Use JAR3D to restrict the stats \n"
+    stat_options.add_argument('--jar3d', action="store_true", help="Use JAR3D to restrict the stats \n"
                                                    "for interior loops to matching motifs.\n"
                                                    "Requires the correct paths to jar3d to be set in\n "
                                                    "fess.builder.config.py"   )
     #Controlling the energy
-    parser.add_argument('--constraint-energy', default="D", action='store', type=str,
+    energy_options = parser.add_argument_group("Energy",
+                                        description="Choose the energy and constraint energy")
+
+    energy_options.add_argument('--constraint-energy', default="D", action='store', type=str,
                                     help="The type of constraint energy to use. \n"
                                          "D=Default    clash- and junction closure energy\n"
                                          "B=Both       same as 'D'\n"
                                          "J=junction   only junction closure energy\n"
                                          "C=clash      only stem clash energy\n"
                                          "N=None       no constraint energy")
-    parser.add_argument('-e', '--energy', default="D", action='store', type=str,
+    energy_options.add_argument('-e', '--energy', default="D", action='store', type=str,
                     help= "The type of non-constraint energy to use. D=Default, N=None.\n"+
                           fbe.get_argparse_help()+
                           "\nExample: ROG,SLD,AME")
-    parser.add_argument('--track-energies', action='store', type=str, default="",
+    energy_options.add_argument('--track-energies', action='store', type=str, default="",
                         help= "A ':' seperated list of combined energies.\n"
                               "Each energy is given in the format specified\n"
                               "for the --energy option.\n"
                               "These energies are not used for sampling, \n"
                               "but only calculated after each step.")
-    parser.add_argument('--projected-dist', action='store', type=str, default="",
+    energy_options.add_argument('--projected-dist', action='store', type=str, default="",
                         help= "A ':' seperated list of tripels: \n"
                               "cgelement, cgelement, dist\n"
                               "Where dist is the projected distance in the image \n"
                               "in Angstrom.\n"
                               "Example: 's1,h3,10:s2,h3,12'")
-    parser.add_argument('--fpp-landmarks', action='store', type=str, default="",
+    energy_options.add_argument('--fpp-landmarks', action='store', type=str, default="",
                         help= "A ':' seperated list of tripels: \n"
                               "nucleotide-pos, x, y\n"
                               "Where 0,0 is the upperleft corner of the image\n"
                               "And the coordinates are in pixels\n"
                               "Example: '123,3,5'")
-    parser.add_argument('--ref-img', action='store', type=str, default="",
+    energy_options.add_argument('--ref-img', action='store', type=str, default="",
                         help= "A black and white square image (e.g. in png format)\n"
                               "as a reference projection for the Hausdorff Energy.\n"
                               "White is the RNA, black is the background.\n"
                               "Requires the Python Imaging Library (PIL) or Pillow.")
-    parser.add_argument('--scale', action='store', type=int,
+    energy_options.add_argument('--scale', action='store', type=int,
                         help= "Used for the Hausdorff Energy.\n"
                               "The length (in Angstrom) of each side \n"
                               "of the image is")
-    parser.add_argument('--clamp', action='store', type=str,
+    energy_options.add_argument('--clamp', action='store', type=str,
                         help= "Used for the CLA energy.\n"
                               "A list `p1,p2:p3,p4:...` where p1 and p2 are clamped\n"
                               "together and p3+p4 are clamped together. \n"
@@ -409,7 +413,7 @@ def setup_deterministic(args):
 
     :param args: An argparse.ArgumentParser object holding the parsed arguments.
     """
-    logging.basicConfig(format="%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s")
+    logging.basicConfig(format="%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s", level=logging.WARNING)
     cg, = fuc.cgs_from_args(args, nargs=1, rna_type="cg", enable_logging=True) #Set loglevel as a sideeffect
     if "s0" not in cg.defines:
         print("No sampling can be done for structures without a stem",file=sys.stderr)
@@ -522,10 +526,10 @@ def setup_deterministic(args):
         for track_energy_string in args.track_energies.split(":"):
             if track_energy_string:
                 if track_energy_string=="D":
-                    energies_to_track.append(parseCombinedEnergyString("ROG,AME,SLD", cg, original_sm.bg, args))
+                    energies_to_track.append(parseCombinedEnergyString("ROG,AME,SLD", cg, original_sm.bg, args, stat_source))
                 else:
                     energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
-                                             original_sm.bg, args))
+                                             original_sm.bg, args, stat_source))
         #Initialize the Constraint energies
         if args.constraint_energy in ["D","B","J"]:
             sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
@@ -630,10 +634,7 @@ def main(args):
     random.seed(seed_num)
     np.random.seed(seed_num)
 
-    if args.restricitve_ml_building:
-        builder = fbb.WholeMlBuilder
-    else:
-        builder = fbb.Builder
+    builder = fbb.Builder
 
     #Main function, dependent on random.seed
     with fuc.open_for_out(ofilename, force=True) as out_file:

@@ -76,6 +76,7 @@ class Mover:
         """
         Revert the last Monte Carlo move performed by this mover.
         """
+        log.debug("Reverting last step")
         if self._prev_stats is None:
             raise RuntimeError("No (more) step(s) to revert.")
         for elem, stat in self._prev_stats.items():
@@ -246,9 +247,9 @@ class WholeMLMover(Mover):
 class WholeMLStatSearch(Mover):
     HELPTEXT = ("{:25} Not yet implemented\n".format("WholeMLStatSearch"))
 
-    identity_stat = ftms.AngleStat("virtual", "identity", 0, 1000, math.pi/2, math.pi, math.pi, 0,
-                                   float("nan"), float("nan"), 0, [], "")
-
+    def __init__(self, stat_source, max_diff):
+        super(WholeMLStatSearch, self).__init__(stat_source)
+        self.max_diff=float(max_diff)
     def _get_elems(self, sm):
         loops = sm.bg.find_mlonly_multiloops()
         regular_multiloops = [ m for m in loops
@@ -259,9 +260,13 @@ class WholeMLStatSearch(Mover):
         return random.choice(regular_multiloops)
     def move(self, sm):
         self.counter = 0
+        self.num_pruned = 0
         elems = self._get_elems(sm)
+        assert sm.bg.get_next_ml_segment(elems[0])==elems[1]
+        assert sm.bg.get_next_ml_segment(elems[1])==elems[2]
+        assert sm.bg.get_next_ml_segment(elems[-1])==elems[0]
+
         stats = self._find_stats_for(elems, sm)
-        log.info("Tried %d combinations", self.counter)
         if not stats:
             log.warning("Could not move multiloop %s. "
                         "No suitable combination of stats found.", elems)
@@ -281,21 +286,22 @@ class WholeMLStatSearch(Mover):
         for stat_choices in choices.values():
             random.shuffle(stat_choices) # For performance reasons lists are shuffled in place
         maxlen = max(len(c) for c in choices.values())
-        log.info("maxlen %s", maxlen)
+        log.debug("maxlen %s", maxlen)
         for i in range(maxlen):
             for first_elem in choices.keys():
                 sampled_stats = self._find_stats_ith_iteration(i, first_elem, elems, choices, sm.bg)
                 if sampled_stats is not None:
+                    log.info("Succsessfuly combination found after %d tries in %d iterations (%d of which were pruned)", self.counter, i, self.num_pruned)
                     return sampled_stats
-            if i%50==0:
-                log.info("Nothing found after %d iterations. Still searching.", i)
+            if i%10==9:
+                log.info("Nothing found after %d iterations. %d combinations tried, %d of which were disregarded early on. Still searching.", i+1, self.counter, self.num_pruned)
         return None
     def _find_stats_ith_iteration(self, i, first_elem, elems, choices, cg):
         first_elem_index = elems.index(first_elem)
         # Of the selected ml-segment, only look at the ith stat and compare it
         # to all possible combinations of the first i stats for other elements.
         first_elem_stat = choices[first_elem][i]
-        log.info("i = %d. elems = %s, first_elem %s", i, elems, first_elem)
+        log.debug("i = %d. elems = %s, first_elem %s", i, elems, first_elem)
         for choice_indices in it.product(range(i+1), repeat=len(elems)-1):
             log.debug("Choice_indices %s", choice_indices)
             sampled_stats = {}
@@ -321,6 +327,15 @@ class WholeMLStatSearch(Mover):
         self.counter+=1
         log.debug("Checking sampled_stats %s for elems %s", sampled_stats, elems)
         partial_sum_stat = None
+        if len(elems)==3:
+            #speed-up by pruning according to triangular inequality
+            dists = [stat.r1 for stat in sampled_stats.values()]
+            sum_of_lengths = sum(dists)
+            max_length = max(dists)
+            if sum_of_lengths - max_length> max_length+self.max_diff:
+                log.debug("Pruning because of triangular inequality: sum %s, max %s", sum_of_lengths, max_length )
+                self.num_pruned+=1
+                return False
         for elem in elems:
             at = cg.get_angle_type(elem, allow_broken = True)
             if at in [-3, -2, 4]:
@@ -331,18 +346,25 @@ class WholeMLStatSearch(Mover):
                 partial_sum_stat = next_stat
             else:
                 partial_sum_stat = ftug.sum_of_stats(partial_sum_stat, next_stat)
-        if not(1.535<abs(partial_sum_stat.u)<1.606):
-            log.debug("u is not pi/: %s", partial_sum_stat.v)
+
+        return partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff))
+
+        # Delete the following, if the above return-statement works as intended
+        if not(math.radians(90-self.max_diff)<abs(partial_sum_stat.u)<math.radians(90+self.max_diff)):
+            log.debug("u is not pi/2: %s", partial_sum_stat.v)
             return False
-        if not(3.106<abs(partial_sum_stat.v)<3.176):
+        if not(math.radians(180-self.max_diff)<abs(partial_sum_stat.v)<math.radians(180+self.max_diff)):
             log.debug("v is not pi: %s", partial_sum_stat.v)
             return False
-        if not(3.106<abs(partial_sum_stat.t)<3.176):
+        if not(math.radians(180-self.max_diff)<abs(partial_sum_stat.t)<math.radians(180+self.max_diff)):
             log.debug("t is not pi: %s", partial_sum_stat.t)
             return False
-        if partial_sum_stat.r1>3:
+        if partial_sum_stat.r1>self.max_diff:
             log.debug("Position change is too big: %s", partial_sum_stat.r1)
             return False
+        log.debug("Match found: %s", partial_sum_stat)
+        log.debug("Is similar to identity stat: %s", partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff)))
+
         return True
 
 class LocalMLMover(Mover):
@@ -351,6 +373,11 @@ class LocalMLMover(Mover):
     of the RNA attached to the two ends of the connected elements.
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("LocalMLMover"))
+
+    def __init__(self, stat_source, max_diff):
+        super(LocalMLMover, self).__init__(stat_source)
+        self.max_diff=float(max_diff)
+
     def _get_elems(self, sm):
         all_mls = list( sm.bg.mloop_iterator() )
         if len(all_mls)<2:
@@ -377,11 +404,14 @@ class LocalMLMover(Mover):
         statA = choicesA[i]
         for j in range(min(i+forward, len(choicesB))):
             statB = choicesB[j]
+            # Shortcut based on lengths
+            if virtual_stat.r1>statA.r1+statB.r1+self.max_diff:
+                return None
             if forward:
-                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statA, statB)):
+                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statA, statB), self.max_diff):
                     return statA, statB
             else:
-                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statB, statA)):
+                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statB, statA), self.max_diff):
                     return statB, statA
         return None
 
@@ -390,7 +420,9 @@ class LocalMLMover(Mover):
 
         stem1a, stem1b = sm.bg.connections(ml1)
         stem2a, stem2b = sm.bg.connections(ml2)
+        swapped = False
         if stem1b == stem2b:
+            swapped = True
             ml1, ml2 = ml2, ml1
 
         log.debug("Finding stats for %s and %s", ml1, ml2)
@@ -405,7 +437,11 @@ class LocalMLMover(Mover):
                     result = self._find_stats_ith_iteration(i, choices1, choices2, virtual_stat, forward)
                     if result is not None:
                         log.info("Stat found after %sth iteration. Forward==%s", i, forward)
-                        return result
+                        if swapped:
+                            log.debug("Swapping...")
+                            return result[1], result[0]
+                        else:
+                            return result
                 if i>0 and i%50==0:
                     log.info("Search of stats: Nothing found in %d th iteration", i)
 
@@ -421,6 +457,7 @@ class LocalMLMover(Mover):
             ml1, ml2 = ml2, ml1
 
         stat1, stat2 = self._find_stats_for(ml1, ml2, sm)
+        log.debug("%s %s; %s %s", ml1, stat1, ml2, stat2)
         if stat1 is stat2 is None:
             log.warning("Could not move elements %s and %s. "
                         "No isosteric combination of stats found.", ml1, ml2)
@@ -478,7 +515,7 @@ def mover_from_string(stri, stat_source, sm=None):
             called+=","
             for k,v in kwargs.items():
                 called+="{}={},".format(k,v)
-        raise TypeError("__init__ with signature ({}) cannot be called with ({})".format(signature, called))
+        raise TypeError("__init__ of {} with signature ({}) cannot be called with ({})".format(cls.__name__, signature, called))
 
     return mover
 

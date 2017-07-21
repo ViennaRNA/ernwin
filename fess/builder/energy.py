@@ -719,7 +719,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             if ml not in mst:
                 energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
-    def __init__(self, element, stat_source, angular_weight=50, prefactor = None, adjustment = None):
+    def __init__(self, element, stat_source, angular_weight=1, prefactor = None, adjustment = None):
         self.element = element
         self.stat_source = stat_source
         # A deviation of 1 rad is equivalent to a deviation of how many angstrom
@@ -727,13 +727,11 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         super(FragmentBasedJunctionClosureEnergy, self).__init__(prefactor = prefactor,
                                                                  adjustment = adjustment)
     def _stat_deviation(self, stat, virtual_stat):
-        deviation = abs(stat.r1-virtual_stat.r1)
-        log.debug("R-deviation: %s", deviation)
-        for attr in ["u", "v", "u1", "v1", "t"]:
-            angular_dev = abs(getattr(stat, attr)-getattr(virtual_stat, attr))
-            log.debug("Angular dev %s weighted to %s", angular_dev, angular_dev*self.angular_weight)
-            deviation=max(deviation, angular_dev*self.angular_weight)
-        return deviation
+        deviation = stat.deviation_from(virtual_stat)
+        weighted_deviation = [deviation[0]]
+        for i in range(1,4):
+            weighted_deviation.append(deviation[i]*self.angular_weight)
+        return max(weighted_deviation)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         if nodes is not None and self.element not in nodes:
@@ -749,6 +747,36 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
         return (best_deviation**self.adjustment)*self.prefactor
+
+class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
+    _shortname = "SFJ"
+    HELPTEXT = ("       {:3}:  An energy for the use with samplers like the WholeMLStatSearch and\n"
+                "              LocalMLMover that assign a stat to broken multiloop segments.\n"
+                "              Controlls, how well the assigned stat fits the true geometry of this segment.".format(_shortname))
+
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+        log.debug("eval_energy called on SFJ(%s)", self.element)
+        if nodes is not None and self.element not in nodes:
+            return 0.
+        target_stat, = [ s for s in cg.get_stats(self.element)
+                         if s.ang_type == cg.get_angle_type(self.element, allow_broken = True) ]
+        try:
+            sampled_pdb_name = cg.sampled[self.element][0]
+        except KeyError:
+            log.warning("Missing key %s in cg.sampled expected by SampledFragmentJunctionClosureEnergy. Returning energy of 0.", self.element)
+            return 0.
+        log.debug("Searching for sampled bdp_name=%r", sampled_pdb_name)    
+        for stat in self.stat_source.iterate_stats_for(cg, self.element):
+            if stat.pdb_name == sampled_pdb_name:
+                return (self._stat_deviation(stat, target_stat)**self.adjustment)*self.prefactor
+        else:
+            log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
+            return 0.
+    @property
+    def shortname(self):
+        sn = super(SampledFragmentJunctionClosureEnergy, self).shortname
+        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.element))
+
 
 def _iter_subgraphs(cg, use_subgraphs):
     """

@@ -85,7 +85,7 @@ class StatStorage(object):
             fallback_filenames = []
         self.fallbacks = fallback_filenames
         self._sources = None
-        self._has_warned = set() #Only emit warnings about insufficient stats once.
+        self._has_reported = set() #Only emit warnings about insufficient stats once.
 
     @staticmethod
     def key_from_bg_and_elem(bg, elem):
@@ -120,9 +120,9 @@ class StatStorage(object):
             try:
                 source = next(statfiles)[stat_type]
             except StopIteration: #All stat_files exhausted
-                if (stat_type, key, min_entries) not in self._has_warned:
+                if (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
-                    self._has_warned.add((stat_type, key, min_entries))
+                    self._has_reported.add((stat_type, key, min_entries))
                 break
             if key in source:
                 stats=source[key]
@@ -135,6 +135,10 @@ class StatStorage(object):
                     remaining_total_weight = min_entries - sum(weights)
                     weight = min(1, remaining_total_weight/len(stats))
                 weights += [weight]*num_stats
+        if (stat_type, key, min_entries) not in self._has_reported:
+            log.info("Found {} stats for {} with key {}".format(len(choose_from), stat_type, key))
+            self._has_reported.add((stat_type, key, min_entries))
+
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
 
@@ -177,7 +181,6 @@ class StatStorage(object):
         return stats[0] #Fallback if asserts are disabled. Should be unreachable.
 
     def iterate_stats(self, stat_type, key, min_entries = 100, cycle = False):
-        log.debug("Iterate stats")
         weights, stats = self._possible_stats(stat_type, key, min_entries)
         stat_samples = []
         for i, w in enumerate(weights):
@@ -201,7 +204,6 @@ class StatStorage(object):
         key = self.key_from_bg_and_elem(bg, elem)
         log.debug("Key is %s, elem is %s, elem[0] is %s", key, elem, elem[0])
         log.debug("letter_to_stat_type[elem[0]] is %s", letter_to_stat_type[elem[0]])
-        log.debug("elem is %s", elem )
         return self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries)
 
 
@@ -281,9 +283,9 @@ class SequenceDependentStatStorage(StatStorage):
             try:
                 source = next(statfiles)[stat_type]
             except StopIteration: #All stat_files exhausted
-                if (stat_type, key, min_entries) not in self._has_warned:
+                if (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
-                    self._has_warned.add((stat_type, key, min_entries))
+                    self._has_reported.add((stat_type, key, min_entries))
                 break
             if key in source:
                 stats=source[key]
