@@ -117,6 +117,9 @@ class MCMCSampler:
         for e in self.energy_function.iterate_energies():
             if hasattr(e, "accepted_projDir"):
                 self.sm.bg.project_from=e.accepted_projDir
+        for e in self.energy_function.iterate_energies():
+            if hasattr(e, "used_stat"):
+                self.sm.elem_defs[e.element] = e.used_stat
         self.sm.bg.infos["totalEnergy"]=["{} {}".format(energy, self.energy_function.shortname)]
 
     def reject(self):

@@ -349,24 +349,6 @@ class WholeMLStatSearch(Mover):
 
         return partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff))
 
-        # Delete the following, if the above return-statement works as intended
-        if not(math.radians(90-self.max_diff)<abs(partial_sum_stat.u)<math.radians(90+self.max_diff)):
-            log.debug("u is not pi/2: %s", partial_sum_stat.v)
-            return False
-        if not(math.radians(180-self.max_diff)<abs(partial_sum_stat.v)<math.radians(180+self.max_diff)):
-            log.debug("v is not pi: %s", partial_sum_stat.v)
-            return False
-        if not(math.radians(180-self.max_diff)<abs(partial_sum_stat.t)<math.radians(180+self.max_diff)):
-            log.debug("t is not pi: %s", partial_sum_stat.t)
-            return False
-        if partial_sum_stat.r1>self.max_diff:
-            log.debug("Position change is too big: %s", partial_sum_stat.r1)
-            return False
-        log.debug("Match found: %s", partial_sum_stat)
-        log.debug("Is similar to identity stat: %s", partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff)))
-
-        return True
-
 class LocalMLMover(Mover):
     """
     Change two connected ML elements in a way that does not change the parts
