@@ -300,7 +300,10 @@ class WholeMLStatSearch(Mover):
         first_elem_index = elems.index(first_elem)
         # Of the selected ml-segment, only look at the ith stat and compare it
         # to all possible combinations of the first i stats for other elements.
-        first_elem_stat = choices[first_elem][i]
+        try:
+            first_elem_stat = choices[first_elem][i]
+        except IndexError:
+            return None
         log.debug("i = %d. elems = %s, first_elem %s", i, elems, first_elem)
         for choice_indices in it.product(range(i+1), repeat=len(elems)-1):
             log.debug("Choice_indices %s", choice_indices)
@@ -310,6 +313,7 @@ class WholeMLStatSearch(Mover):
             if any(choice_indices[elem_nr]==i for elem_nr in range(first_elem_index, len(elems)-1)):
                 log.debug("continue")
                 continue
+            skip = False
             for elem_nr in range(len(choice_indices)):
                 if elem_nr>=first_elem_index:
                     log.debug("elem_nr == %d --> %d", elem_nr, elem_nr+1)
@@ -318,10 +322,16 @@ class WholeMLStatSearch(Mover):
                     log.debug("elem_nr %d", elem_nr)
                     ml = elems[elem_nr]
                 assert ml != first_elem
-                sampled_stats[ml] = choices[ml][choice_indices[elem_nr]]
-            sampled_stats[first_elem] = first_elem_stat
-            if self._check_overall_stat(sampled_stats, elems, cg):
-                return sampled_stats
+                try:
+                    new_stat = choices[ml][choice_indices[elem_nr]]
+                except IndexError:
+                    skip=True
+                    break
+                sampled_stats[ml] = new_stat
+            if not skip:
+                sampled_stats[first_elem] = first_elem_stat
+                if self._check_overall_stat(sampled_stats, elems, cg):
+                    return sampled_stats
         return None
     def _check_overall_stat(self, sampled_stats, elems, cg):
         self.counter+=1

@@ -71,6 +71,7 @@ setup(cmdclass={'build_py': build_py},
                              'stats/rog_target_dist_1S72_0.csv',
                              'stats/sld_target_dist_1S72_0.csv',
                              'stats/ame_orientation_1S72_0.csv',
-                             'stats/all_nr2.110.stats']},
-      scripts=['fess/scripts/ernwin_new.py']
+                             'stats/all_nr2.110.stats',
+                             'stats/residue_template.pdb']},
+      scripts=['fess/scripts/ernwin_new.py', 'fess/scripts/reconstruct.py']
      )

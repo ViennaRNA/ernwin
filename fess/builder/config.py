@@ -17,7 +17,7 @@ class Configuration:
     #stem_library = dict()
 
     #The file where ideal bases are stored for base-replacement during reconstruction
-    template_residue_fn = 'fess/stats/residue_template.pdb'
+    template_residue_fn = 'stats/residue_template.pdb'
     template_residues = None # This is changed programatically. It should always be None in this file.
 
     # The JAR3D dir should contain the jar3d-related files defined in the following 3 configuration values.

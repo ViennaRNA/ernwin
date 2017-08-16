@@ -5,7 +5,7 @@ import glob
 import itertools as it
 import fess.builder.models as models
 import fess.builder.config as fbc
-
+from fess import data_file
 import os.path as op
 
 import forgi.threedee.model.coarse_grain as ftmc
@@ -69,7 +69,7 @@ class Reconstructor(object):
 
         #Some validation
         _compare_cg_chains_partial(sm.bg, chains)
-        ftup.output_multiple_chains(chains.values(), "reconstr_stems.pdb")
+        #ftup.output_multiple_chains(chains.values(), "reconstr_stems.pdb")
         '''# Some more validation. Useless unless searching for a bug
         chains_in_file = ftup.get_all_chains("reconstr_stems.pdb")
         chains_in_file = { c.id:c for c in chains_in_file }
@@ -81,13 +81,13 @@ class Reconstructor(object):
         for loop in sm.bg.defines:
             if loop[0]=="s": continue
             gaps_to_mend.extend(self._reconstruct_with_fragment(chains, sm, loop))
-        ftup.output_multiple_chains(chains.values(), "reconstr_all.pdb")
+        #ftup.output_multiple_chains(chains.values(), "reconstr_all.pdb")
 
         replace_bases(chains, sm.bg)
-        ftup.output_multiple_chains(chains.values(), "base_replaced.pdb")
+        #ftup.output_multiple_chains(chains.values(), "base_replaced.pdb")
         reorder_residues(chains, sm.bg)
         chains = mend_breakpoints(chains, gaps_to_mend)
-        ftup.output_multiple_chains(chains.values(), "mended.pdb")
+        #ftup.output_multiple_chains(chains.values(), "mended.pdb")
         return chains
 
     def _get_source_cg_and_chain(self, stat, sm):
@@ -142,7 +142,7 @@ class Reconstructor(object):
                              "the cg file used for reconstruction are not consistent!")
             with log_to_exception(log, err):
                 log.error("%s != %s for stem %s (%s)", stem_stat.define, cg.defines[sd], sd, stem_stat.pdb_name)
-            raise
+            raise err
 
         _align_chain_to_stem(cg, chains, sd, stem, self.stem_use_average_method)
 
@@ -152,6 +152,7 @@ class Reconstructor(object):
                 source_resid = cg.seq_ids[ stem_stat.define[strand*2] + i - 1 ]
                 residue = chains[source_resid.chain][source_resid.resid]
                 #Change the resid to the target
+                residue.parent=None
                 residue.id = target_resid.resid
                 assert residue.id == target_resid.resid
                 if target_resid.chain not in new_chains:
@@ -392,7 +393,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     :returns: a list of tuples containing gaps to mend
     '''
 
-    assert elem_from[0]==elem_to[0]
+    assert elem_from[0]==elem_to[0], "{}[0]!={}[0]".format(elem_from, elem_to)
     # The define of the loop with adjacent nucleotides (if present) in both cgs
     define_a_to = cg_to.define_a(elem_to)
     define_a_from = cg_from.define_a(elem_from)
@@ -469,6 +470,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 
         residue = chains_from[resid_from.chain][resid_from.resid]
         #Change the resid to the target
+        residue.parent = None
         residue.id = resid_to.resid
         if resid_to.chain not in chains_to:
             log.info("Adding chain with id %r for residue %r", resid_to.chain, resid_to)
@@ -523,7 +525,21 @@ def mend_breakpoints(chains, gap):
                                                         "mended_{}.pdb".format(chain_id)))
             else:
                 mended_chains[chain_id] = chains[chain_id]
-        return mended_chains
+    # Moderna may replace modified residues with "UNK" for unknown or otherrwise change the code.
+    # We have to replace them back.
+    for chain_id in chains:
+        for res in mended_chains[chain_id]:
+            if res.id[0].strip():
+                changed = False
+                for o_res in chains[chain_id]:
+                    if o_res.id[1:]==res.id[1:]:
+                        log.warning("Changing Moderna residue %s to %s", res, o_res)
+                        assert not changed #Only one residue per number+icode
+                        res.id = o_res.id
+                        res.resname = o_res.resname
+                        log.warning("Moderna residue now %s", res)
+                        changed = True
+    return mended_chains
 
 def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
     """
@@ -635,7 +651,7 @@ def replace_bases(chains, cg):
     if fbc.Configuration.template_residues is None:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            fbc.Configuration.template_residues = bpdb.PDBParser().get_structure('t', conf.Configuration.template_residue_fn)
+            fbc.Configuration.template_residues = bpdb.PDBParser().get_structure('t', data_file(conf.Configuration.template_residue_fn))
     s1 = fbc.Configuration.template_residues
     tchain = list(s1.get_chains())[0]
 
