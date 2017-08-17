@@ -182,6 +182,8 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     geometries = set()
     for line in fr3d_out:
         line=line.strip()
+        if not line: #Empty line
+            continue
         log.debug("Line '%s'.read", line)
         geometry = _parse_fred_line(line, all_cgs)
         if geometry is None:

@@ -84,6 +84,20 @@ class Mover:
         self._prev_stats = {}
         sm.new_traverse_and_build(start='start', include_start = True)
 
+class MSTchangingMover(Mover):
+    def __init__(self, stat_source):
+        super(self, MSTchangingMover).__init__(stat_source)
+        self.prev_mst = None
+    def _get_elem_and_stat(self, sm):
+        # Get an element. If it is a ml-segment, break it.
+        elem = self._get_elem()
+        if elem[0]=="m":
+            elem = sm.set_multiloop_break_segment(elem)
+        new_stat = self.stat_source.sample_for(sm.bg, elem)
+        return elem, new_stat
+
+
+
 class ExhaustiveMover(Mover):
     HELPTEXT = ("{:25} Try all fragment combinations for \n"
                 "{:25} the given coarse-grained element(s).".format("ExhaustiveMover(elem[,elem,..])", ""))

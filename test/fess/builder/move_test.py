@@ -160,9 +160,9 @@ class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
 
         mov = fbmov.ExhaustiveMover(self.stat_source_limited, ["s0", "h0"], self.sm )
         move_list = list(mov._iter_moves(self.sm))
-        self.assertEqual([x[0] for x in move_list], ["s0", "h0", "s0", "h0"])
+        self.assertEqual([x[0] for x in move_list], ["s0", "h0", "h0"])
         self.assertEqual([x[1].pdb_name for x in move_list],
-                         ["test:s_0", "test:h_1", "test:s_0", "test:h_2"])
+                         ["test:s_0", "test:h_1", "test:h_2"])
 
 
 class TestExhaustiveExplorerPublicAPI(TestMoverBaseClassPublicAPI):

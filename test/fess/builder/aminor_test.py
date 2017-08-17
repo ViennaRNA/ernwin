@@ -11,12 +11,14 @@ import fess.builder.aminor as fba
 import forgi.threedee.model.coarse_grain as ftmc
 import math
 import warnings
+import logging
 from StringIO import StringIO
 try:
     from unittest.mock import mock_open, patch #Python 3
 except:
     from mock import mock_open, patch #Python 2
 
+log = logging.getLogger(__name__)
 A_MULTICHAIN_FR3D_OUTPUT = StringIO("""
 Filename Discrepancy       1       2       3 Cha   1-2   1-3   2-3 Con   1-2   1-3   2-3   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-3
     1S72      0.0340  A  104  A  957  U 1009 900 ----  ----   cWW  AAA  1909  1885    24                                                                             -     -     -
@@ -96,7 +98,8 @@ class TestAMinor(unittest.TestCase):
             i+=1
     def test_fr3d_orientation(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT)
+        a = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT)[0]
+        log.info(a)
         for geo1, geo2 in it.combinations(a, 2):
             self.assertLess(abs(geo1.dist - geo2.dist), 20, msg = "Different FR3D hits should have similar coarse-grained geometry: dist. {}, {}".format(geo1, geo2))
             self.assertLess(abs(geo1.angle1 - geo2.angle1), 2., msg = "Different FR3D hits should have similar coarse-grained geometry: angle1. {}, {}".format(geo1, geo2))
@@ -127,8 +130,7 @@ class TestAMinor(unittest.TestCase):
         self.assertAlmostEqual(a1, math.pi/2)
         self.assertAlmostEqual(a2, 0)
     def test_get_relative_orientation_can_give_nan(self):
-        cg = ftmc.CoarseGr
-        ainRNA(dotbracket_str = "...(((...)))...", seq="AAAGGGAAACCCAAA")
+        cg = ftmc.CoarseGrainRNA(dotbracket_str = "...(((...)))...", seq="AAAGGGAAACCCAAA")
         cg.coords["s0"] = [0,0,0.], [0,0,10.]
         cg.twists["s0"] = [0,1,0.], [0, -1., 0]
         cg.coords["f0"] = [0.,0,0], [0.,0,0]
@@ -138,27 +140,27 @@ class TestAMinor(unittest.TestCase):
 
     def test_parse_fred_missing_chain(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, A_MULTICHAIN_FR3D_OUTPUT)
+        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, A_MULTICHAIN_FR3D_OUTPUT)
         #Chain 9 is not connected to chain 0, thus not present in the cg-file.
         self.assertEqual(len(a), 0)
 
     def test_parse_fred_adjacent(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, FR3D_ADJACENT)
+        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, FR3D_ADJACENT)
         #The loop is adjacent to the stem.
         self.assertEqual(len(a), 0)
     def test_parse_fred_no_stem(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, FR3D_NO_STEM)
+        a = fba.parse_fred(30, {"1S72":[cg]}, FR3D_NO_STEM)[0]
         #The receptor is no canonical stem.
         self.assertEqual(len(a), 0)
     def test_parse_fred1(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, A_FR3D_OUTPUT)
+        a = fba.parse_fred(30, {"1S72":[cg]}, A_FR3D_OUTPUT)[0]
         self.assertEqual(len(a), 1)
         geometry, = a
         self.assertEqual(geometry.pdb_id, "1S72")
     def test_parse_fred2(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT)
+        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT)
         self.assertEqual(len(a), 4)

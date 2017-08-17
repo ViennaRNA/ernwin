@@ -14,7 +14,9 @@ import forgi.threedee.model.stats as ftmstats
 import forgi.threedee.model.coarse_grain as ftmc
 from collections import Counter
 from mock import mock_open, patch
+import logging
 
+log = logging.getLogger(__name__)
 class ParseFileTests(unittest.TestCase):
     def test_parse_empty_line(self):
         filecontent = StringIO.StringIO("\nstem test:s_0 5 10.388 2.43294047108")
@@ -22,7 +24,7 @@ class ParseFileTests(unittest.TestCase):
         self.assertEqual(len(stats["stem"]), 1)
         self.assertEqual(len(stats["angle"]), 0)
         self.assertEqual(stats["stem"][5][0].bp_length, 5)
-        
+
     def test_parse_line_with_comments(self):
         filecontent = StringIO.StringIO("\nstem test:s_0 5 10.388 2.43294047108\n"
                                         " # Das ist ein comment\n"
@@ -34,27 +36,28 @@ class ParseFileTests(unittest.TestCase):
         self.assertEqual(stats["angle"][(5,2,1)][0].pdb_name, "test:i_0")
         self.assertEqual(stats["angle"][(4,2,1)][0].pdb_name, "test:i_1")
 
-    
+
 
 class ReadFileTests(unittest.TestCase):
     def setUp(self):
         pass
     def test_read_stats_file(self):
         stats = fbstat.read_stats_file("test/fess/data/test1.stats")
+        log.info(stats)
         self.assertEqual(len(stats["stem"]), 1)
         self.assertEqual(len(stats["angle"]), 3)
-        self.assertEqual(len(stats["loop"]), 1)
+        self.assertEqual(len(stats["loop"]), 2)
         self.assertEqual(len(stats["3prime"]), 1)
         self.assertEqual(len(stats["5prime"]), 1)
-        
-        self.assertEqual(stats["stem"][5], 
-                         [ftmstats.StemStat("stem test:s_0 5 10.388 2.43294047108")])
+
+        self.assertEqual(stats["stem"][5],
+                         [ftmstats.StemStat("stem test:s_0 5 10.388 2.43294047108 1 5 10 15 GCAUG UGCAU")])
         a_stat = ftmstats.AngleStat()
         a_stat.parse_line("angle test:i_0 5 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1")
-        self.assertEqual(stats["angle"][(5, 2, 1)], 
+        self.assertEqual(stats["angle"][(5, 2, 1)],
                          [a_stat])
         a_stat.parse_line("angle test:m_0 4 1000 0.985166 -1.185545 -2.000463 13.701389 0.982669 0.267821 -4")
-        self.assertEqual(stats["angle"][(4, 1000, -4)], 
+        self.assertEqual(stats["angle"][(4, 1000, -4)],
                          [a_stat])
         self.assertEqual(stats["loop"][6],
                          [ftmstats.LoopStat("loop test:h_0 6  15.2401560955 0.269833051418 0.731484795668")])
@@ -63,12 +66,12 @@ class ReadFileTests(unittest.TestCase):
         self.assertEqual(stats["5prime"][4],
                          [ftmstats.LoopStat("5prime test:f_0 4 20.4034805163 1.47912394946 -0.0715301558972")])
 
-class StatStorageTest(unittest.TestCase):      
-    def test_stat_files_are_loaded_lazily(self):        
+class StatStorageTest(unittest.TestCase):
+    def test_stat_files_are_loaded_lazily(self):
         stats_open = mock_open()
         with patch('fess.builder.stats_container', stats_open, create=True):
             st = fbstat.StatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
-        self.assertEqual(len(stats_open.mock_calls), 0) 
+        self.assertEqual(len(stats_open.mock_calls), 0)
 
     def test__iter_stat_sources(self):
         st = fbstat.StatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
@@ -132,7 +135,7 @@ class StatStoragePublicAPITests(unittest.TestCase):
     def setUp(self):
         self.st = fbstat.StatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
         self.cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
-        self.cg2 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....((((((...))))))..)))))", 
+        self.cg2 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....((((((...))))))..)))))",
                                                   seq = "AAAAACCCCCGGGGGGAAACCCCCCCCUUUUU")
 
     def test_sample_for(self):
@@ -144,7 +147,7 @@ class StatStoragePublicAPITests(unittest.TestCase):
         mc =  c.most_common()
         self.assertGreater(mc[0][1], 75) #Expectation value 100
         self.assertLess(mc[0][1], 150)
-        
+
         self.assertGreater(mc[1][1], 25) #Expectation value 50
         self.assertLess(mc[1][1], 75)
         self.assertGreater(mc[2][1], 25) #Expectation value 50
@@ -155,7 +158,7 @@ class StatStoragePublicAPITests(unittest.TestCase):
         if True: #with self.assertWarnsRegex(UserWarning, "Only .* stats found for .* with key .*"): #Only python 3.3+
             stat_iter = self.st.iterate_stats_for(self.cg, "s0", 10)
         self.assertEqual(sum(1 for _ in stat_iter), 3) #3 stats
-        
+
         #If we only want at least two stats, choose only one stat from the second
         num_stats = 0
         NUM_REP = 1000
@@ -185,6 +188,7 @@ class SequenceDependentStatStorageTests(unittest.TestCase):
         self.st = fbstat.SequenceDependentStatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
         self.cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
 
+    @unittest.skip("Not yet completely inmplemented")
     def test_sample_for(self):
         c = Counter()
         REPETITIONS = 2000

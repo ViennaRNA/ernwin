@@ -399,17 +399,26 @@ class SpatialModel:
         if d in missing_nodes:
             return None #The specified cg element is already a breaking point.
         if len(missing_nodes)==1: #The easy case. Just exchange the two ml segments
+            log.info("One ml-segment missing: %s", missing_nodes)
+            log.info("mst: %s", self.bg.mst)
             self.bg.mst.remove(d)
+            log.info("mst: %s", self.bg.mst)
             self.bg.mst|=missing_nodes
+            log.info("mst: %s", self.bg.mst)
+
             self.bg.build_order = None #No longer valid
             self.bg.ang_types = None
             if self.elem_defs and d in self.elem_defs:
                 del self.elem_defs[d]
             self.bg.traverse_graph()
+            log.info("mst: %s", self.bg.mst)
+            
             self.load_sampled_elems()
             new_node, = missing_nodes
             return new_node
         elif len(missing_nodes)==2:
+            log.info("More than one ml-segment missing")
+
             #Delete requested Edge
             self.bg.mst.remove(d)
 
