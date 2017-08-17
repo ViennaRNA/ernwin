@@ -11,7 +11,7 @@ __metaclass__=type
 import unittest
 from collections import Counter
 import copy
-
+import logging
 import numpy as np
 import numpy.testing as nptest
 
@@ -23,6 +23,13 @@ import fess.builder.move as fbmov
 import forgi.threedee.model.stats as ftmstat
 
 from scipy.stats import chisquare
+try:
+    from unittest import mock #python3
+except ImportError:
+    import mock
+
+
+log = logging.getLogger(__name__)
 
 RAND_REPETITIONS = 200
 unittest.TestCase.longMessage = True
@@ -91,20 +98,21 @@ class TestMoverBaseClassPublicAPI(unittest.TestCase):
     def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
         self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
-        cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....(((((......)))))..)))))")
-        self.sm = SpatialModel(cg)
+        cg1 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....(((((......)))))..)))))")
+        self.sm = SpatialModel(cg1)
         self.sm.sample_stats(self.stat_source_limited)
         self.sm.new_traverse_and_build()
         self.mover = fbmov.Mover(self.stat_source_real)
     def test_move_changes_sm(self):
         coords_old = copy.deepcopy(self.sm.bg.coords)
-        self.mover.move(self.sm)
+        log.info(self.mover.move(self.sm))
         self.assertNotEqual(self.sm.bg.coords, coords_old, msg="At least one coordinate should have changed significantly.")
     def test_move_and_reset(self):
-        coords_old = copy.deepcopy(self.sm.bg.coords)
-        self.mover.move(self.sm)
-        self.mover.revert(self.sm)
-        self.assertEqual(self.sm.bg.coords, coords_old)
+        for i in range(10):
+            coords_old = copy.deepcopy(self.sm.bg.coords)
+            log.info(self.mover.move(self.sm))
+            self.mover.revert(self.sm)
+            self.assertEqual(self.sm.bg.coords, coords_old)
 
 class TestNMoverPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
@@ -130,6 +138,39 @@ class TestNMoverPublicAPI(TestMoverBaseClassPublicAPI):
             if self.sm.elem_defs[elem].pdb_name!=stats_old[elem].pdb_name:
                 changed.add(elem)
         self.assertEqual(len(changed), 4, "Exactely 4 (different) elements should have been changed.")
+
+class TestMSTchangingMoverPublicAPI(TestMoverBaseClassPublicAPI):
+    def setUp(self):
+        self.stat_source_real = StatStorage("test/fess/data/real.stats")
+        self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
+        cg1 = ftmc.CoarseGrainRNA(dotbracket_str = "((((......))((......))))")
+        self.sm = SpatialModel(cg1)
+        self.sm.sample_stats(self.stat_source_real)
+        self.sm.new_traverse_and_build()
+        self.mover = fbmov.Mover(self.stat_source_real)
+        self.mover = fbmov.MSTchangingMover(self.stat_source_real)
+    def test_change_and_reset_m(self):
+        assert "m2" in self.sm.bg.mst
+        initial_coords = copy.deepcopy(self.sm.bg.coords)
+        old_get_elem = self.mover._get_elem
+        self.mover._get_elem = lambda *args:"m2"
+        log.info(self.mover.move(self.sm))
+        self.assertNotEqual(self.sm.bg.coords, initial_coords, msg="At least one coordinate should have changed significantly.")
+        self.mover.revert(self.sm)
+        self.assertEqual(self.sm.bg.coords, initial_coords)
+        self.mover._get_elem = old_get_elem
+    def test_mst_is_changed_and_resetted(self):
+        assert "m2" in self.sm.bg.mst
+        initial_mst = copy.deepcopy(self.sm.bg.mst)
+        old_get_elem = self.mover._get_elem
+        self.mover._get_elem = lambda *args:"m2"
+        log.info(self.mover.move(self.sm))
+        self.assertNotEqual(self.sm.bg.mst, initial_mst, msg="The MST should have changed.")
+        self.mover.revert(self.sm)
+        self.assertEqual(self.sm.bg.mst, initial_mst)
+        self.mover._get_elem = old_get_elem
+
+
 
 class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
     def setUp(self):

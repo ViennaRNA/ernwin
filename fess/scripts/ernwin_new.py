@@ -72,6 +72,10 @@ def get_parser():
                         help = "Try to build the structure using a fair \n"
                                "but slow algorithm.\n "
                                "This flag implies --start-from-scratch")
+    general_behavior.add_argument('--fair-building-mst', action="store_true",
+                        help = "Try to build the structure using a fair \n"
+                               "but slow algorithm for multiple MSTs.\n "
+                               "This flag implies --start-from-scratch")
     general_behavior.add_argument('--fair-building-d', action="store_true",
                         help = "EXPERIMENTAL! Like --fair-building, but use a \n"
                                "potentially faster and experimental algorithm \n"
@@ -564,7 +568,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source, 
     if args.no_rmsd:
         options["rmsd"] = False
         options["acc"]  = False
-    if args.fair_building or args.fair_building_d:
+    if args.fair_building or args.fair_building_d or args.fair_building_mst:
         args.start_from_scratch = True
     if not args.start_from_scratch and not args.rmsd_to:
         options["extreme_rmsd"] = "max" #We start at 0 RMSD. Saving the min RMSD is useless.
@@ -696,7 +700,7 @@ def main(args):
                         except:
                             pass
 
-        elif args.fair_building or args.fair_building_d:
+        elif args.fair_building or args.fair_building_d or args.fair_building_mst:
             if args.fair_building and args.fair_building_d:
                 raise ValueError("--fair-building and --fair-building-d are mutually exclusive")
             if args.fair_building:
@@ -705,6 +709,9 @@ def main(args):
             elif args.fair_building_d:
                 builder = fbb.DimerizationBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
                 max_attempts = args.iterations*10
+            elif args.fair_building_mst:
+                builder = fbb.ChangingMSTBuilder(stat_source, config.Configuration.sampling_output_dir, "list", sm.junction_constraint_energy, sm.constraint_energy)
+                max_attempts = args.iterations*100
             success, attempts, failed_mls, clashes = builder.success_probability(sm, target_structures=args.iterations, target_attempts=max_attempts, store_success = True)
             print("SUCCESS:", success, attempts, failed_mls, clashes)
             print ("{}/{} attempts to build the structure were successful ({:%}).".format(success, attempts, success/attempts)+

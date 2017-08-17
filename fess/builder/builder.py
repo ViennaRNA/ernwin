@@ -144,6 +144,7 @@ class Builder(object):
             print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
             raise
         log.debug("++++++++++++++++++++++++++++++++++++++")
+
     def _check_sampled_ml(self, sm, ml):
         """
         Raises an error if the sampled multiloop segment does not fulfill the junction closure energy
@@ -262,7 +263,9 @@ class FairBuilder(Builder):
 
     def _fulfills_junction_energy(self, sm):
         if self.junction_energy is not None:
+            log.info("Testing junction energy.")
             if self.junction_energy.eval_energy(sm.bg)>0:
+                log.info("Junction energy not fulfilled for build.")
                 if self.store_failed is True or self.store_failed == "junction":
                     self._store_failed(sm)
                 elif self.store_failed=="list":
@@ -284,6 +287,7 @@ class FairBuilder(Builder):
 
     def _fulfills_clash_energy(self, sm):
         if self.clash_energy is not None:
+            log.info("Testing clash energy.")            
             if self.clash_energy.eval_energy(sm.bg)>0:
                 if self.store_failed is True or self.store_failed == "clash":
                     self._store_failed(sm)
@@ -341,6 +345,19 @@ class FairBuilder(Builder):
             log.info("For structures with good junctions: {:.0%}% clash, {:.0%}% "
                  " are ok.".format(clashes/good_j, success/good_j))
         return success, attempts, junction_failures, clashes
+
+class ChangingMSTBuilder(FairBuilder):
+    def _attempt_to_build(self, sm):
+        if sm.bg.mst is None:
+            sm.bg.traverse_graph()
+        elem = random.choice(list(sm.bg.mst-sm.frozen_elements))
+        if elem[0]=="m":
+            try:
+                sm.set_multiloop_break_segment(elem)
+            except ValueError:
+                pass
+        sm.sample_stats(self.stat_source)
+        sm.new_traverse_and_build()
 
 class DimerizationBuilder(FairBuilder):
     #Inspired by dimerization for SAWs, as summerized in the review doi:10.1016/0920-5632(96)00042-4

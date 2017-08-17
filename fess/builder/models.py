@@ -392,9 +392,10 @@ class SpatialModel:
         :param d: The ML segment that should be broken. E.g. "m1"
         :returns: The ML segment that was broken before but now was added to the build_order.
         """
+        log.info("Changing MST")
         if self.bg.mst is None:
             self.bg.traverse_graph()
-        junction_nodes = set( x for x in self.bg.find_bulge_loop(d, 200) if x[0]=="m" )
+        junction_nodes = set(self.bg.shortest_mlonly_multiloop(d))
         missing_nodes = junction_nodes - self.bg.mst
         if d in missing_nodes:
             return None #The specified cg element is already a breaking point.
@@ -412,11 +413,11 @@ class SpatialModel:
                 del self.elem_defs[d]
             self.bg.traverse_graph()
             log.info("mst: %s", self.bg.mst)
-            
+
             self.load_sampled_elems()
             new_node, = missing_nodes
             return new_node
-        elif len(missing_nodes)==2:
+        elif len(missing_nodes)>=2:
             log.info("More than one ml-segment missing")
 
             #Delete requested Edge
@@ -448,7 +449,7 @@ class SpatialModel:
                             break
                     else:
                         break
-            assert len(forest)==2
+            assert len(forest)==2 # No matter how many missing nodes, this should always be 2
             for missing_node in missing_nodes:
                 neighbors = list(self.bg.edges[missing_node])
                 if set(neighbors) & forest[0] and set(neighbors) & forest[1]:
@@ -464,10 +465,8 @@ class SpatialModel:
             self.bg.traverse_graph()
             self.load_sampled_elems()
             return new_node
-        elif len(missing_nodes)==1:
+        elif len(missing_nodes)==0:
             raise ValueError("Cannot break loop {}. This multi loop is not cyclic and thus has no broken fragment.".format(d))
-        else:
-            assert False #len(missing_nodes)>=3 should never happen, I think.
 
     def load_sampled_elems(self):
         '''

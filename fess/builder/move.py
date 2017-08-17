@@ -12,6 +12,8 @@ import random
 import logging
 import inspect
 import math
+import copy
+
 
 try:
     from types import SimpleNamespace
@@ -86,16 +88,39 @@ class Mover:
 
 class MSTchangingMover(Mover):
     def __init__(self, stat_source):
-        super(self, MSTchangingMover).__init__(stat_source)
-        self.prev_mst = None
-    def _get_elem_and_stat(self, sm):
+        super(MSTchangingMover, self).__init__(stat_source)
+        self._prev_mst = None
+    def move(self, sm):
+        self._prev_stats = {}
+        self._prev_mst = None
         # Get an element. If it is a ml-segment, break it.
-        elem = self._get_elem()
+        elem = self._get_elem(sm)
         if elem[0]=="m":
-            elem = sm.set_multiloop_break_segment(elem)
-        new_stat = self.stat_source.sample_for(sm.bg, elem)
-        return elem, new_stat
+            loop = sm.bg.shortest_mlonly_multiloop(elem)
+            if "open" in sm.bg.describe_multiloop(loop):
+                return super(MSTchangingMover, self).move(sm)
+            else:
+                defined_loop = set(loop)&sm.bg.mst
+                self._prev_mst = copy.copy(sm.bg.mst)
+                for node in defined_loop:
+                    self._prev_stats[node]= sm.elem_defs[node]
+                old_elem = elem
+                # Now change the MST
+                elem = sm.set_multiloop_break_segment(elem)
+                assert elem.startswith("m")
+                new_stat = self.stat_source.sample_for(sm.bg, elem)
+                sm.elem_defs[elem]=new_stat
+                sm.new_traverse_and_build(start = elem, include_start = True)
+                return "BREAK{};{}->{}".format(old_elem, elem, new_stat.pdb_name)
+        else:
+            return super(MSTchangingMover, self).move(sm)
 
+    def revert(self, sm):
+        if self._prev_mst is not None:
+            # Reset MST
+            sm.change_mst(self._prev_mst)
+        self._prev_mst = None
+        super(MSTchangingMover, self).revert(sm)
 
 
 class ExhaustiveMover(Mover):
