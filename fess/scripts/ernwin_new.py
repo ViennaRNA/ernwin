@@ -374,12 +374,11 @@ def getFPPArgs(cg, args):
         landmarks = [ tuple(x) for x in selected["triples"] ]
     return {fpp_landmarks : landmarks, fpp_scale : scale, fpp_ref_image : ref_image}
 
-def parseCombinedEnergyString(stri,  cg, reference_cg, args, stat_source=None):
+def parseCombinedEnergyString(stri, reference_cg, args, stat_source=None):
     """
     Parses an energy string, as used for the --energy commandline option
     :param stri: The combined energy string.
     :param args: The commandline arguments. A argparse.ArgumentParser instance
-    :param cg: The coarse-grained RNA
     :param reference_cg: The r coarse-grained RNA (e.g. a deepcopy of cg)
     :returs: A combined energy
     """
@@ -398,18 +397,47 @@ def parseCombinedEnergyString(stri,  cg, reference_cg, args, stat_source=None):
     if "FPP" in stri:
         kwargs.update(getFPPArgs(cg, args))
 
-    return fbe.energies_from_string(stri, cg, args.iterations, stat_source=stat_source, **kwargs)
+    return fbe.energies_from_string(stri, reference_cg, args.iterations, stat_source=stat_source, **kwargs)
 
-def energy_from_string(e, cg, original_sm, args, stat_source):
+def energy_from_string(e, ref_cg, args, stat_source):
     if e=="D":
-        return fbe.energies_from_string("ROG,AME,SLD", cg)
+        return fbe.energies_from_string("ROG,AME,SLD", ref_cg)
     elif re.match("(\d+)D", e):
         match = re.match("(\d+)D", e)
-        return fbe.energies_from_string("{pf}ROG,{pf}AME,{pf}SLD".format(pf=match.group(1)), cg)
+        return fbe.energies_from_string("{pf}ROG,{pf}AME,{pf}SLD".format(pf=match.group(1)), ref_cg)
     elif e=="N":
         return fbe.CombinedEnergy([],[])
     else:
-        return parseCombinedEnergyString(e, cg, original_sm.bg, args, stat_source)
+        return parseCombinedEnergyString(e,ref_cg, args, stat_source)
+
+def constraint_energy_to_sm(sm, energy_string, cg, num_steps, **kwargs):
+    contrib = energy_string.split(",")
+    clash = []
+    junction = []
+    for c in contrib:
+        if c in ["D","B","J"]:
+            junction.append(fbe.RoughJunctionClosureEnergy())
+        if c in ["D","B","C"]:
+            clash.append(fbe.StemVirtualResClashEnergy())
+        if c.startswith("M"):  # e.g. M8[FJC]
+            pref,en = c.split("[")
+            pref=float(pref[1:])
+            if en[-1]!="]":
+                raise ValueError("Expecting constraint energy contribution "
+                                 "'{}' to end with ']'".format(c))
+            en=en[:-1]
+            energy = fbe.single_energy_from_string(en, cg, num_steps, **kwargs)
+            if not hasattr(energy, "can_constrain"):
+                raise ValueError("The energy {} cannot be "
+                                 "used as constraint energy!".format(energy.shortname))
+            if energy.can_constrain=="junction":
+                junction.append(fbe.MaxEnergyValue(energy, pref))
+            else:
+                raise NotImplementedError("can_constrain=='{}' not "
+                                          "yet implemented".format(energy.can_constrain))
+    sm.junction_constraint_energy=fbe.CombinedEnergy(junction)
+    sm.constraint_energy=fbe.CombinedEnergy(clash)
+
 
 def setup_deterministic(args):
     """
@@ -478,6 +506,7 @@ def setup_deterministic(args):
                 bps = args.mst_breakpoints.split(",")
                 for bp in bps:
                     sm.set_multiloop_break_segment(bp)
+        first_sm = sm[0]
     else:
         #Initialize the spatial model
         sm=fbm.SpatialModel(cg, frozen_elements=frozen)
@@ -485,6 +514,7 @@ def setup_deterministic(args):
             bps = args.mst_breakpoints.split(",")
             for bp in bps:
                 sm.set_multiloop_break_segment(bp)
+        first_sm = sm
 
 
     #Load the reference sm (if given)
@@ -496,6 +526,11 @@ def setup_deterministic(args):
         else:
             original_sm=fbm.SpatialModel(copy.deepcopy(sm.bg))
 
+
+    if original_sm.bg.defines != first_sm.bg.defines:
+        raise ValueError("The RNA supplied via --rmsd-to must have "
+                         "the same secondary structure as the input RNA.")
+
     # INIT ENERGY
     if args.replica_exchange:
         if "@" in args.energy:
@@ -506,7 +541,7 @@ def setup_deterministic(args):
             rep_energies = [args.energy]*args.replica_exchange
         energy = []
         for e in rep_energies:
-            energy.append(energy_from_string(e, cg, original_sm, args, stat_source=stat_source))
+            energy.append(energy_from_string(e, original_sm.bg, args, stat_source=stat_source))
         #Initialize energies to track
         energies_to_track=[]
         if args.track_energies:
@@ -517,13 +552,10 @@ def setup_deterministic(args):
         else:
             ce = [args.constraint_energy]*args.replica_exchange
         for s, c in zip(sm,ce):
-            if s in ["D","B","J"]:
-                s.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
-            if s in ["D","B","C"]:
-                s.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
+            constraint_energy_to_sm(s, c, original_sm.bg, args.iterations, stat_source=stat_source)
     else:
         #Initialize the requested energies
-        energy = energy_from_string(args.energy, cg, original_sm, args, stat_source=stat_source)
+        energy = energy_from_string(args.energy, original_sm.bg, args, stat_source=stat_source)
 
         #Initialize energies to track
         energies_to_track=[]
@@ -535,10 +567,7 @@ def setup_deterministic(args):
                     energies_to_track.append(parseCombinedEnergyString(track_energy_string, cg,
                                              original_sm.bg, args, stat_source))
         #Initialize the Constraint energies
-        if args.constraint_energy in ["D","B","J"]:
-            sm.junction_constraint_energy=fbe.CombinedEnergy([fbe.RoughJunctionClosureEnergy()])
-        if args.constraint_energy in ["D","B","C"]:
-            sm.constraint_energy=fbe.CombinedEnergy([fbe.StemVirtualResClashEnergy()])
+        constraint_energy_to_sm(sm, args.constraint_energy, original_sm.bg, args.iterations, stat_source=stat_source)
 
     # It should not matter, which sm (in case of RE) I use for the mover,
     # as long as it corresponds to the correct bulge graph (i.e. 2D structure).
@@ -604,7 +633,13 @@ def setup_sampler(sm, energy, stat, resample, mover, stat_source, builder = fbb.
         sm.sample_stats(stat_source)
     clashfree_builder = builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
     clashfree_builder.accept_or_build(sm)
-
+    clash_energies = []
+    if sm.junction_constraint_energy is not None and len(sm.junction_constraint_energy)>0:
+        clash_energies.append(sm.junction_constraint_energy)
+    if sm.constraint_energy is not None and len(sm.constraint_energy)>0:
+        clash_energies.append(sm.constraint_energy)
+    log.info("Adding clash energies to sampler")
+    energy = fbe.CombinedEnergy(energy.energies+clash_energies)
     sampler = fbs.MCMCSampler(sm, energy, mover, stat)
     return sampler
 
@@ -733,6 +768,7 @@ def main(args):
                               "--fpp-landmarks {}".format(e.scale, e.ref_image,
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
                               file=out_file)
+                log.info("Now setting up sampler")
                 sampler = setup_sampler(sm, energy, stat, resample=args.start_from_scratch,
                                         mover = mover, stat_source = stat_source, builder=builder)
                 for i in range(args.iterations):

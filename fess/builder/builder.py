@@ -147,20 +147,21 @@ class Builder(object):
 
     def _check_sampled_ml(self, sm, ml):
         """
-        Raises an error if the sampled multiloop segment does not fulfill the junction closure energy
-
+        Raises an error if the sampled multiloop segment does not fulfill the junction closure energy.
+        For the RoughJunctionClosureEnergy, this should only raise
+        if the stat_source contains faulty stats.
         :param sm: The spatial model
         :param ml: The name of the junction segment we need to check (e.g. "m0")
-        :raises: ValueError, if the ml-segment dioes not fulfill the energy
+        :raises: ValueError, if the ml-segment does not fulfill the energy
         :returns: None
         """
         if self.junction_energy is None:
             return
-        if self.junction_energy.eval_energy(sm.bg, nodes = ml)!=0:
-                    dist = ftug.junction_virtual_atom_distance(sm.bg, ml)
-                    raise ValueError("Multiloop {} does not fulfill the constraints. "
-                                     "Sampled as {}, "
-                                     "distance = {}".format(ml, sm.elem_defs[ml], dist))
+        if self.junction_energy.eval_energy(sm.bg, nodes = [ml])!=0:
+            dist = ftug.junction_virtual_atom_distance(sm.bg, ml)
+            raise ValueError("Multiloop {} does not fulfill the constraints. "
+                             "Sampled as {}, "
+                             "distance = {}".format(ml, sm.elem_defs[ml], dist))
 
     def _get_bad_ml_segments(self, sm, nodes):
         """
@@ -287,7 +288,7 @@ class FairBuilder(Builder):
 
     def _fulfills_clash_energy(self, sm):
         if self.clash_energy is not None:
-            log.info("Testing clash energy.")            
+            log.info("Testing clash energy.")
             if self.clash_energy.eval_energy(sm.bg)>0:
                 if self.store_failed is True or self.store_failed == "clash":
                     self._store_failed(sm)

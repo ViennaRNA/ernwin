@@ -487,7 +487,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
     _shortname = "CLASH"
     _CLASH_DEFAULT_PREFACTOR = 50000.
     _CLASH_DEFAULT_ATOM_DIAMETER = 1.8
-    IS_CONSTRAINT = True
+    IS_CONSTRAINT_ONLY = True
     HELPTEXT = "       {:3}:  Clash constraint energy".format(_shortname)
 
 
@@ -669,7 +669,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
 class RoughJunctionClosureEnergy(EnergyFunction):
     _shortname = "JUNCT"
     _JUNCTION_DEFAULT_PREFACTOR = 50000.
-    IS_CONSTRAINT = True
+    IS_CONSTRAINT_ONLY = True
     HELPTEXT = "       {:3}:  Junction constraint energy".format(_shortname)
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, **kwargs):
@@ -682,6 +682,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
         super(RoughJunctionClosureEnergy, self).__init__(prefactor = prefactor)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+        log.debug("Evaluating junction closure energy")
         if nodes == None:
             nodes = cg.defines.keys()
 
@@ -706,8 +707,37 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         return energy
 
+class MaxEnergyValue(EnergyFunction):
+    _shortname = "MAX"
+    IS_CONSTRAINT_ONLY = True
+    HELPTEXT = ("       {:3}:  This energy is non-negative, if its child energy"
+                "              is above a thresthold".format(_shortname))
+    @classmethod
+    def from_cg(cls, cg, pre, adj, argument, **kwargs):
+        other_energy = single_energy_from_string(argument, cg, **kwargs)
+        return cls(other_energy, adj)
+    def __init__(self, other_energy, cutoff):
+        super(MaxEnergyValue, self).__init__(adjustment = cutoff)
+        self._other_energy = other_energy
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+        log.debug("MaxEnergyValue.eval_energy called. nodes=%s", nodes)
+        e = self._other_energy.eval_energy(cg, background, nodes, **kwargs)
+        if e>=self.adjustment:
+            self.bad_bulges = self._other_energy.bad_bulges
+            log.info("MaxEnergyValue: Threshold exceeded: {}>={}".format(e, self.adjustment))
+            return 10000.
+        else:
+            log.info("MaxEnergyValue: Threshold not exceeded: {}<{}".format(e, self.adjustment))
+            self.bad_bulges = []
+            return 0.
+    @property
+    def shortname(self):
+        sn = super(MaxEnergyValue, self).shortname
+        return sn.replace(self._shortname, "{}({})".format(self._shortname,self._other_energy.shortname))
+
 class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     _shortname = "FJC"
+    can_constrain = "junction"
     HELPTEXT = ("       {:3}:  An energy that searches depends on the best  \n"
                  "             an exponential distribution with parameter\n"
                  "             lambda = adjustment.".format(_shortname))
@@ -734,6 +764,8 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         return max(weighted_deviation)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+        self.bad_bulges = []
+        log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
         if nodes is not None and self.element not in nodes:
             return 0.
         target_stat, = [ s for s in cg.get_stats(self.element)
@@ -746,16 +778,23 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
                 self.used_stat = stat
         log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
+        self.bad_bulges = [self.element]
         return (best_deviation**self.adjustment)*self.prefactor
+    @property
+    def shortname(self):
+        sn = super(FragmentBasedJunctionClosureEnergy, self).shortname
+        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.element))
 
 class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
     _shortname = "SFJ"
+    can_constrain = "junction"
     HELPTEXT = ("       {:3}:  An energy for the use with samplers like the WholeMLStatSearch and\n"
                 "              LocalMLMover that assign a stat to broken multiloop segments.\n"
                 "              Controlls, how well the assigned stat fits the true geometry of this segment.".format(_shortname))
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         log.debug("eval_energy called on SFJ(%s)", self.element)
+        self.bad_bulges = []
         if nodes is not None and self.element not in nodes:
             return 0.
         target_stat, = [ s for s in cg.get_stats(self.element)
@@ -765,17 +804,14 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
         except KeyError:
             log.warning("Missing key %s in cg.sampled expected by SampledFragmentJunctionClosureEnergy. Returning energy of 0.", self.element)
             return 0.
-        log.debug("Searching for sampled bdp_name=%r", sampled_pdb_name)    
+        log.debug("Searching for sampled bdp_name=%r", sampled_pdb_name)
         for stat in self.stat_source.iterate_stats_for(cg, self.element):
             if stat.pdb_name == sampled_pdb_name:
+                self.bad_bulges = [self.element]
                 return (self._stat_deviation(stat, target_stat)**self.adjustment)*self.prefactor
         else:
             log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
             return 0.
-    @property
-    def shortname(self):
-        sn = super(SampledFragmentJunctionClosureEnergy, self).shortname
-        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.element))
 
 
 def _iter_subgraphs(cg, use_subgraphs):
@@ -1468,6 +1504,7 @@ class CombinedEnergy(object):
         """
         :param normalize: Divide the resulting energy by the numbers of contributions
         """
+        log.info("Setting up combined energy with contributions %s", energies)
         if energies is not None:
             super(CombinedEnergy, self).__setattr__("energies", energies)
         else:
@@ -1544,8 +1581,8 @@ class CombinedEnergy(object):
             if hasattr(e, "bad_bulges"):
                 bad_bulges+=e.bad_bulges
         return bad_bulges
-    def eval_energy(self, cg, verbose=False, background=True,
-                    nodes=None, use_accepted_measure=False, plot_debug=False):
+    def eval_energy(self, cg, background=True, nodes=None, verbose=False,
+                    use_accepted_measure=False, plot_debug=False):
         total_energy = 0.
         self.constituing_energies=[]
         num_contribs=0
@@ -1557,7 +1594,6 @@ class CombinedEnergy(object):
             if not np.isscalar(contrib):
                 raise TypeError
                 contrib, = contrib
-
             self.constituing_energies.append((energy.shortname, contrib))
             total_energy += contrib
             num_contribs +=1
@@ -1566,7 +1602,7 @@ class CombinedEnergy(object):
                 print (energy.name, energy.shortname, contrib)
                 if energy.bad_bulges:
                     print("bad_bulges:", energy.bad_bulges)
-            log.debug("{} ({}) contributing {}".format(energy.__class__.__name__, energy.shortname, contrib))
+            log.debug("Combined energy instance at {}: {} ({}) contributing {}".format(id(self), energy.__class__.__name__, energy.shortname, contrib))
 
 
         if num_contribs>0:
@@ -1578,13 +1614,14 @@ class CombinedEnergy(object):
         if verbose:
             print ("--------------------------")
             print ("total_energy:", total_energy)
+        log.debug("{} [{}] at {}: total energy is {}".format(str(self), self.shortname, id(self), total_energy))
         return total_energy
 
     def __str__(self):
-        out_str = ''
+        out_str = 'CombinedEnergy('
         for en in self.energies:
-            out_str += en.__class__.__name__ + " "
-        return out_str
+            out_str += en.__class__.__name__ + ","
+        return out_str[:-1]+")"
 
     def __len__(self):
         return len(self.energies)
@@ -1604,6 +1641,48 @@ class CombinedEnergy(object):
 ####################################################################################################
 
 
+def single_energy_from_string(energy_string, cg, num_steps = None, **kwargs):
+    if "energy_classes" in kwargs:
+        energy_classes = kwargs["energy_classes"]
+    else:
+        energy_subclasses = get_all_subclasses(EnergyFunction)
+        energy_classes = { cls._shortname: cls for cls in energy_subclasses if not cls == CoarseGrainEnergy }
+
+    # [prefactor]SHORTNAME[(single_argument)][adjustment]
+    # Where the single_argument has to be surrounded by parenthesis.
+    # prefactor and adjustment are numbers or underscore-seperated numbers (for simulated annealing)
+    # prefactor, adjustment and argument are optional
+    match = re.match(r"([^A-Z]*)([A-Z]+)((?:\[.*\])*)(.*)", energy_string)
+    if match is None:
+        raise ValueError("Contribution {} not understood".format(energy_string))
+    try:
+        cls = energy_classes[match.group(2)]
+    except KeyError as e:
+        with log_to_exception(log, e):
+            log.error("Valid energie functions are: %s", ", ".join(energy_classes.keys()))
+        raise
+    pre = _parseEnergyContributionString(match.group(1), num_steps)
+    adj = _parseEnergyContributionString(match.group(4), num_steps)
+    argument = match.group(3)
+    if argument:
+        assert argument[0]=="[" and argument[-1]=="]"
+        #Make a copy before modifying the dict
+        kwargs = dict(kwargs)
+        kwargs["argument"]=argument[1:-1]
+    kwargs["num_steps"]=num_steps
+    try:
+        return cls.from_cg(cg, pre, adj, **kwargs)
+    except TypeError as e:
+        if "arguments" not in e.message:
+            raise
+        # http://stackoverflow.com/a/2677263
+        args = inspect.getargspec(cls.from_cg).args
+        missing_arg = set(args)-set(["cls", "cg", "prefactor", "adjustment"]+list(kwargs.keys()))
+        if missing_arg:
+            raise TypeError("The following required Keyword-Arguments for energy {} are missing: {}".format(match.group(2), list(missing_arg)))
+        else:
+                raise
+
 def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
     """
     :param contribution_string: A string with comma-seperated energy contributions.
@@ -1617,29 +1696,8 @@ def energies_from_string(contribution_string, cg, num_steps = None, **kwargs):
     energy_classes = { cls._shortname: cls for cls in energy_subclasses if not cls == CoarseGrainEnergy }
     energies = []
     for contrib in contributions:
-        match = re.match(r"([^A-Z]*)([A-Z]+)(.*)", contrib)
-        if match is None:
-            raise ValueError("Contribution {} not understood".format(contrib))
-        try:
-            cls = energy_classes[match.group(2)]
-        except KeyError as e:
-            with log_to_exception(log, e):
-                log.error("Valid energie functions are: %s", ", ".join(energy_classes.keys()))
-            raise
-        pre = _parseEnergyContributionString(match.group(1), num_steps)
-        adj = _parseEnergyContributionString(match.group(3), num_steps)
-        try:
-            energies.append(cls.from_cg(cg, pre, adj, **kwargs))
-        except TypeError as e:
-            if "arguments" not in e.message:
-                raise
-            # http://stackoverflow.com/a/2677263
-            args = inspect.getargspec(cls.from_cg).args
-            missing_arg = set(args)-set(["cls", "cg", "prefactor", "adjustment"]+list(kwargs.keys()))
-            if missing_arg:
-                raise TypeError("The following required Keyword-Arguments for energy {} are missing: {}".format(match.group(2), list(missing_arg)))
-            else:
-                raise
+        energies.append(single_energy_from_string(contrib, cg, num_steps,
+                                                  energy_classes=energy_classes, **kwargs))
     return CombinedEnergy(energies)
 
 def _parseEnergyContributionString(contrib, num_steps):
@@ -1701,7 +1759,7 @@ def get_argparse_help():
     for cls in get_all_subclasses(EnergyFunction):
         if inspect.isabstract(cls):
             continue
-        if hasattr(cls, "IS_CONSTRAINT") and cls.IS_CONSTRAINT:
+        if hasattr(cls, "IS_CONSTRAINT_ONLY") and cls.IS_CONSTRAINT_ONLY:
             continue
         help.append(cls.HELPTEXT)
     return "\n".join(help)
