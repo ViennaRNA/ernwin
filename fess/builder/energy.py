@@ -3,9 +3,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
-from future.builtins.disabled import (apply, cmp, coerce, execfile,
-                             file, long, raw_input, reduce, reload,
-                             unicode, xrange, StandardError)
 __metaclass__=object
 
 from collections import defaultdict
@@ -14,7 +11,11 @@ import warnings
 import os.path as op
 import os
 import pkgutil as pu
-import StringIO
+
+try:
+    from io import StringIO
+except ImportError: # py 2.7
+    from StringIO import StringIO
 import math
 import re
 import sys
@@ -38,8 +39,8 @@ from logging_exceptions import log_to_exception
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as ftug
-import forgi.projection.hausdorff as fph
 import forgi.projection.projection2d as fpp
+import forgi.projection.hausdorff as fph
 import forgi.threedee.model.similarity as ftms
 import forgi.threedee.model.descriptors as ftmd
 
@@ -73,7 +74,7 @@ def load_local_data(filename):
     '''
     data = pu.get_data('fess', filename)
 
-    return StringIO.StringIO(data)
+    return StringIO(data)
 
 class RandomEnergy(EnergyFunction):
     _shortname = "RND"
@@ -1452,7 +1453,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     def _get_values_from_file(self, filename, length):
         data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#", names=["pdb_id","nt_length","dist"])
         data = self._values_within_nt_range(data, length, "dist", "nt_length" )
-	return data
+        return data
 
     def _get_distribution_from_values(self, values):
         f = super(ShortestLoopDistancePerLoop, self)._get_distribution_from_values(values)

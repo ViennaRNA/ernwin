@@ -381,7 +381,7 @@ class WholeMLStatSearch(Mover):
             dists = [stat.r1 for stat in sampled_stats.values()]
             sum_of_lengths = sum(dists)
             max_length = max(dists)
-            if sum_of_lengths - max_length> max_length+self.max_diff:
+            if sum_of_lengths - max_length < max_length-self.max_diff:
                 log.debug("Pruning because of triangular inequality: sum %s, max %s", sum_of_lengths, max_length )
                 self.num_pruned+=1
                 return False
@@ -397,6 +397,94 @@ class WholeMLStatSearch(Mover):
                 partial_sum_stat = ftug.sum_of_stats(partial_sum_stat, next_stat)
 
         return partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff))
+
+class MLSegmentPairMover(WholeMLStatSearch):
+    """
+    Change two connected ML elements in a way that the total stat
+    around the loop does not deviate by more than maxdiff from
+    the zero-stat
+    """
+    HELPTEXT = ("{:25} Not yet implemented\n".format("MLSegmentPairMover"))
+    def move(self, sm):
+        self.counter = 0
+        self.num_pruned = 0
+        whole_loop = self._get_elems(sm)
+        assert sm.bg.get_next_ml_segment(whole_loop[0])==whole_loop[1]
+        assert sm.bg.get_next_ml_segment(whole_loop[1])==whole_loop[2]
+        assert sm.bg.get_next_ml_segment(whole_loop[-1])==whole_loop[0]
+
+        i = random.randrange(len(whole_loop))
+        # For performance reasons, we do not use get_next_ml_segment here
+        j = i+1
+        if j==len(whole_loop):
+            j=0
+        m1 = whole_loop[i]
+        m2 = whole_loop[j]
+
+        remaining_loop = whole_loop[j+1:] + whole_loop[:i]
+        # WARNING: i will be reassigned below.
+
+        remaining_stat = None
+        for i in range(0,len(remaining_loop)):
+            at = sm.bg.get_angle_type(remaining_loop[i], allow_broken = True)
+            if at in [-3, -2, 4]:
+                next_stat = -sm.elem_defs[remaining_loop[i]]
+            else:
+                next_stat = sm.elem_defs[remaining_loop[i]]
+            if remaining_stat is None:
+                remaining_stat = next_stat
+            else:
+                remaining_stat = ftug.sum_of_stats(remaining_stat, next_stat)
+
+        stats = self._find_stats_for(m1, m2, remaining_stat, sm)
+        if not stats:
+            log.warning("Could not move %s %s in multiloop %s. "
+                        "No suitable combination of stats found.", m1, m2, whole_loop)
+            return "no_change"
+        else:
+            movestring = []
+            self._prev_stats = {}
+            for ml, stat in stats.items():
+                movestring.append(self._move(sm, ml, stat))
+            sm.new_traverse_and_build(start = "start", include_start = True)
+            return "".join(movestring)
+
+    def _find_stats_for(self, m1, m2, other_stat, sm):
+        """
+        :param elems: ML segments. Need to be ordered!
+        """
+        choices = { elem : list(self.stat_source.iterate_stats_for(sm.bg, elem)) for elem in [m1, m2] }
+        indices = list(it.product(range(len(choices[m1])), range(len(choices[m2]))))
+        random.shuffle(indices)
+
+        for i, j in indices:
+            sampled = {m1:choices[m1][i], m2: choices[m2][j]}
+            if self._check_overall_stat(sampled, m1, m2, other_stat, sm.bg):
+                log.info("Succsessfuly combination found after %d tried (%d of which were pruned)", self.counter, self.num_pruned)
+                return sampled
+            if self.counter%10000==0 and self.counter>0:
+                log.info("Nothing found after %d combinations tried, %d of which were disregarded early on. Still searching.", self.counter, self.num_pruned)
+        return None
+
+    def _check_overall_stat(self, sampled_stats, m1, m2, other_stat, cg):
+        self.counter+=1
+        #speed-up by pruning according to triangular inequality
+        dists = [stat.r1 for stat in sampled_stats.values()]+[other_stat.r1]
+        sum_of_lengths = sum(dists)
+        max_length = max(dists)
+        if sum_of_lengths - max_length <  max_length-self.max_diff:
+            log.debug("Pruning because of triangular inequality: sum %s, max %s", sum_of_lengths, max_length )
+            self.num_pruned+=1
+            return False
+        for elem in [m1, m2]:
+            at = cg.get_angle_type(elem, allow_broken = True)
+            if at in [-3, -2, 4]:
+                next_stat = - sampled_stats[elem]
+            else:
+                next_stat = sampled_stats[elem]
+            other_stat = ftug.sum_of_stats(other_stat, next_stat)
+        return other_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff))
+
 
 class LocalMLMover(Mover):
     """
@@ -502,6 +590,8 @@ class LocalMLMover(Mover):
             movestring.append(self._move(sm, ml2, stat2))
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
+
+
 
 
 ####################################################################################################

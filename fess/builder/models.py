@@ -60,7 +60,8 @@ class StemModel:
         '''
         return StemModel(self.name, (self.mids[1], self.mids[0]), (self.twists[1], self.twists[0]))
 
-    def vec(self, (from_side, to_side) = (0, 1)):
+    def vec(self, from_side_to_side = (0, 1)):
+        from_side, to_side = from_side_to_side
         return self.mids[to_side] - self.mids[from_side]
 
     def rotate(self, rot_mat, offset=np.array([0., 0., 0.])):
@@ -192,7 +193,7 @@ def extract_stem_from_chain(chain, stem_def):
 
 
 
-def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name=''):
+def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     '''
     Place a new stem with a particular orientation with respect
     to the previous stem.
@@ -203,6 +204,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name='
                          be oriented with respect to the first stem.
     @param (s1b, s1e): Which side of the first stem to place the second on.
     '''
+    s1b, s1e = s1b_s1e
     stem = StemModel()
 
     transposed_stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
@@ -558,7 +560,7 @@ class SpatialModel:
         #return self.angle_defs[name][ang_type]
         return self.elem_defs[name]"""
 
-    def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, (s1b, s1e)):
+    def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, s1b_s1e):
         '''
         Add a stem after a bulge.
 
@@ -571,6 +573,7 @@ class SpatialModel:
         @param bulge_params: The parameters of the bulge.
         @param side: The side of this stem that is away from the bulge
         '''
+        s1b, s1e = s1b_s1e
         log.debug("add_stem {}".format(stem_name))
         stem = place_new_stem(prev_stem, stem_params, bulge_params, (s1b, s1e), stem_name)
 

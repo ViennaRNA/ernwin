@@ -2,25 +2,31 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
-from future.builtins.disabled import (apply, cmp, coerce, execfile,
-                             file, long, raw_input, reduce, reload,
-                             unicode, xrange, StandardError)
+#from future.builtins.disabled import (apply, cmp, coerce, execfile,
+#                             file, long, raw_input, reduce, reload,
+#                             unicode, xrange, StandardError)
 
-import forgi.threedee.model.descriptors as ftur
-import forgi.threedee.model.similarity as ftme
-import forgi.threedee.utilities.vector as ftuv
-from . import config as conf
-from . import energy as fbe
 import sys
 import time
 import copy
 import os.path
-import numpy as np
-import pandas as pd
-from ..aux.SortedCollection import SortedCollection
 import warnings
 import logging
 from collections import defaultdict
+
+import numpy as np
+import pandas as pd
+
+from logging_exceptions import log_to_exception
+
+import forgi.threedee.model.descriptors as ftur
+import forgi.threedee.model.similarity as ftme
+import forgi.threedee.utilities.vector as ftuv
+
+from . import config as conf
+from . import energy as fbe
+from ..aux.SortedCollection import SortedCollection
+
 log = logging.getLogger(__name__)
 __metaclass__=type
 
@@ -777,36 +783,41 @@ class OutfileParser(object):
         with open(filepath) as  file:
             headers = None
             data = None
-            for line in file:
-                line=line.strip()
-                if not line:
-                    continue
-                elif line.startswith("# Random Seed:"):
-                    meta["seed"] = int(line.split()[-1])
-                elif line.startswith("# Command"):
-                    meta["command"] = line.split('`')[1]
-                elif line.startswith("# Version"):
-                    fields = line.split()
-                    meta["ernwin_version"] = fields[3].rstrip(",")
-                    meta["forgi_version"] = fields[5]
-                elif line.startswith("#"):
-                    continue
-                elif headers is None:
-                    headers = line.split("\t")
-                    self._init_collector_lookup(headers)
-                    data=[]
-                    for i in range(len(headers)):
-                        data.append([])
-                else:
-                    fields = line.split('\t')
-                    for i, field in enumerate(fields):
-                        if i == 0: #Step
-                            data[i].append(int(field))
-                        elif i==1: #Sampling_Energy
-                            data[i].append(float(field))
-                        cls = self._collectors[i]
-                        if cls is not None:
-                            data[i].append(cls.parse_value(field))
+            for line_no, line in enumerate(file):
+                try:
+                    line=line.strip()
+                    if not line:
+                        continue
+                    elif line.startswith("# Random Seed:"):
+                        meta["seed"] = int(line.split()[-1])
+                    elif line.startswith("# Command"):
+                        meta["command"] = line.split('`')[1]
+                    elif line.startswith("# Version"):
+                        fields = line.split()
+                        meta["ernwin_version"] = fields[3].rstrip(",")
+                        meta["forgi_version"] = fields[5]
+                    elif line.startswith("#"):
+                        continue
+                    elif headers is None:
+                        headers = line.split("\t")
+                        self._init_collector_lookup(headers)
+                        data=[]
+                        for i in range(len(headers)):
+                            data.append([])
+                    else:
+                        fields = line.split('\t')
+                        for i, field in enumerate(fields):
+                            if i == 0: #Step
+                                data[i].append(int(field))
+                            elif i==1: #Sampling_Energy
+                                data[i].append(float(field))
+                            cls = self._collectors[i]
+                            if cls is not None:
+                                data[i].append(cls.parse_value(field))
+                except Exception as e:
+                    with log_to_exception(log, e):
+                        log.error("Exception occurred during parsing of line %d '%s'", line_no, line)
+                    raise
             data_dic = {}
             for i, header in enumerate(headers):
                 if data[i]:
