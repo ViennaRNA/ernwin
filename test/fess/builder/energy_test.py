@@ -30,7 +30,7 @@ import forgi.threedee.utilities.vector as ftuv
 import fess.builder.energy as fbe
 from fess.builder.energy_abcs import EnergyFunction, CoarseGrainEnergy
 import fess.builder.models as fbm
-
+from fess.builder.stat_container import StatStorage
 
 def add_stem_coordinates(cg, stem, start, direction=[0.,0.,10.]):
     """
@@ -122,6 +122,21 @@ class TestJunctionConstraintEnergy(unittest.TestCase):
         self.assertEqual(self.junction_energy.eval_energy(cg, nodes=["m0"]),
                          self.junction_energy.eval_energy(cg))
 
+class TestSampledFragmentJunctionEnergy(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
+        self.stat_source = StatStorage("test/fess/data/real.stats")
+
+    def test_energy_zero(self):
+        # For the broken ml segment m2, we use the stats found in the stat-source for this element.
+        if self.cg.get_angle_type("m2", allow_broken=True)==3:
+            self.cg.sampled["m2"] = ["4GXY_A:m_16"]
+        elif self.cg.get_angle_type("m2", allow_broken=True)==-3:
+            self.cg.sampled["m2"] = ["4GXY_A:m_17"]
+        else:
+            assert False
+        energy = fbe.SampledFragmentJunctionClosureEnergy("m2", self.stat_source)
+        self.assertLess(energy.eval_energy(self.cg), 10**-3)
 
 class TestSLDEnergies(unittest.TestCase):
     def setUp(self):

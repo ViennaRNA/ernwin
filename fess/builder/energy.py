@@ -12,10 +12,6 @@ import os.path as op
 import os
 import pkgutil as pu
 
-try:
-    from io import StringIO
-except ImportError: # py 2.7
-    from StringIO import StringIO
 import math
 import re
 import sys
@@ -24,6 +20,11 @@ import itertools
 from pprint import pprint
 import logging
 import time
+if sys.version_info>=(3,):
+    from io import StringIO
+else:
+    from StringIO import StringIO
+
 
 import numpy as np
 import scipy.stats
@@ -742,6 +743,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     HELPTEXT = ("       {:3}:  An energy that searches depends on the best  \n"
                  "             an exponential distribution with parameter\n"
                  "             lambda = adjustment.".format(_shortname))
+
     @classmethod
     def from_cg(cls, cg, prefactor, adjustment, stat_source, **kwargs):
         energies = []
@@ -750,18 +752,23 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             if ml not in mst:
                 energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
-    def __init__(self, element, stat_source, angular_weight=1, prefactor = None, adjustment = None):
+
+    def __init__(self, element, stat_source, angular_weight=math.degrees(1)/4, prefactor = None, adjustment = None):
         self.element = element
         self.stat_source = stat_source
         # A deviation of 1 rad is equivalent to a deviation of how many angstrom
         self.angular_weight = angular_weight
         super(FragmentBasedJunctionClosureEnergy, self).__init__(prefactor = prefactor,
                                                                  adjustment = adjustment)
+
     def _stat_deviation(self, stat, virtual_stat):
         deviation = stat.deviation_from(virtual_stat)
+        self.log.debug("Spatial deviation %f", deviation[0])
         weighted_deviation = [deviation[0]]
         for i in range(1,4):
-            weighted_deviation.append(deviation[i]*self.angular_weight)
+            d = deviation[i]*self.angular_weight
+            self.log.debug("Deviation %f mapped to %f", deviation[i], d)
+            weighted_deviation.append(d)
         return max(weighted_deviation)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
@@ -781,6 +788,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
                                                                       self.element, best_deviation)
         self.bad_bulges = [self.element]
         return (best_deviation**self.adjustment)*self.prefactor
+
     @property
     def shortname(self):
         sn = super(FragmentBasedJunctionClosureEnergy, self).shortname
@@ -794,7 +802,7 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
                 "              Controlls, how well the assigned stat fits the true geometry of this segment.".format(_shortname))
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
-        log.debug("eval_energy called on SFJ(%s)", self.element)
+        self.log.debug("eval_energy called on SFJ(%s)", self.element)
         self.bad_bulges = []
         if nodes is not None and self.element not in nodes:
             return 0.
@@ -803,15 +811,20 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
         try:
             sampled_pdb_name = cg.sampled[self.element][0]
         except KeyError:
-            log.warning("Missing key %s in cg.sampled expected by SampledFragmentJunctionClosureEnergy. Returning energy of 0.", self.element)
+            self.log.warning("Missing key %s in cg.sampled expected by SampledFragmentJunctionClosureEnergy. Returning energy of 0.", self.element)
             return 0.
-        log.debug("Searching for sampled bdp_name=%r", sampled_pdb_name)
+        self.log.debug("Searching for sampled pdb_name=%r", sampled_pdb_name)
         for stat in self.stat_source.iterate_stats_for(cg, self.element):
             if stat.pdb_name == sampled_pdb_name:
+                self.log.debug("%s", stat)
+                assert stat.ang_type == target_stat.ang_type
                 self.bad_bulges = [self.element]
+                for s in cg.get_stats(self.element):
+                    self.log.debug("Deviation in one direction is %s", self._stat_deviation(stat, s))
+                self.log.debug("Returning deviation for %s %s", target_stat.pdb_name, stat.pdb_name)
                 return (self._stat_deviation(stat, target_stat)**self.adjustment)*self.prefactor
         else:
-            log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
+            self.log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
             return 0.
 
 

@@ -14,13 +14,16 @@ import copy
 import logging
 import numpy as np
 import numpy.testing as nptest
-
+import itertools as it
 
 import forgi.threedee.model.coarse_grain as ftmc
-from fess.builder.models import SpatialModel
+import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.threedee.model.stats as ftmstat
+
+
+from fess.builder.models import SpatialModel, place_new_stem
 from fess.builder.stat_container import StatStorage
 import fess.builder.move as fbmov
-import forgi.threedee.model.stats as ftmstat
 
 from scipy.stats import chisquare
 try:
@@ -31,8 +34,32 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+
 RAND_REPETITIONS = 200
+
 unittest.TestCase.longMessage = True
+
+
+def sampled_statsum_around_junction(sm, first_elem):
+    cg = sm.bg
+    elem = first_elem
+    stat = sm.elem_defs[elem]
+    if stat.ang_type in [-2, -3, 4]:
+        stat = -stat
+    sum_stat = stat
+    elem = cg.get_next_ml_segment(elem)
+    i=0
+    while elem != first_elem:
+        i+=1
+        stat = sm.elem_defs[elem]
+        if stat.ang_type in [-2, -3, 4]:
+            stat = -stat
+        sum_stat = ftug.sum_of_stats(sum_stat, stat)
+        elem = cg.get_next_ml_segment(elem)
+        if i>100:
+            assert False
+    return sum_stat
+
 class TestMoverBaseClassConstruction(unittest.TestCase):
     longMessage = True
     def setUp(self):
@@ -254,6 +281,75 @@ class TestWholeMLMoverPublicAPI(TestMoverBaseClassPublicAPI):
             else:
                 self.assertEqual(len(changed),1)
 
+class TestMLSegmentPairMover(TestMoverBaseClassPublicAPI):
+    def setUp(self):
+        self.stat_source_real = StatStorage("test/fess/data/real.stats")
+        cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.(((((......)))))....(((((......))))))))))")
+        self.sm = SpatialModel(cg)
+        self.sm.sample_stats(self.stat_source_real)
+        self.sm.new_traverse_and_build()
+        self.cutoff = 12
+        self.mover = fbmov.MLSegmentPairMover(self.stat_source_real, self.cutoff)
+        self.broken_ml, = [ m for m in self.sm.bg.mloop_iterator() if m not in self.sm.bg.mst ]
+        self.mover._get_elem = lambda sm: self.broken_ml
+
+    def test_moves_two_ml_segments(self):
+        for i in range(3):
+            sm = copy.deepcopy(self.sm)
+            stats_old = copy.deepcopy(sm.elem_defs)
+            self.mover.move(sm)
+            changed = set()
+            for elem in sm.elem_defs:
+                if elem not in stats_old or sm.elem_defs[elem].pdb_name!=stats_old[elem].pdb_name:
+                    changed.add(elem)
+            self.assertEqual(len(changed),2, msg = "Changed is {}, should be 2 ml segments".format(changed))
+    def test_sum_around_junction(self):
+        self.mover.move(self.sm)
+        sum_stat = statsum_around_junction(self.sm.bg, "m0")
+        assert sum_stat.is_similar_to(ftmstat.IDENTITY_STAT, self.cutoff)
+    def test_sampl_sum_around_junction(self):
+        self.mover.move(self.sm)
+        sum_stat = sampled_statsum_around_junction(self.sm, "m2")
+        log.warning("Sum stat for test is %s", sum_stat)
+        assert sum_stat.is_similar_to(ftmstat.IDENTITY_STAT, self.cutoff)
+    def test_sampled_junction_fragment_deviation(self):
+        self.mover.move(self.sm)
+        for elem in self.sm.bg.mloop_iterator():
+            target_stat, = [ s for s in self.sm.bg.get_stats(elem)
+                             if s.ang_type == self.sm.bg.get_angle_type(elem, allow_broken = True) ]
+            sampled_pdb_name = self.sm.bg.sampled[elem][0]
+            for stat in self.stat_source_real.iterate_stats_for(self.sm.bg, elem):
+                if stat.pdb_name == sampled_pdb_name:
+                    log.info("Asserting similarity for %s (broken = %s): %s =?= %s", elem, self.broken_ml, stat, target_stat)
+                    assert stat.is_similar_to(target_stat, self.cutoff)
+                    break
+    def plot_sampled_junction_fragment_deviation(self):
+        self.mover.move(self.sm)
+        cg = self.sm.bg
+        import matplotlib.pyplot as plt
+        for s in it.chain(cg.stem_iterator(), cg.mloop_iterator()):
+            if s == self.broken_ml:
+                lab = "broken {}".format(s)
+            else:
+                lab = s
+            plt.plot([cg.coords[s][0][0],cg.coords[s][1][0]], [cg.coords[s][0][1],cg.coords[s][1][1]], "o-", label=lab)
+
+        s1_model = place_new_stem(self.sm.stems["s1"], self.sm.elem_defs["s2"], self.sm.elem_defs[self.broken_ml], (1,0))
+
+
+        error_stat = ftug.get_error_stat(cg, self.broken_ml, "s1", self.sm.elem_defs[self.broken_ml])
+        plt.plot([s1_model.mids[0][0], s1_model.mids[1][0]], [s1_model.mids[0][1], s1_model.mids[1][1]], 's-', label="virtual" )
+
+        sum_stat = sampled_statsum_around_junction(self.sm, "m2")
+        s1_model = place_new_stem(self.sm.stems["s2"], self.sm.elem_defs["s2"], sum_stat, (1,0))
+        plt.plot([s1_model.mids[0][0], s1_model.mids[1][0]], [s1_model.mids[0][1], s1_model.mids[1][1]], 's-', color="blue", label="virtual_around_circle" )
+
+        plt.legend()
+        plt.show()
+        log.warning("Broken %s, next %s", self.broken_ml, cg.get_next_ml_segment(self.broken_ml))
+        assert sum_stat.is_similar_to(ftmstat.IDENTITY_STAT, self.cutoff)
+        log.warning("Asserting %s ==  %s", error_stat, ftmstat.IDENTITY_STAT)
+        assert error_stat.is_similar_to(ftmstat.IDENTITY_STAT, self.cutoff)
 
 class TestConvenienceFunctions(unittest.TestCase):
     def setUp(self):

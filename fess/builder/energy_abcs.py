@@ -38,6 +38,7 @@ class EnergyFunction(object):
         return cls(prefactor, adjustment)
 
     def __init__(self, prefactor = None, adjustment = None):
+        self.log = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         if prefactor is None:
             prefactor = DEFAULT_ENERGY_PREFACTOR
         if adjustment is None:

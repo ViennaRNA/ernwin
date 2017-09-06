@@ -289,18 +289,32 @@ class WholeMLStatSearch(Mover):
     def __init__(self, stat_source, max_diff):
         super(WholeMLStatSearch, self).__init__(stat_source)
         self.max_diff=float(max_diff)
-    def _get_elems(self, sm):
+    def _get_loop(self, sm):
         loops = sm.bg.find_mlonly_multiloops()
         regular_multiloops = [ m for m in loops
                                if "regular_multiloop" in sm.bg.describe_multiloop(m) ]
         if len(regular_multiloops)==0:
             raise ValueError("{} needs at least 1 regular multiloop. "
                              "(Pseudoknots and external loops are not yet supported.)")
-        return random.choice(regular_multiloops)
+        loop = random.choice(regular_multiloops)
+        # Now we want the broken ML segment last!
+        return self._sort_loop(sm, loop)
+
+    def _sort_loop(self, sm, loop):
+        broken_mls = [ ml for ml in loop if ml not in sm.bg.mst ]
+        if len(broken_mls)!=1:
+            raise ValueError("WholeMLStatSearch is inappropriate for "
+                             "Multiloops where more than one segment is broken.")
+        broken_ml, = broken_mls
+        i = loop.index(broken_ml)
+        loop = loop[i+1:]+loop[:i+1]
+        assert loop[-1]==broken_ml
+        return loop
+
     def move(self, sm):
         self.counter = 0
         self.num_pruned = 0
-        elems = self._get_elems(sm)
+        elems = self._get_loop(sm)
         assert sm.bg.get_next_ml_segment(elems[0])==elems[1]
         assert sm.bg.get_next_ml_segment(elems[1])==elems[2]
         assert sm.bg.get_next_ml_segment(elems[-1])==elems[0]
@@ -396,7 +410,7 @@ class WholeMLStatSearch(Mover):
             else:
                 partial_sum_stat = ftug.sum_of_stats(partial_sum_stat, next_stat)
 
-        return partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff))
+        return partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff)
 
 class MLSegmentPairMover(WholeMLStatSearch):
     """
@@ -405,41 +419,26 @@ class MLSegmentPairMover(WholeMLStatSearch):
     the zero-stat
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("MLSegmentPairMover"))
+    def __init__(self, *args):
+        self.cache = {}
+        super(MLSegmentPairMover, self).__init__(*args)
+
+    def _get_elem(self, sm):
+        possible_elements = sm.bg.get_mst() - sm.frozen_elements
+        return random.choice(list(m for m in possible_elements if m[0]=="m"))
+
     def move(self, sm):
         self.counter = 0
         self.num_pruned = 0
-        whole_loop = self._get_elems(sm)
-        assert sm.bg.get_next_ml_segment(whole_loop[0])==whole_loop[1]
-        assert sm.bg.get_next_ml_segment(whole_loop[1])==whole_loop[2]
-        assert sm.bg.get_next_ml_segment(whole_loop[-1])==whole_loop[0]
+        self.cache_used = 0
 
-        i = random.randrange(len(whole_loop))
-        # For performance reasons, we do not use get_next_ml_segment here
-        j = i+1
-        if j==len(whole_loop):
-            j=0
-        m1 = whole_loop[i]
-        m2 = whole_loop[j]
+        m1 = self._get_elem(sm)
+        m2 = sm.bg.get_next_ml_segment(m1)
 
-        remaining_loop = whole_loop[j+1:] + whole_loop[:i]
-        # WARNING: i will be reassigned below.
-
-        remaining_stat = None
-        for i in range(0,len(remaining_loop)):
-            at = sm.bg.get_angle_type(remaining_loop[i], allow_broken = True)
-            if at in [-3, -2, 4]:
-                next_stat = -sm.elem_defs[remaining_loop[i]]
-            else:
-                next_stat = sm.elem_defs[remaining_loop[i]]
-            if remaining_stat is None:
-                remaining_stat = next_stat
-            else:
-                remaining_stat = ftug.sum_of_stats(remaining_stat, next_stat)
-
-        stats = self._find_stats_for(m1, m2, remaining_stat, sm)
+        stats = self._find_stats_for(m1, m2, sm)
         if not stats:
-            log.warning("Could not move %s %s in multiloop %s. "
-                        "No suitable combination of stats found.", m1, m2, whole_loop)
+            log.warning("Could not move %s %s. "
+                        "No suitable combination of stats found.", m1, m2)
             return "no_change"
         else:
             movestring = []
@@ -449,41 +448,29 @@ class MLSegmentPairMover(WholeMLStatSearch):
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
 
-    def _find_stats_for(self, m1, m2, other_stat, sm):
+    def _find_stats_for(self, m1, m2, sm):
         """
         :param elems: ML segments. Need to be ordered!
         """
         choices = { elem : list(self.stat_source.iterate_stats_for(sm.bg, elem)) for elem in [m1, m2] }
         indices = list(it.product(range(len(choices[m1])), range(len(choices[m2]))))
         random.shuffle(indices)
-
+        use_asserts = ftuv.USE_ASSERTS
+        ftuv.USE_ASSERTS=False
+        loop = sm.bg.shortest_mlonly_multiloop(m1)
+        loop = self._sort_loop(sm, loop)
+        log.error("Loop is %s", loop)
+        sampled = {ml: sm.elem_defs[ml] for ml in loop if ml in sm.elem_defs}
         for i, j in indices:
-            sampled = {m1:choices[m1][i], m2: choices[m2][j]}
-            if self._check_overall_stat(sampled, m1, m2, other_stat, sm.bg):
-                log.info("Succsessfuly combination found after %d tried (%d of which were pruned)", self.counter, self.num_pruned)
+            sampled.update({m1:choices[m1][i], m2: choices[m2][j]})
+            if self._check_overall_stat(sampled, loop, sm.bg):
+                log.info("Succsessfuly combination found after %d tried (%d of which were pruned, %d cached)", self.counter, self.num_pruned, self.cache_used)
+                ftuv.USE_ASSERTS=use_asserts
                 return sampled
             if self.counter%10000==0 and self.counter>0:
-                log.info("Nothing found after %d combinations tried, %d of which were disregarded early on. Still searching.", self.counter, self.num_pruned)
+                log.info("Nothing found after %d tries for %s, %d of which were disregarded early on, %d cached. Still searching (up to a total of %d combinations).", self.counter, (m1, m2), self.num_pruned, self.cache_used, len(indices))
+        ftuv.USE_ASSERTS=use_asserts
         return None
-
-    def _check_overall_stat(self, sampled_stats, m1, m2, other_stat, cg):
-        self.counter+=1
-        #speed-up by pruning according to triangular inequality
-        dists = [stat.r1 for stat in sampled_stats.values()]+[other_stat.r1]
-        sum_of_lengths = sum(dists)
-        max_length = max(dists)
-        if sum_of_lengths - max_length <  max_length-self.max_diff:
-            log.debug("Pruning because of triangular inequality: sum %s, max %s", sum_of_lengths, max_length )
-            self.num_pruned+=1
-            return False
-        for elem in [m1, m2]:
-            at = cg.get_angle_type(elem, allow_broken = True)
-            if at in [-3, -2, 4]:
-                next_stat = - sampled_stats[elem]
-            else:
-                next_stat = sampled_stats[elem]
-            other_stat = ftug.sum_of_stats(other_stat, next_stat)
-        return other_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff, math.radians(self.max_diff))
 
 
 class LocalMLMover(Mover):
