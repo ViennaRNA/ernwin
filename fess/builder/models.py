@@ -190,9 +190,6 @@ def extract_stem_from_chain(chain, stem_def):
 
     return c
 
-
-
-
 def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     '''
     Place a new stem with a particular orientation with respect
@@ -216,7 +213,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     twist1 = cgg.twist2_orient_from_stem1_1(transposed_stem1_basis, bulge_params.twist_params())
     log.debug("twist1: %s", twist1)
 
-    assert np.allclose(np.dot(stem_orientation, twist1), 0)
+    #assert np.allclose(np.dot(stem_orientation, twist1), 0)
 
     mid1 = prev_stem.mids[s1e] + start_location
     mid2 = mid1 + stem_orientation
@@ -227,7 +224,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
     log.debug("twist2: %s", twist2)
     stem.twists = (twist1, twist2)
-    assert np.allclose(np.dot(stem_orientation, twist2), 0)
+    #assert np.allclose(np.dot(stem_orientation, twist2), 0)
     return stem
 
 class SpatialModel:
@@ -612,17 +609,22 @@ class SpatialModel:
                     self.bulges[d] = BulgeModel((s1mid, s2mid))
 
     def stem_to_coords(self, stem):
-        sm = self.stems[stem]
+        """
 
-        if not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or not np.allclose(self.bg.coords[stem][1], sm.mids[1]):
-            log.debug("Changing stem %s: %s to %s",stem, self.bg.coords[stem], (sm.mids[0], sm.mids[1]))
-        if not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or not np.allclose(self.bg.twists[stem][1], sm.twists[1]):
-            log.debug("Changing stem twist %s : %s to %s", stem, self.bg.twists[stem], (sm.twists[0], sm.twists[1]))
+        """
+        sm = self.stems[stem]
+        if log.isEnabledFor(logging.DEBUG):
+            if (not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or
+                not np.allclose(self.bg.coords[stem][1], sm.mids[1])):
+                log.debug("Changing stem %s: %s to %s",stem, self.bg.coords[stem], (sm.mids[0], sm.mids[1]))
+            if (not np.allclose(self.bg.twists[stem][0], sm.twists[0]) or
+                not np.allclose(self.bg.twists[stem][1], sm.twists[1])):
+                log.debug("Changing stem twist %s : %s to %s", stem, self.bg.twists[stem], (sm.twists[0], sm.twists[1]))
 
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
 
-        cgg.add_virtual_residues(self.bg, stem)
+        #cgg.add_virtual_residues(self.bg, stem)
 
     def _loops_to_coords(self):
         '''
@@ -695,6 +697,7 @@ class SpatialModel:
         self.fill_in_bulges_and_loops()
         self._loops_to_coords()
         self.save_sampled_elems()
+        self.bg.add_all_virtual_residues()
 
     def add_to_skip(self):
         '''
@@ -722,7 +725,8 @@ class SpatialModel:
         self.to_skip = to_skip
 
 
-    def new_traverse_and_build(self, start='start', max_steps=float('inf'), end=None, include_start=False):
+    def new_traverse_and_build(self, start='start', max_steps=float('inf'),
+                               end=None, include_start=False, finish_building = True):
         '''
         Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.
 
@@ -730,16 +734,25 @@ class SpatialModel:
         :param max_staps: Optional; Build at most that many stems.
         :param end: Optional; End building once the given node is built.
                     If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
-        :param include_start: If True, build including the node given as start, if False, only build AFTER it.
-        :returns: A list of course_grained elements that have been built. (Useful, if start or max_steps is given).
+        :param include_start: If True, build including the node given as start,
+                              if False, only build AFTER it.
+        :param finish_building: Usually True. Set it to False, if self._finish_building
+                                should not be called after the stems have been built.
+        :returns: A list of course_grained elements that have been built.
+                  (Useful, if start or max_steps is given).
         '''
         log.debug("new_traverse_and_build(self, start={}, max_steps={}, end={})".format(start, max_steps, end))
-        build_order = self.bg.traverse_graph()
+        if not self.bg.build_order:
+            build_order = self.bg.traverse_graph()
+        else:
+            build_order = self.bg.build_order
         log.debug("build_order: %s", build_order)
         def buildorder_of(stemid, include = False):
             """
             Returns the buildorder of the multi-/ interior loop before the stem with stemid.
-            @param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
+            :param stemid: a string describing a stem or loop, e.g. 's0', 'i3'
+            :param include: Whether or not to include the starting node (only for stems),
+                            for bulges, the stem AFTER the bulge is always the first stem placed.
             """
             if stemid == "s0":
                 return int(include)
@@ -770,7 +783,8 @@ class SpatialModel:
         else:
             build_step = buildorder_of(start, include_start)
             if build_step >= len(build_order):
-                self._finish_building()
+                if finish_building:
+                    self._finish_building()
                 return []
             prev_stem = build_order[build_step][0]
             try:
@@ -820,7 +834,8 @@ class SpatialModel:
             #Optional end-criterion given as a node label.
             if end is not None and end in nodes:
                 break
-        self._finish_building()
+        if finish_building:
+            self._finish_building()
         return nodes
 
     def ml_stat_deviation(self, ml, stat):

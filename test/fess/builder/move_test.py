@@ -288,7 +288,7 @@ class TestMLSegmentPairMover(TestMoverBaseClassPublicAPI):
         self.sm = SpatialModel(cg)
         self.sm.sample_stats(self.stat_source_real)
         self.sm.new_traverse_and_build()
-        self.cutoff = 12
+        self.cutoff = 20
         self.mover = fbmov.MLSegmentPairMover(self.stat_source_real, self.cutoff)
         self.broken_ml, = [ m for m in self.sm.bg.mloop_iterator() if m not in self.sm.bg.mst ]
         self.mover._get_elem = lambda sm: self.broken_ml

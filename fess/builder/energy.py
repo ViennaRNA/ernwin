@@ -761,26 +761,33 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         super(FragmentBasedJunctionClosureEnergy, self).__init__(prefactor = prefactor,
                                                                  adjustment = adjustment)
 
-    def _stat_deviation(self, stat, virtual_stat):
-        deviation = stat.deviation_from(virtual_stat)
-        self.log.debug("Spatial deviation %f", deviation[0])
-        weighted_deviation = [deviation[0]]
-        for i in range(1,4):
-            d = deviation[i]*self.angular_weight
-            self.log.debug("Deviation %f mapped to %f", deviation[i], d)
-            weighted_deviation.append(d)
-        return max(weighted_deviation)
+    def _stat_deviation(self, cg, virtual_stat):
+        # Broken mls are ordered by connections
+        s1, s2 = cg.connections(self.element)
+        pdev, adev, tdev = ftug.get_broken_ml_deviation(cg, self.element,
+                                                        s2,
+                                                        virtual_stat)
+
+        pdev2, adev2, tdev2 = ftug.get_broken_ml_deviation(cg, self.element,
+                                                        s1,
+                                                        virtual_stat)
+        log.info("PDEV: %s or %s, ADEV %s or %s, TDEV: %s or %s", pdev, pdev2, adev, adev2, tdev, tdev2)
+        adev = math.degrees(adev)
+        tdev = math.degrees(tdev)
+        self.log.debug("Deviation: %s Angstrom, %s degrees (orientation), %s degrees (twist)", pdev, adev, tdev)
+        adev = adev/3
+        tdev = tdev/6
+        log.debug("Weighted deviation: pos: %s, orient %s, twist: %s", pdev, adev, tdev)
+        return max(pdev, adev, tdev)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         self.bad_bulges = []
         log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
         if nodes is not None and self.element not in nodes:
             return 0.
-        target_stat, = [ s for s in cg.get_stats(self.element)
-                         if s.ang_type == cg.get_angle_type(self.element, allow_broken = True) ]
         best_deviation = float('inf')
         for stat in self.stat_source.iterate_stats_for(cg, self.element):
-            curr_dev = self._stat_deviation(stat, target_stat)
+            curr_dev = self._stat_deviation(cg, stat)
             if curr_dev < best_deviation:
                 best_deviation = curr_dev
                 self.used_stat = stat
@@ -806,8 +813,6 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
         self.bad_bulges = []
         if nodes is not None and self.element not in nodes:
             return 0.
-        target_stat, = [ s for s in cg.get_stats(self.element)
-                         if s.ang_type == cg.get_angle_type(self.element, allow_broken = True) ]
         try:
             sampled_pdb_name = cg.sampled[self.element][0]
         except KeyError:
@@ -816,13 +821,9 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
         self.log.debug("Searching for sampled pdb_name=%r", sampled_pdb_name)
         for stat in self.stat_source.iterate_stats_for(cg, self.element):
             if stat.pdb_name == sampled_pdb_name:
-                self.log.debug("%s", stat)
-                assert stat.ang_type == target_stat.ang_type
                 self.bad_bulges = [self.element]
-                for s in cg.get_stats(self.element):
-                    self.log.debug("Deviation in one direction is %s", self._stat_deviation(stat, s))
-                self.log.debug("Returning deviation for %s %s", target_stat.pdb_name, stat.pdb_name)
-                return (self._stat_deviation(stat, target_stat)**self.adjustment)*self.prefactor
+                self.log.debug("Returning deviation for %s", stat.pdb_name)
+                return (self._stat_deviation(cg, stat)**self.adjustment)*self.prefactor
         else:
             self.log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
             return 0.

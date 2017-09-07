@@ -63,16 +63,22 @@ class Mover:
         sm.new_traverse_and_build(start = elem, include_start = True)
         return movestring
 
-    def _move(self, sm, elem, new_stat):
+    def _store_prev_stat(self, sm, elem):
+        """
+        Store the stat from elem_defs to self._prev_stats and return its pdb_name.
+        Returns "UNSET" if the stat is not present.
+        """
         try:
             prev_stat = sm.elem_defs[elem]
         except KeyError:
-            prev_stat = SimpleNamespace()
-            prev_stat.pdb_name = "UNSET"
+            return "UNSET"
         else:
             self._prev_stats[elem] = prev_stat
+        return prev_stat.pdb_name
+    def _move(self, sm, elem, new_stat):
+        prev_name = self._store_prev_stat(sm, elem)
         sm.elem_defs[elem]=new_stat
-        return "{}:{}->{};".format(elem, prev_stat.pdb_name, new_stat.pdb_name)
+        return "{}:{}->{};".format(elem, prev_name, new_stat.pdb_name)
 
     def revert(self, sm):
         """
@@ -289,7 +295,7 @@ class WholeMLStatSearch(Mover):
     def __init__(self, stat_source, max_diff):
         super(WholeMLStatSearch, self).__init__(stat_source)
         self.max_diff=float(max_diff)
-    def _get_loop(self, sm):
+    def _get_elements(self, sm):
         loops = sm.bg.find_mlonly_multiloops()
         regular_multiloops = [ m for m in loops
                                if "regular_multiloop" in sm.bg.describe_multiloop(m) ]
@@ -297,40 +303,52 @@ class WholeMLStatSearch(Mover):
             raise ValueError("{} needs at least 1 regular multiloop. "
                              "(Pseudoknots and external loops are not yet supported.)")
         loop = random.choice(regular_multiloops)
-        # Now we want the broken ML segment last!
-        return self._sort_loop(sm, loop)
+        return self._sort_loop(sm, list(loop))
 
     def _sort_loop(self, sm, loop):
-        broken_mls = [ ml for ml in loop if ml not in sm.bg.mst ]
-        if len(broken_mls)!=1:
-            raise ValueError("WholeMLStatSearch is inappropriate for "
-                             "Multiloops where more than one segment is broken.")
-        broken_ml, = broken_mls
-        i = loop.index(broken_ml)
-        loop = loop[i+1:]+loop[:i+1]
-        assert loop[-1]==broken_ml
+        """
+        Sort loop according to buildorder
+        """
+        build_order = sm.bg.traverse_graph()
+        def s_key(ml):
+            for i, stem_loop_stem in enumerate(build_order):
+                if ml==stem_loop_stem[1]:
+                    return i
+            return float("inf")
+        loop.sort(key=s_key)
         return loop
 
     def move(self, sm):
         self.counter = 0
-        self.num_pruned = 0
-        elems = self._get_loop(sm)
-        assert sm.bg.get_next_ml_segment(elems[0])==elems[1]
-        assert sm.bg.get_next_ml_segment(elems[1])==elems[2]
-        assert sm.bg.get_next_ml_segment(elems[-1])==elems[0]
 
+        elems = self._get_elements(sm)
+
+        self._prev_stats = {}
+        for elem in elems:
+            self._store_prev_stat(sm, elem)
+
+        use_asserts = ftuv.USE_ASSERTS
+        ftuv.USE_ASSERTS=False
         stats = self._find_stats_for(elems, sm)
+        ftuv.USE_ASSERTS=use_asserts
+
         if not stats:
             log.warning("Could not move multiloop %s. "
                         "No suitable combination of stats found.", elems)
+            self.revert(sm)
             return "no_change"
         else:
             movestring = []
-            self._prev_stats = {}
+
             for ml, stat in stats.items():
-                movestring.append(self._move(sm, ml, stat))
+                try:
+                    p_name = self._prev_stats[ml].pdb_name
+                except KeyError:
+                    p_name = "UNSET"
+                movestring.append("{}:{}->{};".format(ml, p_name, stat.pdb_name))
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
+
     def _find_stats_for(self, elems, sm):
         """
         :param elems: ML segments. Need to be ordered!
@@ -342,14 +360,15 @@ class WholeMLStatSearch(Mover):
         log.debug("maxlen %s", maxlen)
         for i in range(maxlen):
             for first_elem in choices.keys():
-                sampled_stats = self._find_stats_ith_iteration(i, first_elem, elems, choices, sm.bg)
+                sampled_stats = self._find_stats_ith_iteration(i, first_elem, elems, choices, sm)
                 if sampled_stats is not None:
-                    log.info("Succsessfuly combination found after %d tries in %d iterations (%d of which were pruned)", self.counter, i, self.num_pruned)
+                    log.info("Succsessfuly combination found after %d tries in %d iterations", self.counter, i)
                     return sampled_stats
             if i%10==9:
-                log.info("Nothing found after %d iterations. %d combinations tried, %d of which were disregarded early on. Still searching.", i+1, self.counter, self.num_pruned)
+                log.info("Nothing found after %d iterations. %d combinations tried. Still searching.", i+1, self.counter)
         return None
-    def _find_stats_ith_iteration(self, i, first_elem, elems, choices, cg):
+    def _find_stats_ith_iteration(self, i, first_elem, elems, choices, sm):
+        cg = sm.bg
         first_elem_index = elems.index(first_elem)
         # Of the selected ml-segment, only look at the ith stat and compare it
         # to all possible combinations of the first i stats for other elements.
@@ -383,35 +402,26 @@ class WholeMLStatSearch(Mover):
                 sampled_stats[ml] = new_stat
             if not skip:
                 sampled_stats[first_elem] = first_elem_stat
-                if self._check_overall_stat(sampled_stats, elems, cg):
+                if self._check_junction(sm, sampled_stats, elems):
                     return sampled_stats
         return None
-    def _check_overall_stat(self, sampled_stats, elems, cg):
+    def _check_junction(self, sm, sampled_stats, elems):
         self.counter+=1
-        log.debug("Checking sampled_stats %s for elems %s", sampled_stats, elems)
-        partial_sum_stat = None
-        if len(elems)==3:
-            #speed-up by pruning according to triangular inequality
-            dists = [stat.r1 for stat in sampled_stats.values()]
-            sum_of_lengths = sum(dists)
-            max_length = max(dists)
-            if sum_of_lengths - max_length < max_length-self.max_diff:
-                log.debug("Pruning because of triangular inequality: sum %s, max %s", sum_of_lengths, max_length )
-                self.num_pruned+=1
-                return False
-        for elem in elems:
-            at = cg.get_angle_type(elem, allow_broken = True)
-            if at in [-3, -2, 4]:
-                next_stat = - sampled_stats[elem]
-            else:
-                next_stat = sampled_stats[elem]
-            if partial_sum_stat is None:
-                partial_sum_stat = next_stat
-            else:
-                partial_sum_stat = ftug.sum_of_stats(partial_sum_stat, next_stat)
+        for elem, new_stat in sampled_stats.items():
+            sm.elem_defs[elem]=new_stat
+        for elem in elems[:-1]: # The last elem is broken!
+            nodes = sm.new_traverse_and_build(start=elem, max_steps = 1, finish_building=False)
 
-        return partial_sum_stat.is_similar_to(ftms.IDENTITY_STAT, self.max_diff)
+        try:
+            broken_stat = sampled_stats[elems[-1]]
+        except KeyError:
+            broken_stat = sm.elem_defs[elems[-1]]
 
+        pdev, adev, tdev = ftug.get_broken_ml_deviation(sm.bg, elems[-1],
+                                                        nodes[-1],
+                                                        broken_stat)
+        max_adiff = math.radians(3*self.max_diff)
+        return pdev < self.max_diff and adev<max_adiff and tdev<2*max_adiff
 class MLSegmentPairMover(WholeMLStatSearch):
     """
     Change two connected ML elements in a way that the total stat
@@ -427,49 +437,28 @@ class MLSegmentPairMover(WholeMLStatSearch):
         possible_elements = sm.bg.get_mst() - sm.frozen_elements
         return random.choice(list(m for m in possible_elements if m[0]=="m"))
 
-    def move(self, sm):
-        self.counter = 0
-        self.num_pruned = 0
-        self.cache_used = 0
-
+    def _get_elements(self, sm):
         m1 = self._get_elem(sm)
         m2 = sm.bg.get_next_ml_segment(m1)
+        return self._sort_loop(sm, [m1, m2])
 
-        stats = self._find_stats_for(m1, m2, sm)
-        if not stats:
-            log.warning("Could not move %s %s. "
-                        "No suitable combination of stats found.", m1, m2)
-            return "no_change"
-        else:
-            movestring = []
-            self._prev_stats = {}
-            for ml, stat in stats.items():
-                movestring.append(self._move(sm, ml, stat))
-            sm.new_traverse_and_build(start = "start", include_start = True)
-            return "".join(movestring)
-
-    def _find_stats_for(self, m1, m2, sm):
+    def _find_stats_for(self, elems, sm):
         """
         :param elems: ML segments. Need to be ordered!
         """
+        # Sort m1, m2 according to build order
+        m1, m2 = elems
         choices = { elem : list(self.stat_source.iterate_stats_for(sm.bg, elem)) for elem in [m1, m2] }
         indices = list(it.product(range(len(choices[m1])), range(len(choices[m2]))))
         random.shuffle(indices)
-        use_asserts = ftuv.USE_ASSERTS
-        ftuv.USE_ASSERTS=False
-        loop = sm.bg.shortest_mlonly_multiloop(m1)
-        loop = self._sort_loop(sm, loop)
-        log.error("Loop is %s", loop)
-        sampled = {ml: sm.elem_defs[ml] for ml in loop if ml in sm.elem_defs}
+        loop = self._sort_loop(sm, list(sm.bg.shortest_mlonly_multiloop(m1)))
         for i, j in indices:
-            sampled.update({m1:choices[m1][i], m2: choices[m2][j]})
-            if self._check_overall_stat(sampled, loop, sm.bg):
-                log.info("Succsessfuly combination found after %d tried (%d of which were pruned, %d cached)", self.counter, self.num_pruned, self.cache_used)
-                ftuv.USE_ASSERTS=use_asserts
+            sampled={m1:choices[m1][i], m2: choices[m2][j]}
+            if self._check_junction(sm, sampled, loop):
+                log.info("Succsessfuly combination found after %d tried", self.counter)
                 return sampled
             if self.counter%10000==0 and self.counter>0:
-                log.info("Nothing found after %d tries for %s, %d of which were disregarded early on, %d cached. Still searching (up to a total of %d combinations).", self.counter, (m1, m2), self.num_pruned, self.cache_used, len(indices))
-        ftuv.USE_ASSERTS=use_asserts
+                log.info("Nothing found after %d tries for %s. Still searching (up to a total of %d combinations).", self.counter, (m1, m2), len(indices))
         return None
 
 
