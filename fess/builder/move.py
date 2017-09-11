@@ -642,7 +642,7 @@ def get_argparse_help():
         Please specify the same default in `add_argument` as described in this help-text
     """
     help= ("Which types of Moves to use during sampling.\n"
-           "If you specify more than one mover separated by a comma,
+           "If you specify more than one mover separated by a comma,"
            "the mover will be picked at random at each step."
            "Default: Mover\n"
            "One or more of the following:\n")
