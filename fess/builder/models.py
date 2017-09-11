@@ -729,8 +729,9 @@ class SpatialModel:
                                end=None, include_start=False, finish_building = True):
         '''
         Build a 3D structure from the graph in self.bg and the stats from self.elem_defs.
+        :param start: Optional; Start building the given element. If it is a stem, build AFTER this stem.
+                      TODO: instead of linear build_order use a tree. Only build leaves dependend on the changed node
 
-        :param start: Optional; Start building the given element. (See include_start)
         :param max_staps: Optional; Build at most that many stems.
         :param end: Optional; End building once the given node is built.
                     If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
@@ -754,8 +755,10 @@ class SpatialModel:
             :param include: Whether or not to include the starting node (only for stems),
                             for bulges, the stem AFTER the bulge is always the first stem placed.
             """
+
             if stemid == "s0":
                 return int(include)
+
             if stemid.startswith('s'):
                 for i, stem_loop_stem in enumerate(build_order):
                     if stemid==stem_loop_stem[2]:
@@ -770,6 +773,7 @@ class SpatialModel:
                     if stemid==stem_loop_stem[1]:
                         return i
             raise ValueError("{} not found in {}.".format(stemid,build_order))
+
         nodes = []
         if start == "start" or (start == "s0" and include_start):
             # add the first stem in relation to a non-existent stem
@@ -780,6 +784,9 @@ class SpatialModel:
             self.stem_to_coords(first_stem)
             nodes.append(first_stem)
             build_step = 0
+        elif start[0] in "fth":
+            self._finish_building()
+            return []
         else:
             build_step = buildorder_of(start, include_start)
             if build_step >= len(build_order):
@@ -837,6 +844,7 @@ class SpatialModel:
         if finish_building:
             self._finish_building()
         return nodes
+
 
     def ml_stat_deviation(self, ml, stat):
         """
