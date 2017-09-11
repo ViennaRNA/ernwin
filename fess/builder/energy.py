@@ -1168,7 +1168,11 @@ class AMinorEnergy(CoarseGrainEnergy):
                         if stem in cg.incomplete_elements:
                             continue
                         dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
-                        if dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)) and not np.isnan(dist+angle1+angle2):
+                        #
+                        # For non-AME geometries, we need to include all the geometries beyond the cutoff.
+                        # This makes P(I) even smaller, but makes P(geo) more realistically.
+                        #
+                        if not np.isnan(dist+angle1+angle2): #dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)) and not np.isnan(dist+angle1+angle2):
                             geometry = fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop)))
                             if geometry in aminor_geometries:
                                 log.info("Geometry %s is in aminor_geometries", geometry)
