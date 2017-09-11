@@ -571,7 +571,7 @@ def setup_deterministic(args):
 
     # It should not matter, which sm (in case of RE) I use for the mover,
     # as long as it corresponds to the correct bulge graph (i.e. 2D structure).
-    mover = fbmov.mover_from_string(args.move_set, stat_source, original_sm)
+    mover = fbmov.mixed_mover_from_string(args.move_set, stat_source, original_sm)
 
     return sm, original_sm, ofilename, energy, energies_to_track, mover, stat_source
 

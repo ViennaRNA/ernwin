@@ -422,6 +422,7 @@ class WholeMLStatSearch(Mover):
                                                         broken_stat)
         max_adiff = math.radians(3*self.max_diff)
         return pdev < self.max_diff and adev<max_adiff and tdev<2*max_adiff
+
 class MLSegmentPairMover(WholeMLStatSearch):
     """
     Change two connected ML elements in a way that the total stat
@@ -567,12 +568,27 @@ class LocalMLMover(Mover):
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
 
-
+class MixedMover():
+    def __init__(self, movers=[]):
+        self.movers = movers
+        self.last_mover = None
+    def move(self, sm):
+        self.last_mover = random.choice(self.movers)
+        return self.last_mover.move()
+    def revert(self, sm):
+        self.last_mover.revert()
 
 
 ####################################################################################################
 ### Command line parsing
 ####################################################################################################
+
+def mixed_mover_from_string(stri, stat_source, sm=None):
+    movers = []
+    for substri in stri.split(","):
+        movers.append(mover_from_string(substri, stat_source, sm))
+    return MixedMover(movers)
+
 
 def mover_from_string(stri, stat_source, sm=None):
     """
@@ -619,15 +635,17 @@ def mover_from_string(stri, stat_source, sm=None):
 def get_argparse_help():
     """
     Return a pre-formatted string that can be passed to "help" in argparse.add_argument,
-    if the resulting argument is parsed with `mover_from_string`
+    if the resulting argument is parsed with `mixed_mover_from_string`
 
     .. warning::
 
         Please specify the same default in `add_argument` as described in this help-text
     """
     help= ("Which types of Moves to use during sampling.\n"
+           "If you specify more than one mover separated by a comma,
+           "the mover will be picked at random at each step."
            "Default: Mover\n"
-           "One of the following:\n")
+           "One or more of the following:\n")
     for mover_class in get_all_subclasses(Mover, include_base = True):
         help+=mover_class.HELPTEXT+"\n"
     return help
