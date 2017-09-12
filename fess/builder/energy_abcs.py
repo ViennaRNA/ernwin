@@ -181,6 +181,16 @@ class EnergyFunction(object):
         log.debug("Updating adjustment from %s to %s", self.adjustment, self.adjustment+self._adj_stepwidth)
         self.adjustment += self._adj_stepwidth
 
+    def __bool__(self):
+        """
+        Returns always True, because a normal energy is never empty.
+        This is implemented here to provide compatibility of the
+        interface of Energy with CombinedEnergy
+        """
+        return True
+
+    __nonzero__=__bool__
+
 class CoarseGrainEnergy(EnergyFunction):
     """
     A base-class for Energy functions that use a background distribution.

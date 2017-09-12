@@ -1149,7 +1149,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         #Read the FR3D output
         with open(fr3d_out) as f:
             aminor_geometries, problematic_pdbids = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
-        for amg in aminor_geometries:
+        for amg in list(aminor_geometries):
             if amg.pdb_id in problematic_pdbids:
                 aminor_geometries.remove(amg)
         non_ame_geometries = set()
@@ -1561,7 +1561,7 @@ class CombinedEnergy(object):
         except:
             pass
         try:
-            return "".join(attrs)
+            return join(attrs)
         except:
             pass
         return CombinedFunction(attrs)
@@ -1583,6 +1583,16 @@ class CombinedEnergy(object):
                     yield e2
             else:
                 yield e
+
+    @property
+    def can_constrain(self):
+        can_constrain = []
+        for e in self.iterate_energies():
+            can_constrain.append(e.can_constrain)
+        if all(c == can_constrain[0] for c in can_constrain):
+            return can_constrain[0]
+        else:
+            return "inconsistent"
 
     @property
     def shortname(self):
@@ -1655,12 +1665,27 @@ class CombinedEnergy(object):
             elif isinstance(e, cls):
                 return True
         return False
+
+    def __bool__(self):
+        if not self.energies:
+            return False
+        else:
+            return any(e for e in self.energies)
+
+    __nonzero__=__bool__
 ####################################################################################################
 ## Convenience functions for creating energies
 ####################################################################################################
 
 
 def single_energy_from_string(energy_string, cg, num_steps = None, **kwargs):
+    """
+    Make a single call to 'from_cg' of an Energy class.
+
+    .. warning::
+
+        This may still return a CombinedEnergy.
+    """
     if "energy_classes" in kwargs:
         energy_classes = kwargs["energy_classes"]
     else:

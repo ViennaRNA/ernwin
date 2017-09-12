@@ -40,11 +40,16 @@ def get_version_string():
     try:
         #Installed with setup.py from a gitrepo
         label = "ernwin {}, forgi {}".format(fess.__complete_version__, forgi.__complete_version__)
+        log.debug("Ernwin was installed with setup.py. Version is: %s", label)
     except:
         try:
             #On my local machine, run from git directory. This script issues `git describe` in the ernwin and forgi directory.
             label = subprocess.check_output(["get_ernwin_version"])
+            log.debug("Using ernwin from git repo, running `git describe`. Version is: %s", label)
+
         except OSError:
             #In production, use the version variable
             label = "ernwin {}, forgi {}".format(__version__, forgi.__version__)
+            log.debug("Production code of ernwin with version: %s", label)
+
     return label

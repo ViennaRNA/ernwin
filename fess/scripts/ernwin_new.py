@@ -427,14 +427,15 @@ def constraint_energy_to_sm(sm, energy_string, cg, num_steps, **kwargs):
                                  "'{}' to end with ']'".format(c))
             en=en[:-1]
             energy = fbe.single_energy_from_string(en, cg, num_steps, **kwargs)
-            if not hasattr(energy, "can_constrain"):
-                raise ValueError("The energy {} cannot be "
-                                 "used as constraint energy!".format(energy.shortname))
-            if energy.can_constrain=="junction":
-                junction.append(fbe.MaxEnergyValue(energy, pref))
-            else:
-                raise NotImplementedError("can_constrain=='{}' not "
-                                          "yet implemented".format(energy.can_constrain))
+            if energy:
+                if not hasattr(energy, "can_constrain"):
+                    raise ValueError("The energy {} cannot be "
+                                     "used as constraint energy!".format(energy.shortname))
+                if energy.can_constrain=="junction":
+                    junction.append(fbe.MaxEnergyValue(energy, pref))
+                else:
+                    raise NotImplementedError("can_constrain=='{}' not "
+                                              "yet implemented".format(energy.can_constrain))
     sm.junction_constraint_energy=fbe.CombinedEnergy(junction)
     sm.constraint_energy=fbe.CombinedEnergy(clash)
 

@@ -78,31 +78,31 @@ if __name__=="__main__":
 
     if not args.plot_only:
       #Generating the files
-      #fbe.RadiusOfGyrationEnergy.generate_target_distribution(cg_files, 
-      #                                        args.rog_target_file, 
-      #                                        use_subgraphs = use_subgraphs)
+      fbe.RadiusOfGyrationEnergy.generate_target_distribution(cg_files, 
+                                              args.rog_target_file, 
+                                              use_subgraphs = use_subgraphs)
     
-      #if args.ame_pdb_id_file:
-      #    ame_cgs = set([])
-      #    with open(args.ame_pdb_id_file) as f:
-      #        for line in f:
-      #            for cg_fname in cg_files:
-      #                if line.strip() in cg_fname:
-      #                    ame_cgs.add(cg_fname)
-      #else:
-      #    ame_cgs = cg_files
-      #if args.precalculated_ame_orient:
-      #      all_cgs = defaultdict(list)
-      #      for fn in cg_files:
-      #          cg = ftmc.CoarseGrainRNA(fn)
-      #          all_cgs[cg.name[:4]].append(cg)
-      #      fbe.AMinorEnergy._generate_target_dist_given_orientation(all_cgs, 'fess/'+args.ame_target_file, args.ame_orientation_outfile, use_subgraphs = use_subgraphs)
-      #else:
-      #    fbe.AMinorEnergy.generate_target_distribution(ame_cgs, 
-      #                   args.fr3d_result_file,
-      #                   args.ame_target_file, 
-      #                   orientation_outfile = args.ame_orientation_outfile,
-      #                   fr3d_query = args.fr3d_query_string, use_subgraphs = use_subgraphs)
+      if args.ame_pdb_id_file:
+          ame_cgs = set([])
+          with open(args.ame_pdb_id_file) as f:
+              for line in f:
+                  for cg_fname in cg_files:
+                      if line.strip() in cg_fname:
+                          ame_cgs.add(cg_fname)
+      else:
+          ame_cgs = cg_files
+      if args.precalculated_ame_orient:
+            all_cgs = defaultdict(list)
+            for fn in cg_files:
+                cg = ftmc.CoarseGrainRNA(fn)
+                all_cgs[cg.name[:4]].append(cg)
+            fbe.AMinorEnergy._generate_target_dist_given_orientation(all_cgs, 'fess/'+args.ame_target_file, args.ame_orientation_outfile, use_subgraphs = use_subgraphs)
+      else:
+          fbe.AMinorEnergy.generate_target_distribution(ame_cgs, 
+                         args.fr3d_result_file,
+                         args.ame_target_file, 
+                         orientation_outfile = args.ame_orientation_outfile,
+                         fr3d_query = args.fr3d_query_string, use_subgraphs = use_subgraphs)
       fbe.ShortestLoopDistancePerLoop.generate_target_distribution(cg_files, 
                                                             args.sld_target_file, 
                                                             use_subgraphs = use_subgraphs)
