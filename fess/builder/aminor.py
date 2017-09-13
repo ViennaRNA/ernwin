@@ -174,6 +174,9 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
 
     :param all_cgs: A dictionary PDB_id (4-letter): [CoarseGrainRNA, ...]
     :param fr3d_out: A file opened for reading.
+
+    :returns: A set of AMinor Geometries and a list of PDB-IDs, for which at
+              least one line did not lead to an Aminor Geometry
     """
     problematic_pdbids = set()
     geometries = set()
@@ -213,7 +216,7 @@ def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_t
                                   for x in non_aminor_geometries
                                   if  x.loop_type == loop_type])
     log.info("%d interactions and %d non-interactions given for loop type %s.", len(aminor_geometries), len(non_aminor_geometries), loop_type)
-    if len(aminor_geometries) == 0: #E.g. for f0
+    if len(aminor_geometries) < 3: #E.g. for f0
         return lambda x: np.array([0])
     # Overall Probability/ Frequency of A-Minor interactions
     log.info("len(aminor_geometries)=%d, len(non_aminor_geometries)=%d", len(aminor_geometries), len(non_aminor_geometries))
@@ -223,18 +226,19 @@ def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_t
     log.info("p_geometry_given_interaction done. Calculating p_geometry_all")
     p_geometry_non_interaction = scipy.stats.gaussian_kde(non_aminor_geometries.T)
 
+
     def p_function(point):
-        numerator = p_geometry_given_interaction(point)
-        #log.info("Numerator: %s", numerator)
-        denom = p_geometry_non_interaction(point)*(1-p_interaction)+numerator*p_interaction
-        #log.info("Denominator: %s", denom)
-        #log.info("p_interaction %s", p_interaction)
-        return numerator/denom*p_interaction
+        numerator = p_geometry_given_interaction(point)*p_interaction
+        denom = numerator+p_geometry_non_interaction(point)*(1-p_interaction)
+        log.debug("prob: %f / %f = %f", numerator, denom, numerator/denom)
+        return numerator/denom
 
     # The version below was used by Peter to avoid too small denominators in case of pseudoknots.
     # Can give probabilities >1
     #p_interaction_given_geometry = lambda point: (p_geometry_given_interaction(point)) / p_geometry_all(point) + p_geometry_given_interaction(point)
     #return p_interaction_given_geometry
+
+    # New version
     return p_function
 
 def max_prob(loop, cg, prob_fun, cutoff_dist, domain = None):
@@ -349,7 +353,7 @@ def _iter_probs(loop, cg, prob_fun, cutoff_dist, domain = None):
 
     For params: See the documentation of total_prob
     """
-    log.debug("Entering 'num_interactions'")
+    log.debug("Entering '_iter_probs'")
     if domain is not None:
         stems = (s for s in domain if s[0]=="s")
     else:

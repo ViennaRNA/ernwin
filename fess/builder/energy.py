@@ -1148,14 +1148,12 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         #Read the FR3D output
         with open(fr3d_out) as f:
-            aminor_geometries, problematic_pdbids = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
-        for amg in list(aminor_geometries):
-            if amg.pdb_id in problematic_pdbids:
-                aminor_geometries.remove(amg)
+            aminor_geometries, _ = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
+        log.info("Found %d A-Minor interactions", len(aminor_geometries))
+        if len(aminor_geometries)==0:
+            raise ValueError("No A-Minor geometries found. Is the FR3D output file correct?")
         non_ame_geometries = set()
         for pdb_id, cgs in all_cgs.items():
-            if pdb_id in problematic_pdbids:
-                continue
             for cg in cgs:
                 for loop in cg.defines:
                     if loop[0]=="s":
@@ -1189,14 +1187,14 @@ class AMinorEnergy(CoarseGrainEnergy):
                 print("#    "+line, file = f)
             print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
             # HEADER
-            print ("pdb_id loop_type dist angle1 angle2 is_interaction loop_sequence", file=f)
+            print ("pdb_id loop_type dist angle1 angle2 is_interaction loop_sequence interaction", file=f)
             for entry in aminor_geometries:
                 print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction} {loop_sequence}".format(is_interaction = True,
+                      "{angle2} {is_interaction} {loop_sequence} {loop_name}-{stem_name}".format(is_interaction = True,
                                                          **entry._asdict()), file = f)
             for entry in non_ame_geometries:
                 print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction} {loop_sequence}".format(is_interaction = False,
+                      "{angle2} {is_interaction} {loop_sequence} {loop_name}-{stem_name}".format(is_interaction = False,
                                                          **entry._asdict()), file = f)
         cls._generate_target_dist_given_orientation(all_cgs, out_filename,
                                                     orientation_outfile, use_subgraphs, cg_filenames)
