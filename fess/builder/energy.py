@@ -1051,7 +1051,6 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         # Create the probability functions
         all_geometries = pd.read_csv(load_local_data(orientation_infile), delimiter=' ', comment="#")
-        all_geometries = all_geometries[ all_geometries["dist"] < cls.cutoff_dist ]
         aminor_geometries = all_geometries[all_geometries["is_interaction"]]
         non_ame_geometries = all_geometries[np.invert(all_geometries["is_interaction"])]
         prob_fun= {}
