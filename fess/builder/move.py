@@ -292,9 +292,10 @@ class WholeMLMover(Mover):
 class WholeMLStatSearch(Mover):
     HELPTEXT = ("{:25} Not yet implemented\n".format("WholeMLStatSearch"))
 
-    def __init__(self, stat_source, max_diff):
+    def __init__(self, stat_source, max_diff, a_weight=3):
         super(WholeMLStatSearch, self).__init__(stat_source)
         self.max_diff=float(max_diff)
+        self.a_weight =float(a_weight)
     def _get_elements(self, sm):
         loops = sm.bg.find_mlonly_multiloops()
         regular_multiloops = [ m for m in loops
@@ -420,7 +421,7 @@ class WholeMLStatSearch(Mover):
         pdev, adev, tdev = ftug.get_broken_ml_deviation(sm.bg, elems[-1],
                                                         nodes[-1],
                                                         broken_stat)
-        max_adiff = math.radians(3*self.max_diff)
+        max_adiff = math.radians(self.a_weight*self.max_diff)
         return pdev < self.max_diff and adev<max_adiff and tdev<2*max_adiff
 
 class MLSegmentPairMover(WholeMLStatSearch):
@@ -430,9 +431,6 @@ class MLSegmentPairMover(WholeMLStatSearch):
     the zero-stat
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("MLSegmentPairMover"))
-    def __init__(self, *args):
-        self.cache = {}
-        super(MLSegmentPairMover, self).__init__(*args)
 
     def _get_elem(self, sm):
         possible_elements = sm.bg.get_mst() - sm.frozen_elements
@@ -605,7 +603,7 @@ def mover_from_string(stri, stat_source, sm=None):
         movername, option = stri.split('[')
         if option[-1]!="]":
             raise ValueError("Missing closing bracket at end of '[{}'".format(option))
-        args = [option[:-1]]
+        args = option[:-1].split(",")
     else:
         args = []
         movername = stri
