@@ -572,9 +572,9 @@ class MixedMover():
         self.last_mover = None
     def move(self, sm):
         self.last_mover = random.choice(self.movers)
-        return self.last_mover.move()
+        return self.last_mover.move(sm)
     def revert(self, sm):
-        self.last_mover.revert()
+        self.last_mover.revert(sm)
 
 
 ####################################################################################################
@@ -583,7 +583,7 @@ class MixedMover():
 
 def mixed_mover_from_string(stri, stat_source, sm=None):
     movers = []
-    for substri in stri.split(","):
+    for substri in stri.split(":"):
         movers.append(mover_from_string(substri, stat_source, sm))
     return MixedMover(movers)
 
