@@ -27,59 +27,61 @@ except:
     return x
 
 @profile
-def get_relative_orientation(cg, l1, l2):
+def get_relative_orientation(cg, loop, stem):
     '''
-    Return how l1 is related to l2 in terms of three parameters. l2 should
-    be the receptor of a potential A-Minor interaction, whereas l1 should
-    be the donor.
+    Return how loop is related to stemin terms of three parameters.
+
+    The stem is the receptor of a potential A-Minor interaction, whereas the
+    loop is the donor.
+
+    The 3 parameters are:
 
         1. Distance between the closest points of the two elements
-        2. The angle between l2 and the vector between the two
+        2. The angle between the stem and the vector between the two
         3. The angle between the minor groove of l2 and the vector between
-           l1 and l2
+           stem and loop
     '''
-    (i1, i2) = ftuv.line_segment_distance(cg.coords[l1][0],
-                                          cg.coords[l1][1],
-                                          cg.coords[l2][0],
-                                          cg.coords[l2][1])
-    try:
-        angle1 = ftuv.vec_angle(cg.coords.get_direction(l2),
-                                cg.coords.get_direction(l1))
-    except ValueError:
-        if np.all(cg.coords.get_direction(l1) == 0):
-            angle1 = float('nan')
-        else:
-            raise
+
+    #l1...loop, l2...stem
+    (point_on_stem, point_on_loop) = ftuv.line_segment_distance(cg.coords[stem][0],
+                                                                cg.coords[stem][1],
+                                                                cg.coords[loop][0],
+                                                                cg.coords[loop][1])
+    conn_vec = point_on_loop-point_on_stem
+
+    angle1 = ftuv.vec_angle(cg.coords.get_direction(stem),
+                            conn_vec)
+    # The direction of the stem vector is irrelevant, so
+    # choose the smaller of the two angles between two lines
+    if angle1>np.pi/2:
+        angle1 = np.pi-angle1
+
+
     #fud.pv('angle1')
 
-    tw = cg.get_twists(l2)
+    tw = cg.get_twists(stem)
 
-    dist = ftuv.vec_distance(i2, i1)
+    dist = ftuv.magnitude(conn_vec)
 
     if dist==0:
         angle2=float("nan")
     else:
-        if l2[0] != 's':
-            try:
-                angle2 = ftuv.vec_angle((tw[0] + tw[1]) / 2.,
-                                   i2 - i1)
-            except ValueError:
-                if np.all((tw[0] + tw[1])==0):
-                    angle2=float("nan")
-                else:
-                    raise
+        if stem[0] != 's':
+            raise ValueError("The receptor needs to be a stem, not {}".format(stem))
         else:
-            stem_len = cg.stem_length(l2)
+            stem_len = cg.stem_length(stem)
 
             # Where along the helix our A-residue points to the minor groove.
             # This can be between residues. We express it as floating point nucleotide coordinates.
             # So 0.0 means at the first basepair, while 1.5 means between the second and the third basepair.
-            pos = ftuv.magnitude(i2 - cg.coords[l2][0]) / ftuv.magnitude(cg.coords.get_direction(l2)) * (stem_len - 1)
+            pos = ftuv.magnitude(point_on_stem - cg.coords[stem][0]) / ftuv.magnitude(cg.coords.get_direction(stem)) * (stem_len - 1)
 
             # The vector pointing to the minor groove, even if we are not at a virtual residue (pos is a float value)
-            vec = ftug.virtual_res_3d_pos_core(cg.coords[l2], cg.twists[l2], pos, stem_len)[1]
+            vec = ftug.virtual_res_3d_pos_core(cg.coords[stem], cg.twists[stem], pos, stem_len)[1]
             try:
-                angle2 = ftuv.vec_angle(vec, i2 - i1)
+                # Note: here the directions of both vectors are well defined,
+                # so angles >90 degrees make sense.
+                angle2 = ftuv.vec_angle(vec, conn_vec)
             except ValueError:
                 if np.all(vec==0):
                     angle2=float("nan")
@@ -180,6 +182,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     """
     problematic_pdbids = set()
     geometries = set()
+    skipped = 0
     for line in fr3d_out:
         line=line.strip()
         if not line: #Empty line
@@ -187,6 +190,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
         log.debug("Line '%s'.read", line)
         geometry = _parse_fred_line(line, all_cgs)
         if geometry is None:
+            skipped+=1
             if not (line.startswith("Filename") or line.startswith("#")):
                 log.warning("Skipping line {!r}".format(line))
                 problematic_pdbids.add(line.split()[0])
@@ -197,7 +201,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
             warnings.warn("No adenine in loop %r for line %r", geometry.loop_name, line)
         else:
             geometries.add(geometry)
-    return geometries, problematic_pdbids
+    return geometries, skipped #problematic_pdbids
 
 
 def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_type):
@@ -230,6 +234,7 @@ def aminor_probability_function(aminor_geometries, non_aminor_geometries, loop_t
     def p_function(point):
         numerator = p_geometry_given_interaction(point)*p_interaction
         denom = numerator+p_geometry_non_interaction(point)*(1-p_interaction)
+        log.debug("P(I)= %f, P(nonI)= %f, P(geo|I)= %f, P(geo|nonI)=%f", p_interaction, 1-p_interaction, p_geometry_given_interaction(point), p_geometry_non_interaction(point))
         log.debug("prob: %f / %f = %f", numerator, denom, numerator/denom)
         return numerator/denom
 

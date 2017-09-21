@@ -1148,6 +1148,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         #Read the FR3D output
         with open(fr3d_out) as f:
             aminor_geometries, _ = fba.parse_fred(cls.cutoff_dist, all_cgs, f)
+        log.error("%d entries skipped during FR3D parsing", _)
         log.info("Found %d A-Minor interactions", len(aminor_geometries))
         if len(aminor_geometries)==0:
             raise ValueError("No A-Minor geometries found. Is the FR3D output file correct?")
