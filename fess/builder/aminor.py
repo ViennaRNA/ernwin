@@ -92,7 +92,7 @@ def get_relative_orientation(cg, loop, stem):
 
 
 
-_AMGeometry = namedtuple("AMGeometry", ["pdb_id", "loop_name", "stem_name", "dist", "angle1", "angle2", "loop_sequence", "score"])
+_AMGeometry = namedtuple("AMGeometry", ["pdb_id", "loop_name", "stem_name", "dist", "angle1", "angle2", "loop_sequence", "score", "annotation"])
 class AMGeometry(_AMGeometry):
     def _asdict(self):
         d = super(AMGeometry, self)._asdict()
@@ -114,7 +114,7 @@ def _safe_resid_from_chain_res(chain, residue):
             warnings.warn("Illegal residue number: '{}'.".format(residue))
             return
 
-def _parse_fred_line(line, all_cgs):
+def _parse_fred_line(line, all_cgs, current_annotation):
     parts = line.split()
     if len(parts) < 10:
         return
@@ -168,7 +168,7 @@ def _parse_fred_line(line, all_cgs):
     if np.isnan(angle1+angle2+dist):
         warnings.warn("Cannot get relative orientation. Zero-length element {}".format(nodes[0]))
         return
-    return (AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0])),float(parts[1])))
+    return (AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0])),float(parts[1]), current_annotation))
 
 def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     """
@@ -183,12 +183,21 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     problematic_pdbids = set()
     geometries = set()
     skipped = 0
+    #: What type of AMinor interactions.
+    #: Comments in the form "# AMinor 0" have to be added manually
+    #: when copying the FR3D-output to a file.They should preced the
+    #: actual FR3D-output to which they apply.
+    current_annotation = "?"
     for line in fr3d_out:
         line=line.strip()
         if not line: #Empty line
             continue
+        if line.startswith("# AMinor"):
+            current_annotation = line[9:]
+        elif line.startswith("#"):
+            current_annotation = "?"
         log.debug("Line '%s'.read", line)
-        geometry = _parse_fred_line(line, all_cgs)
+        geometry = _parse_fred_line(line, all_cgs, current_annotation)
         if geometry is None:
             skipped+=1
             if not (line.startswith("Filename") or line.startswith("#")):
