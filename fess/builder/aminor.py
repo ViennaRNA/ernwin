@@ -92,7 +92,7 @@ def get_relative_orientation(cg, loop, stem):
 
 
 
-_AMGeometry = namedtuple("AMGeometry", ["pdb_id", "loop_name", "stem_name", "dist", "angle1", "angle2", "loop_sequence"])
+_AMGeometry = namedtuple("AMGeometry", ["pdb_id", "loop_name", "stem_name", "dist", "angle1", "angle2", "loop_sequence", "score"])
 class AMGeometry(_AMGeometry):
     def _asdict(self):
         d = super(AMGeometry, self)._asdict()
@@ -168,7 +168,7 @@ def _parse_fred_line(line, all_cgs):
     if np.isnan(angle1+angle2+dist):
         warnings.warn("Cannot get relative orientation. Zero-length element {}".format(nodes[0]))
         return
-    return (AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0]))))
+    return (AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0])),float(parts[1])))
 
 def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     """
