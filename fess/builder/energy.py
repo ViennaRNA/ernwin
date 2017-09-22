@@ -1240,7 +1240,8 @@ class AMinorEnergy(CoarseGrainEnergy):
         return values
 
     def eval_prob(self, cg, d):
-        return fba.total_prob(d, cg, self.prob_function, self.cutoff_dist)
+        return fba.total_prob(fba.iter_probs(loop, cg, prob_funs[loop[0]],
+                                             cls.cutoff_dist, domain))
 
     def _get_cg_measure(self, cg):
         raise NotImplementedError("Not needed for A-Minor energy")
@@ -1334,10 +1335,11 @@ class AMinorEnergy(CoarseGrainEnergy):
                 continue
             if loop in cg.incomplete_elements:
                 continue
-            t_prob = fba.total_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
-            max_prob = fba.max_prob(loop, cg, prob_funs[loop[0]], cls.cutoff_dist, domain)
-            num_interactions = fba.num_interactions(loop, cg, prob_funs[loop[0]],
-                                                    cls.cutoff_dist, domain)
+            probs = list(fba.iter_probs(loop, cg, prob_funs[loop[0]],
+                         cls.cutoff_dist, domain))
+            t_prob = fba.total_prob(probs)
+            max_prob = max(probs)
+            num_interactions = sum(probs)
             if not np.isnan(t_prob*max_prob*num_interactions):
                 assert max_prob<=t_prob<=num_interactions, ("{} <=? {} "
                                                            "<=? {}".format(max_prob,
