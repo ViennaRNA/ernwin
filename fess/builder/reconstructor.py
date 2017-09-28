@@ -1,3 +1,9 @@
+'''
+Convert a bulge graph to the pdb-format.
+
+'''
+
+
 import multiprocessing as mp
 import warnings
 import glob
