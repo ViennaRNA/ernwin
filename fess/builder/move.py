@@ -28,6 +28,7 @@ import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.stats as ftms
 
 from ..aux.utils import get_all_subclasses
+from . import create
 
 log=logging.getLogger(__name__)
 
@@ -320,8 +321,6 @@ class WholeMLStatSearch(Mover):
         return loop
 
     def move(self, sm):
-        self.counter = 0
-
         elems = self._get_elements(sm)
 
         self._prev_stats = {}
@@ -354,60 +353,15 @@ class WholeMLStatSearch(Mover):
         """
         :param elems: ML segments. Need to be ordered!
         """
-        choices = { elem : list(self.stat_source.iterate_stats_for(sm.bg, elem)) for elem in elems }
-        for stat_choices in choices.values():
-            random.shuffle(stat_choices) # For performance reasons lists are shuffled in place
-        maxlen = max(len(c) for c in choices.values())
-        log.debug("maxlen %s", maxlen)
-        for i in range(maxlen):
-            for first_elem in choices.keys():
-                sampled_stats = self._find_stats_ith_iteration(i, first_elem, elems, choices, sm)
-                if sampled_stats is not None:
-                    log.info("Succsessfuly combination found after %d tries in %d iterations", self.counter, i)
-                    return sampled_stats
-            if i%10==9:
-                log.info("Nothing found after %d iterations. %d combinations tried. Still searching.", i+1, self.counter)
+        for i, sampled in enumerate(create.stat_combinations(sm.bg, elems, self.stat_source)):
+            if self._check_junction(sm, sampled, elems):
+                log.info("Combination %i fits!", i)
+                return sampled
+            if i%1000==999:
+                log.info("Nothing found after trying %d combinations. Still searching.", i+1)
         return None
-    def _find_stats_ith_iteration(self, i, first_elem, elems, choices, sm):
-        cg = sm.bg
-        first_elem_index = elems.index(first_elem)
-        # Of the selected ml-segment, only look at the ith stat and compare it
-        # to all possible combinations of the first i stats for other elements.
-        try:
-            first_elem_stat = choices[first_elem][i]
-        except IndexError:
-            return None
-        log.debug("i = %d. elems = %s, first_elem %s", i, elems, first_elem)
-        for choice_indices in it.product(range(i+1), repeat=len(elems)-1):
-            log.debug("Choice_indices %s", choice_indices)
-            sampled_stats = {}
-            # For the ml-segments AFTER the first_elem, only try stats until the (i-1)th
-            log.debug("Range (%d, %d): %s", first_elem_index, len(elems)-1, list(range(first_elem_index, len(elems)-1)))
-            if any(choice_indices[elem_nr]==i for elem_nr in range(first_elem_index, len(elems)-1)):
-                log.debug("continue")
-                continue
-            skip = False
-            for elem_nr in range(len(choice_indices)):
-                if elem_nr>=first_elem_index:
-                    log.debug("elem_nr == %d --> %d", elem_nr, elem_nr+1)
-                    ml = elems[elem_nr+1]
-                else:
-                    log.debug("elem_nr %d", elem_nr)
-                    ml = elems[elem_nr]
-                assert ml != first_elem
-                try:
-                    new_stat = choices[ml][choice_indices[elem_nr]]
-                except IndexError:
-                    skip=True
-                    break
-                sampled_stats[ml] = new_stat
-            if not skip:
-                sampled_stats[first_elem] = first_elem_stat
-                if self._check_junction(sm, sampled_stats, elems):
-                    return sampled_stats
-        return None
+
     def _check_junction(self, sm, sampled_stats, elems):
-        self.counter+=1
         for elem, new_stat in sampled_stats.items():
             sm.elem_defs[elem]=new_stat
         for elem in elems[:-1]: # The last elem is broken!
@@ -446,13 +400,7 @@ class MLSegmentPairMover(WholeMLStatSearch):
         :param elems: ML segments. Need to be ordered!
         """
         # Sort m1, m2 according to build order
-        m1, m2 = elems
-        choices = { elem : list(self.stat_source.iterate_stats_for(sm.bg, elem)) for elem in [m1, m2] }
-        indices = list(it.product(range(len(choices[m1])), range(len(choices[m2]))))
-        random.shuffle(indices)
-        loop = self._sort_loop(sm, list(sm.bg.shortest_mlonly_multiloop(m1)))
-        for i, j in indices:
-            sampled={m1:choices[m1][i], m2: choices[m2][j]}
+        for sampled in create.stat_combinations(sm.bg, [m1,m2], self.stat_source):
             if self._check_junction(sm, sampled, loop):
                 log.info("Succsessfuly combination found after %d tried", self.counter)
                 return sampled
