@@ -694,6 +694,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
 
         for bulge in all_bulges:
             bl = cg.get_bulge_dimensions(bulge)[0]
+            log.debug("Getting junction closure dist for %s", bulge)
             dist = ftug.junction_virtual_atom_distance(cg, bulge)
             #
             #cutoff_distance = (bl) * 5.9 + 13.4

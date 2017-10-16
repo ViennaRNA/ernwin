@@ -9,6 +9,7 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
 import forgi.threedee.model.stats as ftmstats
 import sys
 import random
+import math
 from collections import defaultdict
 import logging
 import string
@@ -24,6 +25,16 @@ except ImportError:
     except ImportError:
         lru_cache = lambda *args, **kwargs: lambda x: x #No-op decorator taking arguments
 
+
+def patch_angtype(ang_type):
+    """
+    Instead of having 3 angle_types 2,3 and 4 for junjtion segments, use one generic angle type '6'
+    """
+    if 2<=abs(ang_type)<=3:
+        return math.copysign(6, ang_type)
+    if abs(ang_type)==4:
+        return -math.copysign(6, ang_type)
+    return ang_type
 
 def parse_stats_file(file_handle):
     stats = {"stem": defaultdict(list),
@@ -51,11 +62,12 @@ def parse_stats_file(file_handle):
                 log.error("Ignoring angle stat {} because it is at the beginning of a structure."
                           " Does the stat come from a faulty BulgeGraph?".format(angle_stat.pdb_name))
                 continue
+            angle_stat.ang_type = patch_angtype(angle_stat.ang_type)
             stats["angle"][(angle_stat.dim1, angle_stat.dim2, angle_stat.ang_type)].append(angle_stat)
             # Adding the reverse does not work as intended and produces a lot of structures
             # that do not fulfill the constraint energy.
             # stats["angle"][(angle_stat.dim1, angle_stat.dim2, -angle_stat.ang_type)].append(angle_stat)
-            # Note that CoarseGrainRNA.get_stats extracts two angle stats er angle.
+            # Note that CoarseGrainRNA.get_stats extracts two angle stats per angle.
         else:
             key = line.split()[0]
             if key not in ["3prime", "5prime", "loop"]:
@@ -92,6 +104,7 @@ class StatStorage(object):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
+            ang_type = patch_angtype(ang_type)
             return tuple([dims[0], dims[1], ang_type])
         elif elem[0]=="h" and dims[0]<3:
             return 3 #Hairpins<3 probably means missing residues. Just return the smalles possible dimension
@@ -264,6 +277,7 @@ class SequenceDependentStatStorage(StatStorage):
         dims = bg.get_node_dimensions(elem)
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
+            ang_type = patch_angtype(ang_type)
             return tuple([dims[0], dims[1], ang_type]), tuple(bg.get_define_seq_str(elem, adjacent = True))
         else:
             return dims[0], tuple(bg.get_define_seq_str(elem, adjacent = elem[0]!="s"))

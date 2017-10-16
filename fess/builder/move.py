@@ -376,7 +376,7 @@ class WholeMLStatSearch(Mover):
                                                         nodes[-1],
                                                         broken_stat)
         max_adiff = math.radians(self.a_weight*self.max_diff)
-        return pdev < self.max_diff and adev<max_adiff and tdev<2*max_adiff
+        return pdev < self.max_diff and adev<max_adiff and tdev<max_adiff
 
 class MLSegmentPairMover(WholeMLStatSearch):
     """
