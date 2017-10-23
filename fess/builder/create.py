@@ -71,7 +71,7 @@ def _iter_stat_combinations(choices):
     :yields: A dictionary {elem:stat}
     """
     elems = list(choices.keys())
-    indices = list(it.product(*(range(len(choices[elem]) for elem in elems))))
+    indices = list(it.product(*(range(len(choices[elem])) for elem in elems)))
     random.shuffle(indices)
     for v in choices.values():
         random.shuffle(v)

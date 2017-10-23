@@ -64,6 +64,16 @@ def get_parser():
 
     general_behavior = parser.add_argument_group("General behaviour",
                                     description="These options modify the general bahaviour of ERNWIN")
+    general_behavior.add_argument('--new-sampling', action="store_true",
+                                  help="Use the new sampling procedure.")
+    general_behavior.add_argument('--new-sampling-r-cutoff', type=int, default=8,
+                                  help="Cutoff in angstrom for new sampling procedure.")
+    general_behavior.add_argument('--new-sampling-a-weight', type=int, default=3,
+                                  help="Cutoff in degrees for new sampling procedure.")
+    general_behavior.add_argument('--new-sampling-t-weight', type=int, default=4,
+                                  help="Cutoff in degrees for new sampling procedure.")
+
+
     general_behavior.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
     general_behavior.add_argument('--start-from-scratch', default=False, action='store_true',
                         help="Do not attempt to start at the input conformation.\n"
@@ -532,6 +542,13 @@ def setup_deterministic(args):
         raise ValueError("The RNA supplied via --rmsd-to must have "
                          "the same secondary structure as the input RNA.")
 
+    if args.new_sampling:
+        if args.constraint_energy != "D":
+            raise ValueError("Cannot specify constrain energy with --new-sampling")
+        if args.move_set != "Mover":
+            raise ValueError("Cannot specify move-set with --new-sampling")
+        args.constraint_energy = "M{}[1FJC1]".format(args.new_sampling_r_cutoff)
+        args.move_set = "MoverNoRegularML:MLSegmentPairMover[{}]".format(args.new_sampling_r_cutoff)
     # INIT ENERGY
     if args.replica_exchange:
         if "@" in args.energy:
@@ -620,7 +637,7 @@ def setup_stat(out_file, sm, args, energies_to_track, original_sm, stat_source, 
                                      output_directory = save_dir)
     return stat
 
-def setup_sampler(sm, energy, stat, resample, mover, stat_source, builder = fbb.Builder):
+def setup_sampler(sm, energy, stat, resample, mover, stat_source, builder = fbb.Builder, new_sampling_cutoff = None):
     if not resample:
         # Build the first spatial model.
         log.info("Trying to load sampled elements...")
@@ -635,7 +652,11 @@ def setup_sampler(sm, energy, stat, resample, mover, stat_source, builder = fbb.
     clashfree_builder = builder(stat_source, sm.junction_constraint_energy, sm.constraint_energy)
     clashfree_builder.accept_or_build(sm)
     clash_energies = []
-    if sm.junction_constraint_energy is not None and len(sm.junction_constraint_energy)>0:
+    if new_sampling_cutoff is not None:
+        clash_energies.append(fbe.MaxEnergyValue(
+                    fbe.SampledFragmentJunctionClosureEnergy.from_cg(sm.bg,1,1,stat_source),
+                    new_sampling_cutoff))
+    elif sm.junction_constraint_energy is not None and len(sm.junction_constraint_energy)>0:
         clash_energies.append(sm.junction_constraint_energy)
     if sm.constraint_energy is not None and len(sm.constraint_energy)>0:
         clash_energies.append(sm.constraint_energy)
@@ -716,7 +737,7 @@ def main(args):
                                       "--fpp-landmarks {}".format(i, e.scale, e.ref_image,
                                                               ":".join(",".join(map(str,x)) for x in e.landmarks)),
                                       file=out_file)
-                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source, builder=builder))
+                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source, builder=builder, new_sampling_cutoff=args.new_sampling_r_cutoff))
                     try:
                         if args.parallel:
                             fbr.start_parallel_replica_exchange(samplers, args.iterations)
@@ -771,7 +792,8 @@ def main(args):
                               file=out_file)
                 log.info("Now setting up sampler")
                 sampler = setup_sampler(sm, energy, stat, resample=args.start_from_scratch,
-                                        mover = mover, stat_source = stat_source, builder=builder)
+                                        mover = mover, stat_source = stat_source, builder=builder,
+                                        new_sampling_cutoff=args.new_sampling_r_cutoff)
                 for i in range(args.iterations):
                     sampler.step()
                 print ("# Everything done. Terminated normally", file=out_file)

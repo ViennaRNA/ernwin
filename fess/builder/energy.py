@@ -722,12 +722,13 @@ class MaxEnergyValue(EnergyFunction):
     def __init__(self, other_energy, cutoff):
         super(MaxEnergyValue, self).__init__(adjustment = cutoff)
         self._other_energy = other_energy
+        self.bad_bulges = []
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         log.debug("MaxEnergyValue.eval_energy called. nodes=%s", nodes)
         e = self._other_energy.eval_energy(cg, background, nodes, **kwargs)
         if e>=self.adjustment:
             self.bad_bulges = self._other_energy.bad_bulges
-            log.info("MaxEnergyValue: Threshold exceeded: {}>={}".format(e, self.adjustment))
+            log.info("MaxEnergyValue: Threshold exceeded: %s>=%s. Bad bulges: %s",e, self.adjustment, self.bad_bulges)
             return 10000.
         else:
             log.info("MaxEnergyValue: Threshold not exceeded: {}<{}".format(e, self.adjustment))
@@ -737,6 +738,10 @@ class MaxEnergyValue(EnergyFunction):
     def shortname(self):
         sn = super(MaxEnergyValue, self).shortname
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self._other_energy.shortname))
+
+    def __getattr__(self, attr):
+        log.debug("getattr of MAX energy called with %s", attr)
+        return getattr(self._other_energy, attr)
 
 class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     _shortname = "FJC"
@@ -751,6 +756,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         mst = cg.get_mst()
         for ml in cg.mloop_iterator():
             if ml not in mst:
+                log.debug("Creating %s energy for %s which is not in MST: %s", cls._shortname, ml, mst)
                 energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
 
@@ -759,6 +765,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         self.stat_source = stat_source
         # A deviation of 1 rad is equivalent to a deviation of how many angstrom
         self.angular_weight = angular_weight
+        self.used_stat = None
         super(FragmentBasedJunctionClosureEnergy, self).__init__(prefactor = prefactor,
                                                                  adjustment = adjustment)
 
@@ -766,31 +773,33 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         # Broken mls are ordered by connections
         s1, s2 = cg.connections(self.element)
         pdev, adev, tdev = ftug.get_broken_ml_deviation(cg, self.element,
-                                                        s2,
-                                                        virtual_stat)
-
-        pdev2, adev2, tdev2 = ftug.get_broken_ml_deviation(cg, self.element,
                                                         s1,
                                                         virtual_stat)
-        log.info("PDEV: %s or %s, ADEV %s or %s, TDEV: %s or %s", pdev, pdev2, adev, adev2, tdev, tdev2)
+
+        #pdev2, adev2, tdev2 = ftug.get_broken_ml_deviation(cg, self.element,
+        #                                                s1,
+        #                                                virtual_stat)
+        #log.debug("PDEV: %s or %s, ADEV %s or %s, TDEV: %s or %s", pdev, pdev2, adev, adev2, tdev, tdev2)
         adev = math.degrees(adev)
         tdev = math.degrees(tdev)
         self.log.debug("Deviation: %s Angstrom, %s degrees (orientation), %s degrees (twist)", pdev, adev, tdev)
-        adev = adev/3
-        tdev = tdev/6
-        log.debug("Weighted deviation: pos: %s, orient %s, twist: %s", pdev, adev, tdev)
+        adev = adev/4
+        tdev = tdev/4
+        self.log.debug("Weighted deviation: pos: %s, orient %s, twist: %s", pdev, adev, tdev)
         return max(pdev, adev, tdev)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         self.bad_bulges = []
         log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
         if nodes is not None and self.element not in nodes:
+            log.debug("Self.element %s not in nodes %s", self.element, nodes)
             return 0.
         best_deviation = float('inf')
         for stat in self.stat_source.iterate_stats_for(cg, self.element):
             curr_dev = self._stat_deviation(cg, stat)
             if curr_dev < best_deviation:
                 best_deviation = curr_dev
+                #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                 self.used_stat = stat
         log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
@@ -809,6 +818,9 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
                 "              LocalMLMover that assign a stat to broken multiloop segments.\n"
                 "              Controlls, how well the assigned stat fits the true geometry of this segment.".format(_shortname))
 
+    def __init__(self, *args, **kwargs):
+        super(SampledFragmentJunctionClosureEnergy, self).__init__( *args, **kwargs)
+        del self.used_stat
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         self.log.debug("eval_energy called on SFJ(%s)", self.element)
         self.bad_bulges = []
@@ -1241,8 +1253,8 @@ class AMinorEnergy(CoarseGrainEnergy):
         return values
 
     def eval_prob(self, cg, d):
-        return fba.total_prob(fba.iter_probs(loop, cg, prob_funs[loop[0]],
-                                             cls.cutoff_dist, domain))
+        return fba.total_prob(fba.iter_probs(d, cg, self.prob_function,
+                                             self.cutoff_dist))
 
     def _get_cg_measure(self, cg):
         raise NotImplementedError("Not needed for A-Minor energy")
@@ -1613,7 +1625,11 @@ class CombinedEnergy(object):
         bad_bulges = []
         for e in self.energies:
             if hasattr(e, "bad_bulges"):
+                log.info("%s has bad_bulges: %s", e, e.bad_bulges)
                 bad_bulges+=e.bad_bulges
+            else:
+                log.info("%s doesn't have bad bulges")
+        log.info("Returning bad bulges %s", bad_bulges)
         return bad_bulges
     def eval_energy(self, cg, background=True, nodes=None, verbose=False,
                     use_accepted_measure=False, plot_debug=False):

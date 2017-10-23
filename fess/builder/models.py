@@ -218,12 +218,15 @@ def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     mid1 = prev_stem.mids[s1e] + start_location
     mid2 = mid1 + stem_orientation
 
+
+
     stem.mids = (mid1, mid2)
 
     log.debug("stem_params.twist_angle: %s", stem_params.twist_angle)
     twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
     log.debug("twist2: %s", twist2)
     stem.twists = (twist1, twist2)
+
     #assert np.allclose(np.dot(stem_orientation, twist2), 0)
     return stem
 
@@ -612,6 +615,7 @@ class SpatialModel:
         """
 
         """
+        log = logging.getLogger(__name__+".SpatialModel.stem_to_coords")
         sm = self.stems[stem]
         if log.isEnabledFor(logging.DEBUG):
             if (not np.allclose(self.bg.coords[stem][0], sm.mids[0]) or

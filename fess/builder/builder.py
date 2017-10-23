@@ -54,6 +54,8 @@ def _determined_broken_ml_segments(built_nodes, bg):
     """
     ml_nodes=set(x for x in bg.defines.keys() if x[0]=="m")
     broken_multiloops = ml_nodes-set(itertools.chain(*[bo for bo in bg.traverse_graph()]))
+    log.debug("MST = %s, build_order= %s", bg.mst, bg.build_order)
+    log.debug("Broken determined multiloops are %s. Now finding out if they are determined...", broken_multiloops)
     broken_determined_nodes=set()
     for n in broken_multiloops:
         loop=set(bg.find_bulge_loop(n, 200))
@@ -143,6 +145,14 @@ class Builder(object):
         except KeyboardInterrupt:
             print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
             raise
+        for e in self.junction_energy.iterate_energies():
+            log.debug("Junction energy %s", e)
+            if hasattr(e, "used_stat"):
+                log.debug("Assigning stat %s to broken ml segment %s", e.used_stat, e.element)
+                sm.elem_defs[e.element] = e.used_stat
+                sm.save_sampled_elems()
+            else:
+                log.debug(dir(e))
         log.debug("++++++++++++++++++++++++++++++++++++++")
 
     def _check_sampled_ml(self, sm, ml):
@@ -177,11 +187,12 @@ class Builder(object):
         if self.junction_energy is None:
             return []
         det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
+        log.debug("Evaluationg junction energy for nodes %s", det_br_nodes)
         ej = self.junction_energy.eval_energy( sm.bg, nodes=det_br_nodes)
         log.debug("Junction Energy for nodes {} (=> {}) is {}".format(nodes, det_br_nodes, ej))
         if ej>0:
-            bad_loop_nodes =  [ x for x in self.junction_energy.bad_bulges if x in nodes and x[0]=="m"]
-            log.debug("Bad loop nodes = {}".format(bad_loop_nodes))
+            bad_loop_nodes =  [ x for x in nodes if x[0]=="m"]
+            log.debug("Bad loop nodes = {} (filtered from {})".format(bad_loop_nodes, self.junction_energy.bad_bulges))
             return bad_loop_nodes
         return []
 

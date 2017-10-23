@@ -58,6 +58,7 @@ class Mover:
 
         :param sm: The spatial model
         """
+        log.info("%s move called", type(self).__name__)
         elem, new_stat = self._get_elem_and_stat(sm)
         self._prev_stats = {}
         movestring = self._move(sm, elem, new_stat)
@@ -85,13 +86,24 @@ class Mover:
         """
         Revert the last Monte Carlo move performed by this mover.
         """
-        log.debug("Reverting last step")
+        log.debug("%s Reverting last step", type(self).__name__)
         if self._prev_stats is None:
             raise RuntimeError("No (more) step(s) to revert.")
         for elem, stat in self._prev_stats.items():
+            assert stat is not None
             sm.elem_defs[elem] = stat
         self._prev_stats = {}
         sm.new_traverse_and_build(start='start', include_start = True)
+class MoverNoRegularML(Mover):
+    def _get_elem(self, sm):
+        while True:
+            elem = super(MoverNoRegularML, self)._get_elem(sm)
+            if elem[0] == "m":
+                loop = sm.bg.shortest_mlonly_multiloop(elem)
+                if "regular_multiloop" not in sm.bg.describe_multiloop(loop):
+                    return elem
+            else:
+                return elem
 
 class MSTchangingMover(Mover):
     def __init__(self, stat_source):
@@ -293,10 +305,15 @@ class WholeMLMover(Mover):
 class WholeMLStatSearch(Mover):
     HELPTEXT = ("{:25} Not yet implemented\n".format("WholeMLStatSearch"))
 
-    def __init__(self, stat_source, max_diff, a_weight=3):
+    def __init__(self, stat_source, max_diff, a_weight=4, t_weight=4):
         super(WholeMLStatSearch, self).__init__(stat_source)
         self.max_diff=float(max_diff)
         self.a_weight =float(a_weight)
+        self.t_weight =float(t_weight)
+        self.r_fail = 0
+        self.a_fail = 0
+        self.t_fail = 0
+
     def _get_elements(self, sm):
         loops = sm.bg.find_mlonly_multiloops()
         regular_multiloops = [ m for m in loops
@@ -318,6 +335,7 @@ class WholeMLStatSearch(Mover):
                     return i
             return float("inf")
         loop.sort(key=s_key)
+        log.debug("Loop sorted: %s", loop)
         return loop
 
     def move(self, sm):
@@ -366,18 +384,32 @@ class WholeMLStatSearch(Mover):
             sm.elem_defs[elem]=new_stat
         for elem in elems[:-1]: # The last elem is broken!
             nodes = sm.new_traverse_and_build(start=elem, max_steps = 1, finish_building=False)
-
         try:
             broken_stat = sampled_stats[elems[-1]]
         except KeyError:
             broken_stat = sm.elem_defs[elems[-1]]
-
-        pdev, adev, tdev = ftug.get_broken_ml_deviation(sm.bg, elems[-1],
-                                                        nodes[-1],
+        s1, s2 = sm.bg.connections(elems[-1])
+        try:
+            pdev, adev, tdev = ftug.get_broken_ml_deviation(sm.bg, elems[-1],
+                                                        s1,
                                                         broken_stat)
+        except:
+            logdebug("Build order %s", sm.bg.build_order)
+            raise
         max_adiff = math.radians(self.a_weight*self.max_diff)
-        return pdev < self.max_diff and adev<max_adiff and tdev<max_adiff
-
+        max_tdiff = math.radians(self.t_weight*self.max_diff)
+        if pdev>self.max_diff:
+            self.r_fail+=1
+        elif adev>max_adiff:
+            self.a_fail+=1
+        elif tdev>max_tdiff:
+            self.t_fail+=1
+        return pdev < self.max_diff and adev<max_adiff and tdev<max_tdiff
+    def __del__(self):
+        try:
+            log.critical("R-failures: %s, a_failures: %s, t-failures: %s", self.r_fail, self.a_fail, self.t_fail)
+        except AttributeError:
+            pass
 class MLSegmentPairMover(WholeMLStatSearch):
     """
     Change two connected ML elements in a way that the total stat
@@ -385,6 +417,11 @@ class MLSegmentPairMover(WholeMLStatSearch):
     the zero-stat
     """
     HELPTEXT = ("{:25} Not yet implemented\n".format("MLSegmentPairMover"))
+
+    def __init__(self, stat_source, max_diff, a_weight=4, t_weight=4, max_tries = 20000):
+        super(MLSegmentPairMover, self).__init__(stat_source, max_diff, a_weight, t_weight)
+        self.max_tries = max_tries
+        self.original_max_tries = self.max_tries
 
     def _get_elem(self, sm):
         possible_elements = sm.bg.get_mst() - sm.frozen_elements
@@ -399,13 +436,36 @@ class MLSegmentPairMover(WholeMLStatSearch):
         """
         :param elems: ML segments. Need to be ordered!
         """
-        # Sort m1, m2 according to build order
-        for sampled in create.stat_combinations(sm.bg, [m1,m2], self.stat_source):
+        counter = 0
+        loop = self._sort_loop(sm, list(sm.bg.shortest_mlonly_multiloop(elems[0])))
+        # We do not have to build the whole loop,
+        # but only the part after the first changed element.
+        i = min(loop.index(elems[0]), loop.index(elems[1]))
+        log.info("For elems %s, loop index is %s, loop is %s", elems, i, loop)
+        loop = loop[i:]
+        log.info("Loop now %s", loop)
+        for sampled in create.stat_combinations(sm.bg, elems, self.stat_source):
+            counter+=1
             if self._check_junction(sm, sampled, loop):
-                log.info("Succsessfuly combination found after %d tried", self.counter)
+                log.info("Succsessfuly combination found after %d tried", counter)
+                if self.max_tries is not None:
+                    self.max_tries = int(max(self.original_max_tries, self.max_tries/2, counter+(self.original_max_tries/2)))
+                    log.info("Setting self.max_tries to %d", self.max_tries)
+
                 return sampled
-            if self.counter%10000==0 and self.counter>0:
-                log.info("Nothing found after %d tries for %s. Still searching (up to a total of %d combinations).", self.counter, (m1, m2), len(indices))
+            if counter%10000==0 and counter>0:
+                log.info("Nothing found after %d tries for %s."
+                         "Still searching.", counter, elems)
+            if counter>self.max_tries:
+                # We give up without having exhausted the search space, but we will
+                # try twice as hard next time.
+                # Since we might have different ml-segments next time,
+                # it may be faster anyway.
+                # This way we avoid spending unproportionally long time in one
+                # step, if all other steps would be quick.
+                log.info("Giving up after %d tries this time, setting max_tries to %s.", counter, self.max_tries*2)
+                self.max_tries*=2
+                return None
         return None
 
 

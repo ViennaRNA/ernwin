@@ -738,8 +738,9 @@ class SamplingStatistics:
             cg_stri = sm.bg.to_cg_string()
             with open(os.path.join(self.out_dir,
                               'step{:06d}.coord'.format(self.step)), "w") as f:
-                f.write(cg_stri)
-
+                #print("Opened file", os.path.join(self.out_dir,
+                #                  'step{:06d}.coord'.format(self.step)))
+                print(cg_stri, file=f)
 
 class OutfileParser(object):
     def __init__(self):
