@@ -57,7 +57,7 @@ class ReadFileTests(unittest.TestCase):
         self.assertEqual(stats["angle"][(5, 2, 1)],
                          [a_stat])
         a_stat.parse_line("angle test:m_0 4 1000 0.985166 -1.185545 -2.000463 13.701389 0.982669 0.267821 -4")
-        self.assertEqual(stats["angle"][(4, 1000, -4)],
+        self.assertEqual(stats["angle"][(4, 1000, 6)], # We patched ang_type to use 6 for all ml-segments. -6<=>-3, but -6<=>+4
                          [a_stat])
         self.assertEqual(stats["loop"][6],
                          [ftmstats.LoopStat("loop test:h_0 6  15.2401560955 0.269833051418 0.731484795668")])

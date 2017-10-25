@@ -89,12 +89,12 @@ class TestAMinor(unittest.TestCase):
             print(line)
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                fba._parse_fred_line(line, cgs)
+                fba._parse_fred_line(line, cgs, "?")
                 self.assertEqual(len(w), 1)
                 self.assertIn(message_keywords[i], str(w[-1].message))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                self.assertEqual(fba._parse_fred_line(line, cgs), None)
+                self.assertEqual(fba._parse_fred_line(line, cgs, "?"), None)
             i+=1
     def test_fr3d_orientation(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
@@ -104,13 +104,9 @@ class TestAMinor(unittest.TestCase):
             self.assertLess(abs(geo1.dist - geo2.dist), 20, msg = "Different FR3D hits should have similar coarse-grained geometry: dist. {}, {}".format(geo1, geo2))
             self.assertLess(abs(geo1.angle1 - geo2.angle1), 2., msg = "Different FR3D hits should have similar coarse-grained geometry: angle1. {}, {}".format(geo1, geo2))
             self.assertLess(abs(geo1.angle2 - geo2.angle2), 2., msg = "Different FR3D hits should have similar coarse-grained geometry: angle2. {}, {}".format(geo1, geo2))
-    def test_get_relative_orientation(self):
-        cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        for loop in cg.edges["s0"]:
-            d, a1, a2 = fba.get_relative_orientation(cg, loop, "s0")
-            self.assertEqual(d, 0)
 
-    def test_get_relative_orientation2(self):
+
+    def test_get_relative_orientation(self):
         cg = ftmc.CoarseGrainRNA(dotbracket_str = "...(((...)))...", seq="AAAGGGAAACCCAAA")
         cg.coords["s0"] = [0,0,0.], [0,0,10.]
         cg.twists["s0"] = [0,1,0.], [0, -1., 0]
@@ -128,7 +124,7 @@ class TestAMinor(unittest.TestCase):
         d, a1, a2 = fba.get_relative_orientation(cg, "t0", "s0")
         self.assertAlmostEqual(d, 5)
         self.assertAlmostEqual(a1, math.pi/2)
-        self.assertAlmostEqual(a2, 0)
+        self.assertAlmostEqual(a2, math.pi)
     def test_get_relative_orientation_can_give_nan(self):
         cg = ftmc.CoarseGrainRNA(dotbracket_str = "...(((...)))...", seq="AAAGGGAAACCCAAA")
         cg.coords["s0"] = [0,0,0.], [0,0,10.]
