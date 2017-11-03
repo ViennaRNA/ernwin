@@ -29,7 +29,7 @@ def get_parser():
     ### Argument(s) ###
     parser.add_argument('cg_files', nargs='+', help='One or more cg files to generate the data from.')
     ### Options ###
-    # Options to modify general behaviour
+    # Options to modify general behavior
     parser.add_argument('-v', '--verbose', action="store_true", help='Be verbsoe')
     parser.add_argument('--debug', type=str, help='Specify the names of loggers for which debugging-output is desired. Use __all__ to show debug output for all loggers.')
     parser.add_argument('--plot-only', action="store_true", help='Do not generate any files, only plot results from existing files')

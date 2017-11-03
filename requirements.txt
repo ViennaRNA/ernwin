@@ -5,5 +5,6 @@ biopython
 deepdiff
 networkx
 future
-forgi==0.4
+forgi==1.0
 logging_exceptions==0.1
+bitarray

@@ -34,6 +34,9 @@ def stat_combinations(cg, elems, stat_source, unique = False):
     """
     choices = { elem : list(stat_source.iterate_stats_for(cg, elem))
                 for elem in elems }
+    for value in _sample_unique_stat_combinations(choices):
+        yield value
+        
     try:
         import pyffx
     except:
@@ -57,6 +60,28 @@ def stat_combinations(cg, elems, stat_source, unique = False):
         log.info("Sampling stat combinations via format preserving encryption.")
         for value in _random_iteration(choices):
             yield value
+
+def index_to_sample(index, choices):
+    sampled = {}
+    for elem, stats in choices.items():
+        c_nr = index%len(stats)
+        sampled[elem]=stats[c_nr]
+        index = int(index/len(stats))
+    return sampled
+
+def _sample_unique_stat_combinations(choices):
+    from bitarray import bitarray
+    product_size = 1
+    for stats in choices.values():
+        product_size *= len(stats)
+    found = bitarray(product_size)
+    found.setall(False)
+    while not found.all():
+        i = random.randrange(product_size)
+        if found[i]:
+            continue
+        found[i]=True
+        yield index_to_sample(i, choices)
 
 
 
@@ -96,13 +121,6 @@ def _iter_stat_combinations(choices):
             sampled[elem] = choices[elem][index_combi[i]]
         yield sampled
 
-def index_to_sample(index, choices):
-    sampled = {}
-    for elem, stats in choices.items():
-        c_nr = index%len(stats)
-        sampled[elem]=stats[c_nr]
-        index = int(index/len(stats))
-    return sampled
 
 
 def _random_iteration(choices):
