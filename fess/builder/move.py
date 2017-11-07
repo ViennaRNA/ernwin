@@ -427,6 +427,7 @@ class MLSegmentPairMover(WholeMLStatSearch):
         possible_elements = sm.bg.get_mst() - sm.frozen_elements
         return random.choice(list(m for m in possible_elements if m[0]=="m"))
 
+
     def _get_elements(self, sm):
         m1 = self._get_elem(sm)
         m2 = sm.bg.get_next_ml_segment(m1)
