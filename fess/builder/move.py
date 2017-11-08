@@ -425,7 +425,9 @@ class MLSegmentPairMover(WholeMLStatSearch):
 
     def _get_elem(self, sm):
         possible_elements = sm.bg.get_mst() - sm.frozen_elements
-        return random.choice(list(m for m in possible_elements if m[0]=="m" and "regular_multiloop" in sm.bg.describe_multiloop(m)))
+        log.info("Possibel elements are %s", possible_elements)
+        return random.choice(list(m for m in possible_elements if m[0]=="m"
+                                    and "regular_multiloop" in sm.bg.describe_multiloop(sm.bg.shortest_mlonly_multiloop(m))))
 
 
     def _get_elements(self, sm):

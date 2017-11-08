@@ -458,8 +458,8 @@ def setup_deterministic(args):
     """
     logging.basicConfig(format="%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s", level=logging.WARNING)
     cg, = fuc.cgs_from_args(args, nargs=1, rna_type="cg", enable_logging=True) #Set loglevel as a sideeffect
-    if "s0" not in cg.defines:
-        print("No sampling can be done for structures without a stem",file=sys.stderr)
+    if len(list(cg.stem_iterator()))<2:
+        print("No sampling can be done for structures without fewer than 2 stems",file=sys.stderr)
         sys.exit(1)
     #Output file and directory
     ofilename=None
@@ -665,7 +665,7 @@ def setup_sampler(sm, energy, stat, resample, mover, stat_source, builder = fbb.
         clash_energies.append(sm.junction_constraint_energy)
     if sm.constraint_energy is not None and len(sm.constraint_energy)>0:
         clash_energies.append(sm.constraint_energy)
-    log.info("Adding clash energies to sampler")
+    log.info("Adding clash energies to sampler: %s", [x.shortname for x in clash_energies])
     energy = fbe.CombinedEnergy(energy.energies+clash_energies)
     sampler = fbs.MCMCSampler(sm, energy, mover, stat)
     return sampler
@@ -742,7 +742,11 @@ def main(args):
                                       "--fpp-landmarks {}".format(i, e.scale, e.ref_image,
                                                               ":".join(",".join(map(str,x)) for x in e.landmarks)),
                                       file=out_file)
-                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source, builder=builder, new_sampling_cutoff=args.new_sampling_r_cutoff))
+                        if args.new_sampling:
+                            cutoff =  args.new_sampling_r_cutoff
+                        else:
+                            cutoff = None
+                        samplers.append(setup_sampler(s, r_energy, stat, resample=args.start_from_scratch, mover = mover, stat_source = stat_source, builder=builder, new_sampling_cutoff=None))
                     try:
                         if args.parallel:
                             fbr.start_parallel_replica_exchange(samplers, args.iterations)
@@ -796,9 +800,13 @@ def main(args):
                                                       ":".join(",".join(map(str,x)) for x in e.landmarks)),
                               file=out_file)
                 log.info("Now setting up sampler")
+                if args.new_sampling:
+                    cutoff =  args.new_sampling_r_cutoff
+                else:
+                    cutoff = None
                 sampler = setup_sampler(sm, energy, stat, resample=args.start_from_scratch,
                                         mover = mover, stat_source = stat_source, builder=builder,
-                                        new_sampling_cutoff=args.new_sampling_r_cutoff)
+                                        new_sampling_cutoff=cutoff)
                 for i in range(args.iterations):
                     sampler.step()
                 print ("# Everything done. Terminated normally", file=out_file)
