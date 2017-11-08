@@ -550,9 +550,10 @@ def setup_deterministic(args):
         args.constraint_energy = "M{}[1FJC1]".format(args.new_sampling_r_cutoff)
         if any("regular_multiloop" in sm.bg.describe_multiloop(m)
                                    for m in sm.bg.find_mlonly_multiloops()):
-            args.move_set = "Mover"
-        else:
             args.move_set = "MoverNoRegularML:MLSegmentPairMover[{}]".format(args.new_sampling_r_cutoff)
+        else:
+            args.move_set = "Mover"
+
     # INIT ENERGY
     if args.replica_exchange:
         if "@" in args.energy:
