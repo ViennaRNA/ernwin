@@ -146,7 +146,7 @@ def get_parser():
     stat_options.add_argument('--freeze', type=str, default="",
                             help= "A comma-seperated list of cg-element names.\n"
                                   "These elements will not be changed during samplig.")
-    stat_options.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.110.stats"),
+    stat_options.add_argument('--stats-file', type=str, default=data_file("stats/all_nr2.110_pkfree.stats"),
                         help= "A filename.\n"
                               "A file containing all the stats to sample from\n"
                               " for all coarse grained elements")
