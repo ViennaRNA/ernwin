@@ -262,7 +262,8 @@ class SpatialModel:
         self.chain = bpdb.Chain.Chain(' ')
         self.build_chain = False
         self.constraint_energy = None
-        self.junction_constraint_energy = None
+        #: A dictionary {broken_ml_segment: energy}
+        self.junction_constraint_energy = defaultdict(fbe.CombinedEnergy)
 
         self.elem_defs=dict()
 
@@ -874,6 +875,16 @@ class SpatialModel:
         diff = stat.diff(virtual_stat, next_stem_length = 3)
         return diff
 
+    def fulfills_constraint_energy(self):
+        if self.constraint_energy.eval_energy(self.bg)>0:
+            log.info("CLASHING")
+            return False
+        for loop in self.bg.find_mlonly_multiloops():
+            if loop[0] in self.junction_constraint_energy:
+                if self.junction_constraint_energy[loop[0]].eval_energy(self.bg)>0:
+                    log.info("Junction {} is not closed".format(loop))
+                    return False
+        return True
     """
     def __deepcopy__(self, memo={}):
         # According to https://mail.python.org/pipermail/tutor/2009-June/069433.html

@@ -237,9 +237,9 @@ class WholeMLStatSearch(Mover):
                 broken_stat = sm.elem_defs[elems[-1]]
             except KeyError: # We use the JDIST energy
                 broken_stat = None
-        energy = sm.junction_constraint_energy.eval_energy(sm.bg,
-                                                           nodes=built_nodes,
-                                                           sampled_stats={elem[-1]:broken_stat})
+        energy = sm.junction_constraint_energy[elems[-1]].eval_energy(sm.bg,
+                                                                      nodes=built_nodes,
+                                                                      sampled_stats={elem[-1]:broken_stat})
         return energy==0
 
     def _find_stats_for(self, elems, sm):

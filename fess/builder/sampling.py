@@ -49,6 +49,12 @@ class MCMCSampler:
         #: Keep track of the number of performed sampling steps.
         self.step_counter = 0
 
+    def eval_energy(self):
+        if self.sm.fulfills_constraint_energy():
+            return self.energy_function.eval_energy(self.sm.bg)
+        else:
+            return float("inf")
+
     def step(self):
         """
         Make a single sampling move and accept or reject the resulting RNA conformation.
@@ -68,7 +74,7 @@ class MCMCSampler:
         Evaluate the energy of self.sm and either accept or reject the new conformation.
         """
         log.debug("MCMCSampler accept_reject calling eval_energy")
-        energy = self.energy_function.eval_energy(self.sm.bg)
+        energy = self.eval_energy()
 
         movestring=[]
         movestring.append("{:.3f}".format(self.prev_energy))
