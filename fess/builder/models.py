@@ -2,29 +2,35 @@
 from __future__ import print_function
 
 
-import Bio.PDB as bpdb
-import Bio.PDB.Chain as bpdbc
 import itertools as it
 import random
 import os.path as op
 import numpy as np
 import math
 import sys
-import collections as c
+from collections import defaultdict
 import warnings
 import glob
+import copy
+import logging
 
-import fess.builder.config as cbc
+import Bio.PDB as bpdb
+import Bio.PDB.Chain as bpdbc
+
+
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
-import copy
 
-import logging
+import fess.builder.config as cbc
+
+
 log = logging.getLogger(__name__)
+
+
 class StemModel:
     '''
     A way of encapsulating the coarse grain 3D stem.
