@@ -290,23 +290,8 @@ class SpatialModel:
             try:
                 self.elem_defs[d] = stat_source.sample_for(self.bg, d)
             except:
-                print ("Error sampling stats for element %s." % (d), file=sys.stderr)
+                log.error("Error sampling stats for element %s.", d)
                 raise
-
-
-    def resample(self, d, stat_source):
-        if d in self.frozen_elements:
-            warnings.warn("Changing fixed element {}".format(d))
-        self.elem_defs[d] = stat_source.sample_for(self.bg, d)
-        '''
-        if d[0] == 's':
-            self.stem_defs[d] = random.choice(self.conf_stats.sample_stats(self.bg, d))
-            #self.sample_stem(d)
-        else:
-            if len(self.bg.edges[d]) == 2:
-                self.sample_angle(d)
-        '''
-
 
     def sampled_from_bg(self):
         '''
@@ -548,24 +533,6 @@ class SpatialModel:
         mat = ftuv.get_double_alignment_matrix(target, [vec1, twist1])
 
         return mat
-    """ #Not random at all!
-    def get_random_stem_stats(self, name):
-        '''
-        Return a random set of parameters with which to create a stem.
-        '''
-
-        return self.elem_defs[name]
-
-    def get_random_bulge_stats(self, name, ang_type):
-        '''
-        Return a random set of parameters with which to create a bulge.
-        '''
-        #if name[0] != 's' and self.bg.weights[name] == 1 and len(self.bg.edges[name]) == 1:
-        if name[0] == 'h':
-            return ftms.AngleStat()
-
-        #return self.angle_defs[name][ang_type]
-        return self.elem_defs[name]"""
 
     def add_stem(self, stem_name, stem_params, prev_stem, bulge_params, s1b_s1e):
         '''
