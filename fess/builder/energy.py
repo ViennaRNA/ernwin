@@ -49,7 +49,7 @@ import forgi.threedee.model.descriptors as ftmd
 from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
 import fess.builder.aminor as fba
 import fess.builder.models as cbm
-from ..aux.utils import get_all_subclasses, get_version_string
+from ..utils import get_all_subclasses, get_version_string
 
 log = logging.getLogger(__name__)
 

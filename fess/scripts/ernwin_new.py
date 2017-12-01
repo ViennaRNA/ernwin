@@ -45,7 +45,7 @@ from fess import data_file, __version__
 import fess
 import forgi
 from fess.motif import annotate as fma
-from fess.aux.utils import get_version_string
+from fess.utils import get_version_string
 
 log = logging.getLogger(__name__)
 

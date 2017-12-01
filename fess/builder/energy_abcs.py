@@ -10,9 +10,11 @@ import scipy.stats
 import warnings
 import logging
 import itertools as it
-from ..aux.utils import get_version_string
 import time
 import os
+
+
+from ..utils import get_version_string
 
 
 log = logging.getLogger(__name__)

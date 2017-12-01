@@ -5,7 +5,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
-                      
+
 import itertools
 from multiprocessing import Process, Pipe
 import fess.builder.models as fbm

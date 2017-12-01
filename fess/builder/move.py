@@ -27,7 +27,7 @@ import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.model.stats as ftms
 
-from ..aux.utils import get_all_subclasses
+from ..utils import get_all_subclasses
 from . import create
 
 log=logging.getLogger(__name__)

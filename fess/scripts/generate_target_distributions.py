@@ -1,5 +1,5 @@
 import fess.builder.energy as fbe
-import fess.aux.utils as fau
+import fess.utils as fau
 import matplotlib.pyplot as plt
 import numpy as np
 import math
