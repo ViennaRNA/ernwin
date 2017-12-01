@@ -29,8 +29,6 @@ except:
 import forgi.threedee.utilities.graph_pdb as ftug
 import logging
 log = logging.getLogger(__name__)
-logging.getLogger().setLevel(level=logging.DEBUG)
-
 
 def load_sampled_elements(sm):
     """
@@ -92,10 +90,13 @@ class Builder(object):
 
     def accept_or_build(self, sm):
         log.info("building without constraint energy...")
-        sm.new_traverse_and_build()
-        if self.clash_energy is not None or self.junction_energy is not None:
-            self._build_with_energies(sm)
-        log.info("Done to build")
+        if not sm.elem_defs:
+            return self.build(sm)
+        else:
+            sm.new_traverse_and_build()
+            if self.clash_energy is not None or self.junction_energy is not None:
+                self._build_with_energies(sm)
+            log.info("Done to build")
 
     def build(self, sm):
         """
