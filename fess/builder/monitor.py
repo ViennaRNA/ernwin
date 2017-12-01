@@ -186,10 +186,10 @@ class ACCStatistics(StatisticsCollector):
     Store and print the Adjacency Correlation Coefficient
     """
     header=[ "ACC" ]
-    def __init__(self, reference_sm):
+    def __init__(self, reference_cg):
         super(ACCStatistics, self).__init__()
         try:
-            self._cm_calc = ftme.AdjacencyCorrelation(reference_sm.bg)
+            self._cm_calc = ftme.AdjacencyCorrelation(reference_cg)
         except Exception as e:
             log.exception(e)
             warnings.warn("Cannot report ACC. {} in reference SM: {}".format(type(e), str(e)))
@@ -216,7 +216,7 @@ class RMSDStatistics(StatisticsCollector):
     Store and print the Root Mean Square Deviation from the reference SM.
     """
     header = ["RMSD", "dRMSD", "maxRMSD", "maxdRMSD" ] #All allowed headers. __init__ sets self.header, which takes priority.
-    def __init__(self, reference_sm, show_min_max=True, save_n_best=0, mode="RMSD"):
+    def __init__(self, reference_cg, show_min_max=True, save_n_best=0, mode="RMSD"):
         """
         :param reference_sm: The reference spatial model, against which to collect statistics.
         :param show_min_max: Bool. Whether to show the minimal and maximal RMSD so far.
@@ -226,7 +226,7 @@ class RMSDStatistics(StatisticsCollector):
         self.best_cgs=SortedCollection(key=lambda x: x[1], maxlen=save_n_best)
         self.mode=mode
         try:
-            self._reference = reference_sm.bg.get_ordered_virtual_residue_poss()
+            self._reference = reference_cg.get_ordered_virtual_residue_poss()
         except:
             self.silent=True
             self.history=None
@@ -544,10 +544,10 @@ _statisticsDefaultOptions={
 
 
 class SamplingStatistics:
-    def __init__(self, sm_orig, energy_functions=[], stat_source=None,
+    def __init__(self, cg, energy_functions=[], stat_source=None,
                  options="all", output_directory = None):
         """
-        :param sm_orig: The Spatial Model against which to collect statistics.
+        :param cg: The CoarseGrainRNA against which to collect statistics.
                         .. warning:: This should not be modified.
                                      (Its best to create a new SpatialModel only for this
                                      constructor with a deepcopy of the BulgeGraph used elsewhere.)
@@ -620,16 +620,16 @@ class SamplingStatistics:
 
 
         if self.options["rog"]: collectors.append(ROGStatistics())
-        if self.options["acc"]: collectors.append(ACCStatistics(sm_orig))
+        if self.options["acc"]: collectors.append(ACCStatistics(cg))
         if self.options["rmsd"]:
-            r_col=RMSDStatistics(sm_orig, show_min_max = self.options["extreme_rmsd"],
+            r_col=RMSDStatistics(cg, show_min_max = self.options["extreme_rmsd"],
                                  save_n_best=self.options["save_min_rmsd"])
             if not r_col.silent:
                 collectors.append(Delimitor())
                 collectors.append(r_col)
 
         if self.options["drmsd"]:
-            dr_col=RMSDStatistics(sm_orig, show_min_max = False,
+            dr_col=RMSDStatistics(cg, show_min_max = False,
                                   mode="dRMSD")
             if not dr_col.silent:
                 collectors.append(Delimitor())
@@ -649,7 +649,7 @@ class SamplingStatistics:
         collectors.append(Delimitor())
 
         if self.options["local_coverage"]:
-            collectors.append(LocalFragmentCoverage(stat_source, sm_orig.bg))
+            collectors.append(LocalFragmentCoverage(stat_source, cg))
             collectors.append(Delimitor())
 
         for ef in energy_functions:
