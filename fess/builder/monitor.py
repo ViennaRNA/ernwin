@@ -13,6 +13,7 @@ import os.path
 import warnings
 import logging
 from collections import defaultdict
+import contextlib
 
 import numpy as np
 import pandas as pd
@@ -543,7 +544,7 @@ _statisticsDefaultOptions={
 
 
 class SamplingStatistics:
-    def __init__(self, sm_orig, energy_functions=[], stat_source=None, output_file=sys.stdout,
+    def __init__(self, sm_orig, energy_functions=[], stat_source=None,
                  options="all", output_directory = None):
         """
         :param sm_orig: The Spatial Model against which to collect statistics.
@@ -555,9 +556,6 @@ class SamplingStatistics:
                       `update_statistics` is called.
                       If the energy used for sampling uses a background KDE, it makes sense to
                       pass a reference to this energy here as well.
-        :param output_file: A opened file handle or stdout.
-                      If this is not stdout, and options["silent"] == False: Print to both
-                      stdout and the file.
         :param options: What statistics to calculate and print, what files to save.
                       A string like "all" or a dictionary, which will be used to update
                       the default option dictionary.
@@ -608,7 +606,7 @@ class SamplingStatistics:
         """
         self.collector=None
         self.step = 0
-        self.output_file = output_file
+        self._outfile = None
 
         collectors = []
         if options=="all":
@@ -684,14 +682,25 @@ class SamplingStatistics:
                 os.makedirs(self.out_dir)
                 log.info ("Directory {} created.".format(self.out_dir))
 
+    @contextlib.contextmanager
+    def open_outfile(self):
+        try:
+            with open(os.path.join(self.out_dir, "out.log"), "w") as f:
+                self._outfile = f
+                self.print_header()
+                log.debug("Opened file %s", os.path.join(self.out_dir, "out.log"))
+                yield f
+        finally:
+            self._outfile = None
+
     def printline(self, line):
         """Print to both STDOUT and the log file."""
-        if self.output_file != sys.stdout and not self.options["silent"]:
-            print (line)
-
-        if self.output_file != None:
-            print(line, file=self.output_file)
-            self.output_file.flush()
+        print (line)
+        if self._outfile is None:
+            log.warning("No output-file opened!")
+        else:
+            print(line, file=self._outfile)
+            self._outfile.flush()
 
     def print_header(self):
         """

@@ -19,6 +19,12 @@ import random
 import cProfile
 import warnings
 
+try:
+    from contextlib import ExitStack, contextmanager
+except ImportError:
+    # Python 2
+    from contextlib2 import ExitStack, contextmanager
+
 def try_replica_exchange(sampler1, sampler2):
     sm1 = sampler1.sm
     sm2 = sampler2.sm
@@ -46,37 +52,46 @@ def try_replica_exchange(sampler1, sampler2):
 
     for sampler in [sampler1, sampler2]:
         sampler.stats_collector.update_statistics(sampler.sm, sampler.prev_energy, sampler.prev_constituing, movestring)
-    
-    
-    
+
+
+
 class ReplicaExchange(object):
     def __init__(self, sampler_list):
         self.sampler_list = sampler_list
-    
+
     def run(self, steps):
-        for i in range(steps):
-            for j, sampler in enumerate(self.sampler_list):
-                log.info("Sampler {}: changing element".format(j))
-                sampler.step()
-            for j, sampler1 in enumerate(self.sampler_list):
-                if j+1<len(self.sampler_list):
-                    log.info("Trying Replica exchange")
-                    try_replica_exchange(sampler1, self.sampler_list[j+1])
+        with ExitStack() as stack:
+            # Open the outfiles of all nstats_colelctors.
+            for sampler in self.sampler_list:
+                stack.enter_context(sampler.stats_collector.open_outfile())
+            try:
+                for i in range(steps):
+                    for j, sampler in enumerate(self.sampler_list):
+                        log.info("Sampler {}: changing element".format(j))
+                        sampler.step()
+                    for j, sampler1 in enumerate(self.sampler_list):
+                        if j+1<len(self.sampler_list):
+                            log.info("Trying Replica exchange")
+                            try_replica_exchange(sampler1, self.sampler_list[j+1])
+            finally:
+                for sampler in self.sampler_list:
+                    sampler.stats_collector.collector.to_file()
+
 
 class MultiPipeConnection(object):
     def __init__(self, names, connections):
         self._connections = { n:c for n,c in zip(names, connections)}
-            
+
     def send(self, name, object):
         log.warning("PID {}: Sending {}".format(os.getpid(),name))
         self._connections[name].send(object)
     def recv(self, name):
         log.warning("PID {}: Waiting to receive {}".format(os.getpid(),name))
-        r =  self._connections[name].recv()        
+        r =  self._connections[name].recv()
         log.warning("PID {}: Received {}.".format(os.getpid(), name))
         return r
 
-        
+
 def MultiPipe(names):
     conns1, conns2 = [],[]
     for i in range(len(names)):
@@ -84,17 +99,17 @@ def MultiPipe(names):
         conns1.append(c1)
         conns2.append(c2)
     return MultiPipeConnection(names, conns1), MultiPipeConnection(names, conns2)
-    
+
 class MultiprocessingReProcess(Process):
     def __init__(self, pipe_lower, pipe_higher, sampler, prev_sm, next_sm, steps, idnr):
         """
-        :param pipe_lower:  The end of the pipe connecting to the neighboring process with the lower 
+        :param pipe_lower:  The end of the pipe connecting to the neighboring process with the lower
                             temperature
-        :param pipe_higher: The end of the pipe connecting to the neighboring sampler process with 
+        :param pipe_higher: The end of the pipe connecting to the neighboring sampler process with
                             higher temperature.
-        :param prev_sm: We keep a copy of the neighboring process's sm to avoid the overhead of 
+        :param prev_sm: We keep a copy of the neighboring process's sm to avoid the overhead of
                         always sending a the sm between processes via the pipe.
-                        This can save overhead because we expect changes to the sm to be 
+                        This can save overhead because we expect changes to the sm to be
                         rather infrequent.
         :paramnext_sm: See prev_sm, only for the other neighbor process.
         """
@@ -109,64 +124,68 @@ class MultiprocessingReProcess(Process):
 
     def run_exchange(self):
         log.warning("Sampler {} running with pid {}. Is lowest? {}".format(self.id, os.getpid(), self.pipe_lower is None))
-        for step in range(self.steps):
-            sm_changed = self.sampler.step() #Return a boolean indicating if the step was accepted.
-            replica_exchanged = False
-            movestring ="RE:"
-            if self.pipe_lower is not None:
-                energy_curr_with_lower = self.recv_energy_with_different_sampler(sm_changed) 
-                energy_lower_with_lower = self.recv_step_result() 
-                energy_lower_with_curr = self.sampler.energy_function.eval_energy(self.sm_lower.bg) 
-                
-                old_energy = self.sampler.prev_energy + energy_lower_with_lower
-                total_exchanged_e = energy_curr_with_lower + energy_lower_with_curr
-                p = np.exp(old_energy - total_exchanged_e) #np.exp can return inf instead of raising an Overflow error
-                r=random.random()
-                if r<=p:
-                    #EXCHANGE
-                    self.sampler.sm, self.sm_lower = self.sm_lower, self.sampler.sm
-                    self.sampler.accept(energy_lower_with_curr)
-                    self.notify_lower_about_exchange(True)
-                    sm_changed = True
-                    replica_exchanged = True
-                    movestring += "lower<>"
-                else:
-                    #NO EXCHANGE
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", NoopRevertWarning)
-                        self.sampler.reject()
-                    self.notify_lower_about_exchange(False)
-                    movestring += "lowerXX"
-            movestring+="this"
-            if self.pipe_higher is not None:
-                self.send_step_result(sm_changed)
-                energy_higher_with_curr = self.send_energy_of_different_sm() #Stores sm_higher
-                if self.recv_exchange_notification():
-                    self.sampler.sm, self.sm_higher = self.sm_higher, self.sampler.sm
-                    self.sampler.accept(energy_higher_with_curr)
-                    replica_exchanged = True
-                    movestring+="<>higher"
-                else:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", NoopRevertWarning)
-                        self.sampler.reject()
-                    movestring+="XXhigher"
-            if replica_exchanged:
-                movestring+=";A"
-            else:
-                movestring+=";R"
-            log.error("PID {}: {}, {}".format(os.getpid(), self.sampler.prev_energy, type(self.sampler.prev_energy)))
-            self.sampler.stats_collector.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
+        with self.sampler.stats_collector.open():
+            try:
+                for step in range(self.steps):
+                    sm_changed = self.sampler.step() #Return a boolean indicating if the step was accepted.
+                    replica_exchanged = False
+                    movestring ="RE:"
+                    if self.pipe_lower is not None:
+                        energy_curr_with_lower = self.recv_energy_with_different_sampler(sm_changed)
+                        energy_lower_with_lower = self.recv_step_result()
+                        energy_lower_with_curr = self.sampler.energy_function.eval_energy(self.sm_lower.bg)
+
+                        old_energy = self.sampler.prev_energy + energy_lower_with_lower
+                        total_exchanged_e = energy_curr_with_lower + energy_lower_with_curr
+                        p = np.exp(old_energy - total_exchanged_e) #np.exp can return inf instead of raising an Overflow error
+                        r=random.random()
+                        if r<=p:
+                            #EXCHANGE
+                            self.sampler.sm, self.sm_lower = self.sm_lower, self.sampler.sm
+                            self.sampler.accept(energy_lower_with_curr)
+                            self.notify_lower_about_exchange(True)
+                            sm_changed = True
+                            replica_exchanged = True
+                            movestring += "lower<>"
+                        else:
+                            #NO EXCHANGE
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore", NoopRevertWarning)
+                                self.sampler.reject()
+                            self.notify_lower_about_exchange(False)
+                            movestring += "lowerXX"
+                    movestring+="this"
+                    if self.pipe_higher is not None:
+                        self.send_step_result(sm_changed)
+                        energy_higher_with_curr = self.send_energy_of_different_sm() #Stores sm_higher
+                        if self.recv_exchange_notification():
+                            self.sampler.sm, self.sm_higher = self.sm_higher, self.sampler.sm
+                            self.sampler.accept(energy_higher_with_curr)
+                            replica_exchanged = True
+                            movestring+="<>higher"
+                        else:
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore", NoopRevertWarning)
+                                self.sampler.reject()
+                            movestring+="XXhigher"
+                    if replica_exchanged:
+                        movestring+=";A"
+                    else:
+                        movestring+=";R"
+                    log.error("PID {}: {}, {}".format(os.getpid(), self.sampler.prev_energy, type(self.sampler.prev_energy)))
+                    self.sampler.stats_collector.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
+            finally:
+                self.sampler.stats_collector.collector.to_file()
 
     def run(self):
         cProfile.runctx('self.run_exchange()', globals(), locals(), 'prof%d.prof' %self.id)
-                
+
     def notify_lower_about_exchange(self, exchange_happened=True):
         self.pipe_lower.send("exchange_result", exchange_happened)
-    
+
     def recv_exchange_notification(self):
         return self.pipe_higher.recv("exchange_result")
-    
+
     @staticmethod
     def sm_from_cg_string(cg_string):
         bg = ftmc.CoarseGrainRNA()
@@ -182,22 +201,22 @@ class MultiprocessingReProcess(Process):
             self.sm_lower = self.sm_from_cg_string(cg_string)
         log.warning("PID {} recv_step_result: Energy {} received".format(os.getpid(), energy))
         return energy
-    
+
     def send_step_result(self, changed):
         if not changed:
             self.pipe_higher.send("step_result", (None, self.sampler.prev_energy))
         else:
             self.pipe_higher.send("step_result", (self.sampler.sm.bg.to_cg_string(), self.sampler.prev_energy))
-        
-    
+
+
     def recv_energy_with_different_sampler(self, changed = True):
         #Inform lower neighbor process about the changes in the sm
         if changed:
             self.pipe_lower.send("exchanged_energy", self.sampler.sm.bg.to_cg_string())
         else:
-            self.pipe_lower.send("exchanged_energy", None)            
+            self.pipe_lower.send("exchanged_energy", None)
         #Receive energy of our sm with other sampler Temperature
-        energy = self.pipe_lower.recv("exchanged_energy") 
+        energy = self.pipe_lower.recv("exchanged_energy")
         log.warning("PID {} recv_energy_with_different_sampler: Energy {} received".format(os.getpid(), energy))
         return energy
 
@@ -208,9 +227,9 @@ class MultiprocessingReProcess(Process):
             self.sm_higher = self.sm_from_cg_string(cg_string)
         #Calculate energy and send it back
         e = self.sampler.energy_function.eval_energy(self.sm_higher.bg)
-        self.pipe_higher.send("exchanged_energy", e) 
+        self.pipe_higher.send("exchanged_energy", e)
         return e
-    
+
 def start_parallel_replica_exchange(sampler_list, num_steps):
     prev_conn = None
     processes = []

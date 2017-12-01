@@ -44,8 +44,6 @@ class MCMCSampler:
         #: BT: I do not know, if this is still needed!
         self.sm.get_sampled_bulges() #Store in sm which bulges are sampled (vs broken ml-segments)
 
-        self.stats_collector.print_header()
-
         #: Keep track of the number of performed sampling steps.
         self.step_counter = 0
 
