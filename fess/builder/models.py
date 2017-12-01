@@ -13,10 +13,13 @@ import warnings
 import glob
 import copy
 import logging
+import textwrap
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
 
+from logging_exceptions import log_to_exception
+from commandline_parsable import split_by_outerlevel_character
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
@@ -26,6 +29,8 @@ import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
 
 import fess.builder.config as cbc
+import fess.builder.energy as fbe # Used for commandline-parsing
+from fess.builder._commandline_helper import replica_substring
 
 
 log = logging.getLogger(__name__)
@@ -852,23 +857,126 @@ class SpatialModel:
                     log.info("Junction {} is not closed".format(loop))
                     return False
         return True
+#############################################################################################
+### COMMANDLINE OPTIONS
+#############################################################################################
+def _auto_contrib_for_loop(loop, sm, stat_source):
     """
-    def __deepcopy__(self, memo={}):
-        # According to https://mail.python.org/pipermail/tutor/2009-June/069433.html
-        # this allows for subclassing SpatialModel
-        dup = type(self).__new__(type(self))
-        dup.stems = copy.deepcopy(self.stems, memo)
-        dup.bulges = copy.deepcopy(self.bulges, memo)
-        dup.chain = copy.deepcopy(self.chain, memo)
-        dup.build_chain=self.build_chain
-        dup.constraint_energy = copy.deepcopy(self.constraint_energy, memo)
-        dup.junction_constraint_energy = copy.deepcopy(self.junction_constraint_energy, memo)
-        dup.elem_defs = copy.deepcopy(self.elem_defs, memo)
-        if self._default_conf_stats:
-            dup._conf_stats=None
-        else:
-            dup._conf_stats = copy.deepcopy(self._conf_stats, memo)
-        dup._default_conf_stats=self._default_conf_stats
-        dup.bg = copy.deepcopy(self.bg, memo)
-        return dup
+    Choose the energy based on the number of available stats.
+
+    For non-regular multiloops or if only few stats are available for the
+    broken ml-segments or if the total number of stat-combinations for
+    the whole loop is too little, we use JDIST, otherwise we use M8[1FJC1]
     """
+    log.info("AUTO-contrib for loop %s called", loop)
+    if "regular_multiloop" not in sm.bg.describe_multiloop(loop):
+        return "{}:JDIST".format(loop[0])
+    broken_mls = set(loop)-sm.bg.get_mst()
+    for ml in broken_mls:
+        num_stats = sum(1 for _ in stat_source.iterate_stats_for(sm.bg, ml))
+        if num_stats<500:
+            return "{}:JDIST".format(ml)
+    prod = 1
+    for ml in loop:
+        num_stats = sum(1 for _ in stat_source.iterate_stats_for(sm.bg, ml))
+        prod *= num_stats
+    if prod<10**9:
+        return "{}:JDIST".format(ml)
+    else:
+        "{}:MAX8[1FJC1]".format(ml)
+
+def _perml_energy_to_sm(sm, energy_string, stat_source):
+    all_loops = sm.bg.find_mlonly_multiloops()
+    if energy_string == "AUTO":
+        contribs = []
+        for loop in  all_loops:
+            contribs.append(_auto_contrib_for_loop(loop, sm, stat_source))
+        energy_string = ",".join(contribs)
+
+    if energy_string and energy_string != 'N':
+        contributions = split_by_outerlevel_character(energy_string, ",")
+        for contrib in contributions:
+            parts = split_by_outerlevel_character(contrib, ":")
+            if len(parts)==2:
+                elem, energy_string = parts
+            elif len(parts)==1:
+                elem = None,
+                energy_string = contrib
+            else:
+                raise ValueError("Too many colons in energy specification `{}` "
+                                 "(at most 1 allowed)".format(contribution))
+            energy, = fbe.EnergyFunction.from_string(energy_string, cg=sm.bg, iterations=None, stat_source=stat_source)
+            if not hasattr(energy, "can_constrain") or energy.can_constrain != "junction":
+                e = ValueError("The energy '{}' cannot be used as a junction "
+                                 "constraint energy".format(energy_string))
+                with log_to_exception(log, e):
+                    if hasattr(energy, "can_constrain"):
+                        log.error("can_constrain is %r", energy.can_constrain)
+                    else:
+                        log.error("Energy of type %r has no attr 'can_constrain'", type(energy).__name__)
+                raise e
+            for loop in all_loops:
+                if not elem or elem in loop:
+                    log.info("Assigning Junction constraint energy %s to loop %s", energy.shortname, loop)
+                    for loop_elem in loop:
+                        # sm.junction_constraint_energy[loop_elem] is a CombinedEnergy
+                        sm.junction_constraint_energy[loop_elem].energies.append(energy)
+
+
+def update_parser(parser):
+    sm_options = parser.add_argument_group("Options related to the Spatial Model",
+                                    description="These options control the SpatialModel")
+    sm_options.add_argument('--freeze', type=str, default="",
+                            help= "A comma-seperated list of cg-element names.\n"
+                                  "These elements will not be changed during samplig.")
+    sm_options.add_argument('--mst-breakpoints', type=str,
+                            help="During initial MST creation, prefer to \n"
+                                 "break the multiloops at the indicated nodes.\n"
+                                 "A comma-seperated list. E.g. 'm0,m10,m12'")
+    sm_options.add_argument('--constraint-energy-clash', type=str, default="CLASH",
+                            help="Specify the constraint energies that require the complete\n"
+                                 "spatial model for evaluation. Example: The clash energy. \n"
+                                 "Use N for no energy")
+    sm_options.add_argument('--constraint-energy-per-ml', type=str, default="AUTO",
+                            help=textwrap.dedent("""\
+                                    Specify the constraint energies that can be evaluated on the
+                                    junction level without need for the complete spatial model.
+                                    `AUTO` to automatically choose between JDIST and M?SFJ
+                                    depending on the junction characteristics.
+                                    `N` or empty string for no energy.
+                                    Specify energies as documented for the `--energy` option.
+                                    Normally, these energies apply to all junctions.
+                                    Prefix contributions by a multiloop segment name followed by
+                                    a colon, to apply the following contribution only to the
+                                    multiloop containing this segment.
+                                    Example: `m1:JDIST,M8[1SFJ1]` applies the JDIST energy only
+                                    to the junction containing the m1 segment, and additionally
+                                    the M8[1SFJ1] energy to all multiloops.
+                                    """))
+
+def some_replica_different(args):
+    """
+    Return True, if the user specified
+    different energies for different replicas.
+    """
+    return ('@' in args.constraint_energy_clash or
+            '@' in args.constraint_energy_per_ml)
+
+def from_args(args, cg, stat_source, replica=None):
+    frozen = set(args.freeze.split(","))
+    sm = SpatialModel(cg, frozen_elements=frozen )
+
+    if args.mst_breakpoints:
+        bps = args.mst_breakpoints.split(",")
+        for bp in bps:
+            sm.set_multiloop_break_segment(bp)
+
+    if args.constraint_energy_clash != "N":
+        clash_string = replica_substring(args.constraint_energy_clash, replica)
+        clash_e = fbe.EnergyFunction.from_string( clash_string, cg=cg, iterations=None)
+        sm.constraint_energy = fbe.CombinedEnergy(clash_e)
+
+    perml_string = replica_substring(args.constraint_energy_per_ml, replica)
+    _perml_energy_to_sm(sm, perml_string, stat_source)
+
+    return sm

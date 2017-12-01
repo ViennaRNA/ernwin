@@ -13,6 +13,7 @@ import itertools as it
 import time
 import os
 
+from commandline_parsable import parsable_base
 
 from ..utils import get_version_string
 
@@ -23,7 +24,9 @@ log = logging.getLogger(__name__)
 DEFAULT_ENERGY_PREFACTOR = 30
 INCR = 0.01
 
-
+@parsable_base(False, required_kwargs=["cg", "iterations"], factory_function="from_cg",
+               name_attr="_shortname", helptext_sep="\n", help_attr="HELPTEXT",
+               allow_pre_and_post_number=True, help_intro_list_sep="\n")
 class EnergyFunction(object):
     '''
     The base class for energy functions.
@@ -31,15 +34,15 @@ class EnergyFunction(object):
     __metaclass__ = ABCMeta
 
     @classmethod
-    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+    def from_cg(cls, prefactor, adjustment, cg, iterations, **kwargs):
         """
         Factory function. Return this energy for the given cg.
 
         :returns: An instance if this class or a CombinedEnergy containing instances of this class.
         """
-        return cls(prefactor, adjustment)
+        return cls(prefactor, adjustment, iterations)
 
-    def __init__(self, prefactor = None, adjustment = None):
+    def __init__(self, prefactor=None, adjustment=None, iterations=None):
         self.log = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         if prefactor is None:
             prefactor = DEFAULT_ENERGY_PREFACTOR
@@ -58,8 +61,13 @@ class EnergyFunction(object):
 
         #: The energy function can be adjusted with a prefactor (weight)
         #: and an adjustment (offset from the target value)
-        self.prefactor, self._pf_stepwidth, self._pf_update_freq = self._parse_prefactor(prefactor)
-        self.adjustment, self._adj_stepwidth, self._adj_update_freq = self._parse_prefactor(adjustment)
+        self.prefactor, self._pf_stepwidth, self._pf_update_freq = self._parse_prefactor(prefactor, iterations)
+        self.adjustment, self._adj_stepwidth, self._adj_update_freq = self._parse_prefactor(adjustment, iterations)
+
+        if self.prefactor is None:
+            self.prefactor = DEFAULT_ENERGY_PREFACTOR
+        if self.adjustment is None:
+            self.adjustment = 1
 
         #: How many sampling steps have been performed
         #: (Used for reference ratio method and simulated annealing)
@@ -151,17 +159,50 @@ class EnergyFunction(object):
                 f.write(" ".join(map("{:.4f}".format,self.accepted_measures)))
                 f.write("\n")
 
-    def _parse_prefactor(self, prefactor):
+    def _parse_prefactor(self, prefactor, iterations):
         """
         Creates a tuple from a scalar or returns a given tuple
 
         :param prefactor: A number or a 3-tuple
         :returns: A tuple prefactor, stepwidth, update_frequency
         """
-        if isinstance(prefactor, tuple):
-            return prefactor
-        else:
-            return prefactor, None, float("inf")
+        try: #Is prefactor a number?
+            return float(prefactor), None, float("inf")
+        except ValueError:
+            if "_" in prefactor:
+                if iterations is None:
+                    raise ValueError("Simulated annealing is not supported if iterations is set to None.")
+                a=prefactor.split("_")
+                if len(a)==2:
+                    start=float(a[0])
+                    end=float(a[1])
+                    if abs(start-end)<5.0:
+                        step=0.1
+                    elif abs(start-end)>100:
+                        step=10
+                    else:
+                        step=1
+                    if end<start:
+                        step=step*-1
+                elif len(a)==3:
+                    start=float(a[0])
+                    step=float(a[1])
+                    end=float(a[2])
+                else:
+                    raise ValueError("Too many underscores in {}".format(prefactor))
+                frequency=iterations / (math.ceil((end-start)/step)+1)
+                assert frequency>1
+                if frequency>=num_steps:
+                    raise ValueError("Could not parse energy program '{}': "
+                                     "Expected START_STEP_STOP, found {}, {}, {} which would "
+                                     "lead to a change every {} simulation steps".format(prefactor, start, step,
+                                                                               end, frequency))
+                return (start, step, frequency)
+            else:
+                if prefactor:
+                    log.error("Cannot understand prefactor/ adjustment %r. Ignoring it.", prefactor)
+                return None, None, float("inf")
+
 
     def _step_complete(self):
         """
@@ -201,7 +242,7 @@ class CoarseGrainEnergy(EnergyFunction):
     dist_type = "kde"
 
     @classmethod
-    def from_cg(cls, cg, prefactor, adjustment, **kwargs):
+    def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         """
         Factory function. Return this energy for the given cg.
 

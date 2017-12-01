@@ -8,3 +8,4 @@ future
 forgi==1.0
 logging_exceptions==0.1
 bitarray
+commandline_parsable

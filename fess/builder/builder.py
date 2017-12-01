@@ -408,3 +408,31 @@ class DimerizationBuilder(FairBuilder):
         node = random.choice(list(set(multi_loop) & sm.bg.mst))
         sm.elem_defs[node] = self.stat_source.sample_for(sm.bg, node)
         sm.new_traverse_and_build(start=node)
+
+
+###############################################################################
+###  Commandine arguments
+###############################################################################
+
+def update_parser(parser):
+    builder_options = parser.add_argument_group("Building Spatial models",
+                                    description="Options for specifying how to "
+                                                "build the initial 3D structure.")
+    builder_options.add_argument('-f', '--fair-building', action="store_true",
+                                 help = "Try to build the structure using a fair \n"
+                                        "but slow algorithm.\n "
+                                        "This flag implies --start-from-scratch")
+    builder_options.add_argument('--start-from-scratch', default=False, action='store_true',
+                        help="Do not attempt to start at the input conformation.\n"
+                             "(Automatically True for fasta files.)")
+
+def from_args(args, stat_source):
+    if args.fair_building:
+        build_function = FairBuilder(stat_source).build
+    else:
+        b = Builder(stat_source)
+        if args.start_from_scratch:
+            build_function = b.build
+        else:
+            build_function = b.accept_or_build
+    return build_function

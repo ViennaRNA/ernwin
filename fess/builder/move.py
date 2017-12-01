@@ -14,6 +14,7 @@ import inspect
 import math
 import copy
 import textwrap
+from commandline_parsable import parsable_base
 
 try:
     from types import SimpleNamespace
@@ -29,6 +30,8 @@ import forgi.threedee.model.stats as ftms
 
 from ..utils import get_all_subclasses
 from . import create
+from ._commandline_helper import replica_substring
+
 
 log=logging.getLogger(__name__)
 
@@ -46,10 +49,12 @@ class UnsuitableMover(ValueError):
               parts of the structure.
     """
 
+@parsable_base(True, required_kwargs=["stat_source"], helptext_sep="\n",
+               help_attr="HELPTEXT", help_intro_list_sep="\n")
 class Mover:
-    HELPTEXT = ("{:25} Randomly replace a single fragment\n"
-                "{:25} of the RNA.".format("Mover", ""))
-    def __init__(self, stat_source):
+    HELPTEXT = ("Randomly replace a single fragment\n"
+                "of the RNA.")
+    def __init__(self, stat_source, **kwargs):
         """
         A Mover class that randomly pickes an element and changes the stats for it.
         """
@@ -123,8 +128,12 @@ class MoverNoRegularML(Mover):
 
 
 
-class WholeMLStatSearch(Mover):
-    HELPTEXT = ("{:25} Not yet implemented\n".format("WholeMLStatSearch"))
+class EnergeticJunctionMover(Mover):
+    HELPTEXT= textwrap.fill(textwrap.dedent("""\
+                Try sampling for n consecutive fragments of a junction,
+                until the junction constraint energy (if any)
+                for this junction is fulfilled. Use n=-1 for
+                the whole junction"""), 35)
     def __init__(self, n, stat_source, **kwargs):
         if n!=-1 and n<1:
             raise ValueError("EnergeticJunctionMover requires n==-1 or n>=1, not n={}".format(n))
@@ -300,69 +309,25 @@ class MixedMover():
 ### Command line parsing
 ####################################################################################################
 
-def mixed_mover_from_string(stri, stat_source, sm=None):
-    movers = []
-    for substri in stri.split(":"):
-        movers.append(mover_from_string(substri, stat_source, sm))
-    return MixedMover(movers)
-
-
-def mover_from_string(stri, stat_source, sm=None):
-    """
-    Return a single Mover instance from a string describing the mover.
-
-    The string needs to contain the class name of the mover and optionally
-    may contain one argument in square brackets: MOVERNAME[ARGUMENT]
-
-    :param stat_source: The stat_container that shall be used for all moves.
-    :param sm: The Spatiel model. Needed, for ExhaustiveMover
-
-    """
-    if '[' in stri:
-        movername, option = stri.split('[')
-        if option[-1]!="]":
-            raise ValueError("Missing closing bracket at end of '[{}'".format(option))
-        args = option[:-1].split(",")
+def _mover_from_string(stri, stat_source, sm=None):
+    # Use the from_string classmethod provided by @parsable_base
+    log.debug("Generating Mover from string %r, with stat_source=%r, sm=%r", stri, stat_source, sm)
+    movers = Mover.from_string(stri, stat_source=stat_source, sm=sm)
+    if len(movers)==0:
+        raise ValueError("At least one Mover has to be specified.")
+    elif len(movers)==1:
+        return movers[0]
     else:
-        args = []
-        movername = stri
-    kwargs = {}
-    mover_classes = { cls.__name__: cls for cls in get_all_subclasses(Mover, include_base = True) }
-    try:
-        cls = mover_classes[movername]
-        required = inspect.getargspec(cls.__init__).args
-        if "sm" in required:
-            kwargs["sm"] = sm
-        mover = cls(stat_source, *args, **kwargs)
-    except TypeError as e: #Give more helpful error messages
-        if "arguments" not in e.message or "__init__" not in e.message:
-                raise
-        # Something like TypeError: __init__() takes exactly 4 arguments (3 given)
-        signature = inspect.getargspec(cls.__init__)
-        called = "[self], stat_source,"
-        called+=",".join(map(str,args))
-        if kwargs:
-            called+=","
-            for k,v in kwargs.items():
-                called+="{}={},".format(k,v)
-        raise TypeError("__init__ of {} with signature ({}) cannot be called with ({})".format(cls.__name__, signature, called))
+        return MixedMover(movers)
 
-    return mover
+def update_parser(parser):
+    mover_help_intro = ("Which types of Moves to use during sampling.\n"
+                        "If you specify more than one mover separated by a\n"
+                        "comma, the mover will be picked at random at each step.\n"
+                        "Default: Mover\n"
+                        "One or more of the following:")
+    Mover.add_to_parser(parser, '--move-set', default="MoverNoRegularML,EnergeticJunctionMover[2]", help_intro=mover_help_intro)
 
-def get_argparse_help():
-    """
-    Return a pre-formatted string that can be passed to "help" in argparse.add_argument,
-    if the resulting argument is parsed with `mixed_mover_from_string`
-
-    .. warning::
-
-        Please specify the same default in `add_argument` as described in this help-text
-    """
-    help= ("Which types of Moves to use during sampling.\n"
-           "If you specify more than one mover separated by a comma,"
-           "the mover will be picked at random at each step."
-           "Default: Mover\n"
-           "One or more of the following:\n")
-    for mover_class in get_all_subclasses(Mover, include_base = True):
-        help+=mover_class.HELPTEXT+"\n"
-    return help
+def from_args(args, stat_source, sm=None, replica_nr = None):
+    argument_string = replica_substring(args.move_set, replica_nr)
+    return _mover_from_string(argument_string, stat_source, sm)

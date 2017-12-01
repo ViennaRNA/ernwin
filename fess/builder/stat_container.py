@@ -17,6 +17,7 @@ from logging_exceptions import log_to_exception
 
 import forgi.threedee.model.stats as ftmstats
 
+from fess import data_file
 
 log = logging.getLogger(__name__)
 try:
@@ -331,3 +332,47 @@ class SequenceDependentStatStorage(StatStorage):
             for i, w in enumerate(weights):
                 log.debug("     Weight %f: %s", w, choose_from[i].seqs)
         return weights, choose_from
+
+
+
+def update_parser(parser):
+    stat_options = parser.add_argument_group(
+                            "Choosing stats",
+                            description="These options control what stats ERNWIN\n"
+                                        " uses for sampling")
+    stat_options.add_argument('--stats-file', type=str,
+                              default=data_file("stats/all_nr2.110_pkfree.stats"),
+                              help= "A filename.\n"
+                                    "A file containing all the stats to sample from\n"
+                                    " for all coarse grained elements")
+    stat_options.add_argument(
+                        '--fallback-stats-files', nargs = '+', type=str,
+                        help= "A list of fallback stats file that can be uses if insufficient stats "
+                              "are found in the normal stats file for a coarse-grained element.\n"
+                              "If more than one file is given, the files are used in the order specified.\n")
+    stat_options.add_argument('--sequence-based', action="store_true",
+                              help= "Take the sequence into account when choosing stats.")
+    stat_options.add_argument('--jar3d', action="store_true",
+                              help="Use JAR3D to restrict the stats \n"
+                                   "for interior loops to matching motifs.\n"
+                                   "Requires the correct paths to jar3d to be set in\n "
+                                   "fess.builder.config.py"   )
+
+def from_args(args, cg):
+    if args.sequence_based:
+        StatSourceClass = SequenceDependentStatStorage
+    else:
+        StatSourceClass = StatStorage
+    if args.jar3d:
+        jared_out    = op.join(config.Configuration.sampling_output_dir, "jar3d.stats")
+        jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
+        motifs = fma.annotate_structure(cg, jared_tmp, cg.name.split('_')[0])
+        fma.print_stats_for_motifs(motifs, filename = jared_out, temp_dir = config.Configuration.sampling_output_dir )
+        #Here, all stats are fallback stats for the JAR3D hits.
+        new_fallbacks = [args.stats_file]
+        if args.fallback_stats_files is not None:
+            new_fallbacks += args.fallback_stats_files
+        stat_source = StatSourceClass(jared_out, new_fallbacks)
+    else:
+        stat_source = StatSourceClass(args.stats_file, args.fallback_stats_files)
+    return stat_source
