@@ -788,19 +788,27 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         self.log.debug("Weighted deviation: pos: %s, orient %s, twist: %s", pdev, adev, tdev)
         return max(pdev, adev, tdev)
 
-    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+    def eval_energy(self, cg, background=True, nodes=None,  sampled_stats=None, **kwargs):
         self.bad_bulges = []
         log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
         if nodes is not None and self.element not in nodes:
             log.debug("Self.element %s not in nodes %s", self.element, nodes)
             return 0.
         best_deviation = float('inf')
-        for stat in self.stat_source.iterate_stats_for(cg, self.element):
-            curr_dev = self._stat_deviation(cg, stat)
-            if curr_dev < best_deviation:
-                best_deviation = curr_dev
-                #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
-                self.used_stat = stat
+        if sampled_stats is not None:
+            assert self.element in sampled_stats
+             # Assertion fails, if structure was built with JDIST energy but sampled
+             # with this energy. Should never happen!
+            assert sampled_stats[self.element] is not None
+            self.used_stat = sampled_stats[self.element]
+            best_deviation = self._stat_deviation(cg, sampled_stats[self.element])
+        else:
+            for stat in self.stat_source.iterate_stats_for(cg, self.element):
+                curr_dev = self._stat_deviation(cg, stat)
+                if curr_dev < best_deviation:
+                    best_deviation = curr_dev
+                    #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
+                    self.used_stat = stat
         log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
         self.bad_bulges = [self.element]
@@ -821,7 +829,7 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
     def __init__(self, *args, **kwargs):
         super(SampledFragmentJunctionClosureEnergy, self).__init__( *args, **kwargs)
         del self.used_stat
-    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
+    def eval_energy(self, cg, background=True, nodes=None, sampled_stats=None, **kwargs):
         self.log.debug("eval_energy called on SFJ(%s)", self.element)
         self.bad_bulges = []
         if nodes is not None and self.element not in nodes:
@@ -832,14 +840,19 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
             self.log.warning("Missing key %s in cg.sampled expected by SampledFragmentJunctionClosureEnergy. Returning energy of 0.", self.element)
             return 0.
         self.log.debug("Searching for sampled pdb_name=%r", sampled_pdb_name)
-        for stat in self.stat_source.iterate_stats_for(cg, self.element):
-            if stat.pdb_name == sampled_pdb_name:
-                self.bad_bulges = [self.element]
-                self.log.debug("Returning deviation for %s", stat.pdb_name)
-                return (self._stat_deviation(cg, stat)**self.adjustment)*self.prefactor
+        if sampled_stats is None:
+            for stat in self.stat_source.iterate_stats_for(cg, self.element):
+                if stat.pdb_name == sampled_pdb_name:
+                    break
+            else:
+                self.log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
+                return 0.
         else:
-            self.log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
-            return 0.
+            assert self.element in sampled_stats
+            stat = sampled_stats[self.element]
+        self.bad_bulges = [self.element]
+        self.log.debug("Returning deviation for %s", stat.pdb_name)
+        return (self._stat_deviation(cg, stat)**self.adjustment)*self.prefactor
 
 
 def _iter_subgraphs(cg, use_subgraphs):

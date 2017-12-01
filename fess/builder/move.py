@@ -13,7 +13,7 @@ import logging
 import inspect
 import math
 import copy
-
+import textwrap
 
 try:
     from types import SimpleNamespace
@@ -31,6 +31,20 @@ from ..utils import get_all_subclasses
 from . import create
 
 log=logging.getLogger(__name__)
+
+class UnsuitableMover(ValueError):
+    """
+    Raised by a Mover if it is called by an RNA which does not have
+    the SECONDARY structure required for this mover to work.
+
+    For example, a Mover that works on multiloops will raise this,
+    if the structure has no multiloop.
+
+    .. note:: This is NOT raised, if the mover fails to move
+              the structure due tertiary structure clashes, because
+              these clashes might be removed by first moving other
+              parts of the structure.
+    """
 
 class Mover:
     HELPTEXT = ("{:25} Randomly replace a single fragment\n"
@@ -94,6 +108,8 @@ class Mover:
             sm.elem_defs[elem] = stat
         self._prev_stats = {}
         sm.new_traverse_and_build(start='start', include_start = True)
+
+
 class MoverNoRegularML(Mover):
     def _get_elem(self, sm):
         while True:
@@ -105,224 +121,64 @@ class MoverNoRegularML(Mover):
             else:
                 return elem
 
-class MSTchangingMover(Mover):
-    def __init__(self, stat_source):
-        super(MSTchangingMover, self).__init__(stat_source)
-        self._prev_mst = None
-    def move(self, sm):
-        self._prev_stats = {}
-        self._prev_mst = None
-        # Get an element. If it is a ml-segment, break it.
-        elem = self._get_elem(sm)
-        if elem[0]=="m":
-            loop = sm.bg.shortest_mlonly_multiloop(elem)
-            if "open" in sm.bg.describe_multiloop(loop):
-                return super(MSTchangingMover, self).move(sm)
-            else:
-                defined_loop = set(loop)&sm.bg.mst
-                self._prev_mst = copy.copy(sm.bg.mst)
-                for node in defined_loop:
-                    self._prev_stats[node]= sm.elem_defs[node]
-                old_elem = elem
-                # Now change the MST
-                elem = sm.set_multiloop_break_segment(elem)
-                assert elem.startswith("m")
-                new_stat = self.stat_source.sample_for(sm.bg, elem)
-                sm.elem_defs[elem]=new_stat
-                sm.new_traverse_and_build(start = elem, include_start = True)
-                return "BREAK{};{}->{}".format(old_elem, elem, new_stat.pdb_name)
-        else:
-            return super(MSTchangingMover, self).move(sm)
 
-    def revert(self, sm):
-        if self._prev_mst is not None:
-            # Reset MST
-            sm.change_mst(self._prev_mst)
-        self._prev_mst = None
-        super(MSTchangingMover, self).revert(sm)
-
-
-class ExhaustiveMover(Mover):
-    HELPTEXT = ("{:25} Try all fragment combinations for \n"
-                "{:25} the given coarse-grained element(s).".format("ExhaustiveMover(elem[,elem,..])", ""))
-    def __init__(self, stat_source, elems_of_interest, sm):
-        """
-        Explore the conformation space exhaustively by iterating
-        through the stats for the given elements.
-
-        :param stat_source: A StatContainer instance
-        :param sm: The spatial model that will be explored
-        :param elems_of_interest: A list of cg-element names.
-                        The list gives the order, in which the structure space
-                        is explored in a bredth first search.
-                        Example: "m0,i1,i2" Try all values for m0, then change
-                        i1 once and again try all values of m0, etc
-                        Alternatively, a comma-seperated string of element names is supported.
-
-        ..warning ::
-
-            If fallback-stats are used (and there are more fallback-stats than needed),
-            the search is not really exhaustive but samples from the fallback stats.
-        """
-        super(ExhaustiveMover, self).__init__(stat_source)
-        if isinstance(elems_of_interest, str):
-            elems_of_interest = elems_of_interest.split(",")
-        print(elems_of_interest)
-        self._element_names = elems_of_interest
-        self._move_iterator = self._iter_moves(sm)
-
-    def _iter_moves(self, sm):
-        iterables = []
-        for elem in self._element_names:
-            iterables.append(zip(it.repeat(elem),
-                                 self.stat_source.iterate_stats_for(sm.bg, elem)))
-        old_stat  = {}
-        for prod in it.product(*iterables):
-            for elem, stat in prod:
-                if elem in old_stat and old_stat[elem] == stat:
-                    continue
-                else:
-                    old_stat[elem]=stat
-                    yield elem, stat
-
-    def _get_elem_and_stat(self, sm):
-        return next(self._move_iterator)
-
-class NElementMover(Mover):
-    HELPTEXT = ("{:25} In every move, randomly replace \n"
-                "{:25} n different fragments.".format("NElementMover(N)", ""))
-
-    def __init__(self, stat_source, n=2):
-        """
-        Change more than one element per iteration step.
-
-        :param n: INT, How many elements should be moved in each step.
-        """
-        super(NElementMover, self).__init__(stat_source)
-        self._n_moves = int(n)
-    def move(self, sm):
-        if self._n_moves>len(sm.bg.defines):
-            raise ValueError("CG RNA has fewer elements than should be change per move.")
-        self._prev_stats = {}
-        movestring = []
-        i=0
-        while len(self._prev_stats)<self._n_moves:
-            i+=1
-            elem, new_stat = self._get_elem_and_stat(sm)
-            if elem not in self._prev_stats:
-                movestring.append(self._move(sm, elem, new_stat))
-            if i>100000:
-                raise RuntimeError("Caught in an endless loop (?)")
-        sm.new_traverse_and_build(start = "start", include_start=True)
-        return "".join(movestring)
-
-class OneOrMoreElementMover(NElementMover):
-    HELPTEXT = ("{:25} In every move, randomly replace \n"
-                "{:25} 1 to n fragments.".format("OneOrMoreElementMover[N]", ""))
-    def __init__(self, stat_source, max_n=2):
-        """
-        Change more than one element per iteration step.
-
-        :param n: INT, How many elements should be moved in each step.
-        """
-        super(OneOrMoreElementMover, self).__init__(stat_source)
-        self._possible_n = list(range(1, int(max_n)+1))
-    @property
-    def _n_moves(self):
-        return random.choice(self._possible_n)
-    @_n_moves.setter
-    def _n_moves(self, val):
-        # The setter is called in the init function of the superclass.
-        # Just ignore it
-        pass
-
-class ConnectedElementMover(NElementMover):
-    """
-    Change more than 1 connected elements per move step
-    """
-    HELPTEXT = ("{:25} In every move, randomly replace \n"
-                "{:25} n adjacent fragments.".format("ConnectedElementMover(N)", ""))
-
-    def _get_elem(self, sm):
-        if not self._prev_stats:
-            return super(ConnectedElementMover, self)._get_elem(sm)
-        neighbors = { d for changed_elem in self._prev_stats for d in sm.bg.edges[changed_elem]
-                        if d not in self._prev_stats
-                            and d in sm.bg.mst
-                            and d not in sm.frozen_elements }
-        return random.choice(list(neighbors))
-
-
-    def _get_elem_and_stat(self, sm):
-        elem = self._get_elem(sm)
-        new_stat = self.stat_source.sample_for(sm.bg, elem)
-        return elem, new_stat
-
-class WholeMLMover(Mover):
-    """
-    Pick a whole multiloop or a random other element and change the stats for it.
-
-    Changing a whole multiloops means changing more than one stat.
-    The stats for all ml-segments of this multiloop are sampled independently.
-    """
-    HELPTEXT = ("{:25} In every move, either replace \n"
-                "{:25} a single not-multiloop fragment,\n"
-                "{:25} or all multiloop segments \n"
-                "{:25} for a single multiloop.".format("WholeMLMover", "", "", ""))
-
-    def move(self, sm):
-        movestring = []
-        self._prev_stats = {}
-        while self._has_incomplete_ml(sm):
-            elem, new_stat = self._get_elem_and_stat(sm)
-            movestring.append(self._move(sm, elem, new_stat))
-        sm.new_traverse_and_build(start = "start", include_start = True)
-        return "".join(movestring)
-    def _has_incomplete_ml(self, sm):
-        if not self._prev_stats:
-            return True
-        if any(key[0]=="m" for key in self._prev_stats):
-            log.info("_has_incomplete_ml: m in prev_stats {}".format(self._prev_stats.keys()))
-            return self._get_missing_ml_nodes(sm)
-        else:
-            return False
-    def _get_missing_ml_nodes(self, sm):
-        sampled = set(k for k in self._prev_stats)
-        whole_ml = set(sm.bg.shortest_mlonly_multiloop(list(sampled)[0]))
-        whole_ml = whole_ml & sm.bg.mst
-        missing = whole_ml - sampled - sm.frozen_elements
-        log.info("_get_missing_ml_nodes: sampled {}, mst {}, missing {}".format(sampled, sm.bg.mst, missing))
-        return missing
-
-    def _get_elem_and_stat(self, sm):
-        if not self._prev_stats:
-            return super(WholeMLMover,self)._get_elem_and_stat(sm)
-        else:
-            elem = random.choice(list(self._get_missing_ml_nodes(sm)))
-            new_stat = self.stat_source.sample_for(sm.bg, elem)
-            return elem, new_stat
 
 class WholeMLStatSearch(Mover):
     HELPTEXT = ("{:25} Not yet implemented\n".format("WholeMLStatSearch"))
-
-    def __init__(self, stat_source, max_diff, a_weight=4, t_weight=4):
-        super(WholeMLStatSearch, self).__init__(stat_source)
-        self.max_diff=float(max_diff)
-        self.a_weight =float(a_weight)
-        self.t_weight =float(t_weight)
-        self.r_fail = 0
-        self.a_fail = 0
-        self.t_fail = 0
-
-    def _get_elements(self, sm):
+    def __init__(self, n, stat_source, **kwargs):
+        if n!=-1 and n<1:
+            raise ValueError("EnergeticJunctionMover requires n==-1 or n>=1, not n={}".format(n))
+        super(EnergeticJunctionMover, self).__init__(stat_source)
+        self.n_elements = n
+        self.max_tries = 20000
+        self.original_max_tries = self.max_tries
+        #: The first time move is called, we enumerate all choices,
+        #: so we can rule out the possibility of 0 available choices.
+        #: A dictionary sm-identifier : choices.
+        self.choices = {}
+    @staticmethod
+    def _sm_fingerprint( sm):
+        fingerprint = sm.bg.name+"\n"+sm.bg.to_dotbracket_string()+"\n"
+        fingerprint+=",".join(sorted(sm.frozen_elements))
+        return fingerprint
+    def _enumerate_choices(self, sm):
+        choices = []
         loops = sm.bg.find_mlonly_multiloops()
         regular_multiloops = [ m for m in loops
                                if "regular_multiloop" in sm.bg.describe_multiloop(m) ]
         if len(regular_multiloops)==0:
-            raise ValueError("{} needs at least 1 regular multiloop. "
-                             "(Pseudoknots and external loops are not yet supported.)")
-        loop = random.choice(regular_multiloops)
-        return self._sort_loop(sm, list(loop))
+            raise UnsuitableMover("{} needs at least 1 regular multiloop. "
+                                  "(Pseudoknots and external loops are "
+                                  "not yet supported.)")
+        for loop in regular_multiloops:
+            if self.n_elements==-1:
+                if all(m not in sm.frozen_elements for m in loop):
+                    choices.append(self._sort_loop(sm, list(loop)))
+            elif self.n_elements>0:
+                for elem in loop:
+                    elements = [elem]
+                    for i in range(1, self.n_elements):
+                        next_elem = sm.bg.get_next_ml_segment(elements[-1])
+                        if next_elem in elements:
+                            break
+                        else:
+                            elements.append(next_elem)
+                    if elements not in choices and all(e not in sm.frozen_elements
+                                                       for e in elements):
+                        choices.append(elements)
+            else:
+                assert False
+        return choices
+
+    def _get_elements(self, sm):
+        fingerprint = self._sm_fingerprint(sm)
+        if fingerprint not in self.choices:
+            c = self._enumerate_choices(sm)
+            if len(c)==0:
+                raise UnsuitableMover("Cannot move any regulkr multiloop, "
+                                      "because all contain frozen elements.")
+            self.choices[fingerprint] = c
+        return random.choice(self.choices[fingerprint])
 
     def _sort_loop(self, sm, loop):
         """
@@ -367,73 +223,24 @@ class WholeMLStatSearch(Mover):
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
 
-    def _find_stats_for(self, elems, sm):
-        """
-        :param elems: ML segments. Need to be ordered!
-        """
-        for i, sampled in enumerate(create.stat_combinations(sm.bg, elems, self.stat_source)):
-            if self._check_junction(sm, sampled, elems):
-                log.info("Combination %i fits!", i)
-                return sampled
-            if i%1000==999:
-                log.info("Nothing found after trying %d combinations. Still searching.", i+1)
-        return None
-
     def _check_junction(self, sm, sampled_stats, elems):
         for elem, new_stat in sampled_stats.items():
             sm.elem_defs[elem]=new_stat
+        built_nodes = []
         for elem in elems[:-1]: # The last elem is broken!
             nodes = sm.new_traverse_and_build(start=elem, max_steps = 1, finish_building=False)
+            built_nodes+=nodes
         try:
             broken_stat = sampled_stats[elems[-1]]
         except KeyError:
-            broken_stat = sm.elem_defs[elems[-1]]
-        s1, s2 = sm.bg.connections(elems[-1])
-        try:
-            pdev, adev, tdev = ftug.get_broken_ml_deviation(sm.bg, elems[-1],
-                                                        s1,
-                                                        broken_stat)
-        except:
-            logdebug("Build order %s", sm.bg.build_order)
-            raise
-        max_adiff = math.radians(self.a_weight*self.max_diff)
-        max_tdiff = math.radians(self.t_weight*self.max_diff)
-        if pdev>self.max_diff:
-            self.r_fail+=1
-        elif adev>max_adiff:
-            self.a_fail+=1
-        elif tdev>max_tdiff:
-            self.t_fail+=1
-        return pdev < self.max_diff and adev<max_adiff and tdev<max_tdiff
-    def __del__(self):
-        try:
-            log.critical("R-failures: %s, a_failures: %s, t-failures: %s", self.r_fail, self.a_fail, self.t_fail)
-        except AttributeError:
-            pass
-class MLSegmentPairMover(WholeMLStatSearch):
-    """
-    Change two connected ML elements in a way that the total stat
-    around the loop does not deviate by more than maxdiff from
-    the zero-stat
-    """
-    HELPTEXT = ("{:25} Not yet implemented\n".format("MLSegmentPairMover"))
-
-    def __init__(self, stat_source, max_diff, a_weight=4, t_weight=4, max_tries = 20000):
-        super(MLSegmentPairMover, self).__init__(stat_source, max_diff, a_weight, t_weight)
-        self.max_tries = max_tries
-        self.original_max_tries = self.max_tries
-
-    def _get_elem(self, sm):
-        possible_elements = sm.bg.get_mst() - sm.frozen_elements
-        log.info("Possibel elements are %s", possible_elements)
-        return random.choice(list(m for m in possible_elements if m[0]=="m"
-                                    and "regular_multiloop" in sm.bg.describe_multiloop(sm.bg.shortest_mlonly_multiloop(m))))
-
-
-    def _get_elements(self, sm):
-        m1 = self._get_elem(sm)
-        m2 = sm.bg.get_next_ml_segment(m1)
-        return self._sort_loop(sm, [m1, m2])
+            try:
+                broken_stat = sm.elem_defs[elems[-1]]
+            except KeyError: # We use the JDIST energy
+                broken_stat = None
+        energy = sm.junction_constraint_energy.eval_energy(sm.bg,
+                                                           nodes=built_nodes,
+                                                           sampled_stats={elem[-1]:broken_stat})
+        return energy==0
 
     def _find_stats_for(self, elems, sm):
         """
@@ -443,7 +250,7 @@ class MLSegmentPairMover(WholeMLStatSearch):
         loop = self._sort_loop(sm, list(sm.bg.shortest_mlonly_multiloop(elems[0])))
         # We do not have to build the whole loop,
         # but only the part after the first changed element.
-        i = min(loop.index(elems[0]), loop.index(elems[1]))
+        i = min(loop.index(elem) for elem in elems)
         log.info("For elems %s, loop index is %s, loop is %s", elems, i, loop)
         loop = loop[i:]
         log.info("Loop now %s", loop)
@@ -452,9 +259,8 @@ class MLSegmentPairMover(WholeMLStatSearch):
             if self._check_junction(sm, sampled, loop):
                 log.info("Succsessfuly combination found after %d tried", counter)
                 if self.max_tries is not None:
-                    self.max_tries = int(max(self.original_max_tries, self.max_tries/2, counter+(self.original_max_tries/2)))
+                    self.max_tries = int(max(self.original_max_tries, self.max_tries*3/4, counter+(self.original_max_tries/2)))
                     log.info("Setting self.max_tries to %d", self.max_tries)
-
                 return sampled
             if counter%10000==0 and counter>0:
                 log.info("Nothing found after %d tries for %s."
@@ -471,119 +277,21 @@ class MLSegmentPairMover(WholeMLStatSearch):
                 return None
         return None
 
-
-class LocalMLMover(Mover):
-    """
-    Change two connected ML elements in a way that does not change the parts
-    of the RNA attached to the two ends of the connected elements.
-    """
-    HELPTEXT = ("{:25} Not yet implemented\n".format("LocalMLMover"))
-
-    def __init__(self, stat_source, max_diff):
-        super(LocalMLMover, self).__init__(stat_source)
-        self.max_diff=float(max_diff)
-
-    def _get_elems(self, sm):
-        all_mls = list( sm.bg.mloop_iterator() )
-        if len(all_mls)<2:
-            raise ValueError("LocalMLMover needs at least 2 multiloop"
-                             " segments in the sm")
-        ml1 = random.choice(all_mls)
-        ml2 = sm.bg.get_next_ml_segment(ml1)
-        log.info("Moving elements %s and %s. MST is %s.", ml1, ml2, sm.bg.mst)
-        log.info("Elem_defs for: %s", list(sm.elem_defs.keys()))
-        return ml1, ml2
-
-    def _find_stats_ith_iteration(self, i, choices1, choices2, virtual_stat, forward= True):
-        """
-        Compare the ith stat of the first choices,
-        to the first until ith stat of the second choices
-        """
-        if forward:
-            choicesA, choicesB= choices1, choices2
-        else:
-            choicesB, choicesA= choices1, choices2
-
-        if i>=len(choicesA):
-            return None
-        statA = choicesA[i]
-        for j in range(min(i+forward, len(choicesB))):
-            statB = choicesB[j]
-            # Shortcut based on lengths
-            if virtual_stat.r1>statA.r1+statB.r1+self.max_diff:
-                return None
-            if forward:
-                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statA, statB), self.max_diff):
-                    return statA, statB
-            else:
-                if virtual_stat.is_similar_to(ftug.sum_of_stat_in_standard_direction(statB, statA), self.max_diff):
-                    return statB, statA
-        return None
-
-    def _find_stats_for(self, ml1, ml2, sm):
-        virtual_stat = ftug.get_virtual_stat(sm.bg, ml1, ml2)
-
-        stem1a, stem1b = sm.bg.connections(ml1)
-        stem2a, stem2b = sm.bg.connections(ml2)
-        swapped = False
-        if stem1b == stem2b:
-            swapped = True
-            ml1, ml2 = ml2, ml1
-
-        log.debug("Finding stats for %s and %s", ml1, ml2)
-        choices1 = list(self.stat_source.iterate_stats_for(sm.bg, ml1))
-        choices2 = list(self.stat_source.iterate_stats_for(sm.bg, ml2))
-        random.shuffle(choices1)
-        random.shuffle(choices2)
-        maxlen = max(len(choices1), len(choices2))
-        try:
-            for i in range(maxlen):
-                for forward in [True, False]:
-                    result = self._find_stats_ith_iteration(i, choices1, choices2, virtual_stat, forward)
-                    if result is not None:
-                        log.info("Stat found after %sth iteration. Forward==%s", i, forward)
-                        if swapped:
-                            log.debug("Swapping...")
-                            return result[1], result[0]
-                        else:
-                            return result
-                if i>0 and i%50==0:
-                    log.info("Search of stats: Nothing found in %d th iteration", i)
-
-        except Exception as e:
-            log.error("Interrupted in %sth iteration (out of %s)", i, maxlen)
-            raise
-        return None, None
-
-    def move(self, sm):
-        ml1, ml2 = self._get_elems(sm)
-
-        if sm.bg.define_a(ml2)[0]<sm.bg.define_a(ml1)[0]:
-            ml1, ml2 = ml2, ml1
-
-        stat1, stat2 = self._find_stats_for(ml1, ml2, sm)
-        log.debug("%s %s; %s %s", ml1, stat1, ml2, stat2)
-        if stat1 is stat2 is None:
-            log.warning("Could not move elements %s and %s. "
-                        "No isosteric combination of stats found.", ml1, ml2)
-            return "no_change"
-        else:
-            movestring = []
-            self._prev_stats = {}
-            log.info("Moving %s, elem_defs=%s", ml1, list(sm.elem_defs.keys()))
-            movestring.append(self._move(sm, ml1, stat1))
-            log.info("Moving %s, elem_defs=%s", ml2, list(sm.elem_defs.keys()))
-            movestring.append(self._move(sm, ml2, stat2))
-            sm.new_traverse_and_build(start = "start", include_start = True)
-            return "".join(movestring)
-
 class MixedMover():
     def __init__(self, movers=[]):
         self.movers = movers
         self.last_mover = None
     def move(self, sm):
-        self.last_mover = random.choice(self.movers)
-        return self.last_mover.move(sm)
+        try:
+            self.last_mover = random.choice(self.movers)
+        except IndexError:
+            raise ValueError("None of the provided Movers is suitable for this RNA.")
+        try:
+            return self.last_mover.move(sm)
+        except UnsuitableMover:
+            self.movers.remove(self.last_mover)
+            return self.move(sm)
+
     def revert(self, sm):
         self.last_mover.revert(sm)
 
