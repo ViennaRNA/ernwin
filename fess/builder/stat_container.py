@@ -6,14 +6,16 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
-import forgi.threedee.model.stats as ftmstats
 import sys
 import random
 import math
 from collections import defaultdict
 import logging
 import string
+
 from logging_exceptions import log_to_exception
+
+import forgi.threedee.model.stats as ftmstats
 
 
 log = logging.getLogger(__name__)
@@ -162,7 +164,7 @@ class StatStorage(object):
                         new_key = (key[0], key[1]-1, key[2])
                     else:
                         new_key = (key[0]-1, key[1], key[2])
-                    log.warning("Trying key %s instead of %s for %s", new_key, key, stat_type)                    
+                    log.warning("Trying key %s instead of %s for %s", new_key, key, stat_type)
                     return self._possible_stats(stat_type, new_key, min_entries, strict)
 
             # If everything else fails, raise an error even if strict was disabled.
@@ -193,7 +195,7 @@ class StatStorage(object):
         :param elem: The element name, e.g. "s0"
         :param min_entries: If less than min-entries stats are found, try to use
                     the fallback-files to gather enough stats to sample from.
-        :param return: A singe Stat object, sampled from to possible stats.
+        :param return: A singe Stat object, sampled from the possible stats.
         """
         key = self.key_from_bg_and_elem(bg, elem)
         log.debug("Calling _possible_stats with %r, %r", letter_to_stat_type[elem[0]], key)
