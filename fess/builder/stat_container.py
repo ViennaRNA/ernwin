@@ -172,11 +172,6 @@ class StatStorage(object):
 
         return weights, choose_from
 
-    """
-    def get_possible_stats(self, bg, elem, min_entries = 100):
-        log.debug("Getting stats for {} of bg {}".format(elem, bg.name))
-        return self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
-    """
 
     def sample_for(self, bg, elem, min_entries = 100):
         """
