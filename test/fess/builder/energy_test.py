@@ -130,9 +130,9 @@ class TestSampledFragmentJunctionEnergy(unittest.TestCase):
     def test_energy_zero(self):
         # For the broken ml segment m2, we use the stats found in the stat-source for this element.
         if self.cg.get_angle_type("m2", allow_broken=True)==3:
-            self.cg.sampled["m2"] = ["4GXY_A:m_16"]
-        elif self.cg.get_angle_type("m2", allow_broken=True)==-3:
             self.cg.sampled["m2"] = ["4GXY_A:m_17"]
+        elif self.cg.get_angle_type("m2", allow_broken=True)==-3:
+            self.cg.sampled["m2"] = ["4GXY_A:m_16"]
         else:
             assert False
         energy = fbe.SampledFragmentJunctionClosureEnergy("m2", self.stat_source)
@@ -168,14 +168,14 @@ class TestSLDEnergies(unittest.TestCase):
 
     @unittest.skip("Need retraining of KBP")
     def test_SDL_1GID(self):
-        energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg1, None, None)
+        energy = fbe.ShortestLoopDistancePerLoop.from_cg(None, None, self.cg1)
         self.assertGreater(energy.eval_energy(self.cg1, background=True), -30)
         self.assertLess(energy.eval_energy(self.cg1, background=True), 30)
         self.assertGreater(energy.eval_energy(self.cg1, background=False), 0)
         self.assertLess(energy.eval_energy(self.cg1, background=False), 50)
 
     def test_SLD_far(self):
-        energy = fbe.ShortestLoopDistancePerLoop.from_cg(self.cg_far, None, None)
+        energy = fbe.ShortestLoopDistancePerLoop.from_cg(None, None, self.cg_far)
         energy.kde_resampling_frequency = 1
         # At first, we do not use any artificial data
         #energy._lsp_weight = 1
@@ -225,7 +225,7 @@ class TestAMinorEnergy(unittest.TestCase):
     def setUp(self):
         self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
         self.cg.add_all_virtual_residues()
-        self.energy = fbe.AMinorEnergy.from_cg(self.cg, None, None)
+        self.energy = fbe.AMinorEnergy.from_cg(None, None, self.cg1)
     @unittest.skip("Need retraining of KBP")
     def test_AME_energy(self):
         e = self.energy.eval_energy(self.cg)#, plot_debug = True)
@@ -298,6 +298,8 @@ class TestEnergyFunction_ABC(unittest.TestCase):
         self.assertAlmostEqual(e.adjustment, 23.5)
         e.accept_last_measure()
         self.assertAlmostEqual(e.adjustment, 27)
+
+
 class DummyCgEnergy(CoarseGrainEnergy):
     HELPTEXT=""
     _shortname="CGDUMMY"
@@ -313,6 +315,8 @@ class DummyCgEnergy(CoarseGrainEnergy):
         else:
             self._last_measure+=1
         return self._last_measure
+
+
 class TestCoarseGrainEnergyABC(unittest.TestCase):
     def setUp(self):
         self.energy_function = DummyCgEnergy(60, prefactor=30)
@@ -557,99 +561,23 @@ class TestProjectionMatchEnergy(unittest.TestCase):
 
 
 class TestConvenienceFunctions(unittest.TestCase):
-    def test_energies_from_string_single(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-
-        energy = fbe.energies_from_string("SLD", cg)
-        self.assertTrue(energy.hasinstance(fbe.ShortestLoopDistancePerLoop))
 
     def test_from_cg_AME(self):
         # A in hairpin and interiorloop
         cg1 = ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGAAGGGAAACCCAACCC")
-        e1 = fbe.AMinorEnergy.from_cg(cg1, None, None)
+        e1 = fbe.AMinorEnergy.from_cg(None, None, cg1)
         self.assertEqual(len(e1.energies), 2)
         # A only in hairpin
         cg2 =  ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUUGGGAAACCCUUCCC")
-        e2 = fbe.AMinorEnergy.from_cg(cg2, None, None)
+        e2 = fbe.AMinorEnergy.from_cg(None, None, cg2)
         self.assertEqual(len(e2.energies), 1)
         self.assertEqual(e2.energies[0].loop_type, "h")
         # A only in IL
         cg2 =  ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUAGGGUUUCCCUUCCC")
-        e2 = fbe.AMinorEnergy.from_cg(cg2, None, None)
+        e2 = fbe.AMinorEnergy.from_cg(None, None, cg2)
         self.assertEqual(len(e2.energies), 1)
         self.assertEqual(e2.energies[0].loop_type, "i")
 
-    def test_energies_from_string_multiple(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-
-        energy = fbe.energies_from_string("AME,ROG", cg)
-        self.assertTrue(energy.hasinstance(fbe.AMinorEnergy))
-        self.assertTrue(energy.hasinstance(fbe.RadiusOfGyrationEnergy))
-
-    def test_energies_from_string_prefactor(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-
-        energy = fbe.energies_from_string("20AME,15NDR,ROG", cg)
-        for e in energy.iterate_energies():
-            if isinstance(e, fbe.AMinorEnergy):
-                self.assertEqual(e.prefactor, 20)
-            elif isinstance(e, fbe.NormalDistributedRogEnergy):
-                self.assertEqual(e.prefactor, 15)
-            elif isinstance(e, fbe.RadiusOfGyrationEnergy):
-                self.assertEqual(e.prefactor, fbe.DEFAULT_ENERGY_PREFACTOR)
-    def test_energies_from_string_adjustment(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-
-        energy = fbe.energies_from_string("AME1.5,NDR,ROG3.2", cg)
-        for e in energy.iterate_energies():
-            if isinstance(e, fbe.AMinorEnergy):
-                self.assertEqual(e.adjustment, 1.5)
-            elif isinstance(e, fbe.NormalDistributedRogEnergy):
-                self.assertEqual(e.adjustment, 1.)
-            elif isinstance(e, fbe.RadiusOfGyrationEnergy):
-                self.assertEqual(e.adjustment, 3.2)
-
-    def test_energies_from_string_simulated_annealing_2(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        energy = fbe.energies_from_string("AME1.5_2.4,NDR,20_39ROG", cg, 1000)
-        for e in energy.iterate_energies():
-            if isinstance(e, fbe.AMinorEnergy):
-                self.assertEqual(e.adjustment, 1.5)
-                self.assertEqual(e._adj_stepwidth, 0.1)
-                self.assertEqual(e._adj_update_freq, 100)
-            elif isinstance(e, fbe.NormalDistributedRogEnergy):
-                self.assertEqual(e._adj_update_freq, float("inf"))
-            elif isinstance(e, fbe.RadiusOfGyrationEnergy):
-                self.assertEqual(e.prefactor, 20)
-                self.assertEqual(e._pf_stepwidth, 1)
-                self.assertEqual(e._pf_update_freq, 50)
-
-    def test_energies_from_string_simulated_annealing_3(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        energy = fbe.energies_from_string("AME1.5_0.2_2.3,NDR,20_5_35ROG", cg, 1000)
-        for e in energy.iterate_energies():
-            if isinstance(e, fbe.AMinorEnergy):
-                self.assertEqual(e.adjustment, 1.5)
-                self.assertEqual(e._adj_stepwidth, 0.2)
-                self.assertEqual(e._adj_update_freq, 200)
-            elif isinstance(e, fbe.NormalDistributedRogEnergy):
-                self.assertEqual(e._adj_update_freq, float("inf"))
-            elif isinstance(e, fbe.RadiusOfGyrationEnergy):
-                self.assertEqual(e.prefactor, 20)
-                self.assertEqual(e._pf_stepwidth, 5)
-                self.assertEqual(e._pf_update_freq, 250)
-
-    def test_energies_from_string_kwargs_clamp(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        energy = fbe.energies_from_string("CLA", cg, 1000, cla_pairs = [("s0", "s1"),("s0", "h2")])
-        for e in energy.iterate_energies():
-            self.assertEqual(e.adjustment, e._DEFAULT_CLAMP_DISTANCE)
-            self.assertEqual(e.from_elem, "s0")
-            self.assertIn(e.to_elem, ["s1", "h2"])
-        with self.assertRaises(TypeError) as ex: #Missing kwarg for CLA energy
-            energy = fbe.energies_from_string("CLA", cg, 1000)
-        self.assertIn("CLA", str(ex.exception))
-        self.assertIn("cla_pairs", str(ex.exception))
 
 class TestHelperFunctions(unittest.TestCase):
     def test__iter_subgraphs(self):

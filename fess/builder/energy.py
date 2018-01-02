@@ -495,7 +495,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
     HELPTEXT = "Clash constraint energy"
 
 
-    def __init__(self, clash_penalty = None, atom_diameter = None, iterations=None):
+    def __init__(self, clash_penalty = None, atom_diameter = None):
         """
         :param clash_penalty: The energy attributed to each pair of clashing atoms
         :param atom_radius: The distance between two atoms which counts as a clash
@@ -507,8 +507,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         # NOTE: The atom-diameter is implemented using the adjustment-variable!
         super(StemVirtualResClashEnergy, self).__init__(
                     prefactor = clash_penalty,
-                    adjustment = atom_diameter,
-                    iterations=iterations)
+                    adjustment = atom_diameter    )
         self.bad_bulges = []
         self.bad_atoms = defaultdict(list)
 
@@ -1729,13 +1728,13 @@ def update_parser(parser):
                    "     (float), default=1.0\n"
                    "For simulated annealing, ADJ and PRE can be changed \n"
                    "     during the simulation. To achieve this, give \n"
-                   "     underscore-seperated ranges START_END or \n"
-                   "     START_STEP_END as PRE and/or ADJ.\n"
-                   "     E.g. 1.0_0.1_1.4\n"
-                   "     For each prefactor/ adjustment, equally \n"
-                   "     many sampling steps are used.\n"
-                   "     If step is not given, 1.0 or 0.1 is used, \n"
-                   "     depending on the difference between START and END.\n"
+                   "     underscore-seperated values START_STEP_FREQUENCY \n"
+                   "     as PRE and/or ADJ. The value will start with \n"
+                   "     START and be incremented by STEP every \n"
+                   "     FREQUENCY sampling steps."
+                   "     E.g. 1.0_0.1_100 means start at 1.0 and \n"
+                   "     increment this value by 0.1 after every\n"
+                   "     100 sampling steps.\n"
                    "TYP: One of the following:"])
     EnergyFunction.add_to_parser(parser, '--energy', default="", help_intro=helptext)
 
@@ -1744,6 +1743,5 @@ def from_args(args, cg, stat_source, replica=None):
     energy_string = replica_substring(args.energy, replica)
     energies = EnergyFunction.from_string(energy_string,
                                           cg=cg,
-                                          stat_source=stat_source,
-                                          iterations=None)
+                                          stat_source=stat_source)
     return CombinedEnergy(energies)
