@@ -1,4 +1,12 @@
+import random
+import itertools as it
+import copy
+import logging
+
 from .move import Mover
+
+log=logging.getLogger(__name__)
+
 
 """
 Implementations of other Mover subclasses, which do not consistently perform well
@@ -37,9 +45,12 @@ class MSTchangingMover(Mover):
     def revert(self, sm):
         if self._prev_mst is not None:
             # Reset MST
+            log.info("Reverting MST")
             sm.change_mst(self._prev_mst)
+        else:
+            log.info("Nothing to revert")
         self._prev_mst = None
-
+        super(MSTchangingMover, self).revert(sm)
 
 class ExhaustiveMover(Mover):
     HELPTEXT = ("Try all fragment combinations for \n"

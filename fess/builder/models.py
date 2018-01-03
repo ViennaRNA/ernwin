@@ -379,7 +379,7 @@ class SpatialModel:
         self.bg.build_order = None #No longer valid
         self.bg.ang_types = None
         self.load_sampled_elems()
-
+        #self.new_traverse_and_build(start='start', include_start = True)
 
     def set_multiloop_break_segment(self, d):
         """
