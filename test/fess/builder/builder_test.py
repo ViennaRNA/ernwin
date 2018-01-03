@@ -28,9 +28,16 @@ class TestBuilderBaseClass(unittest.TestCase):
 
         real_stats_fn = 'fess/stats/all_nr2.92.stats'
         self.stat_source = stat_container.StatStorage(real_stats_fn)
-        self.je = fbe.RoughJunctionClosureEnergy()
-        self.ce = fbe.StemVirtualResClashEnergy()
-        self.builder = fbb.Builder(self.stat_source, self.je, self.ce)
+        self.sm.constraint_energy = fbe.StemVirtualResClashEnergy()
+        self.sm2.constraint_energy = fbe.StemVirtualResClashEnergy()
+
+        e1 = fbe.RoughJunctionClosureEnergy()
+        e2 = fbe.RoughJunctionClosureEnergy()
+        for e, sm in [(e1, self.sm),(e2, self.sm2)]:
+            for ml in sm.bg.defines:
+                if ml[0]=="m":
+                    sm.junction_constraint_energy[ml] = e
+        self.builder = fbb.Builder(self.stat_source)
 
     def test_building_samples_stats(self):
         for i in range(RAND_REPETITION):
@@ -39,17 +46,15 @@ class TestBuilderBaseClass(unittest.TestCase):
 
     def test_clashfree_building(self):
         for i in range(RAND_REPETITION):
-            self.builder.build(self.sm)
-            self.assertEqual(self.je.eval_energy(self.sm.bg), 0)
-            self.assertEqual(self.ce.eval_energy(self.sm.bg), 0)
-            self.builder.build(self.sm2)
-            self.assertEqual(self.je.eval_energy(self.sm2.bg), 0)
-            self.assertEqual(self.ce.eval_energy(self.sm2.bg), 0)
+            for sm in [self.sm, self.sm2]:
+                self.builder.build(sm)
+                self.assertEqual(sm.junction_constraint_energy["m0"].eval_energy(sm.bg), 0)
+                self.assertEqual(sm.constraint_energy.eval_energy(sm.bg), 0)
 
 class TestChangingMSTBuilder(TestBuilderBaseClass):
     def setUp(self):
         super(TestChangingMSTBuilder, self).setUp()
-        self.builder = fbb.ChangingMSTBuilder(self.stat_source, junction_energy=self.je, clash_energy=self.ce)
+        self.builder = fbb.ChangingMSTBuilder(self.stat_source)
     def test_building_changes_mst(self):
         # First building
         self.builder.build(self.sm)

@@ -69,10 +69,8 @@ class Builder(object):
     that fulfill all constraint energies but are
     not representative samples from the conformation space.
     """
-    def __init__(self, stat_source, junction_energy=None, clash_energy=None):
+    def __init__(self, stat_source):
         self.stat_source = stat_source
-        self.junction_energy = junction_energy
-        self.clash_energy = clash_energy
         self.clash_only_tries = 100
 
     def build_n(self, sm, n):
@@ -94,7 +92,7 @@ class Builder(object):
             return self.build(sm)
         else:
             sm.new_traverse_and_build()
-            if self.clash_energy is not None or self.junction_energy is not None:
+            if sm.constraint_energy is not None or sm.junction_constraint_energy:
                 self._build_with_energies(sm)
             log.info("Done to build")
 
@@ -146,14 +144,13 @@ class Builder(object):
         except KeyboardInterrupt:
             print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
             raise
-        for e in self.junction_energy.iterate_energies():
-            log.debug("Junction energy %s", e)
-            if hasattr(e, "used_stat"):
-                log.debug("Assigning stat %s to broken ml segment %s", e.used_stat, e.element)
-                sm.elem_defs[e.element] = e.used_stat
+        for elem in _determined_broken_ml_segments(built_nodes, sm.bg):
+            if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
+                used_stat = sm.junction_constraint_energy[elem].used_stat
+                log.debug("Assigning stat %s to broken ml segment %s",
+                          used_stat, elem)
+                sm.elem_defs[elem] = used_stat
                 sm.save_sampled_elems()
-            else:
-                log.debug(dir(e))
         log.debug("++++++++++++++++++++++++++++++++++++++")
 
     def _check_sampled_ml(self, sm, ml):
@@ -166,9 +163,9 @@ class Builder(object):
         :raises: ValueError, if the ml-segment does not fulfill the energy
         :returns: None
         """
-        if self.junction_energy is None:
+        if ml not in sm.junction_constraint_energy:
             return
-        if self.junction_energy.eval_energy(sm.bg, nodes = [ml])!=0:
+        if sm.junction_constraint_energy[ml].eval_energy(sm.bg, nodes = [ml])!=0:
             dist = ftug.junction_virtual_atom_distance(sm.bg, ml)
             raise ValueError("Multiloop {} does not fulfill the constraints. "
                              "Sampled as {}, "
@@ -185,16 +182,17 @@ class Builder(object):
         :returns: A list of ml-elements that are part of a bad loop,
                   or an empty list, if the junction constriant energy is zero.
         """
-        if self.junction_energy is None:
-            return []
         det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
         log.debug("Evaluationg junction energy for nodes %s", det_br_nodes)
-        ej = self.junction_energy.eval_energy( sm.bg, nodes=det_br_nodes)
-        log.debug("Junction Energy for nodes {} (=> {}) is {}".format(nodes, det_br_nodes, ej))
-        if ej>0:
-            bad_loop_nodes =  [ x for x in nodes if x[0]=="m"]
-            log.debug("Bad loop nodes = {} (filtered from {})".format(bad_loop_nodes, self.junction_energy.bad_bulges))
-            return bad_loop_nodes
+        for ml in det_br_nodes:
+            if ml in sm.junction_constraint_energy:
+                ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes)
+                log.debug("Junction Energy for nodes {} (=> {}) is {}".format(nodes, det_br_nodes, ej))
+                if ej>0:
+                    bad_loop_nodes =  [ x for x in nodes if x[0]=="m"]
+                    log.debug("Bad loop nodes = {} (filtered from {})".format(bad_loop_nodes,
+                                                                              sm.junction_constraint_energy[ml].bad_bulges))
+                    return bad_loop_nodes
         return []
 
     def _get_bad_clash_segments(self, sm, nodes):
@@ -207,12 +205,12 @@ class Builder(object):
         :returns: A list of i and m element that were built after the first stem
                   with clashes, or an empty list is no clashes are detected.
         """
-        if self.clash_energy is None:
+        if sm.constraint_energy is None:
             return []
-        ec = self.clash_energy.eval_energy(sm.bg, nodes=nodes)
+        ec = sm.constraint_energy.eval_energy(sm.bg, nodes=nodes)
         log.debug("Clash Energy for nodes {} is {}".format(nodes, ec))
         if ec>0:
-            bad_stems=set(x for clash_pair in self.clash_energy.bad_bulges for x in clash_pair)
+            bad_stems=set(x for clash_pair in sm.constraint_energy.bad_bulges for x in clash_pair)
             first = min(nodes.index(st) for st in bad_stems)
             assert first>=0
             clash_nodes =  [ x for x in nodes[first:] if x[0] in ["m", "i"]]
@@ -236,7 +234,7 @@ class Builder(object):
 
         :returns: True, if a clash_free structure was built.
         """
-        if self.clash_energy is None:
+        if sm.constraint_energy is None:
             return True
         if not changable:
             return False
@@ -244,7 +242,7 @@ class Builder(object):
             node = random.choice(changable)
             sm.elem_defs[node] = self.stat_source.sample_for(sm.bg, node)
             sm.new_traverse_and_build(start=node, end=nodes[-1])
-            ec = self.clash_energy.eval_energy(sm.bg, nodes=nodes)
+            ec = sm.constraint_energy.eval_energy(sm.bg, nodes=nodes)
             if ec == 0:
                 log.debug("_rebuild_clash_only for {} was successful after {} tries".format(nodes, i))
                 return True
@@ -253,13 +251,13 @@ class Builder(object):
 
 class FairBuilder(Builder):
     @profile
-    def __init__(self, stat_source, output_dir = None, store_failed=False, junction_energy=None, clash_energy=None):
+    def __init__(self, stat_source, output_dir = None, store_failed=False):
         """
         :param store_failed: Should structures, that do not fulfill the constraint energy, be stored?
                              A boolean or one of the following strings: "junction", "clash", "list"
                              In case of list: only append the failure reasons to the file clashlist.txt
         """
-        super(FairBuilder, self).__init__(stat_source, junction_energy, clash_energy)
+        super(FairBuilder, self).__init__(stat_source)
         self.output_dir = output_dir
         self.store_failed = store_failed
         self._failed_save_counter = 0
@@ -275,42 +273,39 @@ class FairBuilder(Builder):
         sm.new_traverse_and_build()
 
     def _fulfills_junction_energy(self, sm):
-        if self.junction_energy is not None:
-            log.info("Testing junction energy.")
-            if self.junction_energy.eval_energy(sm.bg)>0:
-                log.info("Junction energy not fulfilled for build.")
-                if self.store_failed is True or self.store_failed == "junction":
-                    self._store_failed(sm)
-                elif self.store_failed=="list":
-                    with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
-                        self._failed_save_counter += 1
-                        bad_junctions = []
-                        add = True
-                        for j in self.junction_energy.bad_bulges:
-                            if add:
-                                bad_junctions.append(j)
-                                add = False
-                            else:
-                                if j == bad_junctions[-1]:
-                                    add=True
-                        f.write("{}: junction {}\n".format(self._failed_save_counter,
-                                                         list(set(bad_junctions))))
-                return False
-        return True
+        if sm.fulfills_junction_energy():
+            return True
+        else:
+            if self.store_failed is True or self.store_failed == "junction":
+                self._store_failed(sm)
+            elif self.store_failed=="list":
+                with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
+                    self._failed_save_counter += 1
+                    bad_junctions = []
+                    add = True
+                    for j in self.junction_energy.bad_bulges:
+                        if add:
+                            bad_junctions.append(j)
+                            add = False
+                        else:
+                            if j == bad_junctions[-1]:
+                                add=True
+                    f.write("{}: junction {}\n".format(self._failed_save_counter,
+                                                     list(set(bad_junctions))))
+            return False
 
     def _fulfills_clash_energy(self, sm):
-        if self.clash_energy is not None:
-            log.info("Testing clash energy.")
-            if self.clash_energy.eval_energy(sm.bg)>0:
-                if self.store_failed is True or self.store_failed == "clash":
-                    self._store_failed(sm)
-                elif self.store_failed=="list":
-                    with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
-                        self._failed_save_counter += 1
-                        clash_pairs = set()
-                        f.write("{}: clash {}\n".format(self._failed_save_counter, self.clash_energy.bad_bulges))
-                return False
-        return True
+        if sm.fulfills_clash_energy():
+            return True
+        else:
+            if self.store_failed is True or self.store_failed == "clash":
+                self._store_failed(sm)
+            elif self.store_failed=="list":
+                with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
+                    self._failed_save_counter += 1
+                    clash_pairs = set()
+                    f.write("{}: clash {}\n".format(self._failed_save_counter, self.clash_energy.bad_bulges))
+            return False
 
     def _store_failed(self, sm):
         self._failed_save_counter += 1
@@ -374,7 +369,7 @@ class ChangingMSTBuilder(FairBuilder):
 
 class DimerizationBuilder(FairBuilder):
     #Inspired by dimerization for SAWs, as summerized in the review doi:10.1016/0920-5632(96)00042-4
-    def __init__(self, stat_source, output_dir = None, store_failed=False, junction_energy=None, clash_energy=None):
+    def __init__(self, stat_source, output_dir = None, store_failed=False):
         """
         Build all multiloops independently and then attempt to connect them
         via building of the rest of the structure. Reject the whole structure,
@@ -383,7 +378,7 @@ class DimerizationBuilder(FairBuilder):
         :param store_failed: BOOL. Should structures, that do not fulfill the clash energy, be stored?
         :param output_dir: Where failed structures will be saved
         """
-        super(DimerizationBuilder, self).__init__(stat_source, output_dir, store_failed, junction_energy, clash_energy)
+        super(DimerizationBuilder, self).__init__(stat_source, output_dir, store_failed)
 
     def _attempt_to_build(self, sm):
         sm.sample_stats(self.stat_source)
@@ -399,9 +394,8 @@ class DimerizationBuilder(FairBuilder):
         In contrast to the super-class, this does not store failures,
         because we are only looking at partial structures here.
         """
-        if self.junction_energy is not None:
-            if self.junction_energy.eval_energy(sm.bg, nodes=nodes)>0:
-                return False
+        if nodes[0] in sm.junction_constraint_energy:
+            return sm.junction_constraint_energy[nodes[0]]==0
         return True
 
     def _change_multi_loop(self, sm, multi_loop):

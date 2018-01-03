@@ -848,15 +848,20 @@ class SpatialModel:
         return diff
 
     def fulfills_constraint_energy(self):
-        if self.constraint_energy.eval_energy(self.bg)>0:
-            log.info("CLASHING")
-            return False
+        return self.fulfills_clash_energy() and self.fulfills_junction_energy()
+    def fulfills_junction_energy(self):
         for loop in self.bg.find_mlonly_multiloops():
             if loop[0] in self.junction_constraint_energy:
                 if self.junction_constraint_energy[loop[0]].eval_energy(self.bg)>0:
                     log.info("Junction {} is not closed".format(loop))
                     return False
         return True
+    def fulfills_clash_energy(self):
+        if self.constraint_energy is not None and self.constraint_energy.eval_energy(self.bg)>0:
+            log.info("CLASHING")
+            return False
+        return True
+
 #############################################################################################
 ### COMMANDLINE OPTIONS
 #############################################################################################
