@@ -160,7 +160,7 @@ class StatStorage(object):
                 if stat_type == "loop" and key>3:
                     log.warning("Trying key %s instead of %s for %s", key-1, key, stat_type)
                     return self._possible_stats(stat_type, key-1, min_entries, strict)
-                elif stat_type == "angle" and key[0]>0 or 1000>key[1]>0:
+                elif stat_type == "angle" and (key[0]>0 or 1000>key[1]>0):
                     if 1000>key[1]>key[0]:
                         new_key = (key[0], key[1]-1, key[2])
                     else:

@@ -55,7 +55,7 @@ class MSTchangingMover(Mover):
 class ExhaustiveMover(Mover):
     HELPTEXT = ("Try all fragment combinations for \n"
                 "the given coarse-grained element(s).")
-    def __init__(self, stat_source, elems_of_interest, sm):
+    def __init__(self, *elems_of_interest, **kwargs):
         """
         Explore the conformation space exhaustively by iterating
         through the stats for the given elements.
@@ -74,6 +74,12 @@ class ExhaustiveMover(Mover):
             If fallback-stats are used (and there are more fallback-stats than needed),
             the search is not really exhaustive but samples from the fallback stats.
         """
+        if "stat_source" not in kwargs:
+            raise TypeError("stat_source is a required keyword argument.")
+        if "sm" not in kwargs:
+            raise TypeError("sm is a required keyword argument")
+        stat_source = kwargs["stat_source"]
+        sm = kwargs["sm"]
         super(ExhaustiveMover, self).__init__(stat_source)
         if isinstance(elems_of_interest, str):
             elems_of_interest = elems_of_interest.split(",")
@@ -104,7 +110,7 @@ class NElementMover(Mover):
     HELPTEXT = ("In every move, randomly replace \n"
                 "n different fragments.")
 
-    def __init__(self, stat_source, n=2):
+    def __init__(self, n=2, stat_source=None):
         """
         Change more than one element per iteration step.
 
@@ -132,7 +138,7 @@ class NElementMover(Mover):
 class OneOrMoreElementMover(NElementMover):
     HELPTEXT = ("In every move, randomly replace \n"
                 "1 to n fragments.")
-    def __init__(self, stat_source, max_n=2):
+    def __init__(self, max_n=2, stat_source=None):
         """
         Change more than one element per iteration step.
 

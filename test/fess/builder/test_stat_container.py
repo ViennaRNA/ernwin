@@ -100,9 +100,9 @@ class StatStorageTest(unittest.TestCase):
         self.assertEqual(st._possible_stats("angle", (5,2,1))[1][0].pdb_name, "test:i_0")
         with self.assertRaises(LookupError):
             st._possible_stats("angle", (4,5,1))
-        self.assertEqual(st._possible_stats("angle", (4,1000,-4))[1][0].pdb_name, "test:m_0")
+        self.assertEqual(st._possible_stats("angle", (4,1000,6))[1][0].pdb_name, "test:m_0")
         with self.assertRaises(LookupError):
-            st._possible_stats("angle", (4,1000,3))
+            st._possible_stats("angle", (4,1000,-6))
         self.assertEqual(st._possible_stats("loop", 6)[1][0].pdb_name, "test:h_0")
         with self.assertRaises(LookupError):
             st._possible_stats("loop", 4)

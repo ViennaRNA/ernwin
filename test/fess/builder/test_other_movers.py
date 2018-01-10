@@ -42,11 +42,12 @@ log = logging.getLogger(__name__)
 
 unittest.TestCase.longMessage = True
 
+
 class TestNMoverPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
         super(TestNMoverPublicAPI, self).setUp()
-        self.mover = fbmov.NElementMover(self.stat_source_real, 2)
-        self.mover4 = fbmov.NElementMover(self.stat_source_real, 4)
+        self.mover = fbmov.NElementMover(2, self.stat_source_real)
+        self.mover4 = fbmov.NElementMover(4, self.stat_source_real)
 
     def test_move_changes_multiple2(self):
         stats_old = copy.deepcopy(self.sm.elem_defs)
@@ -102,8 +103,8 @@ class TestMSTchangingMoverPublicAPI(TestMoverBaseClassPublicAPI):
 class TestConnectedElementMoverPublicAPI(TestNMoverPublicAPI):
     def setUp(self):
         super(TestConnectedElementMoverPublicAPI, self).setUp()
-        self.mover = fbmov.ConnectedElementMover(self.stat_source_real, 2)
-        self.mover4 = fbmov.ConnectedElementMover(self.stat_source_real, 4)
+        self.mover = fbmov.ConnectedElementMover(2, self.stat_source_real)
+        self.mover4 = fbmov.ConnectedElementMover(4, self.stat_source_real)
 
     def test_move_changes_connected(self):
         for i in range(RAND_REPETITIONS):
@@ -123,8 +124,8 @@ class TestConnectedElementMoverPublicAPI(TestNMoverPublicAPI):
 class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
     def setUp(self):
         super(TestExhaustiveExplorerPrivateMembers, self).setUp()
-        self.mover_realstats = fbmov.ExhaustiveMover(self.stat_source_real, ["s0"], self.sm )
-        self.mover_limitedstats = fbmov.ExhaustiveMover(self.stat_source_limited, ["s0"], self.sm )
+        self.mover_realstats = fbmov.ExhaustiveMover("s0", stat_source=self.stat_source_real, sm=self.sm )
+        self.mover_limitedstats = fbmov.ExhaustiveMover("s0", stat_source=self.stat_source_limited, sm=self.sm )
     def test_get_elem_and_stat_real_stats(self):
         elems = Counter()
         stats = set()
@@ -147,7 +148,7 @@ class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
         cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....)))))", seq="GGCGCAAAAAGCGCC")
         self.sm = SpatialModel(cg)
 
-        mov = fbmov.ExhaustiveMover(self.stat_source_limited, ["s0", "h0"], self.sm )
+        mov = fbmov.ExhaustiveMover("s0", "h0", stat_source=self.stat_source_limited,sm=self.sm )
         move_list = list(mov._iter_moves(self.sm))
         self.assertEqual([x[0] for x in move_list], ["s0", "h0", "h0"])
         self.assertEqual([x[1].pdb_name for x in move_list],
@@ -157,8 +158,8 @@ class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
 class TestExhaustiveExplorerPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
         super(TestExhaustiveExplorerPublicAPI, self).setUp()
-        self.mover_realstats = fbmov.ExhaustiveMover(self.stat_source_real, self.sm, ["s0"])
-        self.mover_limitedstats = fbmov.ExhaustiveMover(self.stat_source_limited, self.sm, ["s0"])
+        self.mover_realstats = fbmov.ExhaustiveMover("s0", stat_source=self.stat_source_real, sm=self.sm)
+        self.mover_limitedstats = fbmov.ExhaustiveMover("s0", stat_source=self.stat_source_limited, sm=self.sm)
 
 class TestWholeMLMoverPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
