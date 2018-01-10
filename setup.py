@@ -3,11 +3,11 @@ from distutils.command.build_py import build_py as _build_py
 import subprocess
 import os
 import logging
-log=logging.getLogger("setup_py")        
+log=logging.getLogger("setup_py")
 logging.basicConfig(level=logging.INFO)
 log.info("Now building")
 try: #If we are in a git-repo, get git-describe version.
-    path = os.path.abspath(os.path.dirname(__file__))    
+    path = os.path.abspath(os.path.dirname(__file__))
     ernwin_version = subprocess.check_output(["git", "describe", "--always"]).strip()
     log.info("Ernwin version read: %s", ernwin_version)
     try:
@@ -22,7 +22,7 @@ try: #If we are in a git-repo, get git-describe version.
             During building, adds a variable with the complete version (from git describe)
             to fess/__init__.py.
             """
-            try: 
+            try:
                 outfile = self.get_module_outfile(self.build_lib, ["fess"], "__init__")
                 os.remove(outfile) #If we have an old version, delete it, so _build_py will copy the original version into the build directory.
             except:
@@ -51,7 +51,7 @@ setup(cmdclass={'build_py': build_py},
       author='Peter Kerpedjiev, Bernhard Thiel',
       author_email='pkerp@tbi.univie.ac.at, thiel@tbi.univie.ac.at',
       url='http://www.tbi.univie.ac.at/~thiel/ernwin/',
-      packages = ['fess', 'fess.builder', 'fess.aux', 'fess.motif'],
+      packages = ['fess', 'fess.builder', 'fess.ccd', 'fess.motif'],
       package_data={'fess': ['stats/temp.stats',
                              'stats/cylinder_intersections*.csv',
                              'stats/cde_reference_dist_nr2.110.csv',
