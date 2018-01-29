@@ -8,9 +8,6 @@ from __future__ import absolute_import, division, print_function
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       super, zip) # Do not import str here (incompatible with pyffx)!
-from future.builtins.disabled import (apply, cmp, coerce, execfile,
-                             file, long, raw_input, reduce, reload,
-                             unicode, xrange, StandardError)
 __metaclass__=type
 
 import math

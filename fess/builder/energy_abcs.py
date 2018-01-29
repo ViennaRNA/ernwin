@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
-
+from future.utils import with_metaclass
 from abc import ABCMeta, abstractmethod, abstractproperty
 import numpy as np
 import scipy.stats
@@ -29,7 +29,7 @@ INCR = 0.01
 @parsable_base(False, required_kwargs=["cg"], factory_function="from_cg",
                name_attr="_shortname", helptext_sep="\n", help_attr="HELPTEXT",
                allow_pre_and_post_number=True, help_intro_list_sep="\n")
-class EnergyFunction(object):
+class EnergyFunction(with_metaclass(ABCMeta, object)):
     '''
     The base class for energy functions.
     '''
