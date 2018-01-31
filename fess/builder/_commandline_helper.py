@@ -4,7 +4,7 @@ log=logging.getLogger(__name__)
 
 def replica_substring(string, replica_nr):
     log.debug("String is %r", string)
-    if replica_nr is not None or '@' not in string:
+    if replica_nr is None or '@' not in string:
         return string
     else:
         try:
