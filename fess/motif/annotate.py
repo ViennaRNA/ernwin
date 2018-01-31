@@ -4,7 +4,7 @@ import os
 import subprocess as sp
 import pandas as pa
 import warnings
-import motif_atlas as ma
+from . import motif_atlas as ma
 import collections as clcs
 import fess.builder.config as cbc
 import forgi.utilities.debug as fud

@@ -26,7 +26,7 @@ import forgi.threedee.utilities.vector as ftuv
 
 from . import config as conf
 from . import energy as fbe
-from ..aux.SortedCollection import SortedCollection
+from ..SortedCollection import SortedCollection
 
 log = logging.getLogger(__name__)
 __metaclass__=type

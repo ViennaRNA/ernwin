@@ -70,12 +70,14 @@ def load_local_data(filename):
 
     An example is something like 'stats/longrange.stats'.
 
-    @param: A filename relative to the base directory of the package.
-    @return: A generator iterating over the lines in the file.
+    :param: A filename relative to the base directory of the package.
+    :return: A StriungIO stream.
     '''
     data = pu.get_data('fess', filename)
-
-    return StringIO(data)
+    try: # Py 2K
+        return StringIO(data)
+    except TypeError:
+        return StringIO(data.decode("utf-8"))
 
 class RandomEnergy(EnergyFunction):
     _shortname = "RND"

@@ -2,31 +2,34 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
-from future.builtins.disabled import (apply, cmp, coerce, execfile,
-                             file, long, raw_input, reduce, reload,
-                             unicode, xrange, StandardError)
 from future.utils import viewkeys
 import unittest
 import sys
-import StringIO
+try: #py 3K
+    from io import StringIO
+except ImportError:
+    from StringIO import StringIO
 import fess.builder.stat_container as fbstat
 import forgi.threedee.model.stats as ftmstats
 import forgi.threedee.model.coarse_grain as ftmc
 from collections import Counter
-from mock import mock_open, patch
+try:
+    from unittest.mock import mock_open, patch
+except ImportError:
+    from mock import mock_open, patch
 import logging
 
 log = logging.getLogger(__name__)
 class ParseFileTests(unittest.TestCase):
     def test_parse_empty_line(self):
-        filecontent = StringIO.StringIO("\nstem test:s_0 5 10.388 2.43294047108")
+        filecontent = StringIO("\nstem test:s_0 5 10.388 2.43294047108")
         stats = fbstat.parse_stats_file(filecontent)
         self.assertEqual(len(stats["stem"]), 1)
         self.assertEqual(len(stats["angle"]), 0)
         self.assertEqual(stats["stem"][5][0].bp_length, 5)
 
     def test_parse_line_with_comments(self):
-        filecontent = StringIO.StringIO("\nstem test:s_0 5 10.388 2.43294047108\n"
+        filecontent = StringIO("\nstem test:s_0 5 10.388 2.43294047108\n"
                                         " # Das ist ein comment\n"
                                         "angle test:i_0 5 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1\n"
                                         "angle test:i_1 4 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1 #Another # comment")

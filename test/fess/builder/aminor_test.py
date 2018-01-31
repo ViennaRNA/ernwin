@@ -12,7 +12,10 @@ import forgi.threedee.model.coarse_grain as ftmc
 import math
 import warnings
 import logging
-from StringIO import StringIO
+try:
+    from io import StringIO
+except ImportError:
+    from StringIO import StringIO
 try:
     from unittest.mock import mock_open, patch #Python 3
 except:
