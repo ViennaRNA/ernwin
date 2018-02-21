@@ -4,19 +4,19 @@ import sys
 from collections import defaultdict
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.utilities.commandline_utils as fuc
 import logging
-logging.basicConfig(level=logging.DEBUG)
+
 def get_parser():
-    parser=argparse.ArgumentParser("Create stats")
-    parser.add_argument("cg", nargs="+", help="One or more cg files.")
+    parser=fuc.get_rna_input_parser("Create stats", nargs='+', rna_type="only_cg")
     return parser
 
 parser=get_parser()
 if __name__ == "__main__":
     args = parser.parse_args()
+    cgs = fuc.cgs_from_args(args, '+', "cg_only")
     next_id = defaultdict(int)
-    for cgfile in args.cg:
-        cg = ftmc.CoarseGrainRNA(cgfile)
+    for cg in cgs:
         if sys.stderr.isatty():
             print(cg.name, file=sys.stderr)
         for elem in cg.defines.keys():

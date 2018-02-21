@@ -10,6 +10,7 @@ from collections import defaultdict
 import forgi.threedee.model.coarse_grain as ftmc
 
 fr3d_query_string="""
+      pdb = 1ffk
       cutoff = 0.5;
       First nt constrained to A
       2nd-3rd nt constrained to cWW
