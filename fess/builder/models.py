@@ -629,7 +629,8 @@ class SpatialModel:
             if d in self.bg.defines:
                 bm = self.bulges[d]
                 connected, =self.bg.edges[d]
-                assert np.array_equal(bm.mids[0], self.bg.coords[connected][0])
+                # We do not know at which stem-side the 3'/5' element is, because of cofold structures.
+                assert np.array_equal(bm.mids[0], self.bg.coords[connected][0]) or np.array_equal(bm.mids[0], self.bg.coords[connected][1])
                 self.bg.coords[d] = np.array([bm.mids[0], bm.mids[1]])
 
     def get_sampled_bulges(self):
@@ -905,7 +906,7 @@ def _perml_energy_to_sm(sm, energy_string, stat_source):
             if len(parts)==2:
                 elem, energy_string = parts
             elif len(parts)==1:
-                elem = None,
+                elem = None
                 energy_string = contrib
             else:
                 raise ValueError("Too many colons in energy specification `{}` "
