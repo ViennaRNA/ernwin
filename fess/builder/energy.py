@@ -723,7 +723,7 @@ class MaxEnergyValue(EnergyFunction):
                 "is above a thresthold")
     @classmethod
     def from_cg(cls, pre, adj, argument, cg, **kwargs):
-        other_energy = EnergyFunction.from_string(argument, cg=cg, **kwargs)
+        other_energy, = EnergyFunction.from_string(argument, cg=cg, **kwargs)
         return cls(other_energy, adj)
     def __init__(self, other_energy, cutoff):
         super(MaxEnergyValue, self).__init__(adjustment = cutoff)
