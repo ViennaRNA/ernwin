@@ -188,8 +188,7 @@ class MultiprocessingReProcess(Process):
 
     @staticmethod
     def sm_from_cg_string(cg_string):
-        bg = ftmc.CoarseGrainRNA()
-        bg.from_cg_string(cg_string)
+        bg = ftmc.CoarseGrainRNA.from_bg_string(cg_string)
         sm = fbm.SpatialModel(bg)
         sm.load_sampled_elems()
         sm.new_traverse_and_build()

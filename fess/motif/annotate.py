@@ -109,7 +109,7 @@ def get_coarse_grain_files(struct_name, chains, temp_dir=None):
 
     # do we already have the cg representation
     if op.exists(cg_filename):
-        return ftmc.CoarseGrainRNA(cg_filename)
+        return ftmc.CoarseGrainRNA.from_bg_file(cg_filename)
     else:
         pdb_filename = op.join(PDB_DIR, struct_name + ".pdb")
 

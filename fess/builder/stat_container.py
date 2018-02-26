@@ -101,7 +101,7 @@ class StatStorage(object):
 
     @staticmethod
     def key_from_bg_and_elem(bg, elem):
-        dims = bg.get_node_dimensions(elem)
+        dims = bg.get_node_dimensions(elem)#, with_missing=(elem[0]!="s"))
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
             ang_type = patch_angtype(ang_type)

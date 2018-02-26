@@ -16,14 +16,11 @@ import os.path as op
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.pdb as ftup
-import forgi.threedee.utilities.average_atom_positions as ftua
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as cuv
 ftuv = cuv
 import forgi.utilities.debug as fud
 import forgi.utilities.stuff as fus
-
-import fess.builder.ccd as cbc
 
 import forgi.threedee.model.similarity as brmsd
 import forgi.threedee.model.stats as ftms
@@ -114,12 +111,12 @@ class Reconstructor(object):
         with open(pdb_filename): pass
         with open(cg_filename): pass
         log.debug("Opening cg-file %s to extract stat %s", cg_filename, stat.pdb_name)
-        cg = ftmc.CoarseGrainRNA(cg_filename) #The cg with the template
+        cg = ftmc.CoarseGrainRNA.from_bg_file(cg_filename) #The cg with the template
 
-        chains = ftup.get_all_chains(pdb_filename)
+        chains, missing_residues = ftup.get_all_chains(pdb_filename)
         new_chains = []
         for chain in chains:
-            chain = ftup.clean_chain(chain)
+            chain, modifications = ftup.clean_chain(chain)
             new_chains.append(chain)
         chains = {c.id:c for c in new_chains}
 
@@ -154,8 +151,8 @@ class Reconstructor(object):
 
         for i in range(stem_stat.bp_length):
             for strand in range(2):
-                target_resid = cg_orig.seq_ids[ orig_def[strand*2] + i - 1 ]
-                source_resid = cg.seq_ids[ stem_stat.define[strand*2] + i - 1 ]
+                target_resid = cg_orig.seq.to_resid(orig_def[strand*2] + i)
+                source_resid = cg.seq.to_resid(stem_stat.define[strand*2] + i)
                 residue = chains[source_resid.chain][source_resid.resid]
                 #Change the resid to the target
                 residue.parent=None
@@ -598,7 +595,7 @@ def _compare_cg_chains_partial(cg, chains):
         for res in chain.get_residues():
             resid = fgb.RESID(chain.id, res.id)
             pdb_coords = res["C1'"].coord
-            cg_coords = cg.virtual_atoms(cg.seq_ids.index(resid)+1)["C1'"]
+            cg_coords = cg.virtual_atoms(cg.seq.to_integer(resid))["C1'"]
             if ftuv.magnitude(pdb_coords-cg_coords)>4:
                 log.warning("Residue %s, C1' coords %s do not "
                           "match the cg-coords (virtual atom) %s by %f", resid, pdb_coords,
