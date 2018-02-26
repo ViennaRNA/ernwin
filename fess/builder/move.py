@@ -187,7 +187,7 @@ class EnergeticJunctionMover(Mover):
         if fingerprint not in self.choices:
             c = self._enumerate_choices(sm)
             if len(c)==0:
-                raise UnsuitableMover("Cannot move any regulkr multiloop, "
+                raise UnsuitableMover("Cannot move any regular multiloop, "
                                       "because all contain frozen elements.")
             self.choices[fingerprint] = c
         return random.choice(self.choices[fingerprint])
@@ -254,6 +254,8 @@ class EnergeticJunctionMover(Mover):
                 broken_stat = sm.elem_defs[elems[-1]]
             except KeyError: # We use the JDIST energy
                 broken_stat = None
+        log.debug("sm has junction-energy for %s. Elem is %s",
+                  sm.junction_constraint_energy.keys(), elems[-1])
         energy = sm.junction_constraint_energy[elems[-1]].eval_energy(sm.bg,
                                                             nodes=built_nodes+[elems[-1]],
                                                             sampled_stats={elems[-1]:broken_stat})
@@ -270,7 +272,7 @@ class EnergeticJunctionMover(Mover):
         # We do not have to build the whole loop,
         # but only the part after the first changed element.
         i = min(loop.index(elem) for elem in elems)
-        log.info("For elems %s, loop index is %s, loop is %s", elems, i, loop)
+        log.debug("For elems %s, loop index is %s, loop is %s", elems, i, loop)
         loop = loop[i:]
         log.info("Loop now %s", loop)
         for sampled in create.stat_combinations(sm.bg, elems, self.stat_source):

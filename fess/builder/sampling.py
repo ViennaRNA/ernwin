@@ -48,6 +48,7 @@ class MCMCSampler:
         if self.sm.fulfills_constraint_energy():
             return self.energy_function.eval_energy(self.sm.bg)
         else:
+            log.info("Constraint energy not fulfilled!")
             return float("inf")
 
     def step(self):

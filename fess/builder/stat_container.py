@@ -133,7 +133,7 @@ class StatStorage(object):
             try:
                 source = next(statfiles)[stat_type]
             except StopIteration: #All stat_files exhausted
-                if (stat_type, key, min_entries) not in self._has_reported:
+                if len(choose_from)<min_entries and (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
                     self._has_reported.add((stat_type, key, min_entries))
                 break
@@ -155,7 +155,9 @@ class StatStorage(object):
         if not choose_from:
             if not strict: # Fallback to the next smaller stat, until all options are exhausted.
                 if stat_type == "loop" and key>3:
-                    log.warning("Trying key %s instead of %s for %s", key-1, key, stat_type)
+                    if (stat_type, key, min_entries) not in self._has_reported:
+                        log.error("Trying key %s instead of %s for %s", key-1, key, stat_type)
+                        self._has_reported.add((stat_type, key, min_entries))
                     return self._possible_stats(stat_type, key-1, min_entries, strict)
                 elif stat_type == "angle" and (key[0]>0 or 1000>key[1]>0):
                     if 1000>key[1]>key[0]:

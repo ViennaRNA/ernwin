@@ -730,7 +730,8 @@ class MaxEnergyValue(EnergyFunction):
         self._other_energy = other_energy
         self.bad_bulges = []
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
-        log.error("MaxEnergyValue.eval_energy called. nodes=%s, Calling other_energy %s", nodes, type(other_energy).__name__)
+        log.debug("MaxEnergyValue.eval_energy called. nodes=%s, "
+                  "Calling other_energy %s", nodes, self._other_energy.shortname)
         e = self._other_energy.eval_energy(cg, background, nodes, **kwargs)
         if e>=self.adjustment:
             self.bad_bulges = self._other_energy.bad_bulges
@@ -809,11 +810,13 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         else:
             for stat in self.stat_source.iterate_stats_for(cg, self.element):
                 curr_dev = self._stat_deviation(cg, stat)
+                if "3Q1Q" in stat.pdb_name:
+                    log.error("Trying stat %s for %s. Deviation: %s", stat.pdb_name, self.element, curr_dev)
                 if curr_dev < best_deviation:
                     best_deviation = curr_dev
                     #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                     self.used_stat = stat
-        log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
+        log.error("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
         self.bad_bulges = [self.element]
         return (best_deviation**self.adjustment)*self.prefactor
@@ -1635,11 +1638,11 @@ class CombinedEnergy(object):
         bad_bulges = []
         for e in self.energies:
             if hasattr(e, "bad_bulges"):
-                log.info("%s has bad_bulges: %s", e, e.bad_bulges)
+                log.debug("%s has bad_bulges: %s", e, e.bad_bulges)
                 bad_bulges+=e.bad_bulges
             else:
-                log.info("%s doesn't have bad bulges")
-        log.info("Returning bad bulges %s", bad_bulges)
+                log.debug("%s doesn't have bad bulges")
+        log.debug("Returning bad bulges %s", bad_bulges)
         return bad_bulges
     def eval_energy(self, cg, background=True, nodes=None, verbose=False,
                     use_accepted_measure=False, plot_debug=False, **kwargs):
