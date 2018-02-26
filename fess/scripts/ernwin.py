@@ -101,6 +101,9 @@ def main():
         for p in processes:
             p.join()
 
+    #if args.reconstruct:
+    #    raise NotImplementedError("TODO")
+
 def sample_one_trajectory(sampler, iterations):
     with sampler.stats_collector.open_outfile():
         for i in range(iterations):
@@ -117,7 +120,7 @@ def build_spatial_models(args, cg, stat_source):
     build_function = fbb.from_args(args, stat_source)
     sm = None
     for i in range(build_count):
-        if sm is None or args.iterations>0 or fbe.some_replica_different(args):
+        if sm is None or args.iterations>0 or fbmodel.some_replica_different(args):
             curr_cg = copy.deepcopy(cg)
             sm = fbmodel.from_args(args, curr_cg, stat_source, i)
         build_function(sm)
