@@ -4,7 +4,10 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
                       str, super, zip)
 __metaclass__=object
 
-
+try:
+    from colelctions.abc import Set
+except ImportError:
+    from collections import Set
 
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
@@ -102,6 +105,39 @@ class AMGeometry(_AMGeometry):
     @property
     def loop_type(self):
         return self.loop_name[0]
+
+class AmeGeometrySet(Set):
+    """
+    Like a set, but use only pdb_id, loop_name and stem_name for
+    equality, not the hash.
+
+    If multiple geometries with the same key are added, use the lowest-scoring.
+    """
+    def __init__(self):
+        self.geometries = {}
+    @staticmethod
+    def _geomerty_to_key(geo):
+        return (geo.pdb_id, geo.loop_name, geo.stem_name)
+    def add(self, geometry):
+        key = self._geomerty_to_key(geometry)
+        if key in self.geometries:
+            # Smaller score is better
+            if geometry.score> self.geometries[key].score:
+                log.info("Duplicate geometry: %s has worse score "
+                         "than %s", geometry, self.geometries[key])
+                return
+            else:
+                log.info("Duplicate geometry: "
+                         "%s replacing %s",geometry, self.geometries[key])
+        self.geometries[key]=geometry
+    def __contains__(self, geo):
+        key = self._geomerty_to_key(geo)
+        return key in self.geometries
+    def __iter__(self):
+        for g in self.geometries.values():
+            yield g
+    def __len__(self):
+        return len(self.geometries)
 
 def _safe_resid_from_chain_res(chain, residue):
     try:
@@ -221,7 +257,7 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out, chain_id_mapping_dir):
     with warnings.catch_warnings():
         warnings.simplefilter('always', UserWarning)
         problematic_pdbids = set()
-        geometries = set()
+        geometries = AmeGeometrySet()
         skipped = 0
         #: What type of AMinor interactions.
         #: Comments in the form "# AMinor 0" have to be added manually
