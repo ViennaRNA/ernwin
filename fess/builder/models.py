@@ -241,6 +241,10 @@ def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     #assert np.allclose(np.dot(stem_orientation, twist2), 0)
     return stem
 
+def create_empty_energy():
+    log.debug("Creating empty Energy for junction_constraint_energy-fdefaultdict")
+    return fbe.CombinedEnergy()
+
 class SpatialModel:
     '''
     A way of building RNA structures given angle statistics as well
@@ -268,7 +272,7 @@ class SpatialModel:
         self.build_chain = False
         self.constraint_energy = None
         #: A dictionary {broken_ml_segment: energy}
-        self.junction_constraint_energy = defaultdict(fbe.CombinedEnergy)
+        self.junction_constraint_energy = defaultdict(create_empty_energy)
 
         self.elem_defs=dict()
 
@@ -874,24 +878,30 @@ def _auto_contrib_for_loop(loop, sm, stat_source):
     broken ml-segments or if the total number of stat-combinations for
     the whole loop is too little, we use JDIST, otherwise we use M8[1FJC1]
     """
-    log.info("AUTO-contrib for loop %s called", loop)
     if "regular_multiloop" not in sm.bg.describe_multiloop(loop):
+        log.info("AUTO-contrib for non-regular multiloop %s is JDIST", loop)
         return "{}:JDIST".format(loop[0])
     broken_mls = set(loop)-sm.bg.get_mst()
     for ml in broken_mls:
         num_stats = sum(1 for _ in stat_source.iterate_stats_for(sm.bg, ml))
-        if num_stats<500:
+        if num_stats<100:
+            log.info("AUTO-contrib for multiloop %s where "
+                     "elem %s has only %s stats is JDIST", loop, ml, num_stats)
             return "{}:JDIST".format(ml)
     prod = 1
     for ml in loop:
         num_stats = sum(1 for _ in stat_source.iterate_stats_for(sm.bg, ml))
         prod *= num_stats
-    if prod<10**9:
+    if prod<10**8:
+        log.info("AUTO-contrib for multiloop %s with "
+                 "%e stat combinations is JDIST", loop, prod)
         return "{}:JDIST".format(ml)
     else:
+        log.info("AUTO-contrib for multiloop %s is MAX8[1FJC1]", loop)
         "{}:MAX8[1FJC1]".format(ml)
 
 def _perml_energy_to_sm(sm, energy_string, stat_source):
+    log.info("Setting up constraint energy from string %s", energy_string)
     all_loops = sm.bg.find_mlonly_multiloops()
     if energy_string == "AUTO":
         contribs = []
@@ -921,6 +931,7 @@ def _perml_energy_to_sm(sm, energy_string, stat_source):
                     else:
                         log.error("Energy of type %r has no attr 'can_constrain'", type(energy).__name__)
                 raise e
+            log.info("Searching for loops that contain element %s", elem)
             for loop in all_loops:
                 if not elem or elem in loop:
                     log.info("Assigning Junction constraint energy %s to loop %s", energy.shortname, loop)
