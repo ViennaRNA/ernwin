@@ -163,7 +163,7 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
         :param value: A number, tuple or a string with either a number or 3 '_'-separated numbers.
         :returns: A tuple prefactor, stepwidth, update_frequency
         """
-        if value is None:
+        if not value:
             return default, 0, float("inf")
         try:
             if isinstance(value[0], (float, int)): # A tuple of numbers:
