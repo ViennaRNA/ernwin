@@ -244,9 +244,11 @@ class EnergeticJunctionMover(Mover):
             except KeyError: # We use the JDIST energy
                 broken_stat = None
         energy = sm.junction_constraint_energy[elems[-1]].eval_energy(sm.bg,
-                                                                      nodes=built_nodes,
-                                                                      sampled_stats={elem[-1]:broken_stat})
-        return energy==0
+                                                            nodes=built_nodes+[elems[-1]],
+                                                            sampled_stats={elems[-1]:broken_stat})
+        if energy==0:
+            return True
+        return False
 
     def _find_stats_for(self, elems, sm):
         """
