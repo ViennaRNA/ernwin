@@ -3,9 +3,11 @@
 import json
 import sys
 from optparse import OptionParser
-
+import logging
 import forgi.utilities.debug as fud
 import forgi.graph.bulge_graph as fgb
+
+log = logging.getLogger(__name__)
 class MotifEntry:
     '''
     An entry in a motif.
@@ -32,7 +34,7 @@ class MotifEntry:
         '''
         parts = line.split(",")
         pdb_id = parts[0].split('|')[0]
-        print "MotifEntry", parts
+        print ("MotifEntry", parts)
 
         prev_resnum = -10
 
@@ -43,7 +45,7 @@ class MotifEntry:
             resnum = fgb.resid_from_str("{}:{}".format(parts[2],int(parts[4].strip('"'))))
             self.define += [resnum]
 
-        print line, self.define
+        print (line, self.define)
 
 class MotifAlignment:
     '''
@@ -144,7 +146,7 @@ class MotifAtlas:
             ma = json.loads(s)
 
             if len(ma) == 0:
-                print >>sys.stderr, "Loaded empty motif atlas... something probably went wrong."
+                log.warning("Loaded empty motif atlas... something probably went wrong.")
 
         for motif in ma:
             motif_id = motif["motif_id"].split('.')[0]
@@ -192,9 +194,9 @@ def main():
             if motif['alignment']:
                 for a in motif['alignment']:
                     if a.find(options.struct.upper()) >= 0:
-                        print motif["motif_id"]
+                        print (motif["motif_id"])
                         al = MotifAlignment(motif['alignment'][a], motif['chainbreak'])
-                        print al
+                        print (al)
 
 if __name__ == '__main__':
     main()

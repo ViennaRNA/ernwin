@@ -5,7 +5,10 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 
 import os.path as op
 import unittest, copy, warnings, sys
-from StringIO import StringIO
+try:
+    from io import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 #from pprint import pprint
 import fess.builder.energy as fbe
@@ -46,7 +49,7 @@ class ErnwinTestsMixin(object):
             name, args, kwargs = call
             if args[0].startswith("#"): comment_count+=1
             if args[0] == "\n": newline_count+=1
-        self.assertEqual(num_writes, iterations + 1 + comment_count + newline_count, 
+        self.assertEqual(num_writes, iterations + 1 + comment_count + newline_count,
                          "{} writes were recorded (ignoring {} comments, {} newlines and 1 header line). "
                          "Expected {}".format( num_writes - comment_count - 1 - newline_count,
                                                comment_count, newline_count, iterations))
@@ -55,7 +58,7 @@ class ErnwinTestsMixin(object):
         self.exitCode = None
         open_stats = mock_open()
         open_main = mock_open()
-        try:     
+        try:
             with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                 with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
                     with patch('fess.builder.monitor.open', open_stats, create=True):
@@ -76,7 +79,7 @@ class ErnwinTestsMixin(object):
             print("STDOUT WAS:", file=sys.stderr)
             print(mock_stdout.getvalue(), file=sys.stderr)
             raise
-    
+
     def assertEnergyPrinted(self, stdout, *energies):
         stdout_str=stdout.getvalue()
         # Energy printed to stdout
@@ -84,7 +87,7 @@ class ErnwinTestsMixin(object):
         # The default energy consists of ROG, SLD and AME energies.
         for energy in energies:
             self.assertIn(energy, stdout_str)
-    
+
     def getStatsFor(self, stdout, name, withA=False):
         stdout.seek(0)
         header = None
@@ -92,7 +95,7 @@ class ErnwinTestsMixin(object):
         for line in stdout:
             if header is None:
                 if not line.strip().startswith("#"):
-                    header=line.split("\t")                
+                    header=line.split("\t")
             else:
                 fields = line.strip().split("\t") #The last line!
 
@@ -120,7 +123,7 @@ class ErnwinTestsMixin(object):
     #    for call in mock.mock_calls:
     #        if not call[0]:
     #            print(call[1])
-        
+
     def allSavedFiles(self, mock, pattern):
         cgs=[]
         in_file = False
@@ -165,7 +168,7 @@ class ErnwinTestBase(unittest.TestCase, ErnwinTestsMixin):
     def setUp(self):
         self.parser = ernwin.get_parser()
         self.longMessage = True
-        # We need to reset the stats in both setup and tearDown, 
+        # We need to reset the stats in both setup and tearDown,
 	# because tests from other files are not guaranteed to do the same.
         ftms.ConstructionStats.angle_stats = None
         ftms.ConstructionStats.stem_stats = None
@@ -210,7 +213,7 @@ class TestCommandLineUtilGeneralBehaviour(ErnwinTestBase):
     @unittest.skip("New-ml is currently not implemented with new mover.")
     def test_new_ml(self):
         #We use only ROG energy because it is faster than the A-Minor energy
-        
+
         #Old ML sampling
         open_main, open_stats, stdout, stderr = self.runErnwin(
                               "python ernwin_new.py test/fess/data/4way.cg -i 2000 "
@@ -229,9 +232,9 @@ class TestCommandLineUtilGeneralBehaviour(ErnwinTestBase):
 
         if max(normal_counts)/min(normal_counts)<5:
             raise WrongAssumptionAboutTestInput("With old multiloop we expect to find a different "
-                                                "number of stats per multiloop segment.")                                                
-        # Note that the multiloop in 4way.cg has a symmetrical bulge graph (except for a missing 
-        # hairpin at the 3'/5' stem). For this reason, perfect sampling should change each 
+                                                "number of stats per multiloop segment.")
+        # Note that the multiloop in 4way.cg has a symmetrical bulge graph (except for a missing
+        # hairpin at the 3'/5' stem). For this reason, perfect sampling should change each
         # multiloop segment equally often.
         #print(normal_counts)
         #print(new_counts)
@@ -316,7 +319,7 @@ class TestCommandLineUtilEnergyDefault(ErnwinTestBase):
         open_stats.assert_any_call('1GID_A/best_rmsd1.coord', 'w')
         open_stats.assert_any_call('1GID_A/best2.coord', 'w')
         open_stats.assert_any_call('1GID_A/best_rmsd2.coord', 'w')
-        # The -i option defines the number of iterations. 
+        # The -i option defines the number of iterations.
         # The out-file contains 1 line for the header and some comments plus one line per iteration
         self.assertOneWritePerIteration(open_main().write, 10)
 
@@ -329,7 +332,7 @@ class TestCommandLineUtilEnergyOption(ErnwinTestBase):
         self.assertEqual(open_main.call_count, 0)
         self.assertEqual(open_stats.call_count, 0)
         # Energy printed to stdout
-        
+
         self.assertEnergyPrinted(stdout, "ROG", "AME(0)", "AME(1)", "SLD")
 
     def test_energy_evaluation_NDR(self):
@@ -344,7 +347,7 @@ class TestCommandLineUtilEnergyOption(ErnwinTestBase):
         self.assertIn("total_energy", stdout.getvalue(), msg=stdout.getvalue())
         self.assertEnergyPrinted(stdout, "NDR20.2")
 
-    def test_NDR_energy_can_change_rog(self):        
+    def test_NDR_energy_can_change_rog(self):
         #Originally, the ROG is small:
         origROG = ftmc.CoarseGrainRNA("test/fess/data/1GID_A-structure1.coord").radius_of_gyration()
         if origROG > 30.0:
@@ -364,7 +367,7 @@ class TestCommandLineUtilEnergyOption(ErnwinTestBase):
         stdout.seek(0)
         firstRMSD=None
         header = None
-        for line in stdout:                
+        for line in stdout:
             if line.strip().startswith("#"): continue
             if header is None:
                 header=line.split("\t")
@@ -402,7 +405,7 @@ class TestCommandLineUtilEnergyOption(ErnwinTestBase):
         self.assertLess(h0h2, h0h2_orig)
     @unittest.skip("We need to fix the Projection based stuff")
     def test_PRO_energy(self):
-        # We use distances from a projection of 1GID_A_structure2.coord, 
+        # We use distances from a projection of 1GID_A_structure2.coord,
         # proj.dir (-0.147,-0.311,-0.876)
         open_main, open_stats, stdout, stderr = self.runErnwin(
               "python ernwin_new.py test/fess/data/1GID_A-structure1.coord "
@@ -453,7 +456,7 @@ class TestCombinedOptions(ErnwinTestBase):
 
         dists = np.array(self.getStatsFor(stdout, "Distance_65-136", True))
         print(dists)
-        
+
         self.assertLess(np.mean(dists[100:]), np.mean(dists[:100])) #Decreasing dist
         self.assertLess(np.mean(dists[150:]), 25) # Minimal clamp energy is at 15A
         #self.assertLess(np.mean(dists[180:]), 18) # Minimal clamp energy is at 15A
