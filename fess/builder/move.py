@@ -32,6 +32,7 @@ from ._commandline_helper import replica_substring
 
 log=logging.getLogger(__name__)
 
+
 class UnsuitableMover(ValueError):
     """
     Raised by a Mover if it is called by an RNA which does not have
@@ -136,7 +137,10 @@ class EnergeticJunctionMover(Mover):
             raise ValueError("EnergeticJunctionMover requires n==-1 or n>=1, not n={}".format(n))
         super(EnergeticJunctionMover, self).__init__(stat_source)
         self.n_elements = n
-        self.max_tries = 20000
+        if n==-1:
+            self.max_tries = None
+        else:
+            self.max_tries = 20000
         self.original_max_tries = self.max_tries
         #: The first time move is called, we enumerate all choices,
         #: so we can rule out the possibility of 0 available choices.
@@ -157,6 +161,8 @@ class EnergeticJunctionMover(Mover):
                                   "(Pseudoknots and external loops are "
                                   "not yet supported.)")
         for loop in regular_multiloops:
+            log.warning("Enumerating choices for loop %s with lengths %s",
+                        loop, list(map(sm.bg.element_length, loop)))
             if self.n_elements==-1:
                 if all(m not in sm.frozen_elements for m in loop):
                     choices.append(self._sort_loop(sm, list(loop)))
@@ -202,7 +208,12 @@ class EnergeticJunctionMover(Mover):
 
     def move(self, sm):
         elems = self._get_elements(sm)
+        return self.move_elems(sm, elems)
 
+    def move_elems(self, sm, elems):
+        """
+        Called directly by DimerizationBuilder.
+        """
         self._prev_stats = {}
         for elem in elems:
             self._store_prev_stat(sm, elem)
@@ -273,7 +284,7 @@ class EnergeticJunctionMover(Mover):
             if counter%10000==0 and counter>0:
                 log.info("Nothing found after %d tries for %s."
                          "Still searching.", counter, elems)
-            if counter>self.max_tries:
+            if self.max_tries is not None and counter>self.max_tries:
                 # We give up without having exhausted the search space, but we will
                 # try twice as hard next time.
                 # Since we might have different ml-segments next time,

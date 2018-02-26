@@ -25,6 +25,9 @@ except:
 
 import forgi.threedee.utilities.graph_pdb as ftug
 import logging
+
+import fess.builder.move as fbm
+
 log = logging.getLogger(__name__)
 
 def load_sampled_elements(sm):
@@ -170,7 +173,9 @@ class Builder(object):
         """
         if ml not in sm.junction_constraint_energy:
             return
-        if sm.junction_constraint_energy[ml].eval_energy(sm.bg, nodes = [ml])!=0:
+        kwargs = {}
+
+        if sm.junction_constraint_energy[ml].eval_energy(sm.bg, nodes = [ml], **kwargs)!=0:
             dist = ftug.junction_virtual_atom_distance(sm.bg, ml)
             raise ValueError("Multiloop {} does not fulfill the constraints. "
                              "Sampled as {}, "
@@ -374,6 +379,7 @@ class ChangingMSTBuilder(FairBuilder):
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
 
+
 class DimerizationBuilder(FairBuilder):
     #Inspired by dimerization for SAWs, as summerized in the review doi:10.1016/0920-5632(96)00042-4
     def __init__(self, stat_source, output_dir = None, store_failed=False):
@@ -386,29 +392,30 @@ class DimerizationBuilder(FairBuilder):
         :param output_dir: Where failed structures will be saved
         """
         super(DimerizationBuilder, self).__init__(stat_source, output_dir, store_failed)
+        self.junction_mover = fbm.EnergeticJunctionMover(-1, stat_source)
+
 
     def _attempt_to_build(self, sm):
+        # We sample all stats, but evaluate them only at the end.
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
+        # We sample each multi-loop independently until it is valid.
         for multi_loop in sm.bg.find_mlonly_multiloops():
-            log.debug("Sampling multiloop %r", multi_loop)
-            while not self._fulfills_junction_energy(sm, multi_loop):
-                self._change_multi_loop(sm, multi_loop)
-        assert self._fulfills_junction_energy(sm)
+            if "regular_multiloop" not in sm.bg.describe_multiloop(multi_loop):
+                log.debug("Loop %s is not included in 'dimerization' procedure, "
+                          "because it is not a regular ML", multi_loop)
+                continue
+            moved = self.junction_mover.move_elems(sm, multi_loop)
+            if moved == "no_change":
+                raise ValueError("No valid combination of stats exists "
+                                 "for %s", multi_loop)
+        # We have sampled each multi-loop independently and
+        # have an independent sample for the remaining stats.
+        # In this function's caller, the clash-energy and junction energy
+        # is evaluated for the rest of the structure, and the WHOLE structure is
+        # discarded, if any failure occurred.
 
-    def _fulfills_junction_energy(self, sm, nodes=None):
-        """
-        In contrast to the super-class, this does not store failures,
-        because we are only looking at partial structures here.
-        """
-        if nodes[0] in sm.junction_constraint_energy:
-            return sm.junction_constraint_energy[nodes[0]]==0
-        return True
 
-    def _change_multi_loop(self, sm, multi_loop):
-        node = random.choice(list(set(multi_loop) & sm.bg.mst))
-        sm.elem_defs[node] = self.stat_source.sample_for(sm.bg, node)
-        sm.new_traverse_and_build(start=node)
 
 
 ###############################################################################
@@ -423,12 +430,19 @@ def update_parser(parser):
                                  help = "Try to build the structure using a fair \n"
                                         "but slow algorithm.\n "
                                         "This flag implies --start-from-scratch")
+    builder_options.add_argument('--fair-building-dim', action="store_true",
+                                 help = "Try to build the structure using an experimental \n"
+                                        "fair and slightly faster algorithm.\n "
+                                        "This flag implies --start-from-scratch")
+
     builder_options.add_argument('--start-from-scratch', default=False, action='store_true',
                         help="Do not attempt to start at the input conformation.\n"
                              "(Automatically True for fasta files.)")
 
 def from_args(args, stat_source):
-    if args.fair_building:
+    if args.fair_building_dim:
+        build_function = DimerizationBuilder(stat_source).build
+    elif args.fair_building:
         build_function = FairBuilder(stat_source).build
     else:
         b = Builder(stat_source)
