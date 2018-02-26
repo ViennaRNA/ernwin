@@ -90,7 +90,7 @@ class Builder(object):
         else:
             sm.new_traverse_and_build()
             if sm.constraint_energy is not None or sm.junction_constraint_energy:
-                self._build_with_energies(sm)
+                self._build_with_energies(sm, warn = True)
             log.info("Done to build")
 
     def build(self, sm):
@@ -102,7 +102,7 @@ class Builder(object):
         sm.sample_stats(self.stat_source)
         self.accept_or_build(sm)
 
-    def _build_with_energies(self, sm):
+    def _build_with_energies(self, sm, warn=False):
         log.info("building with constraint energies")
 
         newbuilt_nodes = sm.new_traverse_and_build(start = 'start', max_steps = 1)
@@ -115,11 +115,19 @@ class Builder(object):
                 log.debug("built nodes are {}".format(built_nodes))
                 self._check_sampled_ml(sm, newbuilt_nodes[-1])
                 bad_segments = self._get_bad_ml_segments(sm, built_nodes)
+                if warn and bad_segments:
+                    log.warning("Original structure does not fulfill "
+                                "multiloop constraint energy. Bad loops: %s", bad_segments)
+                    warn = False
                 log.debug("Bad segments {}".format(bad_segments))
                 if not bad_segments:
                     log.debug("Evaluate clash energy:")
                     #The junction-energy is ok. Now we look at the clash energy
                     bad_segments = self._get_bad_clash_segments(sm, built_nodes)
+                    if warn and bad_segments:
+                        log.warning("Original structure does not fulfill "
+                                    "clash energy. Bad loops: %s", bad_segments)
+                        warn = False
                     if not bad_segments or self._rebuild_clash_only(sm, built_nodes, [x for x in bad_segments if x[0] == "i"]):
                         log.debug("clashfree.")
                         #All clashes were removed
@@ -184,7 +192,7 @@ class Builder(object):
         for ml in det_br_nodes:
             if ml in sm.junction_constraint_energy:
                 ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes)
-                log.debug("Junction Energy for nodes {} (=> {}) is {}".format(nodes, det_br_nodes, ej))
+                log.debug("Junction Energy {} for nodes {} (=> {}) is {}".format(sm.junction_constraint_energy[ml].shortname, nodes, det_br_nodes, ej))
                 if ej>0:
                     bad_loop_nodes =  [ x for x in nodes if x[0]=="m"]
                     log.debug("Bad loop nodes = {} (filtered from {})".format(bad_loop_nodes,
@@ -273,6 +281,7 @@ class FairBuilder(Builder):
         if sm.fulfills_junction_energy():
             return True
         else:
+            log.debug("junction_energy not fulfilled.")
             if self.store_failed is True or self.store_failed == "junction":
                 self._store_failed(sm)
             elif self.store_failed=="list":
@@ -295,6 +304,7 @@ class FairBuilder(Builder):
         if sm.fulfills_clash_energy():
             return True
         else:
+            log.debug("clash_energy not fulfilled.")
             if self.store_failed is True or self.store_failed == "clash":
                 self._store_failed(sm)
             elif self.store_failed=="list":
