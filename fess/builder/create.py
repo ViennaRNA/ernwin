@@ -15,7 +15,7 @@ import random
 import itertools as it
 import logging
 
-
+has_warned = set()
 
 log = logging.getLogger(__name__)
 
@@ -47,11 +47,20 @@ def _sample_unique_stat_combinations(choices):
     product_size = 1
     for stats in choices.values():
         product_size *= len(stats)
-    found = bitarray(product_size)
-    found.setall(False)
-    while not found.all():
-        i = random.randrange(product_size)
-        if found[i]:
-            continue
-        found[i]=True
-        yield index_to_sample(i, choices)
+    if product_size>10**9:
+        if tuple(choices.keys()) not in has_warned:
+            log.warning("Too many stats-combination for unique sampling of %s: %s."
+                        "Sampling with replacement.", choices.keys(), product_size)
+            has_warned.add(tuple(choices.keys()))
+        while True:
+            i = random.randrange(product_size)
+            yield index_to_sample(i, choices)
+    else:
+        found = bitarray(product_size)
+        found.setall(False)
+        while not found.all():
+            i = random.randrange(product_size)
+            if found[i]:
+                continue
+            found[i]=True
+            yield index_to_sample(i, choices)
