@@ -936,7 +936,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
         super(RadiusOfGyrationEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
 
     @classmethod
-    def generate_target_distribution(cls, cg_filenames, out_filename=None, use_subgraphs = False):
+    def generate_target_distribution(cls, cgs, out_filename=None, use_subgraphs = False):
         """
         Generate the target distribution from the given cg-files and write it to a file
 
@@ -945,9 +945,7 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             If out_filename is not given, this overwrites the file with the name given in
             `cls.real_stats_fn`.
 
-        :param cg_filenames: A filename or a list of filenames containing true RNA tertiary structures.
-                             Typically these cg files have been generated from the pdb-files
-                             using the script `pdb_to_cg.py` provided with forgi.
+        :param cgs: A list of CoarseGrainRNA objects
         :param out_filename: None or a filename relative to fess/
         :param use_subgraphs: Include the radius of subgraphs of the cg-files to get
                             more datapoints.
@@ -961,18 +959,17 @@ class RadiusOfGyrationEnergy(CoarseGrainEnergy):
             out_filename = op.join("fess", out_filename)
         radii = []
         log.info("Generating target distribution for %s", cls.__name__)
-        if isinstance(cg_filenames, str):
-            cg_filenames = [cg_filenames]
-        for fname in cg_filenames:
-            log.debug("Processing file %s", fname)
-            cg = ftmc.CoarseGrainRNA(fname)
+        all_cg_names = []
+        for cg in cgs:
+            log.debug("Processing cg %s", cg.name)
+            all_cg_names.append(cg.name)
             radii.append((cg.name, cg.seq_length, cg.radius_of_gyration("vres")))
             for subgraph, nt_length in _iter_subgraphs(cg, use_subgraphs):
                 rog = ftmd.radius_of_gyration(cg.get_poss_for_domain([stem for stem in subgraph if stem[0]=="s"], mode = "fast"))
                 radii.append((cg.name+".subgraph", nt_length, rog))
         log.info("Writing to file %s", out_filename)
         with open(out_filename, "w") as f:
-            cls._print_file_header(f, cg_filenames)
+            cls._print_file_header(f, all_cg_names)
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
             for name, nt_len, rog in radii:
                 print("{:s} {:d} {:.10f}".format(name, nt_len, rog), file=f)
@@ -1072,7 +1069,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         return CombinedEnergy(energies)
 
     @classmethod
-    def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False, cg_filenames = []):
+    def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False):
         """
         :param cgs: A dict {pdb_id: [cg, cg,...]}
 
@@ -1097,7 +1094,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
         with open(out_filename, "w") as f:
             log.info("Writing AMinor target_dist to %s", out_filename)
-            cls._print_file_header(f, cg_filenames)
+            cls._print_file_header(f, [])
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
             print("# Probabilities from {}".format(orientation_infile), file=f)
 
@@ -1119,9 +1116,9 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         log.info("Successfully generated target distribution for AMinors.")
     @classmethod
-    def generate_target_distribution(cls, cg_filenames, fr3d_out, out_filename=None,
-                                     orientation_outfile = None, fr3d_query = "",
-                                     use_subgraphs = False):
+    def generate_target_distribution(cls, cgs, fr3d_out, 
+                                     out_filename=None, orientation_outfile = None,
+                                     fr3d_query = "", use_subgraphs = False):
         """
         Generate the target distribution from the given cg-files and write it to a file.
         Additionally generate a file with the relative orientation of all annotated
@@ -1142,13 +1139,11 @@ class AMinorEnergy(CoarseGrainEnergy):
             Filename Discrepancy       1       2       3 Cha   1-2   1-3   2-3 Con   1-2   1-3   2-3   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-3
                 1S72      0.0340  A  104  A  957  U 1009 900 ----  ----   cWW  AAA  1909  1885    24                                                                             -     -     -
 
-        :param cg_filenames: A filename or a list of filenames containing true RNA tertiary structures.
-                             Typically these cg files have been generated from the pdb-files
-                             using the script `pdb_to_cg.py` provided with forgi.
-                             .. note::
+        :param cgs: A list of CoarseGrainRNAs
+                    .. note::
 
-                                the first 4 characters of the CoarseGrainRNA's name must match the
-                                pdb-id as reported by FR3D.
+                        the first 4 characters of the CoarseGrainRNA's name must match the
+                        pdb-id as reported by FR3D.
 
         :param fr3d_out: A file containing the annotations found by FR3D.
         :param out_filename: None or a filename relative to `fess/`
@@ -1173,9 +1168,8 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         #Read the cgs
         all_cgs = defaultdict(list)
-        for fn in cg_filenames:
-            cg = ftmc.CoarseGrainRNA(fn)
-            all_cgs[cg.name[:4]].append(cg)
+        for cg in cgs:
+            all_cgs[cg.name[:4].upper()].append(cg)
 
         #Read the FR3D output
         with open(fr3d_out) as f:
@@ -1185,8 +1179,8 @@ class AMinorEnergy(CoarseGrainEnergy):
         if len(aminor_geometries)==0:
             raise ValueError("No A-Minor geometries found. Is the FR3D output file correct?")
         non_ame_geometries = set()
-        for pdb_id, cgs in all_cgs.items():
-            for cg in cgs:
+        for pdb_id, curr_cgs in all_cgs.items():
+            for cg in curr_cgs:
                 for loop in cg.defines:
                     if loop[0]=="s":
                         continue
@@ -1208,10 +1202,10 @@ class AMinorEnergy(CoarseGrainEnergy):
                                 log.info("Geometry %s is in aminor_geometries", geometry)
                             else:
                                 non_ame_geometries.add(geometry)
-
+        log.error("%s non_ame geometries found", len(non_ame_geometries))
         #Print orientations to orientation_outfile
         with open(orientation_outfile, "w") as f:
-            cls._print_file_header(f, cg_filenames)
+            cls._print_file_header(f, list(map(lambda x: x.name, cgs)))
             print("# fr3d_out = {}".format(fr3d_out), file=f)
             print("# fr3d_query:", file=f)
             for line in fr3d_query.splitlines():
@@ -1233,7 +1227,7 @@ class AMinorEnergy(CoarseGrainEnergy):
                       "\"{annotation}\"".format(is_interaction = False,
                                                 **entry._asdict()), file = f)
         cls._generate_target_dist_given_orientation(all_cgs, out_filename,
-                                                    orientation_outfile, use_subgraphs, cg_filenames)
+                                                    orientation_outfile, use_subgraphs)
 
 
 
@@ -1427,7 +1421,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         return CombinedEnergy(energies)
 
     @classmethod
-    def generate_target_distribution(cls, cg_filenames, out_filename=None, use_subgraphs = False):
+    def generate_target_distribution(cls, cgs, out_filename=None, use_subgraphs = False):
         """
         Generate the target distribution from the given cg-files and write it to a file
 
@@ -1436,10 +1430,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             If out_filename is not given, this overwrites the file with the name given in
             `cls.real_stats_fn`.
 
-        :param cg_filenames: A filename or a list of filenames containing true RNA
-                             tertiary structures.
-                             Typically these cg files have been generated from the pdb-files
-                             using the script `pdb_to_cg.py` provided with forgi.
+        :param cgs: A list of cg-objects.
         :param out_filename: None or a filename relative to fess/
         :param use_subgraphs: Include the radius of subgraphs of the cg-files to get
                             more datapoints.
@@ -1457,14 +1448,14 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
 
         distances = []
         log.info("Generating target distribution for %s", cls.__name__)
-        if isinstance(cg_filenames, str):
-            cg_filenames = [cg_filenames]
 
         loop_loop_distances = []
-        for fname in cg_filenames:
-            log.info("Processing file %s", fname)
-            cg = ftmc.CoarseGrainRNA(fname)
+        all_cg_names = []
+        for cg in cgs:
+            cg = ftmc.CoarseGrainRNA.from_bg_file(fname)
             pdbid = cg.name
+            all_cg_names.append(pdbid)
+            log.info("Processing cg %s", pdbid)
             for h1 in cg.hloop_iterator():
                 min_dist = _minimal_h_h_distance(cg, h1, cg.hloop_iterator())
                 if min_dist<float("inf"):
@@ -1480,7 +1471,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
 
         log.info("Writing to file %s", out_filename)
         with open(out_filename, "w") as f:
-            cls._print_file_header(f, cg_filenames)
+            cls._print_file_header(f, all_cg_names)
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
             for pdbid, nt_len, distance in loop_loop_distances:
                 print("{:s} {:d} {:.10f}".format(pdbid, nt_len, distance), file=f)

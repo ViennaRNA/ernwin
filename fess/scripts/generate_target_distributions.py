@@ -8,6 +8,7 @@ import pandas as pd
 import argparse
 from collections import defaultdict
 import forgi.threedee.model.coarse_grain as ftmc
+import forgi.utilities.commandline_utils as fuc
 
 fr3d_query_string="""
       pdb = 1ffk
@@ -26,13 +27,9 @@ def get_parser():
 
     :returns: an instance of argparse.ArgumentParser
     """
-    parser = argparse.ArgumentParser("Generate target distributions for ernwin")
-    ### Argument(s) ###
-    parser.add_argument('cg_files', nargs='+', help='One or more cg files to generate the data from.')
+    parser = fuc.get_rna_input_parser("Generate target distributions for ernwin", nargs="+")
     ### Options ###
     # Options to modify general behavior
-    parser.add_argument('-v', '--verbose', action="store_true", help='Be verbsoe')
-    parser.add_argument('--debug', type=str, help='Specify the names of loggers for which debugging-output is desired. Use __all__ to show debug output for all loggers.')
     parser.add_argument('--plot-only', action="store_true", help='Do not generate any files, only plot results from existing files')
     parser.add_argument('--use-subgraphs', type=int, help='Use subgraphs for the target distribution. Default: Use enough subgraphs to generate a total of 10000 graphs.')
     # Files that will be generated
@@ -44,7 +41,7 @@ def get_parser():
     parser.add_argument('--fr3d-result-file', default="fess/stats/AMinor_FR3D_hits.txt", help='Filename with the output of FR3D', type=str)
     #Additional info
     parser.add_argument('--fr3d-query-string', default=fr3d_query_string, help='FR3D query information that will be added to the file generated.', type=str)
-    parser.add_argument('--ame-pdb-id-file', help='For the AMinor energy, only consider pdb ids from this file', type=str)
+    #parser.add_argument('--ame-pdb-id-file', help='For the AMinor energy, only consider pdb ids from this file', type=str)
     parser.add_argument('--precalculated-ame-orient', default=False, action="store_true")
     return parser
 
@@ -55,22 +52,11 @@ if __name__=="__main__":
 
     #Logging
     logging.basicConfig(format="%(levelname)s:%(name)s:%(funcName)s[%(lineno)d]: %(message)s")
-    if args.verbose:
-        logging.getLogger().setLevel(level=logging.INFO)
-    else:
-        logging.getLogger().setLevel(level=logging.ERROR)
-    if args.debug:
-        if args.debug=="__all__":
-            logging.getLogger().setLevel(level=logging.DEBUG)
-        else:
-            modules = args.debug.split(",")
-            for module in modules:
-                logging.getLogger(module).setLevel(logging.DEBUG)
     logging.captureWarnings(True)
+    cgs = fuc.cgs_from_args(args, "+")
 
     log = logging.getLogger(__name__)
     log.info(fau.get_version_string())
-    cg_files = args.cg_files
 
     if args.use_subgraphs is None:
         use_subgraphs = max(1, math.ceil(10000/len(cg_files)))
@@ -88,31 +74,21 @@ if __name__=="__main__":
 
       ## AME
       if args.ame_target_file:
-          if args.ame_pdb_id_file:
-              ame_cgs = set([])
-              with open(args.ame_pdb_id_file) as f:
-                  for line in f:
-                      for cg_fname in cg_files:
-                          if line.strip() in cg_fname:
-                              ame_cgs.add(cg_fname)
-          else:
-              ame_cgs = cg_files
           if args.precalculated_ame_orient:
                 all_cgs = defaultdict(list)
-                for fn in cg_files:
-                    cg = ftmc.CoarseGrainRNA(fn)
+                for cg in cgs:
                     all_cgs[cg.name[:4]].append(cg)
                 fbe.AMinorEnergy._generate_target_dist_given_orientation(all_cgs, 'fess/'+args.ame_target_file, args.ame_orientation_outfile, use_subgraphs = use_subgraphs)
           else:
-              fbe.AMinorEnergy.generate_target_distribution(ame_cgs,
+              fbe.AMinorEnergy.generate_target_distribution(cgs,
                              args.fr3d_result_file,
-                             args.ame_target_file,
+                             out_filename = args.ame_target_file,
                              orientation_outfile = args.ame_orientation_outfile,
                              fr3d_query = args.fr3d_query_string, use_subgraphs = use_subgraphs)
 
       ## SLD
       if args.sld_target_file:
-          fbe.ShortestLoopDistancePerLoop.generate_target_distribution(cg_files,
+          fbe.ShortestLoopDistancePerLoop.generate_target_distribution(cgs,
                                                             args.sld_target_file,
                                                             use_subgraphs = use_subgraphs)
 
