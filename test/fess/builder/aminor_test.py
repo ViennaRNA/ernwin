@@ -12,7 +12,10 @@ import forgi.threedee.model.coarse_grain as ftmc
 import math
 import warnings
 import logging
-from StringIO import StringIO
+try:
+    from io import StringIO # py3K
+except ImportError:
+    from StringIO import StringIO # py2k
 try:
     from unittest.mock import mock_open, patch #Python 3
 except:
@@ -63,7 +66,13 @@ wrongPdbId      0.3989  A    4  A    6  U   44 BDC ----  ----   cWW  AAA    25  
       1HMH      0.1476  A  24L  G  113  C  103 ACC  tSs   cSs   cWW  AAA    36    29     7                                     n2BR        n3BR                        -     -     -
 
 """)
-
+#Cif chain-ids are multiple characters
+FR3D_CIFCHAIN_STRING = StringIO("""
+      # Interaction between chains
+      4TUE      0.4987  A 1912  C 1407  G 1494 RAQAQA  tSs   ncSs  cWW  AAA  2129  2047    82                                                                             -     -     -
+      # legal interaction in bundle1
+      4TUE      0.2085  A  767  G 1511  C 1524 QAQAQA  tSs   cSs   cWW  AAA   738   751    13                                                 n3BR                        -     -     -
+""")
 
 unittest.TestCase.longMessage = True
 class TestAMinor(unittest.TestCase):
@@ -89,16 +98,16 @@ class TestAMinor(unittest.TestCase):
             print(line)
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                fba._parse_fred_line(line, cgs, "?")
+                fba._parse_fred_line(line, cgs, "?", "test/fess/data/chain_id_mappings")
                 self.assertEqual(len(w), 1)
                 self.assertIn(message_keywords[i], str(w[-1].message))
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                self.assertEqual(fba._parse_fred_line(line, cgs, "?"), None)
+                self.assertEqual(fba._parse_fred_line(line, cgs, "?", "test/fess/data/chain_id_mappings"), None)
             i+=1
     def test_fr3d_orientation(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT)[0]
+        a = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT, "test/fess/data/chain_id_mappings")[0]
         log.info(a)
         for geo1, geo2 in it.combinations(a, 2):
             self.assertLess(abs(geo1.dist - geo2.dist), 20, msg = "Different FR3D hits should have similar coarse-grained geometry: dist. {}, {}".format(geo1, geo2))
@@ -136,27 +145,34 @@ class TestAMinor(unittest.TestCase):
 
     def test_parse_fred_missing_chain(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, A_MULTICHAIN_FR3D_OUTPUT)
+        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, A_MULTICHAIN_FR3D_OUTPUT, "test/fess/data/chain_id_mappings")
         #Chain 9 is not connected to chain 0, thus not present in the cg-file.
         self.assertEqual(len(a), 0)
 
     def test_parse_fred_adjacent(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, FR3D_ADJACENT)
+        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, FR3D_ADJACENT, "test/fess/data/chain_id_mappings")
         #The loop is adjacent to the stem.
         self.assertEqual(len(a), 0)
     def test_parse_fred_no_stem(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, FR3D_NO_STEM)[0]
+        a = fba.parse_fred(30, {"1S72":[cg]}, FR3D_NO_STEM, "test/fess/data/chain_id_mappings")[0]
         #The receptor is no canonical stem.
         self.assertEqual(len(a), 0)
     def test_parse_fred1(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a = fba.parse_fred(30, {"1S72":[cg]}, A_FR3D_OUTPUT)[0]
+        a = fba.parse_fred(30, {"1S72":[cg]}, A_FR3D_OUTPUT, "test/fess/data/chain_id_mappings")[0]
         self.assertEqual(len(a), 1)
         geometry, = a
-        self.assertEqual(geometry.pdb_id, "1S72")
+        self.assertEqual(geometry.pdb_id, "1S72_0")
     def test_parse_fred2(self):
         cg = ftmc.CoarseGrainRNA("test/fess/data/1S72_0.cg")
-        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT)
+        a, pdbids = fba.parse_fred(30, {"1S72":[cg]}, ANOTHER_FR3D_OUTPUT, "test/fess/data/chain_id_mappings")
         self.assertEqual(len(a), 4)
+    def test_parse_fred_cif(self):
+        cg1 = ftmc.CoarseGrainRNA("test/fess/data/4tue-pdb-bundle1_A.cg")
+        cg2 = ftmc.CoarseGrainRNA("test/fess/data/4tue-pdb-bundle2_A.cg")
+        a, pdbids = fba.parse_fred(30, {"4TUE":[cg2, cg1]}, FR3D_CIFCHAIN_STRING, "test/fess/data/chain_id_mappings")
+        self.assertEqual(len(a), 1)
+        a, = a
+        self.assertEqual(a.pdb_id, "4tue-pdb-bundle1_A")

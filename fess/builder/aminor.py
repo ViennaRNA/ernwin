@@ -15,6 +15,7 @@ import warnings
 import logging
 import numpy as np
 import scipy.stats
+import os.path
 
 from logging_exceptions import log_to_exception
 
@@ -114,24 +115,56 @@ def _safe_resid_from_chain_res(chain, residue):
             warnings.warn("Illegal residue number: '{}'.".format(residue))
             return
 
-def _parse_fred_line(line, all_cgs, current_annotation):
+def chains_from_fr3d_field(value, pdb_id, mapping_directory):
+    from RNApy.parse import chain_id_mapping
+    if len(value)==3:
+        return value
+    elif len(value)==6:
+        chain_id_mapping_file = os.path.join(mapping_directory, pdb_id.lower()+"-chain-id-mapping.txt")
+        chains = [value[:2], value[2:4], value[4:]]
+        # Asterix as a special character for pdbs with length 1-chain-ids in bundles
+        chains =list(map(lambda x: x.replace('*', ''), chains))
+        mapping = chain_id_mapping.parse(chain_id_mapping_file).mmcif2bundle
+        return [ mapping[c] for c in chains ]
+    else:
+        raise ValueError("PDB-id {}: Expecting either 3 or 6 letters for chain, found '{}'.".format(pdb_id, value))
+
+def _parse_fred_line(line, all_cgs, current_annotation, mapping_directory):
     parts = line.split()
     if len(parts) < 10:
         return
     if parts[0] == "Filename":
         return
     pdb_id = parts[0]
+
     if parts[0] in all_cgs:
+        chains = chains_from_fr3d_field(parts[8], parts[0], mapping_directory)
+        if isinstance(chains, list): # A pdb bundle:
+            if not all(c[0]==chains[0][0] for c in chains):
+                warnings.warn("Found an Interaction between multiple "
+                              "files in pdb-bundle: {} {}. "
+                              "Ignoring it!".format(parts[0],[c[0] for c in chains]))
+                return
+            pdb_name = chains[0][0].split(".")[0]
+            chains = [c[1] for c in chains]
+            log.debug("For bundle: pdb_name = %s, chains = %s", pdb_name, chains)
+        else:
+            pdb_name = parts[0]
         cgs = all_cgs[parts[0]]
         if len(cgs)==1:
             cg, = cgs
         else:
-            a_res = _safe_resid_from_chain_res(chain = parts[8][0], residue = parts[3])
+            # First, filter by pdb-bundle file.
+            cgs = [cg for cg in cgs if pdb_name in cg.name ]
+            log.debug("cgs for pbd-name %s are %s", pdb_name, cgs)
+            # Then for multiple chains, search based on resid.
+            a_res = _safe_resid_from_chain_res(chain = chains[0], residue = parts[3])
             if a_res is None:
+                warnigns.warn("Cannot create resid for {}".format(chains[0]))
                 return
             for cg in cgs:
                 #Find the first matching cg.
-                if a_res in cg.seq_ids:
+                if a_res in cg.seq._seqids:
                     break
             else:
                 warnings.warn("No CoarseGrainRNA found among those with PDB-ID {} that contains resid {}".format(parts[0], a_res))
@@ -139,20 +172,25 @@ def _parse_fred_line(line, all_cgs, current_annotation):
     else:
         warnings.warn("No CoarseGrainRNA found for FR3D annotation with PDB-ID {}. Possible PDB-IDs are {}".format(parts[0], all_cgs.keys()))
         return
-
+    log.debug("FR3D line refers to cg %s", cg.name)
     # We now have the CoarseGrainRNA. Get the interacting cg-elements.
     nums = []
     for i in range(3):
-        seq_id = _safe_resid_from_chain_res(chain = parts[8][i], residue = parts[3+2*i])
+        seq_id = _safe_resid_from_chain_res(chain = chains[i], residue = parts[3+2*i])
         if seq_id is None:
+            warnings.warn("Cannot create resid for {}".format(chains[i]))
             return
         try:
             nums.append(cg.seq_id_to_pos(seq_id))
         except ValueError:
-            if seq_id.chain not in cg.chain_ids:
-                warnings.warn("Chain {!r} is not part of the cg {}.".format(seq_id.chain, cg.name))
+            if seq_id.chain not in cg.chains:
+                warnings.warn("Chain {!r} is not part of the cg {}. Available "
+                              "cgs: {}".format(seq_id.chain, cg.name,
+                                               list(map(lambda x: x.name, all_cgs[parts[0]]))))
                 return
             else:
+                log.error("%s %s", cg.seq, type(cg.seq))
+                log.error("All seq_ids=%s", cg.seq._seqids)
                 raise
     nodes = list(map(lambda x: cg.get_node_from_residue_num(x), nums))
     if nodes[1]!=nodes[2] or nodes[1][0]!="s":
@@ -168,9 +206,9 @@ def _parse_fred_line(line, all_cgs, current_annotation):
     if np.isnan(angle1+angle2+dist):
         warnings.warn("Cannot get relative orientation. Zero-length element {}".format(nodes[0]))
         return
-    return (AMGeometry(pdb_id, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0])),float(parts[1]), current_annotation))
+    return (AMGeometry(cg.name, nodes[0], nodes[1], dist, angle1, angle2, "&".join(cg.get_define_seq_str(nodes[0])),float(parts[1]), current_annotation))
 
-def parse_fred(cutoff_dist, all_cgs, fr3d_out):
+def parse_fred(cutoff_dist, all_cgs, fr3d_out, chain_id_mapping_dir):
     """
     Used by generate_target_distribution.
 
@@ -180,36 +218,38 @@ def parse_fred(cutoff_dist, all_cgs, fr3d_out):
     :returns: A set of AMinor Geometries and a list of PDB-IDs, for which at
               least one line did not lead to an Aminor Geometry
     """
-    problematic_pdbids = set()
-    geometries = set()
-    skipped = 0
-    #: What type of AMinor interactions.
-    #: Comments in the form "# AMinor 0" have to be added manually
-    #: when copying the FR3D-output to a file.They should preced the
-    #: actual FR3D-output to which they apply.
-    current_annotation = "?"
-    for line in fr3d_out:
-        line=line.strip()
-        if not line: #Empty line
-            continue
-        if line.startswith("# AMinor"):
-            current_annotation = line[9:]
-        elif line.startswith("#"):
-            current_annotation = "?"
-        log.debug("Line '%s'.read", line)
-        geometry = _parse_fred_line(line, all_cgs, current_annotation)
-        if geometry is None:
-            skipped+=1
-            if not (line.startswith("Filename") or line.startswith("#")):
-                log.warning("Skipping line {!r}".format(line))
-                problematic_pdbids.add(line.split()[0])
-        elif geometry.dist>cutoff_dist:
-            log.info("Skipping because of %f > %f (=cutoff dist): %r",
-                     geometry.dist, cutoff_dist, line)
-        elif "A" not in geometry.loop_sequence:
-            warnings.warn("No adenine in loop %r for line %r", geometry.loop_name, line)
-        else:
-            geometries.add(geometry)
+    with warnings.catch_warnings():
+        warnings.simplefilter('always', UserWarning)
+        problematic_pdbids = set()
+        geometries = set()
+        skipped = 0
+        #: What type of AMinor interactions.
+        #: Comments in the form "# AMinor 0" have to be added manually
+        #: when copying the FR3D-output to a file.They should preced the
+        #: actual FR3D-output to which they apply.
+        current_annotation = "?"
+        for line in fr3d_out:
+            line=line.strip()
+            if not line: #Empty line
+                continue
+            if line.startswith("# AMinor"):
+                current_annotation = line[9:]
+            elif line.startswith("#"):
+                current_annotation = "?"
+            log.debug("Line '%s'.read", line)
+            geometry = _parse_fred_line(line, all_cgs, current_annotation, chain_id_mapping_dir)
+            if geometry is None:
+                skipped+=1
+                if not (line.startswith("Filename") or line.startswith("#")):
+                    log.warning("Skipping line {!r}".format(line))
+                    problematic_pdbids.add(line.split()[0])
+            elif geometry.dist>cutoff_dist:
+                log.info("Skipping because of %f > %f (=cutoff dist): %r",
+                         geometry.dist, cutoff_dist, line)
+            elif "A" not in geometry.loop_sequence:
+                warnings.warn("No adenine in loop %r for line %r", geometry.loop_name, line)
+            else:
+                geometries.add(geometry)
     return geometries, skipped #problematic_pdbids
 
 

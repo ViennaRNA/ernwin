@@ -37,6 +37,7 @@ def get_parser():
     parser.add_argument('--ame-target-file', help='Filename where the AMinor target distribution will be stored', type=str)
     parser.add_argument('--sld-target-file', help='Filename where the Shortest loop distance target distribution will be stored', type=str)
     parser.add_argument('--ame-orientation-outfile', default="stats/test_aminor_orientation_1S72.txt", help='Filename where the AMinor orientations will be stored', type=str)
+    parser.add_argument('--chain-id-mapping-dir', help='Directory name where chain-id-mappings for pdb bundles are located.', type=str)
     # Files that are required
     parser.add_argument('--fr3d-result-file', default="fess/stats/AMinor_FR3D_hits.txt", help='Filename with the output of FR3D', type=str)
     #Additional info
@@ -82,6 +83,7 @@ if __name__=="__main__":
           else:
               fbe.AMinorEnergy.generate_target_distribution(cgs,
                              args.fr3d_result_file,
+                             args.chain_id_mapping_dir,                             
                              out_filename = args.ame_target_file,
                              orientation_outfile = args.ame_orientation_outfile,
                              fr3d_query = args.fr3d_query_string, use_subgraphs = use_subgraphs)
