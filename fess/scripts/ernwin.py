@@ -64,45 +64,52 @@ def main():
         cg_stri = cg.to_cg_string()
         with open(os.path.join(main_dir, 'input.cg'), "w") as f:
             print(cg_stri, file=f)
+        try:
+            run(args, cg, main_dir)
+        except BaseException as e:
+            with open(os.path.join(main_dir, 'exception.log'), "w") as f:
+                print(str(e), file=f)
+            raise
 
-        setup_rng(args)
-        stat_source = fbstat.from_args(args, cg) #Uses sampling_output_dir
+def run(args, cg, main_dir):
+    setup_rng(args)
+    stat_source = fbstat.from_args(args, cg) #Uses sampling_output_dir
 
-        # If we perform normal sampling with parallel=True,
-        # we start sampling while we are building.
-        # Otherwise (replica-exchange, single-process sampling),
-        # we sample after all structures were built.
-        samplers = []
-        processes = []
-        for i, sm in enumerate(build_spatial_models(args, cg, stat_source)):
-            cg_stri = sm.bg.to_cg_string()
-            with open(os.path.join(main_dir,
-                                   'build{:06d}.coord'.format(i+1)), "w") as f:
-                print(cg_stri, file=f)
-            if args.iterations>0:
-                sampler = setup_sampler(args, sm, stat_source, i)
-                samplers.append(sampler)
-                if not args.replica_exchange and args.parallel:
-                    p = multiprocessing.Process(target=sample_one_trajectory,
-                                                args = (sampler, args.iterations))
-                    processes.append(p)
-                    p.start()
-        if not args.parallel and not args.replica_exchange:
-            for sampler in samplers:
-                sample_one_trajectory(sampler, args.iterations)
-        elif args.replica_exchange:
-            if args.parallel:
-                fbr.start_parallel_replica_exchange(samplers, args.iterations)
-            else:
-                re = fbr.ReplicaExchange(samplers)
-                re.run(args.iterations)
+    # If we perform normal sampling with parallel=True,
+    # we start sampling while we are building.
+    # Otherwise (replica-exchange, single-process sampling),
+    # we sample after all structures were built.
+    samplers = []
+    processes = []
+    for i, sm in enumerate(build_spatial_models(args, cg, stat_source)):
+        cg_stri = sm.bg.to_cg_string()
+        with open(os.path.join(main_dir,
+                               'build{:06d}.coord'.format(i+1)), "w") as f:
+            print(cg_stri, file=f)
+        if args.iterations>0:
+            sampler = setup_sampler(args, sm, stat_source, i)
+            samplers.append(sampler)
+            if not args.replica_exchange and args.parallel:
+                p = multiprocessing.Process(target=sample_one_trajectory,
+                                            args = (sampler, args.iterations))
+                processes.append(p)
+                p.start()
+    if not args.parallel and not args.replica_exchange:
+        for sampler in samplers:
+            sample_one_trajectory(sampler, args.iterations)
+    elif args.replica_exchange:
+        if args.parallel:
+            fbr.start_parallel_replica_exchange(samplers, args.iterations)
+        else:
+            re = fbr.ReplicaExchange(samplers)
+            re.run(args.iterations)
 
-        # Join all processes, if any were started.
-        for p in processes:
-            p.join()
+    # Join all processes, if any were started.
+    for p in processes:
+        p.join()
 
-    #if args.reconstruct:
-    #    raise NotImplementedError("TODO")
+#if args.reconstruct:
+#    raise NotImplementedError("TODO")
 
 def sample_one_trajectory(sampler, iterations):
     with sampler.stats_collector.open_outfile():

@@ -71,7 +71,10 @@ class Reconstructor(object):
             self._reconstruct_stem(sm, stem, chains)
 
         #Some validation
-        _compare_cg_chains_partial(sm.bg, chains)
+        try:
+            _compare_cg_chains_partial(sm.bg, chains)
+        except Exception:
+            log.exception("Validation could not be performed due to the following error!")
         #ftup.output_multiple_chains(chains.values(), "reconstr_stems.pdb")
         '''# Some more validation. Useless unless searching for a bug
         chains_in_file = ftup.get_all_chains("reconstr_stems.pdb")
@@ -105,7 +108,7 @@ class Reconstructor(object):
             return sm.bg, sm.bg.chains
 
         pdb_basename = stat_name.split(":")[0]
-        pdb_filename = op.expanduser(op.join(self.pdb_library_path, "".join(pdb_basename.split("_")[:-1])+".pdb"))
+        pdb_filename = op.expanduser(op.join(self.pdb_library_path, "_".join(pdb_basename.split("_")[:-1])+".pdb"))
         cg_filename = op.expanduser(op.join(self.cg_library_path, pdb_basename+".cg"))
         #Make sure the files exist.
         with open(pdb_filename): pass
@@ -326,7 +329,7 @@ def rotate_chain(chains, rot_mat, offset):
 
         for atom in atoms:
             #atom.transform(ftuv.identity_matrix, -offset)
-            assert ftuv.magnitude(atom.coord - offset) < ftuv.magnitude(atom.coord)
+            #assert ftuv.magnitude(atom.coord - offset) < ftuv.magnitude(atom.coord), "{}!<{}".format(ftuv.magnitude(atom.coord - offset), ftuv.magnitude(atom.coord))
             atom.coord -= offset
             new_coords.append(atom.coord)
             atom.transform(rot_mat, offset)
@@ -409,12 +412,12 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     # We need to distinguish between loops and angles
     if len(define_a_to)==2 or angle_type>=0:
         for nt in define_a_to:
-            closing_bps_to.append(cg_to.seq_ids[nt-1])
+            closing_bps_to.append(cg_to.seq.to_resid(nt))
         for nt in define_a_from:
-            closing_bps_from.append(cg_from.seq_ids[nt-1])
+            closing_bps_from.append(cg_from.seq.to_resid(nt))
     elif len(define_a_to)==4 and angle_type<0:
         for nt in define_a_to:
-            closing_bps_to.append(cg_to.seq_ids[nt-1])
+            closing_bps_to.append(cg_to.seq.to_resid(nt))
         closing_bps_from=[ cg_from.seq_ids[define_a_from[2]-1],
                            cg_from.seq_ids[define_a_from[3]-1],
                            cg_from.seq_ids[define_a_from[1]-1],
@@ -426,7 +429,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     seq_ids_a_from = []
     for i in range(0, len(define_a_from), 2):
         for nt in range(define_a_from[i], define_a_from[i+1]+1):
-            seq_ids_a_from.append(cg_from.seq_ids[nt-1])
+            seq_ids_a_from.append(cg_from.seq.to_resid(nt))
 
 
     #The loop fragment to insert in a dict {chain_id:chain}
@@ -458,13 +461,22 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     #The defines and seq_ids WITHOUT adjacent elements
     define_to = cg_to.defines[elem_to]
     define_from = cg_from.defines[elem_from]
+    if len(define_from)!=len(define_to):
+        # TODO: We have missing residues in the original sequence!
+        raise NotImplementedError("TODO: MISSING RESIDUES")
+        log.error("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
+
     seq_ids_to = []
     seq_ids_from = []
     for i in range(0, len(define_from), 2):
-        for nt in range(define_from[i], define_from[i+1]+1):
-            seq_ids_from.append(cg_from.seq_ids[nt-1])
+        try:
+            for nt in range(define_from[i], define_from[i+1]+1):
+                seq_ids_from.append(cg_from.seq.to_resid(nt))
+        except IndexError:
+            log.error(define_from)
+            raise
         for nt in range(define_to[i], define_to[i+1]+1):
-            seq_ids_to.append(cg_to.seq_ids[nt-1])
+            seq_ids_to.append(cg_to.seq.to_resid(nt))
     assert len(seq_ids_to)==len(seq_ids_from)
     # Now copy the residues from the fragment chain to the scaffold chain.
     for i in range(len(seq_ids_from)):
@@ -484,16 +496,16 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     # Now we need to mend gaps created by imperfect alignment.
     gaps_to_mend = []
     if elem_from[0]!="f":
-        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[0]-1],
-                               cg_to.seq_ids[define_a_to[0]] ] )
+        gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[0]),
+                               cg_to.seq.to_resid(define_a_to[0]+1) ] )
     if elem_from[0]!="t":
-        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[1]-2],
-                               cg_to.seq_ids[define_a_to[1]-1] ] )
+        gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[1]-1),
+                               cg_to.seq.to_resid(define_a_to[1]) ] )
     if elem_from[0]=="i":
-        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[2]-1],
-                               cg_to.seq_ids[define_a_to[2]] ] )
-        gaps_to_mend.append( [ cg_to.seq_ids[define_a_to[3]-2],
-                               cg_to.seq_ids[define_a_to[3]-1] ] )
+        gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[2]),
+                               cg_to.seq.to_resid(define_a_to[2]+1) ] )
+        gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[3]-1),
+                               cg_to.seq.to_resid(define_a_to[3]) ] )
     return gaps_to_mend
 def mend_breakpoints(chains, gap):
     """
@@ -507,6 +519,7 @@ def mend_breakpoints(chains, gap):
         return chains
     mod_models = {}
     with fus.make_temp_directory() as tmpdir:
+        log.warning("Writing chains %s", chains.values())
         ftup.output_multiple_chains(chains.values(), op.join(tmpdir, "tmp.pdb"))
         for g in gap:
             if g[0].chain != g[1].chain:
@@ -514,7 +527,7 @@ def mend_breakpoints(chains, gap):
                             g[0], g[1])
                 continue
             if g[0].chain not in mod_models:
-                mod_models[g[0].chain] =  moderna.load_model(op.join(tmpdir, "tmp.pdb"), g[0].chain)
+                mod_models[g[0].chain] =  moderna.load_model(chains[g[0].chain], data_type="chain")#moderna.load_model(op.join(tmpdir, "tmp.pdb"), g[0].chain)
             moderna.fix_backbone(mod_models[g[0].chain], g[0].resid[1], g[1].resid[1])
             moderna.write_model(mod_models[g[0].chain], op.join(tmpdir, "tmp.pdb"))
         for chain_id, model in mod_models.items():
@@ -526,8 +539,10 @@ def mend_breakpoints(chains, gap):
                 mended_chains[chain_id] = ftup.get_first_chain(
                                                 op.join(tmpdir,
                                                         "mended_{}.pdb".format(chain_id)))
+                mended_chains[chain_id].id = chain_id
             else:
                 mended_chains[chain_id] = chains[chain_id]
+    log.warning("mended_chains: %s", mended_chains)
     # Moderna may replace modified residues with "UNK" for unknown or otherrwise change the code.
     # We have to replace them back.
     for chain_id in chains:
@@ -595,7 +610,13 @@ def _compare_cg_chains_partial(cg, chains):
         for res in chain.get_residues():
             resid = fgb.RESID(chain.id, res.id)
             pdb_coords = res["C1'"].coord
-            cg_coords = cg.virtual_atoms(cg.seq.to_integer(resid))["C1'"]
+            log.debug("Resid %s", resid)
+            virt_a = cg.virtual_atoms(cg.seq.to_integer(resid))
+            try:
+                cg_coords = virt_a["C1'"]
+            except KeyError:
+                log.error("virtual atom coordinates for %s only for %s", resid, virt_a.keys())
+                raise
             if ftuv.magnitude(pdb_coords-cg_coords)>4:
                 log.warning("Residue %s, C1' coords %s do not "
                           "match the cg-coords (virtual atom) %s by %f", resid, pdb_coords,
@@ -667,8 +688,7 @@ def replace_bases(chains, cg):
         for residue in residues:
             #num = ress[i].id[1]
             old_name = residue.resname.strip()
-            cg_seq_num = cg.seq_ids.index(fgb.RESID(chain = chain_name, resid = residue.id))
-            target_name = cg.seq[cg_seq_num+1] #Sequence uses 1-based indexing
+            target_name = cg.seq[fgb.RESID(chain = chain_name, resid = residue.id)]
             if target_name == old_name:
                 #Don't replace the correct residues
                 log.debug("Not replacing %s by %s", old_name, target_name )
@@ -698,4 +718,4 @@ def reorder_residues(chains, cg):
     :param cg: A coarse grain representation
     '''
     for chain_name, chain in chains.items():
-        chain.child_list.sort(key=lambda x: cg.seq_ids.index(fgb.RESID(chain = chain_name, resid = x.id)))
+        chain.child_list.sort(key=lambda x: cg.seq.to_integer(fgb.RESID(chain = chain_name, resid = x.id)))

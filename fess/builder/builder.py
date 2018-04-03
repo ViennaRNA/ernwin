@@ -43,6 +43,7 @@ def load_sampled_elements(sm):
         return False
     if not sm.elem_defs:
         return False
+    log.debug("Successfully loaded sampled elements")
     return True
 
 def _determined_broken_ml_segments(built_nodes, bg):
@@ -53,7 +54,7 @@ def _determined_broken_ml_segments(built_nodes, bg):
     ml_nodes=set(x for x in bg.defines.keys() if x[0]=="m")
     broken_multiloops = ml_nodes-set(itertools.chain(*[bo for bo in bg.traverse_graph()]))
     log.debug("MST = %s, build_order= %s", bg.mst, bg.build_order)
-    log.debug("Broken determined multiloops are %s. Now finding out if they are determined...", broken_multiloops)
+    log.debug("Broken multiloops are %s. Now finding out if they are determined...", broken_multiloops)
     broken_determined_nodes=set()
     for n in broken_multiloops:
         loop=set(bg.find_bulge_loop(n, 200))
@@ -89,6 +90,7 @@ class Builder(object):
     def accept_or_build(self, sm):
         log.info("building without constraint energy...")
         if not sm.elem_defs:
+            log.info("No element definitions present. Starting from scratch")
             return self.build(sm)
         else:
             sm.new_traverse_and_build()
@@ -193,7 +195,8 @@ class Builder(object):
                   or an empty list, if the junction constriant energy is zero.
         """
         det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
-        log.debug("Evaluationg junction energy for nodes %s", det_br_nodes)
+        if det_br_nodes:
+            log.debug("Evaluationg junction energy for nodes %s", det_br_nodes)
         for ml in det_br_nodes:
             if ml in sm.junction_constraint_energy:
                 ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes)
@@ -439,6 +442,7 @@ def update_parser(parser):
                         help="Do not attempt to start at the input conformation.\n"
                              "(Automatically True for fasta files.)")
 
+
 def from_args(args, stat_source):
     if args.fair_building_dim:
         build_function = DimerizationBuilder(stat_source).build
@@ -449,5 +453,8 @@ def from_args(args, stat_source):
         if args.start_from_scratch:
             build_function = b.build
         else:
-            build_function = b.accept_or_build
+            def _build_function_with_loading(sm):
+                load_sampled_elements(sm)
+                return b.accept_or_build(sm)
+            build_function = _build_function_with_loading
     return build_function

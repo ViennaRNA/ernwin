@@ -803,6 +803,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             return 0.
         best_deviation = float('inf')
         if sampled_stats is not None:
+            log.debug("FJC using sampled stat!")
             assert self.element in sampled_stats
              # Assertion fails, if structure was built with JDIST energy but sampled
              # with this energy. Should never happen!
@@ -812,13 +813,11 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         else:
             for stat in self.stat_source.iterate_stats_for(cg, self.element):
                 curr_dev = self._stat_deviation(cg, stat)
-                if "3Q1Q" in stat.pdb_name:
-                    log.error("Trying stat %s for %s. Deviation: %s", stat.pdb_name, self.element, curr_dev)
                 if curr_dev < best_deviation:
                     best_deviation = curr_dev
                     #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                     self.used_stat = stat
-        log.error("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
+        log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
         self.bad_bulges = [self.element]
         return (best_deviation**self.adjustment)*self.prefactor
@@ -856,6 +855,8 @@ class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
                 if stat.pdb_name == sampled_pdb_name:
                     break
             else:
+                log.debug(list(map(str, self.stat_source.iterate_stats_for(cg, self.element))))
+                raise ValueError("Sampled stat is inconsistent in SJF")
                 self.log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
                 return 0.
         else:
@@ -1121,7 +1122,7 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         log.info("Successfully generated target distribution for AMinors.")
     @classmethod
-    def generate_target_distribution(cls, cgs, fr3d_out, chain_id_mapping_dir, 
+    def generate_target_distribution(cls, cgs, fr3d_out, chain_id_mapping_dir,
                                      out_filename=None, orientation_outfile = None,
                                      fr3d_query = "", use_subgraphs = False):
         """
@@ -1555,7 +1556,11 @@ class CombinedEnergy(object):
         """
         :param normalize: Divide the resulting energy by the numbers of contributions
         """
-        log.info("Setting up combined energy with contributions %s", energies)
+        if energies:
+            log.info("Setting up combined energy with contributions %s", energies)
+        else:
+            log.debug("Setting up combined energy with contributions %s", energies)
+
         if energies is not None:
             super(CombinedEnergy, self).__setattr__("energies", energies)
         else:
@@ -1588,6 +1593,8 @@ class CombinedEnergy(object):
                 else:
                     # Else this is an error.
                     raise AttributeError("CombinedEnergy has no attribute '{}', because {}".format(name, e))
+        if len(attrs)==1:
+            return attrs[0]
         try:
             return sum(attrs)
         except:
@@ -1616,6 +1623,14 @@ class CombinedEnergy(object):
             else:
                 yield e
 
+    def remove_energies_if(self, function):
+        new_energies = []
+        for e in self.energies:
+            if not function(e):
+                new_energies.append(e)
+            else:
+                log.debug("Removing energy %s", e.shortname)
+        self.energies = new_energies
     @property
     def can_constrain(self):
         can_constrain = []

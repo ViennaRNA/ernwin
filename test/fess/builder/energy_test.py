@@ -121,19 +121,53 @@ class TestJunctionConstraintEnergy(unittest.TestCase):
 
 class TestSampledFragmentJunctionEnergy(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4GXY_A.cg')
         self.stat_source = StatStorage("test/fess/data/real.stats")
 
     def test_energy_zero(self):
         # For the broken ml segment m2, we use the stats found in the stat-source for this element.
+        assert "m2" not in self.cg.get_mst()
         if self.cg.get_angle_type("m2", allow_broken=True)==3:
-            self.cg.sampled["m2"] = ["4GXY_A:m_17"]
-        elif self.cg.get_angle_type("m2", allow_broken=True)==-3:
             self.cg.sampled["m2"] = ["4GXY_A:m_16"]
+        elif self.cg.get_angle_type("m2", allow_broken=True)==-3:
+            self.cg.sampled["m2"] = ["4GXY_A:m_17"]
         else:
             assert False
         energy = fbe.SampledFragmentJunctionClosureEnergy("m2", self.stat_source)
         self.assertLess(energy.eval_energy(self.cg), 10**-3)
+
+    def test_energy_zero_after_building(self):
+        assert "m2" not in self.cg.get_mst()
+        sm = fbm.SpatialModel(self.cg)
+        sm.load_sampled_elems()
+        sm.new_traverse_and_build()
+        if sm.bg.get_angle_type("m2", allow_broken=True)==3:
+            sm.bg.sampled["m2"] = ["4GXY_A:m_16"]
+        elif sm.bg.get_angle_type("m2", allow_broken=True)==-3:
+            sm.bg.sampled["m2"] = ["4GXY_A:m_17"]
+        else:
+            assert False
+        energy = fbe.SampledFragmentJunctionClosureEnergy("m2", self.stat_source)
+        self.assertLess(energy.eval_energy(sm.bg), 10**-3)
+
+class TestFragmentJunctionEnergy(unittest.TestCase):
+    def setUp(self):
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4GXY_A.cg')
+        self.stat_source = StatStorage("test/fess/data/real.stats")
+
+    def test_energy_zero(self):
+        # The True stat is present in the stat_source.
+        energy = fbe.FragmentBasedJunctionClosureEnergy("m2", self.stat_source)
+        self.assertLess(energy.eval_energy(self.cg), 10**-3)
+
+    def test_energy_zero_after_building(self):
+        assert "m2" not in self.cg.get_mst()
+        sm = fbm.SpatialModel(self.cg)
+        sm.load_sampled_elems()
+        sm.new_traverse_and_build()
+        energy = fbe.FragmentBasedJunctionClosureEnergy("m2", self.stat_source)
+        self.assertLess(energy.eval_energy(sm.bg), 10**-3)
+
 
 class TestSLDEnergies(unittest.TestCase):
     def setUp(self):

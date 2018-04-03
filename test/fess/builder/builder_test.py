@@ -4,6 +4,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       str, super, zip)
 
 import unittest
+import argparse
 import copy
 import numpy as np
 import numpy.testing as nptest
@@ -17,6 +18,19 @@ import forgi.threedee.model.coarse_grain as ftmc
 
 RAND_REPETITION = 100
 
+class TestBuilderAccept(unittest.TestCase):
+    def setUp(self):
+        cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4P8Z.cg')
+        p = argparse.ArgumentParser()
+        fbb.update_parser(p)
+        args = p.parse_args([])
+        self.build_function = fbb.from_args(args, None)
+        self.sm = fbm.SpatialModel(cg)
+
+    def test_building_rmsd(self):
+        orig_cg = copy.deepcopy(self.sm.bg)
+        self.build_function(self.sm)
+        self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm.bg, orig_cg), 0.)
 
 class TestBuilderBaseClass(unittest.TestCase):
     def setUp(self):

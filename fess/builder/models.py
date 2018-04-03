@@ -369,7 +369,7 @@ class SpatialModel:
         '''
         Save the information about all of the sampled elements.
         '''
-        for d,ed in self.elem_defs.items():
+        for d, ed in self.elem_defs.items():
             self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
     def change_mst(self, new_mst):
         """
@@ -934,11 +934,20 @@ def _perml_energy_to_sm(sm, energy_string, stat_source):
             log.info("Searching for loops that contain element %s", elem)
             for loop in all_loops:
                 if not elem or elem in loop:
-                    log.info("Assigning Junction constraint energy %s to loop %s", energy.shortname, loop)
-                    for loop_elem in loop:
-                        # sm.junction_constraint_energy[loop_elem] is a CombinedEnergy
-                        sm.junction_constraint_energy[loop_elem].energies.append(energy)
-
+                    if hasattr(energy, "remove_energies_if"):
+                        def has_wrong_element(energy):
+                            return hasattr(energy, "element") and energy.element not in loop
+                        energy.remove_energies_if(has_wrong_element)
+                        n_energy = energy
+                        energy, = fbe.EnergyFunction.from_string(energy_string, cg=sm.bg, iterations=None, stat_source=stat_source)
+                    else:
+                        n_energy = energy
+                    if n_energy:
+                        log.info("Assigning energy %s to loop %s", n_energy.shortname, loop)
+                        for loop_elem in loop:
+                            sm.junction_constraint_energy[loop_elem].energies.append(n_energy)
+                    else:
+                        log.info("Assigning nothing to loop %s", loop)
 
 def update_parser(parser):
     sm_options = parser.add_argument_group("Options related to the Spatial Model",

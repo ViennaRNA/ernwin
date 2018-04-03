@@ -101,7 +101,7 @@ class StatStorage(object):
 
     @staticmethod
     def key_from_bg_and_elem(bg, elem):
-        dims = bg.get_node_dimensions(elem)#, with_missing=(elem[0]!="s"))
+        dims = bg.get_node_dimensions(elem, with_missing=(elem[0]!="s"))
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
             ang_type = patch_angtype(ang_type)
@@ -164,7 +164,9 @@ class StatStorage(object):
                         new_key = (key[0], key[1]-1, key[2])
                     else:
                         new_key = (key[0]-1, key[1], key[2])
-                    log.warning("Trying key %s instead of %s for %s", new_key, key, stat_type)
+                    if (stat_type, key, min_entries) not in self._has_reported:
+                        log.error("Trying key %s instead of %s for %s", new_key, key, stat_type)
+                        self._has_reported.add((stat_type, key, min_entries))
                     return self._possible_stats(stat_type, new_key, min_entries, strict)
 
             # If everything else fails, raise an error even if strict was disabled.

@@ -154,16 +154,20 @@ def _safe_resid_from_chain_res(chain, residue):
 def chains_from_fr3d_field(value, pdb_id, mapping_directory):
     from RNApy.parse import chain_id_mapping
     if len(value)==3:
-        return value
+        chains = value
     elif len(value)==6:
-        chain_id_mapping_file = os.path.join(mapping_directory, pdb_id.lower()+"-chain-id-mapping.txt")
         chains = [value[:2], value[2:4], value[4:]]
         # Asterix as a special character for pdbs with length 1-chain-ids in bundles
         chains =list(map(lambda x: x.replace('*', ''), chains))
-        mapping = chain_id_mapping.parse(chain_id_mapping_file).mmcif2bundle
-        return [ mapping[c] for c in chains ]
     else:
         raise ValueError("PDB-id {}: Expecting either 3 or 6 letters for chain, found '{}'.".format(pdb_id, value))
+    try:
+        chain_id_mapping_file = os.path.join(mapping_directory, pdb_id.lower()+"-chain-id-mapping.txt")
+        mapping = chain_id_mapping.parse(chain_id_mapping_file).mmcif2bundle
+    except FileNotFoundError:
+        return chains
+    else:
+        return [ mapping[c] for c in chains ]
 
 def _parse_fred_line(line, all_cgs, current_annotation, mapping_directory):
     parts = line.split()
@@ -196,7 +200,7 @@ def _parse_fred_line(line, all_cgs, current_annotation, mapping_directory):
             # Then for multiple chains, search based on resid.
             a_res = _safe_resid_from_chain_res(chain = chains[0], residue = parts[3])
             if a_res is None:
-                warnigns.warn("Cannot create resid for {}".format(chains[0]))
+                warnings.warn("Cannot create resid for {}".format(chains[0]))
                 return
             for cg in cgs:
                 #Find the first matching cg.
