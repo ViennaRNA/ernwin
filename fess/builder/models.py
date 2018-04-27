@@ -884,7 +884,7 @@ def _auto_contrib_for_loop(loop, sm, stat_source):
     broken_mls = set(loop)-sm.bg.get_mst()
     for ml in broken_mls:
         num_stats = sum(1 for _ in stat_source.iterate_stats_for(sm.bg, ml))
-        if num_stats<100:
+        if num_stats<50:
             log.info("AUTO-contrib for multiloop %s where "
                      "elem %s has only %s stats is JDIST", loop, ml, num_stats)
             return "{}:JDIST".format(ml)
@@ -892,13 +892,13 @@ def _auto_contrib_for_loop(loop, sm, stat_source):
     for ml in loop:
         num_stats = sum(1 for _ in stat_source.iterate_stats_for(sm.bg, ml))
         prod *= num_stats
-    if prod<10**8:
+    if prod<10**6:
         log.info("AUTO-contrib for multiloop %s with "
                  "%e stat combinations is JDIST", loop, prod)
         return "{}:JDIST".format(ml)
     else:
         log.info("AUTO-contrib for multiloop %s is MAX8[1FJC1]", loop)
-        "{}:MAX8[1FJC1]".format(ml)
+        return "{}:MAX8[1FJC1]".format(ml)
 
 def _perml_energy_to_sm(sm, energy_string, stat_source):
     log.info("Setting up constraint energy from string %s", energy_string)

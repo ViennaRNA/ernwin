@@ -342,7 +342,7 @@ def update_parser(parser):
                             description="These options control what stats ERNWIN\n"
                                         " uses for sampling")
     stat_options.add_argument('--stats-file', type=str,
-                              default=data_file("stats/all_nr2.110_pkfree.stats"),
+                              default=data_file("stats/all_nr3.0_pkfree.stats"),
                               help= "A filename.\n"
                                     "A file containing all the stats to sample from\n"
                                     " for all coarse grained elements")

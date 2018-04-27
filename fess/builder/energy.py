@@ -737,10 +737,10 @@ class MaxEnergyValue(EnergyFunction):
         e = self._other_energy.eval_energy(cg, background, nodes, **kwargs)
         if e>=self.adjustment:
             self.bad_bulges = self._other_energy.bad_bulges
-            log.info("MaxEnergyValue: Threshold exceeded: %s>=%s. Bad bulges: %s",e, self.adjustment, self.bad_bulges)
+            log.debug("MaxEnergyValue: Threshold exceeded: %s>=%s. Bad bulges: %s",e, self.adjustment, self.bad_bulges)
             return 10000.
         else:
-            log.info("MaxEnergyValue: Threshold not exceeded: {}<{}".format(e, self.adjustment))
+            log.debug("MaxEnergyValue: Threshold not exceeded: {}<{}".format(e, self.adjustment))
             self.bad_bulges = []
             return 0.
     @property
