@@ -395,7 +395,7 @@ class DistanceExponentialEnergy(EnergyFunction):
         :param elem1: A coarse grained element name.
         :param elem2: A coarse grained element name.
         """
-        return cls(e1, e2, distance = adjustment, scale = prefactor )
+        return cls(elem1, elem2, distance = adjustment, scale = prefactor )
 
     def __init__(self, from_elem, to_elem, distance=None, scale=None):
         '''
@@ -424,11 +424,18 @@ class DistanceExponentialEnergy(EnergyFunction):
     def get_distance(self, cg):
         from_elem = self.from_elem
         to_elem = self.to_elem
-
-        closest_points = ftuv.line_segment_distance(cg.coords[from_elem][0],
-                                                   cg.coords[from_elem][1],
-                                                   cg.coords[to_elem][0],
-                                                   cg.coords[to_elem][1])
+        try:
+            closest_points = ftuv.line_segment_distance(cg.coords[from_elem][0],
+                                                        cg.coords[from_elem][1],
+                                                        cg.coords[to_elem][0],
+                                                        cg.coords[to_elem][1])
+        except KeyError as e:
+            failed_elem=str(e).strip("'")
+            if failed_elem==from_elem or failed_elem==to_elem:
+                raise LookupError("The following coarse-grained element is not "
+                                  "part of the structure and thus cannot be "
+                                  "used in the CLA energy: {}".format(failed_elem))
+            raise
 
         closest_distance = ftuv.vec_distance(closest_points[1], closest_points[0])
         return closest_distance
