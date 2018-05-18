@@ -390,42 +390,12 @@ class DistanceExponentialEnergy(EnergyFunction):
                 " clamped together.").format(_DEFAULT_CLAMP_DISTANCE)
 
     @classmethod
-    def from_cg(cls, prefactor, adjustment, cla_pairs, cg, **kwargs):
+    def from_cg(cls, prefactor, adjustment, elem1, elem2, cg, **kwargs):
         """
-        :param cla_pairs: A list of 2-tuples, containing either residue numbers or cg-element names.
+        :param elem1: A coarse grained element name.
+        :param elem2: A coarse grained element name.
         """
-        clamp = []
-        for pair in cla_pairs:
-            try:
-                r1,r2 = pair
-            except ValueError as e:
-                print("Invalid pair '{}'".format(pair), file=sys.stderr)
-                raise
-            try: # initially we assume the clamp target are residue numbers
-                r1=int(r1)
-            except ValueError: #Or they are element names
-                e1=r1
-            else:
-                e1=cg.get_node_from_residue_num(r1)
-            try: # initially we assume the clamp target are residue numbers
-                r2=int(r2)
-            except ValueError: #Or they are element names
-                e2=r2
-            else:
-                e2=cg.get_node_from_residue_num(r2)
-            #e1 and e2 are element names
-            if e1 not in cg.defines:
-                raise ValueError("Invalid clamp pair '{}'['{}' not in cg] -'{}' "
-                      ".".format(r1,e1,r2))
-            if e2 not in cg.defines:
-                raise ValueError("Invalid clamp pair '{}' -'{}'['{}' not in cg] "
-                      ".".format(r1,r2, e2))
-            if e1==e2:
-                warnings.warn("Cannot clamp identical elements "
-                              " {} and {} ({}=={})".format(r1,r2,e1,e2))
-            else:
-                clamp+=[cls(e1, e2, distance = adjustment, scale = prefactor )]
-        return CombinedEnergy(clamp)
+        return cls(e1, e2, distance = adjustment, scale = prefactor )
 
     def __init__(self, from_elem, to_elem, distance=None, scale=None):
         '''
