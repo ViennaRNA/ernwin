@@ -33,7 +33,7 @@ except:
 @profile
 def get_relative_orientation(cg, loop, stem):
     '''
-    Return how loop is related to stemin terms of three parameters.
+    Return how loop is related to stem in terms of three parameters.
 
     The stem is the receptor of a potential A-Minor interaction, whereas the
     loop is the donor.
@@ -52,7 +52,7 @@ def get_relative_orientation(cg, loop, stem):
                                                                 cg.coords[loop][0],
                                                                 cg.coords[loop][1])
     conn_vec = point_on_loop-point_on_stem
-
+    dist = ftuv.magnitude(conn_vec)
     angle1 = ftuv.vec_angle(cg.coords.get_direction(stem),
                             conn_vec)
     # The direction of the stem vector is irrelevant, so
@@ -62,10 +62,7 @@ def get_relative_orientation(cg, loop, stem):
 
 
     #fud.pv('angle1')
-
     tw = cg.get_twists(stem)
-
-    dist = ftuv.magnitude(conn_vec)
 
     if dist==0:
         angle2=float("nan")
@@ -81,13 +78,20 @@ def get_relative_orientation(cg, loop, stem):
             pos = ftuv.magnitude(point_on_stem - cg.coords[stem][0]) / ftuv.magnitude(cg.coords.get_direction(stem)) * (stem_len - 1)
 
             # The vector pointing to the minor groove, even if we are not at a virtual residue (pos is a float value)
-            vec = ftug.virtual_res_3d_pos_core(cg.coords[stem], cg.twists[stem], pos, stem_len)[1]
+            virt_twist = ftug.virtual_res_3d_pos_core(cg.coords[stem], cg.twists[stem], pos, stem_len)[1]
+
+            # The projection of the connection vector onto the plane normal to the stem
+            conn_proj = ftuv.vector_rejection(conn_vec, cg.coords.get_direction(stem))
+
+
             try:
                 # Note: here the directions of both vectors are well defined,
                 # so angles >90 degrees make sense.
-                angle2 = ftuv.vec_angle(vec, conn_vec)
+                angle2 = ftuv.vec_angle(virt_twist, conn_proj)
+                a2_t =  ftuv.vec_angle(virt_twist, conn_vec)
+                log.error("Angle 2 (on plane) = %s, oop = %s, a1 =  %s", angle2, a2_t, angle1)
             except ValueError:
-                if np.all(vec==0):
+                if np.all(virt_twist==0):
                     angle2=float("nan")
                 else:
                     raise
@@ -138,18 +142,6 @@ class AmeGeometrySet(Set):
             yield g
     def __len__(self):
         return len(self.geometries)
-
-def _safe_resid_from_chain_res(chain, residue):
-    try:
-        return fgb.resid_from_str(str("{}:{}".format(chain,residue)))
-    except ValueError as e:
-        if residue.isdigit():
-            with log_to_exception(log, e):
-                log.error("Chain is '{}', res is '{}'".format(chain, residue))
-            raise
-        else:
-            warnings.warn("Illegal residue number: '{}'.".format(residue))
-            return
 
 def chains_from_fr3d_field(value, pdb_id, mapping_directory):
     from RNApy.parse import chain_id_mapping
