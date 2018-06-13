@@ -447,7 +447,7 @@ def from_args(args, stat_source):
     if args.fair_building_dim:
         build_function = DimerizationBuilder(stat_source).build
     elif args.fair_building:
-        build_function = FairBuilder(stat_source).build
+        build_function = FairBuilder(stat_source, store_failed="list").build
     else:
         b = Builder(stat_source)
         if args.start_from_scratch:

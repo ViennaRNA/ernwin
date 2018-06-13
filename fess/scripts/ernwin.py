@@ -10,6 +10,7 @@ import random
 import os
 import copy
 import multiprocessing
+import traceback
 
 import numpy as np
 
@@ -69,7 +70,8 @@ def main():
             run(args, cg, main_dir)
         except BaseException as e:
             with open(os.path.join(main_dir, 'exception.log'), "w") as f:
-                print(str(e), file=f)
+                print(type(e), ":", str(e), file=f)
+                traceback.print_exc(file=f)
             raise
 
 def run(args, cg, main_dir):
