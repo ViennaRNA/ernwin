@@ -70,8 +70,9 @@ def main():
             run(args, cg, main_dir)
         except BaseException as e:
             with open(os.path.join(main_dir, 'exception.log'), "w") as f:
-                print(type(e), ":", str(e), file=f)
-                traceback.print_exc(file=f)
+                print("Running on python {}, the following error occurred:".format(sys.version), file=f)
+                print("{}: {}".format(type(e).__name__, str(e)), file=f)
+                print(str(traceback.format_exc()), file=f)
             raise
 
 def run(args, cg, main_dir):
@@ -84,7 +85,7 @@ def run(args, cg, main_dir):
     # we sample after all structures were built.
     samplers = []
     processes = []
-    for i, sm in enumerate(build_spatial_models(args, cg, stat_source)):
+    for i, sm in enumerate(build_spatial_models(args, cg, stat_source, main_dir)):
         cg_stri = sm.bg.to_cg_string()
         with open(os.path.join(main_dir,
                                'build{:06d}.coord'.format(i+1)), "w") as f:
@@ -120,14 +121,14 @@ def sample_one_trajectory(sampler, iterations):
             sampler.step()
         sampler.stats_collector.collector.to_file()
 
-def build_spatial_models(args, cg, stat_source):
+def build_spatial_models(args, cg, stat_source, main_dir):
     if args.replica_exchange and args.num_builds>1:
         raise ValueError("--replica-exchange and --num-builds are mutually exclusive.")
     if args.replica_exchange:
         build_count = args.replica_exchange
     else:
         build_count = args.num_builds
-    build_function = fbb.from_args(args, stat_source)
+    build_function = fbb.from_args(args, stat_source, main_dir)
     sm = None
     for i in range(build_count):
         if sm is None or args.iterations>0 or fbmodel.some_replica_different(args):

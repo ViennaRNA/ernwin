@@ -762,7 +762,7 @@ def update_parser(parser):
                         help='Save the best (lowest energy) n structures.', type=int)
     monitor_options.add_argument('--save-min-rmsd', default=3,
                         help='Save the best (lowest rmsd) n structures.', type=int)
-    monitor_options.add_argument('--step-save', default=0, help="Save the structure at every n'th step.",
+    monitor_options.add_argument('--step-save', default=100, help="Save the structure at every n'th step.",
                          type=int)
     monitor_options.add_argument('--dump-energies', default=False, action='store_true',
                         help='Dump the measures used for energy calculation to file') #UNUSED OPTION. REMOVE
