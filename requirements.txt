@@ -1,12 +1,12 @@
 cython
-pandas==0.19
+pandas>=0.19
 numpy
 scipy
 biopython
 deepdiff
 networkx
 future
-forgi==2.0
+forgi
 logging_exceptions>=0.1.6
 bitarray
 commandline_parsable

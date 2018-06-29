@@ -89,7 +89,7 @@ def get_relative_orientation(cg, loop, stem):
                 # so angles >90 degrees make sense.
                 angle2 = ftuv.vec_angle(virt_twist, conn_proj)
                 a2_t =  ftuv.vec_angle(virt_twist, conn_vec)
-                log.error("Angle 2 (on plane) = %s, oop = %s, a1 =  %s", angle2, a2_t, angle1)
+                #log.error("Angle 2 (on plane) = %s, oop = %s, a1 =  %s", angle2, a2_t, angle1)
             except ValueError:
                 if np.all(virt_twist==0):
                     angle2=float("nan")
