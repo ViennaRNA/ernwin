@@ -61,7 +61,8 @@ setup(cmdclass={'build_py': build_py},
          "networkx",
          "future",
          "forgi",
-         "logging_exceptions"
+         "logging_exceptions",
+         "commandline_parsable"
       ],
       package_data={'fess': ['stats/temp.stats',
                              'stats/cylinder_intersections*.csv',
