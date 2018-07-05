@@ -116,7 +116,7 @@ class Reconstructor(object):
         log.debug("Opening cg-file %s to extract stat %s", cg_filename, stat.pdb_name)
         cg = ftmc.CoarseGrainRNA.from_bg_file(cg_filename) #The cg with the template
 
-        chains, missing_residues = ftup.get_all_chains(pdb_filename)
+        chains, missing_residues, _ = ftup.get_all_chains(pdb_filename, no_annotation=True)
         new_chains = []
         for chain in chains:
             chain, modifications = ftup.clean_chain(chain)

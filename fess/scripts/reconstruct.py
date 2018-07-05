@@ -1,3 +1,4 @@
+#!python
 import forgi.utilities.commandline_utils as fuc
 import forgi.threedee.utilities.pdb as ftup
 
