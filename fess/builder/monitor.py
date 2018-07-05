@@ -14,6 +14,7 @@ import warnings
 import logging
 from collections import defaultdict
 import contextlib
+import itertools as it
 
 import numpy as np
 import pandas as pd

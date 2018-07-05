@@ -8,6 +8,7 @@ Contents:
 .. toctree::
     :maxdepth: 1
 
+    install.rst
     tutorial.rst
     changelog.rst
     license_link.rst
@@ -18,4 +19,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
