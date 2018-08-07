@@ -121,7 +121,16 @@ class StatStorage(object):
         raise StopIteration
 
     @lru_cache(maxsize = 128)
-    def _possible_stats(self, stat_type, key, min_entries = 100, strict=False):
+    def _possible_stats(self, stat_type, key, min_entries=100, strict=False):
+        try:
+            self._possible_stats_inner(stat_type, key, min_entries, strict)
+        except RuntimeError as e:
+            if "recursion" not in str(e):
+                raise
+            # Maximum recursion depth exceeded.
+            raise LookupError("No stats found for {} with key {}, even after reducing length.".format(stat_type, key))
+
+    def _possible_stats_inner(self, stat_type, key, min_entries = 100, strict=False):
         """
         :returns: Two lists, `weights` and `choose_from` of the same length.
                   weights is a list of floats, choose_from is a list of stats.
@@ -158,7 +167,7 @@ class StatStorage(object):
                     if (stat_type, key, min_entries) not in self._has_reported:
                         log.error("Trying key %s instead of %s for %s", key-1, key, stat_type)
                         self._has_reported.add((stat_type, key, min_entries))
-                    return self._possible_stats(stat_type, key-1, min_entries, strict)
+                    return self._possible_stats_inner(stat_type, key-1, min_entries, strict)
                 elif stat_type == "angle" and (key[0]>0 or 1000>key[1]>0):
                     if 1000>key[1]>key[0]:
                         new_key = (key[0], key[1]-1, key[2])
@@ -167,11 +176,9 @@ class StatStorage(object):
                     if (stat_type, key, min_entries) not in self._has_reported:
                         log.error("Trying key %s instead of %s for %s", new_key, key, stat_type)
                         self._has_reported.add((stat_type, key, min_entries))
-                    return self._possible_stats(stat_type, new_key, min_entries, strict)
-
+                    return self._possible_stats_inner(stat_type, new_key, min_entries, strict)
             # If everything else fails, raise an error even if strict was disabled.
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
-
         return weights, choose_from
 
 

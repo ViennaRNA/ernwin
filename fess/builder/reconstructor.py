@@ -539,6 +539,7 @@ def mend_breakpoints(chains, gap):
                 mended_chains[chain_id] = ftup.get_first_chain(
                                                 op.join(tmpdir,
                                                         "mended_{}.pdb".format(chain_id)))
+                log.info("Mended:", mended_chains)
                 mended_chains[chain_id].id = chain_id
             else:
                 mended_chains[chain_id] = chains[chain_id]
