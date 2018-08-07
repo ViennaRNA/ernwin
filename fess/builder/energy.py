@@ -1027,10 +1027,6 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     HELPTEXT = "A-Minor energy"
-    real_stats_fn = 'stats/ame_target_dist_1S72_0.csv'
-    sampled_stats_fn = 'stats/ame_reference_dist_1S72_0.csv'
-    orientation_file = 'stats/ame_orientation_1S72_0.csv'
-    cutoff_dist = 30 #Do not consider elements above this distance for interactions.
 
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
@@ -1045,44 +1041,23 @@ class AMinorEnergy(CoarseGrainEnergy):
         ame1 = cls(cg.seq_length, loop_type = 'h', prefactor=prefactor, adjustment=adjustment)
         ame2 = cls(cg.seq_length, loop_type = 'i', prefactor=prefactor, adjustment=adjustment)
         energies = []
-        if ame1._get_num_loops(cg)>0:
+        if ame1._count_potential_interactions(cg)>0:
             energies.append(ame1)
-        if ame2._get_num_loops(cg)>0:
+        if ame2._count_potential_interactions(cg)>0:
             energies.append(ame2)
         return CombinedEnergy(energies)
 
     @classmethod
-    def _generate_target_dist_given_orientation(cls, cgs, out_filename, orientation_infile, use_subgraphs = False):
+    def generate_target_distribution(cls, cgs, out_filename, use_subgraphs = False):
         """
         :param cgs: A dict {pdb_id: [cg, cg,...]}
-
-
         """
-        if orientation_infile.startswith("fess"):
-            orientation_infile = orientation_infile[5:]
-
         # Create the probability functions
-        all_geometries = pd.read_csv(load_local_data(orientation_infile), delimiter=' ', comment="#")
-        aminor_geometries = all_geometries[all_geometries["is_interaction"]]
-        non_ame_geometries = all_geometries[np.invert(all_geometries["is_interaction"])]
-        prob_fun= {}
-        for loop_type in "himft":
-          log.info("Creating probability function for %s", loop_type)
-          prob_fun[loop_type] = fba.aminor_probability_function(aminor_geometries.itertuples(),
-                                                             non_ame_geometries.itertuples(),
-                                                             loop_type)
-
-
-        log.info("OUT filename is %s", out_filename)
-        #Now use prob_fun to evaluate the A-minor probability for all loops in the cgs given.
         with open(out_filename, "w") as f:
             log.info("Writing AMinor target_dist to %s", out_filename)
             cls._print_file_header(f, [])
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
-            print("# Probabilities from {}".format(orientation_infile), file=f)
-
-            print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
-            print("pdb_id rna_length loop_type total_prob max_prob num_interactions", file=f)
+            print("pdb_id rna_length loop_type num_interactions num_interacting_loops ", file=f)
             for cgs in cgs.values():
                 for cg in cgs:
                     print("# CG:", file=f)
@@ -1098,120 +1073,6 @@ class AMinorEnergy(CoarseGrainEnergy):
                         cls._print_prob_lines(cg, sg_length, prob_fun, f, subgraph)
 
         log.info("Successfully generated target distribution for AMinors.")
-    @classmethod
-    def generate_target_distribution(cls, cgs, fr3d_out, chain_id_mapping_dir,
-                                     out_filename=None, orientation_outfile = None,
-                                     fr3d_query = "", use_subgraphs = False):
-        """
-        Generate the target distribution from the given cg-files and write it to a file.
-        Additionally generate a file with the relative orientation of all annotated
-        A-Minor interactions.
-
-        .. warning::
-
-            If out_filename is not given, this overwrites the file with the name given in
-            `cls.real_stats_fn`.
-
-        ..warning::
-
-            The FR3D query needs to contain 3 nucleotides where the first is the Adenine and
-            the second and third form a basepair in a stem.
-
-        It needs FR3D output like this::
-
-            Filename Discrepancy       1       2       3 Cha   1-2   1-3   2-3 Con   1-2   1-3   2-3   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-1   2-3   3-1   3-2   1-2   1-3   2-3
-                1S72      0.0340  A  104  A  957  U 1009 900 ----  ----   cWW  AAA  1909  1885    24                                                                             -     -     -
-
-        :param cgs: A list of CoarseGrainRNAs
-                    .. note::
-
-                        the first 4 characters of the CoarseGrainRNA's name must match the
-                        pdb-id as reported by FR3D.
-
-        :param fr3d_out: A file containing the annotations found by FR3D.
-        :param out_filename: None or a filename relative to `fess/`
-        :param orientation_outfile: Where to store the list of relative orientations of
-                                    Adenines and the Stems in A-Minor interactions and
-                                    in the background. Relative to "fess/"
-        :param fr3d_query: Describe the FR3D-query that you used in a string.
-                           It will be added as comment to the output file.
-        """
-        #Code in part copied from Peter's get_emlements.py
-
-        # If out-filenames are None, use the defaults.
-        if out_filename is None:
-            out_filename = cls.real_stats_fn
-        else:
-            out_filename = op.join("fess", out_filename)
-        log.info("OUT filename is %s", out_filename)
-        if orientation_outfile is None:
-            orientation_outfile = cls.orientation_file
-        else:
-            orientation_outfile = op.join("fess", orientation_outfile)
-
-        #Read the cgs
-        all_cgs = defaultdict(list)
-        for cg in cgs:
-            all_cgs[cg.name[:4].upper()].append(cg)
-
-        #Read the FR3D output
-        with open(fr3d_out) as f:
-            aminor_geometries, _ = fba.parse_fred(cls.cutoff_dist, all_cgs, f, chain_id_mapping_dir)
-        log.error("%d entries skipped during FR3D parsing, %s entries retained", _, len(aminor_geometries))
-        log.info("Found %d A-Minor interactions", len(aminor_geometries))
-        if len(aminor_geometries)==0:
-            raise ValueError("No A-Minor geometries found. Is the FR3D output file correct?")
-        non_ame_geometries = set()
-        for pdb_id, curr_cgs in all_cgs.items():
-            for cg in curr_cgs:
-                for loop in cg.defines:
-                    if loop[0]=="s":
-                        continue
-                    if loop in cg.incomplete_elements:
-                      continue
-                    for stem in cg.stem_iterator():
-                        if loop in cg.edges[stem]:
-                            continue
-                        if stem in cg.incomplete_elements:
-                            continue
-                        dist, angle1, angle2 = fba.get_relative_orientation(cg, loop, stem)
-                        #
-                        # For non-AME geometries, we need to include all the geometries beyond the cutoff.
-                        # This makes P(I) even smaller, but makes P(geo) more realistically.
-                        #
-                        if not np.isnan(dist+angle1+angle2): #dist<=cls.cutoff_dist and "A" in "".join(cg.get_define_seq_str(loop)) and not np.isnan(dist+angle1+angle2):
-                            geometry = fba.AMGeometry(pdb_id, loop, stem, dist, angle1, angle2, "&".join(cg.get_define_seq_str(loop)), 1000, "no_interaction")
-                            if geometry in aminor_geometries:
-                                log.info("Geometry %s is in aminor_geometries", geometry)
-                            else:
-                                non_ame_geometries.add(geometry)
-        log.error("%s non_ame geometries found", len(non_ame_geometries))
-        #Print orientations to orientation_outfile
-        with open(orientation_outfile, "w") as f:
-            cls._print_file_header(f, list(map(lambda x: x.name, cgs)))
-            print("# fr3d_out = {}".format(fr3d_out), file=f)
-            print("# fr3d_query:", file=f)
-            for line in fr3d_query.splitlines():
-                line=line.strip()
-                print("#    "+line, file = f)
-            print("# cutoff_dist = {} A".format(cls.cutoff_dist), file=f)
-            # HEADER
-            print ("pdb_id loop_type dist angle1 angle2 is_interaction loop_sequence interaction score annotation", file=f)
-            for entry in aminor_geometries:
-                print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction} {loop_sequence} "
-                      "{loop_name}-{stem_name} {score} "
-                      "\"{annotation}\"".format(is_interaction = True,
-                                                **entry._asdict()), file = f)
-            for entry in non_ame_geometries:
-                print("{pdb_id} {loop_type} {dist} {angle1} "
-                      "{angle2} {is_interaction} {loop_sequence} "
-                      "{loop_name}-{stem_name} {score} "
-                      "\"{annotation}\"".format(is_interaction = False,
-                                                **entry._asdict()), file = f)
-        cls._generate_target_dist_given_orientation(all_cgs, out_filename,
-                                                    orientation_outfile, use_subgraphs)
-
 
 
     def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
@@ -1278,10 +1139,8 @@ class AMinorEnergy(CoarseGrainEnergy):
             self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
         self._step_complete()
 
-    def _get_num_loops(self, cg):
-        possible_loops = [d for d in cg.defines.keys() if d[0] == self.loop_type and
-                          'A' in "".join(cg.get_define_seq_str(d))]
-        return len(possible_loops)
+    def _count_potential_interactions(self, cg):
+        return len(ftca.potential_interactions(cg, self.loop_type)[0])
 
     def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
         kr = self.target_distribution
