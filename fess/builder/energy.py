@@ -1583,7 +1583,7 @@ def update_parser(parser):
                    "     increment this value by 0.1 after every\n"
                    "     100 sampling steps.\n"
                    "TYP: One of the following:"])
-    EnergyFunction.add_to_parser(parser, '--energy', default="", help_intro=helptext)
+    EnergyFunction.add_to_parser(parser, '--energy', default="ROG,AME,SLD", help_intro=helptext)
 
 
 def from_args(args, cg, stat_source, replica=None):

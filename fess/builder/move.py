@@ -133,6 +133,7 @@ class EnergeticJunctionMover(Mover):
                 for this junction is fulfilled. Use n=-1 for
                 the whole junction"""), 35)
     def __init__(self, n, stat_source, **kwargs):
+        n=int(n)
         if n!=-1 and n<1:
             raise ValueError("EnergeticJunctionMover requires n==-1 or n>=1, not n={}".format(n))
         super(EnergeticJunctionMover, self).__init__(stat_source)

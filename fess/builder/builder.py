@@ -297,13 +297,9 @@ class FairBuilder(Builder):
                     self._failed_save_counter += 1
                     bad_junctions = []
                     add = True
-                    for j in self.junction_energy.bad_bulges:
-                        if add:
-                            bad_junctions.append(j)
-                            add = False
-                        else:
-                            if j == bad_junctions[-1]:
-                                add=True
+                    for broken_elem, energy in sm.junction_constraint_energy.items():
+                        if energy.bad_bulges:
+                            bad_junctions.append(broken_elem)
                     f.write("{}: junction {}\n".format(self._failed_save_counter,
                                                      list(set(bad_junctions))))
             return False
@@ -319,7 +315,7 @@ class FairBuilder(Builder):
                 with open(os.path.join(self.output_dir, "clashlist.txt"), "a") as f:
                     self._failed_save_counter += 1
                     clash_pairs = set()
-                    f.write("{}: clash {}\n".format(self._failed_save_counter, self.clash_energy.bad_bulges))
+                    f.write("{}: clash {}\n".format(self._failed_save_counter, sm.constraint_energy.bad_bulges))
             return False
 
     def _store_failed(self, sm):
@@ -443,11 +439,11 @@ def update_parser(parser):
                              "(Automatically True for fasta files.)")
 
 
-def from_args(args, stat_source):
+def from_args(args, stat_source, out_dir):
     if args.fair_building_dim:
-        build_function = DimerizationBuilder(stat_source).build
+        build_function = DimerizationBuilder(stat_source, store_failed="list", output_dir=out_dir).build
     elif args.fair_building:
-        build_function = FairBuilder(stat_source, store_failed="list").build
+        build_function = FairBuilder(stat_source, store_failed="list", output_dir=out_dir).build
     else:
         b = Builder(stat_source)
         if args.start_from_scratch:
