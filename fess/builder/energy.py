@@ -44,12 +44,14 @@ import forgi.projection.projection2d as fpp
 import forgi.projection.hausdorff as fph
 import forgi.threedee.model.similarity as ftms
 import forgi.threedee.model.descriptors as ftmd
+import forgi.threedee.classification.aminor as ftca
 
 
 from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
 import fess.builder.aminor as fba
 from fess.builder._commandline_helper import replica_substring
 from ..utils import get_all_subclasses, get_version_string
+from fess import data_file
 
 log = logging.getLogger(__name__)
 
@@ -1028,7 +1030,7 @@ class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     HELPTEXT = "A-Minor energy"
     LOOPS=["i", "h"]
-    data_filename = op.expanduser("stats/AME_distributions.csv")
+    sampled_stats_fn = data_file("stats/AME_distributions.csv")
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         """
@@ -1039,7 +1041,7 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         :returns: An AMinorEnergy instance
         """
-        return cls(len(list(cg.stem_iterator()), prefactor=prefactor, adjustment=adjustment))
+        return cls(len(list(cg.stem_iterator())), prefactor=prefactor, adjustment=adjustment)
 
     def __init__(self, num_stems, prefactor, adjustment, knowledge_weight=1000):
         """
@@ -1051,13 +1053,13 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         # Index telling us, what accepted measures have already been added to the reference distr.
         self._accepted_measure_start_index=0
-
+        self.log=logging.getLogger(__name__+"."+type(self).__name__)
         # Note: self._accepted_measures (initialized in super)
         #       lists in this case tuples of dicts.
         super(AMinorEnergy, self).__init__(num_stems, prefactor, adjustment)
 
-    def reset_distributions(num_stems):
-        data = pd.read_csv(cls.data_filename)
+    def reset_distributions(self, num_stems):
+        data = pd.read_csv(self.sampled_stats_fn, comment="#", sep=",", skipinitialspace=True)
         # sum of interacting and non-interacting loops in reference distribution
         self.reference_length={}
         # interacting loops
@@ -1072,8 +1074,8 @@ class AMinorEnergy(CoarseGrainEnergy):
             target, = row["target"].values
             background, = row["random"]
             self.target_fraction[loop]=target
-            self.reference_interactions[loop]=int(knowledge_weight*background)
-            self.reference_length[loop]+=knowledge_weight
+            self.reference_interactions[loop]=int(self.knowledge_weight*background)
+            self.reference_length[loop]=self.knowledge_weight
 
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
                     plot_debug=False):
@@ -1095,7 +1097,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         # This means that the energy of structures without interactions is not adjusted by the
         # reference ratio method, only the energy of interactions is adjusted.
         loop_counts, interaction_counts = m
-        for loop in LOOPS:
+        for loop in self.LOOPS:
             num_interactions=interaction_counts[loop]
             target_perc = self.target_fraction[loop]*self.adjustment
             reference_perc = self.reference_interactions[loop]/self.reference_length[loop]
@@ -1105,10 +1107,13 @@ class AMinorEnergy(CoarseGrainEnergy):
             else:
                 e_i=-np.log(target_perc)
                 e_noi=-np.log(1-target_perc)
+            self.log.debug("%s , %s", e_i, e_noi)
             energy_contrib = e_i-e_noi
-            log.debug("Energy contribution for loop type %s = %s, "
-                      "with %s interactions", loop, energy_contrib, num_interactions)
+            self.log.debug("Energy contribution for loop type %s = %s, "
+                      "with %s interactions (background=%s)", loop,
+                      energy_contrib, num_interactions, background)
             energy+=energy_contrib*num_interactions
+        log.debug("Total (unscaled) AME energy is %s", energy)
         return self.prefactor*energy
 
     def _set_target_distribution(self):
@@ -1118,7 +1123,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         """
         pass
 
-    def resample_background_kde(self):
+    def _resample_background_kde(self):
         for loop in self.LOOPS:
             for m in self.accepted_measures[self._accepted_measure_start_index:]:
                 loop_counts, interaction_counts = m
@@ -1146,7 +1151,7 @@ class AMinorEnergy(CoarseGrainEnergy):
     @property
     def last_accepted_measure(self):
         m=self.accepted_measures[-1]
-        return sum(m[1].values())/sum(m[0].values())
+        return m[1]["i"], m[1]["h"]
 
     def _get_cg_measure(self, cg):
         interactions = ftca.all_interactions(cg)

@@ -78,7 +78,7 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
 
     @property
     def last_accepted_measure(self):
-        return self._energy_function.accepted_measures[-1]
+        return self.accepted_measures[-1]
 
     def accept_last_measure(self):
         """

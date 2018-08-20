@@ -9,8 +9,6 @@
 # The data is presented as a fraction of stems that interact.
 # The data was very noisy and was smoothed using a Savitzky-Golay filter with a linear fit and window size 7.
 # For more than 17 stems, the value of 17 stems should be used.
-
-
 typ, stems,  random,  target
   h,     2, 0.15201, 0.01506
   h,     3, 0.17877, 0.10467
@@ -44,4 +42,3 @@ typ, stems,  random,  target
   i,    15, 0.39368, 0.54304
   i,    16, 0.40297, 0.56923
   i,    17, 0.39417, 0.60000
-

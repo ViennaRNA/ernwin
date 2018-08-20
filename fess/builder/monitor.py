@@ -340,14 +340,26 @@ class EnergyMeasure(StatisticsCollector):
         """
         super(EnergyMeasure, self).__init__()
         self._energy_function = energy_function
-        self.header = [ "measure_of_"+self._energy_function.shortname ]
-        self.history = [ [] ]
+        if isinstance(energy_function, fbe.AMinorEnergy):
+            self.header = [ "measure_of_"+self._energy_function.shortname+"(i)",
+                            "measure_of_"+self._energy_function.shortname+"(h)" ]
+            self.history = [ [],[] ]
+        else:
+            self.header = [ "measure_of_"+self._energy_function.shortname ]
+            self.history = [ [] ]
     def update(self, sm, step):
         measure=self._energy_function.last_accepted_measure
-        self.history[0].append(measure)
-        return "{:10.3f}".format(measure)
+        if isinstance(self._energy_function, fbe.AMinorEnergy):
+            self.history[0].append(measure[0])
+            self.history[1].append(measure[1])
+            return "i: {:2d}\th: {:2d}".format(*measure)
+        else:
+            self.history[0].append(measure)
+            return "{:10.3f}".format(measure)
     @staticmethod
     def parse_value(stri):
+        if stri[0] in "ih":
+            return int(stri[2:])
         return float(stri)
 
 class ShowTime(StatisticsCollector):
@@ -797,6 +809,9 @@ def from_args(args, cg, energy, stat_source, out_dir):
     options[ "save_n_best" ] = args.save_n_best
     options[ "save_min_rmsd" ] = args.save_min_rmsd
     options[ "measure" ]=[]
+    if args.dump_energies:
+        for e in energy.energies:
+            options[ "measure" ].append(e)
     if args.dist:
         options[ "distance" ] = list(map(str.split, args.dist.split(':'), it.repeat(","))) #map is from future!
     else:
