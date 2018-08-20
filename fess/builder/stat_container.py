@@ -123,7 +123,7 @@ class StatStorage(object):
     @lru_cache(maxsize = 128)
     def _possible_stats(self, stat_type, key, min_entries=100, strict=False):
         try:
-            self._possible_stats_inner(stat_type, key, min_entries, strict)
+            return self._possible_stats_inner(stat_type, key, min_entries, strict)
         except RuntimeError as e:
             if "recursion" not in str(e):
                 raise
