@@ -1,0 +1,47 @@
+# Constructed the following way:
+# From the nonredundant list 3.0, create a even less redundant list by removing duplicate names (e.g. use only one "5S RNA", and only one "TRNA")
+# less_redundant_list = [ "165D_A-B","1CSL_A-B","1D4R_A-B","1DFU_M-N","1DUQ_A-B","1E7K_C","1E8O_E","1EHZ_A","1EVV_A","1F1T_A","1FEU_B-C","1FUF_A-B","1HC8_C","1HQ1_B","1I6U_C","1I9X_A-B","1ICG_A-B","1IL2_C","1J9H_A-B","1JID_B","1JZV_A-B","1KH6_A","1KUQ_B","1KXK_A","1LNT_A-B","1M5K_A-B","1MFQ_A","1MJI_D","1NTB_A-B","1OOA_C","1P6V_B","1QBP_A-B","1R3E_D-E","1RLG_D","1RPU_C-D","1SA9_C-D","1SAQ_A-B","1T0D_C-D","1T0E_A-C","1T0K_C-D","1U1Y_R","1U63_D","1U9S_A","1WNE_B-C","1XJR_A","1XOK_A-B","1Y0Q_A-B","1Y26_X","1Y27_X","1YKV_C-D","1YVP_C-D","1Z7F_B-C","1ZH5_C-D","205D_A-B","280D_A-B","2AKE_B","2AZX_D","2B63_R","2BU1_R","2CZJ_H","2DLC_Y","2E9R_A-B","2ET8_A-B","2EZ6_C-D","2F8S_C-D","2F8T_C-D","2FQN_A-B","2G92_A-B","2GDI_X","2GJW_I-J-L","2H1M_A-B","2HW8_B","2IZN_R","2NZ4_F-Q","2O3V_A-B","2O3X_A-B","2OE5_A-B","2OE8_A-B","2OIY_A-B","2OZB_F","2P7E_C-D","2PJP_B","2PN4_A-B","2PWT_A-B","2Q1O_C-D","2QUS_A","2QUW_C-D","2R22_A-B","2R8S_R","2R93_R","2RFK_D-E","2VPL_B","2XXA_F","2Z75_A-B","2ZI0_C-D","2ZJR_Y","2ZKO_C-D","301D_A-B","353D_A-B","364D_A-B-C","397D_A-B","3A6P_D-E","3AMT_B","3AVV_G-T","3B31_A","3B5S_A-B-C","3BNN_C-D","3BNS_C-D","3BO4_B-C-D","3CGP_A-B","3CGR_A-B","3CGS_A-B","3CJZ_A-B","3CR1_A-B-C","3CUL_D","3CZ3_G-H","3D0U_A","3D2V_A","3DIL_A","3E5C_A","3EGZ_B","3F30_X","3FS0_A-B","3FTM_C-D","3GLP_A-B","3GM7_G-H","3GS5_C","3GX5_A","3HAX_E-F","3HHN_E","3HJY_C-D","3I2Q_A-B-C","3IAB_R","3IVK_M","3IVN_A","3j9m-pdb-bundle2_A","3jan-pdb-bundle3_F","3JB9_N-P","3jcs-pdb-bundle1_3","3jcs-pdb-bundle1_5","3jct-pdb-bundle2_6","3K0J_E","3LA5_A","3LOA_A-B","3LRR_C-D","3MEI_A-B","3MOJ_A","3NKB_B","3NMU_E-K","3NPQ_A","3OVB_C","3OXE_A","3P22_A","3P49_A","3P59_C-D-F","3PDR_X","3Q3Z_V","3R1D_A-B","3R1E_A-B","3R2D_R-S","3R4F_A","3RKF_D","3RW6_H","3SIU_F","3SIV_C-F","3SJ2_A-B","3SKI_A","3SKL_B","3SN2_B","3SNP_D","3SUH_X","3SZX_A-B","3T4B_A","3TD0_A-B","3TZR_A-B","3V7E_D","3WBM_X-Y","3WFS_A","3ZP8_A-B","402D_A-B","406D_A-E","422D_A-B","439D_A-B","4A2X_N-O","4A36_R-S","4C4W_H","4E48_A-B","4E59_A-B","4E5C_A-B","4ENC_A","4ERD_C-D","4EYA_q-r","4FAR_A","4FEN_B","4GL2_C-D","4J50_A-B","4JRC_B","4K27_U","4K31_B-C","4K4Y_F-G-H","4K4Z_B-C-D","4K50_J-K","4KQ0_B-E","4KQY_A","4KTG_B-E","4KYY_A-B","4KZ2_A-B-C","4L8H_R","4LCK_F","4LGT_E","4LVW_A","4LX6_A","4M4O_B","4M6D_H","4MGN_A","4N0T_B","4NGF_G-H","4O26_E","4O41_C-D","4OJI_A","4OO8_B","4OQU_A","4P3T_A-B","4P43_A-B","4P5J_A","4P8Z_A","4P95_A","4P97_A-B","4PCJ_A","4PDB_I","4PHY_A-B","4PJO_1-X","4PKD_V","4PLX_A","4PMI_A","4PQV_A","4PR6_B","4PRF_B","4QIK_C-D","4QJD_A-B-C-D","4QJH_E-F","4QLM_A","4R0D_A","4R4V_A","4RGE_C","4RUM_A","4RZD_A","4TS2_X-Y","4TZX_X","4U35_A-B","4V19_A","4v83-pdb-bundle3_V","4v8p-pdb-bundle3_A","4v8q-pdb-bundle2_Y","4v90-pdb-bundle1_V","4v92-pdb-bundle1_B","4v9k-pdb-bundle1_V","4W90_C","4WRT_R-V","4WSB_R-V","4wzj-pdb-bundle2_W","4WZM_B-C","4X4V_B","4XWF_A","4Y1J_A","4Y1M_B","4YHW_C-E","4Z31_C-D","4ZC7_A-B","4ZNP_A","4ZT0_D","5AJ3_A","5AN9_N","5AOX_C","5AY3_A-B","5B2P_B","5BTM_B","5C9H_C-D","5CNR_A-B","5CZZ_B","5D8T_A-B","5DCV_D","5DDP_A","5DQK_A-B","5E54_B","5ED1_B-C","5ED2_B-C","5EW4_A-B","5F9R_A","5FLX_z","5G2X_A","5GAH_1","5GAN_V-W","5GAP_V-W","5H0R_H-I","5HSW_B","5IT9_i","5jup-pdb-bundle4_D","5K7D_A-B","5KPY_A","5KTJ_A-B","5KVJ_A-B","5LJ3_V-Z","5LQO_A-B","5LQT_A-B","5LR3_A-B","5LR4_A-B","5LYU_A","5lzd-pdb-bundle1_a-x","5M0H_A","5M3H_R-V","5MMI_A-W","5MPS_2-6","5mrc-pdb-bundle1_A","5mrc-pdb-bundle2_s","5MSF_R","5OB3_A","5oql-pdb-bundle2_1-2","5T16_G-H","5t2a-pdb-bundle1_A-B-C","5t2c-pdb-bundle2_A","5T5A_A","5t5h-pdb-bundle1_A-B-C","5t5h-pdb-bundle1_E","5t5h-pdb-bundle1_G","5t5h-pdb-bundle1_H","5T83_A","5TC1_R","5U3G_B","5UD5_D","5UNE_A-B","5V1K_A-B","5VT0_R","5VZL_B","5WTI_B","5xjc-pdb-bundle1_F-H","5XWP_C-D","5xxb-pdb-bundle1_1-4","5XXU_2","5XYI_2","5Y85_C-D","6AZ1_1","6az3-pdb-bundle1_1","6az3-pdb-bundle2_2","6az3-pdb-bundle2_3","6az3-pdb-bundle2_4","6az3-pdb-bundle2_5","6az3-pdb-bundle2_6","6az3-pdb-bundle2_7","6az3-pdb-bundle2_8","6BGB_A-B","6MSF_R","1DQH_A-B","1G1X_I-J","1KD5_A-B","4QVI_B","2A64_A","1NUV_E-F","1S03_B","1YZ9_E-F","3WQY_C","3LWR_D","2OIU_Q","3GS5_A","3F4H_X-Y","3Q1Q_B","3FTF_C-D","5BTP_A","3MXH_R","3j7q-pdb-bundle1_5-8","3P59_G-H","4B5R_A","5FJ4_H","4FRN_B","4GXY_A","5D5L_B","4K4S_F-G-H","4P3U_C-D","4QK9_A","4v91-pdb-bundle1_1-4","5t2c-pdb-bundle1_C","5UZ5_R","5DDO_B","5DEA_C","5F5H_D","5xy3-pdb-bundle1_1-4","5M0I_F","5M0J_F","5tcu-pdb-bundle1_V","5XYM_B","4YAZ_R","5TPY_A","5xjc-pdb-bundle1_B","3R1C_W-X","4KR9_X","5X2H_B","5G4U_I-J","1ZZ5_C-D","4UYK_R","5v93-pdb-bundle2_a","5OPT_E","5V7Q_A","5xy3-pdb-bundle1_3","5X6B_P" ]
+# Do not include loops that are interacting with proteins in the count.
+# For all other loops, classify it as either interacting or not interacting in
+# the true PDB and in an ernwin trajectory (starting from step 500, every 50 steps, 40 structures)
+# but only if the sample could be created in 3 days.
+# For 15 and more stems, no data was present, so we used the average of 59 and 60 stems (where we had data).
+# The data is presented as a fraction of stems that interact.
+# The data was very noisy and was smoothed using a Savitzky-Golay filter with a linear fit and window size 7.
+# For more than 17 stems, the value of 17 stems should be used.
+
+
+typ, stems,  random,  target
+  h,     2, 0.15201, 0.01506
+  h,     3, 0.17877, 0.10467
+  h,     4, 0.20554, 0.19427
+  h,     5, 0.23231, 0.28388
+  h,     6, 0.25754, 0.33150
+  h,     7, 0.25627, 0.40607
+  h,     8, 0.29287, 0.42574
+  h,     9, 0.28763, 0.46310
+  h,    10, 0.28322, 0.48411
+  h,    11, 0.29207, 0.47932
+  h,    12, 0.31101, 0.47788
+  h,    13, 0.32876, 0.50818
+  h,    14, 0.35093, 0.48406
+  h,    15, 0.33059, 0.51437
+  h,    16, 0.35607, 0.52636
+  h,    17, 0.36591, 0.54545
+  i,     2, 0.00084, 0.04501
+  i,     3, 0.04491, 0.10853
+  i,     4, 0.08898, 0.17206
+  i,     5, 0.13305, 0.23558
+  i,     6, 0.18216, 0.27130
+  i,     7, 0.20616, 0.34062
+  i,     8, 0.21926, 0.34459
+  i,     9, 0.24527, 0.36652
+  i,    10, 0.27804, 0.36591
+  i,    11, 0.30816, 0.41988
+  i,    12, 0.32713, 0.44066
+  i,    13, 0.33434, 0.49066
+  i,    14, 0.36237, 0.49304
+  i,    15, 0.39368, 0.54304
+  i,    16, 0.40297, 0.56923
+  i,    17, 0.39417, 0.60000
+
