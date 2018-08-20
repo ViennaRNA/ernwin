@@ -5,7 +5,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
                       str, super, zip)
 __metaclass__=object
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 import random
 import warnings
 import os.path as op
@@ -1027,196 +1027,141 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     HELPTEXT = "A-Minor energy"
-
+    LOOPS=["i", "h"]
+    data_filename = op.expanduser("stats/AME_distributions.csv")
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         """
-        Get the A-minor energies for h- and i-loops.
+        Get the A-minor energiy for the CoarseGrainedRNA
 
         :param pre: Energy prefactor
         :param adj: Adjustment
 
-        :returns: A CombinedEnergy
+        :returns: An AMinorEnergy instance
         """
-        ame1 = cls(cg.seq_length, loop_type = 'h', prefactor=prefactor, adjustment=adjustment)
-        ame2 = cls(cg.seq_length, loop_type = 'i', prefactor=prefactor, adjustment=adjustment)
-        energies = []
-        if ame1._count_potential_interactions(cg)>0:
-            energies.append(ame1)
-        if ame2._count_potential_interactions(cg)>0:
-            energies.append(ame2)
-        return CombinedEnergy(energies)
+        return cls(len(list(cg.stem_iterator()), prefactor=prefactor, adjustment=adjustment))
 
-    @classmethod
-    def generate_target_distribution(cls, cgs, out_filename, use_subgraphs = False):
+    def __init__(self, num_stems, prefactor, adjustment, knowledge_weight=1000):
         """
-        :param cgs: A dict {pdb_id: [cg, cg,...]}
+        :param num_stems: Number of stems in the cg.
+        :param knowledge_weight: The weight of the initial reference distribution,
+                                 given as the number of sampling steps it should correspond to.
         """
-        # Create the probability functions
-        with open(out_filename, "w") as f:
-            log.info("Writing AMinor target_dist to %s", out_filename)
-            cls._print_file_header(f, [])
-            print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
-            print("pdb_id rna_length loop_type num_interactions num_interacting_loops ", file=f)
-            for cgs in cgs.values():
-                for cg in cgs:
-                    print("# CG:", file=f)
-                    rna_length = cg.seq_length
-                    cls._print_prob_lines(cg, rna_length, prob_fun, f)
-                    if use_subgraphs:
-                        print("# Subgraphs:", file=f)
-                        log.info("Now generating AMinor for Subgraphs")
-                    i=0
-                    for subgraph, sg_length in _iter_subgraphs(cg, use_subgraphs):
-                        i+=1
-                        log.info("Subgraph of length %s (%d th sg)", sg_length, i)
-                        cls._print_prob_lines(cg, sg_length, prob_fun, f, subgraph)
+        self.knowledge_weight=knowledge_weight
 
-        log.info("Successfully generated target distribution for AMinors.")
+        # Index telling us, what accepted measures have already been added to the reference distr.
+        self._accepted_measure_start_index=0
 
+        # Note: self._accepted_measures (initialized in super)
+        #       lists in this case tuples of dicts.
+        super(AMinorEnergy, self).__init__(num_stems, prefactor, adjustment)
 
-    def __init__(self, rna_length, loop_type='h', adjustment=None, prefactor=None):
+    def reset_distributions(num_stems):
+        data = pd.read_csv(cls.data_filename)
+        # sum of interacting and non-interacting loops in reference distribution
+        self.reference_length={}
+        # interacting loops
+        self.reference_interactions={}
+        # Target interaction probability
+        self.target_fraction={}
+        for loop in self.LOOPS:
+            loop_data=data[data["typ"]==loop]
+            max_stems=max(loop_data["stems"])
+            stems=min(max_stems, num_stems)
+            row=loop_data[loop_data["stems"]==stems]
+            target, = row["target"].values
+            background, = row["random"]
+            self.target_fraction[loop]=target
+            self.reference_interactions[loop]=int(knowledge_weight*background)
+            self.reference_length[loop]+=knowledge_weight
+
+    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
+                    plot_debug=False):
+        if plot_debug or nodes is not None:
+            raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
+                                      " for AMinorEnergy")
+        if use_accepted_measure:
+            m = self.accepted_measures[-1]
+        else:
+            m = self._get_cg_measure(cg)
+
+        self._last_measure=m
+
+        energy=0
+        # The straight forward implementation of a Coarse Grained Energy would be
+        # to assign an energy to interactions and a different energy to non-interactions.
+        # However, since 0 is arbitrary, we choose to set non-interactions to 0
+        # and adjust the energy of interactions.
+        # This means that the energy of structures without interactions is not adjusted by the
+        # reference ratio method, only the energy of interactions is adjusted.
+        loop_counts, interaction_counts = m
+        for loop in LOOPS:
+            num_interactions=interaction_counts[loop]
+            target_perc = self.target_fraction[loop]*self.adjustment
+            reference_perc = self.reference_interactions[loop]/self.reference_length[loop]
+            if background:
+                e_i = -np.log( target_perc) + np.log(reference_perc)
+                e_noi = -np.log( 1-target_perc) + np.log(1-reference_perc)
+            else:
+                e_i=-np.log(target_perc)
+                e_noi=-np.log(1-target_perc)
+            energy_contrib = e_i-e_noi
+            log.debug("Energy contribution for loop type %s = %s, "
+                      "with %s interactions", loop, energy_contrib, num_interactions)
+            energy+=energy_contrib*num_interactions
+        return self.prefactor*energy
+
+    def _set_target_distribution(self):
         """
-        :param loop_type: A one-letter string giving the loop type. E.g. 'h' or 'i'
+        Not needed, since the adjustment is multiplied to the
+        target value in every eval_energy call
         """
-        self.loop_type = loop_type
-        super(AMinorEnergy, self).__init__(rna_length, prefactor=prefactor, adjustment = adjustment)
+        pass
 
+    def resample_background_kde(self):
+        for loop in self.LOOPS:
+            for m in self.accepted_measures[self._accepted_measure_start_index:]:
+                loop_counts, interaction_counts = m
+                self.reference_interactions[loop]+=interaction_counts[loop]
+                self.reference_length[loop]+=loop_counts[loop]
+        self._accepted_measure_start_index=len(self.accepted_measures)
 
-        # Load the geometries (aminor and other)
-        all_geometries = pd.read_csv(load_local_data(self.orientation_file), delimiter=' ', comment="#")
-        all_geometries = all_geometries[ all_geometries["dist"] < self.cutoff_dist ]
-        aminor_geometries = all_geometries[all_geometries["is_interaction"]]
-        non_ame_geometries = all_geometries[np.invert(all_geometries["is_interaction"])]
+    def dump_measures(self, base_directory, iteration=None):
+        output_file = op.join(base_directory, self.name+"_"+str(hex(id(self)))+".measures")
+        lines=[]
+        for loop in self.LOOPS:
+            loop_counts=0
+            interaction_counts=0
+            for m in self.accepted_measures:
+                loop_counts+=m[0][loop]
+                interaction_counts+=m[1][loop]
+            lines.append("{:s} {:d} {:d}\n".format(loop, loop_count, interaction_count))
 
-        self.prob_function = fba.aminor_probability_function(aminor_geometries.itertuples(),
-                                                             non_ame_geometries.itertuples(), #With pandas >=0.19 this yields namedtuples!
-                                                             self.loop_type)
-
-        #: The number of coarse grain elements considered in this energy
-        self.num_loops=None
+        with open(output_file, 'w') as f:
+            print("".join(lines), file=f)
+        if iteration is not None:
+            with open(output_file + ".%d" % (iteration), 'w') as f:
+                print("".join(lines), file=f)
 
     @property
-    def shortname(self):
-        sn = super(AMinorEnergy, self).shortname
-        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_type))
-
-    def _get_values_from_file(self, filename, length):
-        log.info("Getting distribution from file %s", filename)
-        data = pd.read_csv(load_local_data(filename), delimiter=' ', comment="#")
-        data = data[ data["loop_type"]==self.loop_type]
-
-        values = self._values_within_nt_range(data, length, "num_interactions", "rna_length" )
-        return values
-
-    def eval_prob(self, cg, d):
-        return fba.total_prob(fba.iter_probs(d, cg, self.prob_function,
-                                             self.cutoff_dist))
+    def last_accepted_measure(self):
+        m=self.accepted_measures[-1]
+        return sum(m[1].values())/sum(m[0].values())
 
     def _get_cg_measure(self, cg):
-        raise NotImplementedError("Not needed for A-Minor energy")
-
-    @property
-    def name(self):
-        if self.loop_type == 'i':
-            return "A-Minor Energy (interior loops)"
-        elif self.loop_type == 'h':
-            return "A-Minor Energy (hairpin loops)"
-        else:
-            return "A-Minor Energy"
-
-    def accept_last_measure(self):
-        """
-        self._last_measure is more than one
-        """
-        if self._last_measure is not None:
-            self.accepted_measures.extend(self._last_measure)
-        self._step_complete()
-
-    def reject_last_measure(self):
-        """AMinor.rejectLastMeasure"""
-        if len(self.accepted_measures) > 0 and self.num_loops>0:
-            self.accepted_measures.extend(self.accepted_measures[-self.num_loops:])
-        self._step_complete()
-
-    def _count_potential_interactions(self, cg):
-        return len(ftca.potential_interactions(cg, self.loop_type)[0])
-
-    def eval_energy(self, cg, background=True, use_accepted_measure = False, plot_debug=False, **kwargs): #@PROFILE: This takes >50% of the runtime with default energy
-        kr = self.target_distribution
-        ks = self.reference_distribution
-
-        energy = 0
-
-        if self.num_loops is None:
-            self.num_loops=self._get_num_loops(cg)
-
-        self._last_measure = []
-        for d in cg.defines.keys():
-
-            # the loop type is encoded as an integer so that the stats file can be
-            # loaded using numpy
-            if d[0] != self.loop_type or 'A' not in "".join(cg.get_define_seq_str(d)):
-                continue
-
-
-            m = self.eval_prob(cg, d)
-            self._last_measure.append(m)
-
-            if background:
-                prev_energy = (np.log(kr(m) + 0.00000001 * ks(m)) - np.log(ks(m)))
-                self.prev_energy = energy
-                self.prev_cg = m
-                energy +=  -1 * self.prefactor * prev_energy
-            else:
-                energy +=  -np.log(kr(m))
-        if plot_debug: #For debuging
-                import matplotlib.pyplot as plt
-                xs=np.linspace(0, 1, 500)
-                fig,ax1 = plt.subplots()
-                ax2 = ax1.twinx()
-                ax1.plot(xs, ks(xs), label="referecne distribution")
-                ax1.plot(xs, kr(xs), label="target distribution")
-                ax2.plot(xs, -(np.log(kr(xs) + 0.00000001 * ks(xs)) - np.log(ks(xs))), label="energy", color="red")
-                ax1.plot(self.accepted_measures, [1]*len(self.accepted_measures), "o", label="Accepted Measures")
-                plt.title(self.shortname)
-                ax1.legend(loc="lower left")
-                ax2.legend()
-                plt.show()
-        return energy[0]
-
-    @classmethod
-    def _print_prob_lines(cls, cg, rna_length, prob_funs, file, domain = None):
-        """
-        Print the probabilities for all loops in this cg to the file file
-
-        :param cg: A CoarseGrainRNA
-        :param prob_funs: A dictionary {loop_type:probability_function} where
-                          loop_type is a letter ("i", "m", "h", "f" or "t")
-                          and probability function is a function like those
-                          returned by fba.aminor_probability_function
-        """
-        for loop in cg.defines:
-            if loop[0] == "s":
-                continue
-            if "A" not in "".join(cg.get_define_seq_str(loop)):
-                continue
-            if loop in cg.incomplete_elements:
-                continue
-            probs = list(fba.iter_probs(loop, cg, prob_funs[loop[0]],
-                         cls.cutoff_dist, domain))
-            t_prob = fba.total_prob(probs)
-            max_prob = max(probs)
-            num_interactions = sum(probs)
-            if not np.isnan(t_prob*max_prob*num_interactions):
-                assert max_prob<=t_prob<=num_interactions, ("{} <=? {} "
-                                                           "<=? {}".format(max_prob,
-                                                                           t_prob,
-                                                                           num_interactions))
-                print("{} {} {} {} {} {}".format(cg.name, rna_length,
-                                                 loop[0], t_prob,
-                                                 max_prob, num_interactions),
-                      file = file)
+        interactions = ftca.all_interactions(cg)
+        interactions = set(pair[0] for pair in interactions)
+        loop_counts=Counter()
+        interaction_counts=Counter()
+        for loop in self.LOOPS:
+            for d in cg.defines:
+                if d[0]!=loop:
+                    continue
+                if d not in cg.incomplete_elements and d not in cg.interacting_elements:
+                    if d in interactions:
+                        interaction_counts[loop]+=1
+                    loop_counts[loop]+=1
+        return loop_counts, interaction_counts
 
 class DoNotContribute(Exception):
     pass

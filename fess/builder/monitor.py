@@ -343,7 +343,7 @@ class EnergyMeasure(StatisticsCollector):
         self.header = [ "measure_of_"+self._energy_function.shortname ]
         self.history = [ [] ]
     def update(self, sm, step):
-        measure=self._energy_function.accepted_measures[-1]
+        measure=self._energy_function.last_accepted_measure
         self.history[0].append(measure)
         return "{:10.3f}".format(measure)
     @staticmethod

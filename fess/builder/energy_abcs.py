@@ -76,6 +76,10 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
         if not hasattr(type(self), "name"):
             self.name = self.__class__.__name__.lower()
 
+    @property
+    def last_accepted_measure(self):
+        return self._energy_function.accepted_measures[-1]
+
     def accept_last_measure(self):
         """
         The last measure should contribute to the new reference distribution.
@@ -93,7 +97,7 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
         The last measure of the reference distribution should be duplicated.
 
         The structure evaluated with the last call to eval_energy was rejected
-        during sampling. Thus the last accepted measure should be adefaultdictdded a second
+        during sampling. Thus the last accepted measure should be added a second
         time to the reference distribution. (Reference ratio method)
         """
         if len(self.accepted_measures) > 0:
