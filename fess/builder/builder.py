@@ -104,6 +104,7 @@ class Builder(object):
 
         :param sm: The SpatialModel
         """
+        log.debug("Sampling stats before building...")
         sm.sample_stats(self.stat_source)
         self.accept_or_build(sm)
 
@@ -453,4 +454,5 @@ def from_args(args, stat_source, out_dir):
                 load_sampled_elements(sm)
                 return b.accept_or_build(sm)
             build_function = _build_function_with_loading
+    log.debug("Build function used is %s", build_function.__name__)
     return build_function

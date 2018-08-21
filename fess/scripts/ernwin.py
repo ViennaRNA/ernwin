@@ -91,7 +91,7 @@ def run(args, cg, main_dir):
                                'build{:06d}.coord'.format(i+1)), "w") as f:
             print(cg_stri, file=f)
         if args.iterations>0:
-            sampler = setup_sampler(args, sm, stat_source, i)
+            sampler = setup_sampler(args, sm, stat_source, i, cg)
             samplers.append(sampler)
             if not args.replica_exchange and args.parallel:
                 p = multiprocessing.Process(target=sample_one_trajectory,
@@ -122,6 +122,9 @@ def sample_one_trajectory(sampler, iterations):
         sampler.stats_collector.collector.to_file()
 
 def build_spatial_models(args, cg, stat_source, main_dir):
+    """
+    An iterator over spatial models, which contain deepcopies of cg.
+    """
     if args.replica_exchange and args.num_builds>1:
         raise ValueError("--replica-exchange and --num-builds are mutually exclusive.")
     if args.replica_exchange:
@@ -139,7 +142,7 @@ def build_spatial_models(args, cg, stat_source, main_dir):
 
 
 
-def setup_sampler(args, sm, stat_source, replica_nr=None):
+def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
     """
     Part of the setup, that has to be repeated for every
     replica in replica-exchange Monte Carlo.
@@ -160,7 +163,15 @@ def setup_sampler(args, sm, stat_source, replica_nr=None):
                           "simulation_{:02d}".format(replica_nr+1))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-    monitor = fbm.from_args(args, sm.bg, sampling_energy, stat_source, out_dir)
+
+    # The monitor uses the original structure as reference, IF it has 3D coordinates
+    if original_cg.coords.is_filled and original_cg.twist.is_filled:
+        log.info("Using original cg (from file) as reference for RMSD etc.")
+        cg=original_cg
+    else:
+        log.info("Using first built cg as reference for RMSD etc.")
+        cg=sm.bg
+    monitor = fbm.from_args(args, cg, sampling_energy, stat_source, out_dir)
     sampler = fbs.MCMCSampler(sm, sampling_energy, mover, monitor)
     return sampler
 
