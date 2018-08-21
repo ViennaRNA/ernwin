@@ -38,6 +38,7 @@ import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
 from logging_exceptions import log_to_exception
 
 import forgi.threedee.utilities.vector as ftuv
+from forgi.threedee.utilities import cytvec
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.projection.projection2d as fpp
@@ -758,7 +759,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     def _stat_deviation(self, cg, virtual_stat):
         # Broken mls are ordered by connections
         s1, s2 = cg.connections(self.element)
-        pdev, adev, tdev = ftug.get_broken_ml_deviation(cg, self.element,
+        pdev, adev, tdev = cytvec.get_broken_ml_deviation(cg, self.element,
                                                         s1,
                                                         virtual_stat)
 
@@ -774,6 +775,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         self.log.debug("Weighted deviation: pos: %s, orient %s, twist: %s", pdev, adev, tdev)
         return max(pdev, adev, tdev)
 
+    @profile
     def eval_energy(self, cg, background=True, nodes=None,  sampled_stats=None, **kwargs):
         self.bad_bulges = []
         log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
