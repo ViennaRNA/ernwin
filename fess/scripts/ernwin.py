@@ -165,13 +165,13 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
             os.makedirs(out_dir)
 
     # The monitor uses the original structure as reference, IF it has 3D coordinates
-    if original_cg.coords.is_filled and original_cg.twist.is_filled:
-        log.info("Using original cg (from file) as reference for RMSD etc.")
+    if original_cg.coords.is_filled and original_cg.twists.is_filled:
         cg=original_cg
+        show_min_rmsd=True
     else:
-        log.info("Using first built cg as reference for RMSD etc.")
         cg=sm.bg
-    monitor = fbm.from_args(args, cg, sampling_energy, stat_source, out_dir)
+        show_min_rmsd=False
+    monitor = fbm.from_args(args, cg, sampling_energy, stat_source, out_dir, show_min_rmsd)
     sampler = fbs.MCMCSampler(sm, sampling_energy, mover, monitor)
     return sampler
 

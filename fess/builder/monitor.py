@@ -800,7 +800,7 @@ def update_parser(parser):
                                        "These energies are not used for sampling, \n"
                                        "but only calculated after each step.")
 
-def from_args(args, cg, energy, stat_source, out_dir):
+def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
     options={}
     if args.no_rmsd:
         options["rmsd"] = False
@@ -809,6 +809,8 @@ def from_args(args, cg, energy, stat_source, out_dir):
     options[ "save_n_best" ] = args.save_n_best
     options[ "save_min_rmsd" ] = args.save_min_rmsd
     options[ "measure" ]=[]
+    if not show_min_rmsd:
+        options["extreme_rmsd"]="max"
     if args.dump_energies:
         for e in energy.energies:
             options[ "measure" ].append(e)
