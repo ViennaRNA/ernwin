@@ -1164,6 +1164,8 @@ class AMinorEnergy(CoarseGrainEnergy):
             for d in cg.defines:
                 if d[0]!=loop:
                     continue
+                if 'A' not in "".join(cg.get_define_seq_str(d)):
+                    continue
                 if d not in cg.incomplete_elements and d not in cg.interacting_elements:
                     if d in interactions:
                         interaction_counts[loop]+=1
