@@ -1054,7 +1054,6 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         # Index telling us, what accepted measures have already been added to the reference distr.
         self._accepted_measure_start_index=0
-        self.log=logging.getLogger(__name__+"."+type(self).__name__)
         # Note: self._accepted_measures (initialized in super)
         #       lists in this case tuples of dicts.
         super(AMinorEnergy, self).__init__(num_stems, prefactor, adjustment)
@@ -1197,6 +1196,122 @@ class PerLoopAMinor(AMinorEnergy):
 
 
 
+class PDDEnergy(EnergyFunction):
+    _shortname = "PDD"
+    HELPTEXT = "Pair distance distribution energy for fitting SAXS data."
+
+    @classmethod
+    def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
+        if pdd_target=="__cg__":
+            dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
+            target_pdd = pd.DataFrame({"distance":dists, "count":counts})
+        else:
+            target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True)
+        return cls(cg.seq_length, target_pdd, prefactor, adjustment, level=level)
+
+    @staticmethod
+    def stepwidth_from_level(level):
+        if level=="R":
+            return 5
+        else:
+            return 2
+
+    @classmethod
+    def get_pdd(cls, cg, level, stepsize):
+        points=[]
+        for i in range(1,len(cg.seq)+1):
+            if level=="R":
+                points.append(cg.get_virtual_residue(i, allow_single_stranded=True))
+            elif level=="A":
+                va_dict = cg.virtual_atoms(i)
+                for k,v in va_dict.items():
+                    points.append(v)
+            else:
+                raise ValueError("wrongLevel")
+        return ftuv.pair_distance_distribution(points, stepsize)
+
+    def __init__(self, length, target_pdd, prefactor, adjustment, level="R"):
+        """
+        :param length: The RNA's sequence length
+        :param target_pdd: A pandas dataframe with 2 columns: distance, count
+        :param level: Either "A" for virtual atoms or "R" for virtual residues.
+        """
+        if level not in ["A", "R"]:
+            raise ValueError("Level has to be either 'A' or 'R', "
+                             "but '{}' was given".format(level))
+        self._level=level
+        self._stepwidth=self.stepwidth_from_level(level)
+        super(PDDEnergy, self).__init__(prefactor, adjustment)
+        maxlen=int(max(target_pdd["distance"])//self._stepwidth)
+        self._target_pdd = np.zeros(maxlen+1, dtype=float)
+        for row in target_pdd.itertuples(index=False):
+            distance, fraction = row.distance, row.count
+            bin_no=int(distance//self._stepwidth)
+            self.log.debug("%s, %s -> Bin %s", distance, fraction, bin_no)
+            bin_no=min(bin_no, len(self._target_pdd)-1)
+            self.log.debug("%s, %r", bin_no, bin_no)
+            self._target_pdd[bin_no]+=fraction
+        # Some sanity check: We only like zeros after the maximal Radius.
+        num_zeros = len(self._target_pdd)-len(np.nonzero(self._target_pdd)[0])
+        if not np.all(self._target_pdd[:-num_zeros])==0:
+            self.log.error("There are holes in the rescaled target distribution: %s.\n"
+                     "This might be due to an incompatible step-size in the "
+                     "target distribution.\n"
+                     "This can lead to strange sampling results!", self._target_pdd)
+        if sum(self._target_pdd)!=1:
+            self.log.warning("Target_PDD is not normalized. Now normalizing...")
+            self._target_pdd/=sum(self._target_pdd)
+    def pad(self, array):
+        out=np.zeros(len(self._target_pdd))
+        if len(array)>len(out):
+            out=array[:len(out)]
+            out[-1]+=sum(array[len(out):])
+        else:
+            out[:len(array)]=array
+        return out
+
+    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
+                    plot_debug=False):
+        if plot_debug or nodes is not None:
+            raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
+                                      " for PDD Energy")
+        if use_accepted_measure:
+            m = self.accepted_measures[-1]
+        else:
+            m = self.get_pdd(cg, self._level, self._stepwidth)[1]
+            m=self.pad(m)
+            m=m/np.sum(m)
+        self._last_measure=m
+        diff_vec = m-self._target_pdd
+        self.log.debug("Diffs: %s", diff_vec)
+        integral = np.sum(np.abs(diff_vec))*self._stepwidth
+        self._last_integral=integral
+        #if math.sqrt(self.step)%10==2:
+        #    import matplotlib.pyplot as plt
+        #    plt.plot(np.arange(len(m)), m, label="current")
+        #    plt.plot(np.arange(len(m)), self._target_pdd, label="target")
+        #    plt.legend()
+        #    plt.title("Integral {}".format(integral))
+        #    plt.show()
+        return self.prefactor*np.exp(integral*self.adjustment)
+
+    @property
+    def last_accepted_measure(self):
+        return self._last_integral
+
+
+    def dump_measures(self, base_directory, iteration=None):
+        '''
+        Dump all of the accepted measures collected so far
+        to a file.
+        '''
+        arr = np.array(self.accepted_measures)
+        output_file = op.join(base_directory, self.name+"_"+str(hex(id(self)))+".measures")
+        np.savetxt(output_file, arr)
+
+        if iteration is not None:
+            np.savetxt(output_file + ".{:d}".format(iteration), arr)
+
 class DoNotContribute(Exception):
     pass
 
@@ -1268,7 +1383,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
 
 
         distances = []
-        log.info("Generating target distribution for %s", cls.__name__)
+        self.log.info("Generating target distribution for %s", cls.__name__)
 
         loop_loop_distances = []
         all_cg_names = []
@@ -1276,7 +1391,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             cg = ftmc.CoarseGrainRNA.from_bg_file(fname)
             pdbid = cg.name
             all_cg_names.append(pdbid)
-            log.info("Processing cg %s", pdbid)
+            self.log.info("Processing cg %s", pdbid)
             for h1 in cg.hloop_iterator():
                 min_dist = _minimal_h_h_distance(cg, h1, cg.hloop_iterator())
                 if min_dist<float("inf"):
@@ -1290,7 +1405,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
                     if min_dist<float("inf"):
                         loop_loop_distances.append((pdbid, nt_length, min_dist))
 
-        log.info("Writing to file %s", out_filename)
+        self.log.info("Writing to file %s", out_filename)
         with open(out_filename, "w") as f:
             cls._print_file_header(f, all_cg_names)
             print("# use_subgraphs = {} ({})".format(use_subgraphs, type(use_subgraphs).__name__), file=f)
@@ -1323,7 +1438,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
 
     def _get_distribution_from_values(self, values):
         f = super(ShortestLoopDistancePerLoop, self)._get_distribution_from_values(values)
-        log.debug("Getting distributions")
+        self.log.debug("Getting distributions")
         def kde_with_uniform(measure):
             x1 = f(measure)
             assert self._lsp_max>self._lsp_min
@@ -1331,7 +1446,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
                 x2=1/(self._lsp_max-self._lsp_min)
             else:
                 x2=0
-            log.debug("Mixed distr: x1 = %s, x2 = %s", x1, x2)
+            self.log.debug("Mixed distr: x1 = %s, x2 = %s", x1, x2)
             return (1-self._lsp_weight)*x1+self._lsp_weight*x2
         return kde_with_uniform
 
@@ -1563,11 +1678,15 @@ def update_parser(parser):
                    "     100 sampling steps.\n"
                    "TYP: One of the following:"])
     EnergyFunction.add_to_parser(parser, '--energy', default="ROG,AME,SLD", help_intro=helptext)
-
-
+    energy_options = parser.add_argument_group("Options used only for particular energies",
+                                    description="Options used only for particular energies.")
+    energy_options.add_argument('--pdd-file', type=str,
+                                help="A file with the pair distance "
+                                     "distribution from the SAX experiment.")
 def from_args(args, cg, stat_source, replica=None):
     energy_string = replica_substring(args.energy, replica)
     energies = EnergyFunction.from_string(energy_string,
                                           cg=cg,
-                                          stat_source=stat_source)
+                                          stat_source=stat_source,
+                                          pdd_target=args.pdd_file)
     return CombinedEnergy(energies)

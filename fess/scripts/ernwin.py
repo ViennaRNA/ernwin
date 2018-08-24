@@ -151,7 +151,15 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
                        An integer (starting with 0) for the number
                        of the replica.
     """
-    sampling_energy = fbe.from_args(args, sm.bg, stat_source, replica_nr)
+    # The monitor uses the original structure as reference, IF it has 3D coordinates
+    if original_cg.coords.is_filled and original_cg.twists.is_filled:
+        cg=original_cg
+        show_min_rmsd=True
+    else:
+        cg=sm.bg
+        show_min_rmsd=False
+    # The PDD energy may want to use the original cg
+    sampling_energy = fbe.from_args(args, cg, stat_source, replica_nr)
     mover = fbmov.from_args(args, stat_source, sm, replica_nr)
     if args.replica_exchange:
         out_dir = os.path.join(config.Configuration.sampling_output_dir,
@@ -164,13 +172,6 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-    # The monitor uses the original structure as reference, IF it has 3D coordinates
-    if original_cg.coords.is_filled and original_cg.twists.is_filled:
-        cg=original_cg
-        show_min_rmsd=True
-    else:
-        cg=sm.bg
-        show_min_rmsd=False
     monitor = fbm.from_args(args, cg, sampling_energy, stat_source, out_dir, show_min_rmsd)
     sampler = fbs.MCMCSampler(sm, sampling_energy, mover, monitor)
     return sampler

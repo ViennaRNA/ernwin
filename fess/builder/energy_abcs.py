@@ -150,15 +150,14 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
         Dump all of the accepted measures collected so far
         to a file.
         '''
+        out = " ".join(map("{:.4f}".format,self.accepted_measures))+"\n"
         output_file = op.join(base_directory, self.name+"_"+str(hex(id(self)))+".measures")
         with open(output_file, 'w') as f:
-            f.write(" ".join(map("{:.4f}".format,self.accepted_measures)))
-            f.write("\n")
+            f.write(out)
 
         if iteration is not None:
-            with open(output_file + ".%d" % (iteration), 'w') as f:
-                f.write(" ".join(map("{:.4f}".format,self.accepted_measures)))
-                f.write("\n")
+            with open(output_file + ".{:d}".format(iteration), 'w') as f:
+                f.write(out)
 
     def _parse_prefactor(self, value, default):
         """
@@ -442,7 +441,7 @@ class CoarseGrainEnergy(EnergyFunction):
         if background:
             ref_val = self.reference_distribution(m)
             tar_val = self.target_distribution(m)
-            energy, = (np.log( tar_val + 0.00000001 * ref_val) - np.log(ref_val))
+            energy, = (np.log( tar_val ) - np.log(ref_val))
             log.debug("Energy (not yet scaled) = {}".format(energy))
             self.prev_energy = energy
             return -1 * self.prefactor * energy
