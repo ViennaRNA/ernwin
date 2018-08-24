@@ -341,25 +341,30 @@ class EnergyMeasure(StatisticsCollector):
         super(EnergyMeasure, self).__init__()
         self._energy_function = energy_function
         if isinstance(energy_function, fbe.AMinorEnergy):
-            self.header = [ "measure_of_"+self._energy_function.shortname+"(i)",
-                            "measure_of_"+self._energy_function.shortname+"(h)" ]
-            self.history = [ [],[] ]
+            header=[]
+            for loop in self._energy_function.LOOPS:
+                header.append("measure_of_{}({})".format(self._energy_function.shortname, loop))
+            self.header = header
+            self.history = [ [] for _ in range(len(header)) ]
         else:
             self.header = [ "measure_of_"+self._energy_function.shortname ]
             self.history = [ [] ]
     def update(self, sm, step):
         measure=self._energy_function.last_accepted_measure
         if isinstance(self._energy_function, fbe.AMinorEnergy):
-            self.history[0].append(measure[0])
-            self.history[1].append(measure[1])
-            return "i: {:2d}\th: {:2d}".format(*measure)
+            out=[]
+            for i,loop in enumerate(self._energy_function.LOOPS):
+                self.history[i].append(measure[loop])
+                out.append("{} {:d}".format(loop, measure[loop]))
+            return "\t".join(out)
         else:
             self.history[0].append(measure)
             return "{:10.3f}".format(measure)
     @staticmethod
     def parse_value(stri):
         if stri[0] in "ih":
-            return int(stri[2:])
+            print(stri)
+            return int(stri.split(":")[1])
         return float(stri)
 
 class ShowTime(StatisticsCollector):

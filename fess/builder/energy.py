@@ -1027,7 +1027,6 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
     def _set_target_distribution(self):
         self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])
 
-
 class AMinorEnergy(CoarseGrainEnergy):
     _shortname = "AME"
     HELPTEXT = "A-Minor energy"
@@ -1069,13 +1068,13 @@ class AMinorEnergy(CoarseGrainEnergy):
         # Target interaction probability
         self.target_fraction={}
         for loop in self.LOOPS:
-            loop_data=data[data["typ"]==loop]
+            loop_data=data[data["typ"]==loop[0]]
             max_stems=max(loop_data["stems"])
             stems=min(max_stems, num_stems)
             row=loop_data[loop_data["stems"]==stems]
             target, = row["target"].values
             background, = row["random"]
-            self.target_fraction[loop]=target
+            self.target_fraction[loop[0]]=target
             self.reference_interactions[loop]=int(self.knowledge_weight*background)
             self.reference_length[loop]=self.knowledge_weight
 
@@ -1101,7 +1100,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         loop_counts, interaction_counts = m
         for loop in self.LOOPS:
             num_interactions=interaction_counts[loop]
-            target_perc = self.target_fraction[loop]*self.adjustment
+            target_perc = self.target_fraction[loop[0]]*self.adjustment
             reference_perc = self.reference_interactions[loop]/self.reference_length[loop]
             if background:
                 e_i = -np.log( target_perc) + np.log(reference_perc)
@@ -1153,7 +1152,7 @@ class AMinorEnergy(CoarseGrainEnergy):
     @property
     def last_accepted_measure(self):
         m=self.accepted_measures[-1]
-        return m[1]["i"], m[1]["h"]
+        return m[1]
 
     def _get_cg_measure(self, cg):
         interactions = ftca.all_interactions(cg)
@@ -1162,7 +1161,7 @@ class AMinorEnergy(CoarseGrainEnergy):
         interaction_counts=Counter()
         for loop in self.LOOPS:
             for d in cg.defines:
-                if d[0]!=loop:
+                if d[0]!=loop and d!=loop:
                     continue
                 if 'A' not in "".join(cg.get_define_seq_str(d)):
                     continue
@@ -1171,6 +1170,32 @@ class AMinorEnergy(CoarseGrainEnergy):
                         interaction_counts[loop]+=1
                     loop_counts[loop]+=1
         return loop_counts, interaction_counts
+
+
+class PerLoopAMinor(AMinorEnergy):
+    _shortname="PAE"
+    @classmethod
+    def from_cg(cls, prefactor, adjustment, cg, **kwargs):
+        """
+        Get the A-minor energiy for the CoarseGrainedRNA
+
+        :param pre: Energy prefactor
+        :param adj: Adjustment
+
+        :returns: An AMinorEnergy instance
+        """
+        return cls(len(list(cg.stem_iterator())), prefactor=prefactor, adjustment=adjustment, loops=[ d for d in cg.defines if d[0] in "ih"])
+    def __init__(self, num_stems, loops, prefactor, adjustment, knowledge_weight=1000):
+        """
+        :param loops: A list of loop names used
+        :param num_stems: Number of stems in the cg.
+        :param knowledge_weight: The weight of the initial reference distribution,
+                                 given as the number of sampling steps it should correspond to.
+        """
+        self.LOOPS=list(loops)
+        super(PerLoopAMinor, self).__init__(num_stems, prefactor, adjustment)
+
+
 
 class DoNotContribute(Exception):
     pass
