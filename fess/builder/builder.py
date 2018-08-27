@@ -162,7 +162,7 @@ class Builder(object):
                 log.debug("Assigning stat %s to broken ml segment %s",
                           used_stat, elem)
                 sm.elem_defs[elem] = used_stat
-                sm.save_sampled_elems()
+        sm.save_sampled_elems()
         log.debug("++++++++++++++++++++++++++++++++++++++")
 
     def _check_sampled_ml(self, sm, ml):
@@ -294,7 +294,7 @@ class FairBuilder(Builder):
                 log.debug("Assigning stat %s to broken ml segment %s",
                           used_stat, elem)
                 sm.elem_defs[elem] = used_stat
-                sm.save_sampled_elems()
+        sm.save_sampled_elems()
         log.debug("++++++++++++++++++++++++++++++++++++++")
 
 
