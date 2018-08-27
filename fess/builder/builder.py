@@ -295,7 +295,7 @@ class FairBuilder(Builder):
                           used_stat, elem)
                 sm.elem_defs[elem] = used_stat
                 sm.save_sampled_elems()
-        log.debug("++++++++++++++++++++++++++++++++++++++")s
+        log.debug("++++++++++++++++++++++++++++++++++++++")
 
 
     def _fulfills_junction_energy(self, sm):
