@@ -155,6 +155,7 @@ class Builder(object):
         except KeyboardInterrupt:
             print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
             raise
+
         for elem in _determined_broken_ml_segments(built_nodes, sm.bg):
             if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
                 used_stat = sm.junction_constraint_energy[elem].used_stat
@@ -197,7 +198,7 @@ class Builder(object):
         """
         det_br_nodes = _determined_broken_ml_segments(nodes, sm.bg)
         if det_br_nodes:
-            log.debug("Evaluationg junction energy for nodes %s", det_br_nodes)
+            log.debug("Evaluating junction energy for nodes %s", det_br_nodes)
         for ml in det_br_nodes:
             if ml in sm.junction_constraint_energy:
                 ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes)
@@ -285,6 +286,17 @@ class FairBuilder(Builder):
     def _attempt_to_build(self, sm):
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
+        # TODO: Code copy-pasted from builder class
+        # TODO: Restructure to avoid duplication.
+        for elem in _determined_broken_ml_segments(sm.bg.defines.keys(), sm.bg):
+            if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
+                used_stat = sm.junction_constraint_energy[elem].used_stat
+                log.debug("Assigning stat %s to broken ml segment %s",
+                          used_stat, elem)
+                sm.elem_defs[elem] = used_stat
+                sm.save_sampled_elems()
+        log.debug("++++++++++++++++++++++++++++++++++++++")s
+
 
     def _fulfills_junction_energy(self, sm):
         if sm.fulfills_junction_energy():
