@@ -299,6 +299,25 @@ class EnergeticJunctionMover(Mover):
                 return None
         return None
 
+
+class RotationMover(Mover):
+    def __init__(self, stat_source, **kwargs):
+        self.last_axis = None
+        self.last_angle = None
+
+    def move(self, sm):
+        self.last_axis = random.choice(["x", "y", "z"])
+        self.last_angle = random.random()*2*np.pi # 0-360 degrees
+        rot_mat = ftuv.rotation_matrix(self.last_axis, self.last_angle)
+        sm.bg.rotate(rot_mat)
+        return "{}deg{}".format(math.degrees(self.last_angle), self.last_axis)
+
+    def revert(self, sm):
+        assert self.last_axis is not None
+        sm.bg.rotate(self.last_axis, -self.last_angle)
+        self.last_axis = None
+
+
 class MixedMover():
     def __init__(self, movers=[]):
         self.movers = movers
