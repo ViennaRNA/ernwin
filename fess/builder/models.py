@@ -370,7 +370,11 @@ class SpatialModel:
         Save the information about all of the sampled elements.
         '''
         for d, ed in self.elem_defs.items():
-            self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+            try:
+                self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+            except:
+                log.error("Error setting {}".format(d))
+                raise
     def change_mst(self, new_mst):
         """
         Set bg.mst to new_mst and recalculate invalid values.

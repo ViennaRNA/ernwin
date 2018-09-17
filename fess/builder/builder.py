@@ -281,21 +281,21 @@ class FairBuilder(Builder):
         while True:
             self._attempt_to_build(sm)
             if self._fulfills_junction_energy(sm) and self._fulfills_clash_energy(sm):
+                # TODO: Code copy-pasted from builder class
+                # TODO: Restructure to avoid duplication.
+                for elem in _determined_broken_ml_segments(sm.bg.defines.keys(), sm.bg):
+                    if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
+                        used_stat = sm.junction_constraint_energy[elem].used_stat
+                        log.debug("Assigning stat %s to broken ml segment %s",
+                                  used_stat, elem)
+                        sm.elem_defs[elem] = used_stat
+                sm.save_sampled_elems()
+                log.debug("++++++++++++++++++++++++++++++++++++++")
                 return
 
     def _attempt_to_build(self, sm):
         sm.sample_stats(self.stat_source)
         sm.new_traverse_and_build()
-        # TODO: Code copy-pasted from builder class
-        # TODO: Restructure to avoid duplication.
-        for elem in _determined_broken_ml_segments(sm.bg.defines.keys(), sm.bg):
-            if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
-                used_stat = sm.junction_constraint_energy[elem].used_stat
-                log.debug("Assigning stat %s to broken ml segment %s",
-                          used_stat, elem)
-                sm.elem_defs[elem] = used_stat
-        sm.save_sampled_elems()
-        log.debug("++++++++++++++++++++++++++++++++++++++")
 
 
     def _fulfills_junction_energy(self, sm):
