@@ -40,6 +40,27 @@ def add_stem_coordinates(cg, stem, start, direction=[0.,0.,10.]):
     cg.twists[stem] = (ftuv.get_orthogonal_unit_vector(cg.coords.get_direction(stem)),
                       -ftuv.get_orthogonal_unit_vector(cg.coords.get_direction(stem)))
 
+
+class FitVolumeTest(unittest.TestCase):
+    def setUp(self):
+        self.mapfilename = "test/fess/data/5l4o.mrc"
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file("test/fess/data/5L4O_A.cg")
+    def test_1(self):
+        energy = fbe.FitVolume(self.mapfilename, 1.0)
+        print("TrueCells %s", np.sum(energy.data>1.0))
+        density = energy.eval_energy(self.cg)
+        print(density.shape)
+        print(energy.data.shape)
+        print(np.where(density==np.max(density)))
+        print("=====================")
+        print(np.where(energy.data==np.max(energy.data)))
+
+        l = energy.data.shape[0]
+        print(energy.data[l//2][l//2-10:l//2+10])
+        print("===\n\n")
+        print( density[l//2][l//2-10:l//2+10])
+        assert False
+
 class TestClashEnergy(unittest.TestCase):
     def setUp(self):
         self.cg=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')

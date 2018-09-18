@@ -120,44 +120,48 @@ class CheatingEnergy(EnergyFunction):
 
 
 class FitVolume(EnergyFunction):
+    _shortname = "VOL"
+    HELPTEXT = "Fit volumetric data"
     def __init__(self, filename, cutoff, prefactor=None, adjustment=None):
         import mrcfile #https://doi.org/10.1107/S2059798317007859
-        with mrcfile.open('tests/test_data/EMD-3197.map') as mrc:
+        with mrcfile.open(filename) as mrc:
             self.data = mrc.data
-            assert mrc.is_volume()
-            self.vox_x, self.vox_y, self.vox_z = mrc.voxel_size
+            #assert mrc.is_volume()
+            voxs = mrc.voxel_size
+            self.vox_x, self.vox_y, self.vox_z = voxs.x, voxs.y, voxs.z
         self.cutoff=cutoff
         points = []
         # TODO: Make more efficient with numpy using a grid-based approach
         for x in range(len(self.data)):
             for y in range(len(self.data[0])):
                 for z in range(len(self.data[0][0])):
-                    if data[x][y][z]>self.cutoff:
+                    if self.data[x][y][z]>self.cutoff:
                             points.append([x*self.vox_x,y*self.vox_y,z*self.vox_z])
         self.centroid = ftuv.get_vector_centroid(points)
-        super(self, FitVolume).__init__(prefactor, adjustment)
-    def evaluate_energy(self, cg, *args, **kwargs):
+        super(FitVolume, self).__init__(prefactor, adjustment)
+    def eval_energy(self, cg, *args, **kwargs):
         density = np.zeros_like(self.data)
         points = []
         for i in range(1, cg.seq_length+1):
-            points.append(cg.get_virtual_residue(i))
+            points.append(cg.get_virtual_residue(i, allow_single_stranded=True))
 
         # model 000 = self.centroid
 
-        origin_x, origin_y, origin_z =
+        origin_x, origin_y, origin_z = self.centroid
         points = ftuv.center_on_centroid(points)
         for point in points:
             x,y,z = point
-            x = (x + origin_x) // self.vox_x
-            y = (y + origin_y) // self.vox_y
-            z = (z + origin_z) // self.vox_z
+            x = int((x + origin_x) // self.vox_x)
+            y = int((y + origin_y) // self.vox_y)
+            z = int((z + origin_z) // self.vox_z)
             if 0<=x<density.shape[0] and 0<=y<density.shape[1] and 0<=z<density.shape[2]:
                 density[x][y][z]+=1
             else:
                 self.log.debug("No overlap")
         overlap = (density>0) & (self.data>self.cutoff)
-
-
+        print(overlap)
+        print(np.sum(density>0), np.sum(overlap))
+        return density
 class ProjectionMatchEnergy(EnergyFunction):
     _shortname = "PRO"
     HELPTEXT = ("Match Projection distances. \n"
