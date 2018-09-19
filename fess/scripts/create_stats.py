@@ -10,12 +10,12 @@ import logging
 def get_parser():
     parser=fuc.get_rna_input_parser("Create stats", nargs='+', rna_type="only_cg")
     return parser
-
 parser=get_parser()
+
 if __name__ == "__main__":
+    next_id = defaultdict(int)
     args = parser.parse_args()
     cgs = fuc.cgs_from_args(args, '+', "cg_only")
-    next_id = defaultdict(int)
     for cg in cgs:
         if sys.stderr.isatty():
             print(cg.name, file=sys.stderr)
