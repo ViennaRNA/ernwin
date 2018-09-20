@@ -13,6 +13,7 @@ import logging
 def generateParser():
     parser=fuc.get_rna_input_parser("Extract fragments",
                                      nargs="+", rna_type="pdb", enable_logging=True)
+    parser.add_argument("--fragment-dir", type=str, help="A directory, where pdb fragments will be stored. If None is given, they will not be stored.")
     return parser
 parser=generateParser()
 
@@ -25,6 +26,7 @@ if __name__ == "__main__":
     for cg, fn in zip(cgs, filenames):
         if sys.stderr.isatty():
             print(cg.name, file=sys.stderr)
+        cg.add_all_virtual_residues()
         for elem in cg.defines:
             if elem in cg.incomplete_elements:
                 continue
@@ -32,12 +34,13 @@ if __name__ == "__main__":
             idnr = next_id[base_name]
             next_id[base_name]+=1
             name = base_name+str(idnr)
-            fragment_chains = ftup.extract_subchains_from_seq_ids(cg.chains,
-                                    cg.define_residue_num_iterator(elem, seq_ids=True, adjacent=elem[0]!="s"))
-            try:
-                ftup.output_multiple_chains(list(fragment_chains.values()), op.join("fragments", name+".pdb"))
-            except AttributeError:
-                continue
+            if args.fragment_dir:
+                fragment_chains = ftup.extract_subchains_from_seq_ids(cg.chains,
+                                        cg.define_residue_num_iterator(elem, seq_ids=True, adjacent=elem[0]!="s"))
+                try:
+                    ftup.output_multiple_chains(list(fragment_chains.values()), op.join(args.fragment_dir, name+".pdb"))
+                except AttributeError:
+                    continue
             direction = "a"
             remark=""
             for resid in cg.define_residue_num_iterator(elem, seq_ids=True, adjacent=elem[0]!="s"):

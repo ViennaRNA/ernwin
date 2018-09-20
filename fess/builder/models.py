@@ -291,6 +291,8 @@ class SpatialModel:
             #Frozen elements are only sampled once, if they couldn't be loaded.
             if d in self.frozen_elements and d in self.elem_defs:
                 continue
+            elif d in self.frozen_elements:
+                log.warning("Frozen element %s sampled once, because no stats were present.", d)
             if d[0] == 'm':
                 if self.bg.get_angle_type(d, allow_broken = False) is None:
                     # this section isn't sampled because a multiloop
@@ -372,9 +374,13 @@ class SpatialModel:
         for d, ed in self.elem_defs.items():
             try:
                 self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+                if d[0]!="s":
+                    self.bg.vposs[d]=ed.vres
+                    log.error("Set %s to %s", d, ed.vres)
             except:
                 log.error("Error setting {}".format(d))
                 raise
+
     def change_mst(self, new_mst):
         """
         Set bg.mst to new_mst and recalculate invalid values.
@@ -510,7 +516,7 @@ class SpatialModel:
             if line: #Use original define and pdb_name.
                 stat.pdb_name=line[0]
                 stat.define = line[2:]
-
+            log.debug("Loading stat %s from bg to elem_defs[%s]", stat, d)
             self.elem_defs[d]=stat
 
 
