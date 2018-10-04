@@ -22,6 +22,8 @@ import fess.builder.energy as fbe
 from fess.builder import config
 import fess.builder.monitor as fbm
 import fess.builder.move as fbmov
+import fess.builder._other_movers
+import fess.builder.replicaExchange as fbr
 import fess.builder.builder as fbb
 import fess.builder.models as fbmodel
 import fess.builder.sampling as fbs

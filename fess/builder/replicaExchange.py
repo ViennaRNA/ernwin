@@ -121,7 +121,7 @@ class MultiprocessingReProcess(Process):
 
     def run_exchange(self):
         log.warning("Sampler {} running with pid {}. Is lowest? {}".format(self.id, os.getpid(), self.pipe_lower is None))
-        with self.sampler.stats_collector.open():
+        with self.sampler.stats_collector.open_outfile():
             try:
                 for step in range(self.steps):
                     sm_changed = self.sampler.step() #Return a boolean indicating if the step was accepted.
