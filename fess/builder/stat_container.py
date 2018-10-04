@@ -10,6 +10,8 @@ from collections import defaultdict
 import logging
 import string
 
+import numpy as np
+
 from logging_exceptions import log_to_exception
 
 import forgi.threedee.model.stats as ftmstats
@@ -108,11 +110,12 @@ def make_continuous( discrete_angle_stats):
         each one containing and AngleStats structure.
     '''
     import scipy.stats as ss
+    data=[]
     for d in discrete_angle_stats:
         data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
 
     if len(data) < 3:
-        continue
+        raise ValueError("Insufficient stats to make continuouse")
 
     try:
         return ss.gaussian_kde(np.array(data).T)
@@ -120,18 +123,21 @@ def make_continuous( discrete_angle_stats):
         print("Singular matrix, dimensions:", dims, file=sys.stderr)
 
 class ContinuouseStatSampler:
-    def __init__(self, kde):
+    def __init__(self, kde, key):
         self.kde = kde
+        self.key = key
     def sample(self):
-        u,v,t,r1,u1,v = self.kde.resample(1).T
+        sample = self.kde.resample(1).T
+        #log.debug("continuouse stat sample %s", sample)
+        u,v,t,r1,u1,v1 = sample[0]
         stat = ftmstats.AngleStat(stat_type="angle", pdb_name='continuouse_stat',
-                                dim1=key[0], dim2=key[1], u=u, v=v, t=t, r1=r1, u1=u1, v1=v1,
-                                ang_type=key[2], define=[], seq="", vres={})
+                                dim1=self.key[0], dim2=self.key[1], u=u, v=v, t=t, r1=r1, u1=u1, v1=v1,
+                                ang_type=self.key[2], define=[], seq="", vres={})
         return stat
 
 
 class StatStorage(object):
-    def __init__(self, filename, fallback_filenames = None, coninuouse=None):
+    def __init__(self, filename, fallback_filenames = None, continuouse=None):
         self.filename = filename
         if fallback_filenames is None:
             fallback_filenames = []
@@ -268,13 +274,15 @@ class StatStorage(object):
     def _iterate_continuouse_stat(self, bg, elem, min_entries=100):
         key = self.key_from_bg_and_elem(bg, elem)
         kde = self._get_statsampler(letter_to_stat_type[elem[0]], key, min_entries)
+        log.debug("Starting to iterate continuouse stats")
         while True:
             yield kde.sample()
 
     def _get_statsampler(self, stat_type, key, min_entries):
+        log.debug("Getting continuouse kde-based sampler for %s", key)
         all_stats = list(self.iterate_stats(stat_type, key, min_entries, False))
         kde = make_continuous(all_stats)
-        return ContinuouseStatSampler(kde)
+        return ContinuouseStatSampler(kde, key)
 
     def iterate_stats(self, stat_type, key, min_entries = 100, cycle = False):
         weights, stats = self._possible_stats(stat_type, key, min_entries)
@@ -298,12 +306,14 @@ class StatStorage(object):
         main stats iteration continues over the sample of the fallback stats.
         """
         if elem in self.continuouse:
-            return self._iterate_continuouse_stat(bg, elem, min_entries)
+            for stat in self._iterate_continuouse_stat(bg, elem, min_entries):
+                yield stat
         else:
             key = self.key_from_bg_and_elem(bg, elem)
             log.debug("Key is %s, elem is %s, elem[0] is %s", key, elem, elem[0])
             log.debug("letter_to_stat_type[elem[0]] is %s", letter_to_stat_type[elem[0]])
-            return self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries)
+            for stat in self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries):
+                yield stat
 
 
 
@@ -442,6 +452,10 @@ def from_args(args, cg):
         StatSourceClass = SequenceDependentStatStorage
     else:
         StatSourceClass = StatStorage
+    kwargs={}
+    if args.continuouse_stats:
+        kwargs["continuouse"] = args.continuouse_stats.split(",")
+
     if args.jar3d:
         jared_out    = op.join(config.Configuration.sampling_output_dir, "jar3d.stats")
         jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
@@ -451,7 +465,7 @@ def from_args(args, cg):
         new_fallbacks = [args.stats_file]
         if args.fallback_stats_files is not None:
             new_fallbacks += args.fallback_stats_files
-        stat_source = StatSourceClass(jared_out, new_fallbacks)
+        stat_source = StatSourceClass(jared_out, new_fallbacksi, **kwargs)
     else:
-        stat_source = StatSourceClass(args.stats_file, args.fallback_stats_files)
+        stat_source = StatSourceClass(args.stats_file, args.fallback_stats_files, **kwargs)
     return stat_source

@@ -1,3 +1,5 @@
+from builtins import zip
+
 import random
 import itertools as it
 import copy
@@ -88,19 +90,19 @@ class ExhaustiveMover(Mover):
         self._move_iterator = self._iter_moves(sm)
 
     def _iter_moves(self, sm):
-        iterables = []
+        iterables = {}
         for elem in self._element_names:
-            iterables.append(zip(it.repeat(elem),
-                                 self.stat_source.iterate_stats_for(sm.bg, elem)))
-        old_stat  = {}
-        for prod in it.product(*iterables):
-            for elem, stat in prod:
-                if elem in old_stat and old_stat[elem] == stat:
-                    continue
+            iterables[elem]=self.stat_source.iterate_stats_for(sm.bg, elem)
+        while True:
+            if not iterables:
+                raise StopIteration
+            for elem in list(iterables.keys()):
+                try:
+                    stat = next(iterables[elem])
+                except StopIteration:
+                    del iterables[elem]
                 else:
-                    old_stat[elem]=stat
                     yield elem, stat
-
     def _get_elem_and_stat(self, sm):
         return next(self._move_iterator)
 

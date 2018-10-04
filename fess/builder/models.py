@@ -376,7 +376,7 @@ class SpatialModel:
                 self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
                 if d[0]!="s":
                     self.bg.vposs[d]=ed.vres
-                    log.error("Set %s to %s", d, ed.vres)
+                    log.debug("Set %s to %s", d, ed.vres)
             except:
                 log.debug("Error setting {}".format(d))
                 raise
