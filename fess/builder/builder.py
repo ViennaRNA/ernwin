@@ -35,6 +35,7 @@ def load_sampled_elements(sm):
     Try to load the sampled elements from the cg into the sm.
     :returns: True upon success, False upon failure (e.g. if cg was derived from a fasta file)
     """
+    log.info("Trying to load sampled elements")
     try:
         sm.load_sampled_elems()
     except Exception as e:
@@ -119,7 +120,6 @@ class Builder(object):
                 iterations +=1
                 built_nodes += newbuilt_nodes
                 log.debug("built nodes are {}".format(built_nodes))
-                self._check_sampled_ml(sm, newbuilt_nodes[-1])
                 bad_segments = self._get_bad_ml_segments(sm, built_nodes)
                 if warn and bad_segments:
                     log.warning("Original structure does not fulfill "
@@ -145,6 +145,7 @@ class Builder(object):
                 # If we need to resample, go back somewhere into the past
                 if bad_segments:
                     start_node = random.choice(bad_segments)
+                    log.info("Resampling elem_def for %s", start_node)
                     sm.elem_defs[start_node] = self.stat_source.sample_for(sm.bg, start_node)
                     built_nodes = built_nodes[:built_nodes.index(start_node)]
                     log.debug("Going back to node {}".format(start_node))
@@ -165,25 +166,6 @@ class Builder(object):
         sm.save_sampled_elems()
         log.debug("++++++++++++++++++++++++++++++++++++++")
 
-    def _check_sampled_ml(self, sm, ml):
-        """
-        Raises an error if the sampled multiloop segment does not fulfill the junction closure energy.
-        For the RoughJunctionClosureEnergy, this should only raise
-        if the stat_source contains faulty stats.
-        :param sm: The spatial model
-        :param ml: The name of the junction segment we need to check (e.g. "m0")
-        :raises: ValueError, if the ml-segment does not fulfill the energy
-        :returns: None
-        """
-        if ml not in sm.junction_constraint_energy:
-            return
-        kwargs = {}
-
-        if sm.junction_constraint_energy[ml].eval_energy(sm.bg, nodes = [ml], **kwargs)!=0:
-            dist = ftug.junction_virtual_atom_distance(sm.bg, ml)
-            raise ValueError("Multiloop {} does not fulfill the constraints. "
-                             "Sampled as {}, "
-                             "distance = {}".format(ml, sm.elem_defs[ml], dist))
 
     def _get_bad_ml_segments(self, sm, nodes):
         """
@@ -201,7 +183,11 @@ class Builder(object):
             log.debug("Evaluating junction energy for nodes %s", det_br_nodes)
         for ml in det_br_nodes:
             if ml in sm.junction_constraint_energy:
-                ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes)
+                if ml in sm.elem_defs:
+                    sampled_stats={ml:sm.elem_defs[ml]}
+                else:
+                    sampled_stats=None
+                ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes, sampled_stats = sampled_stats )
                 log.debug("Junction Energy {} for nodes {} (=> {}) is {}".format(sm.junction_constraint_energy[ml].shortname, nodes, det_br_nodes, ej))
                 if ej>0:
                     bad_loop_nodes =  [ x for x in nodes if x[0]=="m"]
