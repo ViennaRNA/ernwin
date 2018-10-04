@@ -803,7 +803,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     def _stat_deviation(self, cg, virtual_stat):
         # Broken mls are ordered by connections
         s1, s2 = cg.connections(self.element)
-        pdev, adev, tdev = cytvec.get_broken_ml_deviation(cg, self.element,
+        pdev, adev, tdev = ftug.get_broken_ml_deviation(cg, self.element,
                                                         s1,
                                                         virtual_stat)
 
@@ -852,46 +852,6 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     def shortname(self):
         sn = super(FragmentBasedJunctionClosureEnergy, self).shortname
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.element))
-
-class SampledFragmentJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
-    _shortname = "SFJ"
-    can_constrain = "junction"
-    HELPTEXT = ("An energy for the use with samplers like the\n"
-                "WholeMLStatSearch and LocalMLMover that\n"
-                "assign a stat to broken multiloop segments.\n"
-                "Controlls, how well the assigned stat fits the\n"
-                "true geometry of this segment.")
-
-    def __init__(self, *args, **kwargs):
-        super(SampledFragmentJunctionClosureEnergy, self).__init__( *args, **kwargs)
-        del self.used_stat
-    def eval_energy(self, cg, background=True, nodes=None, sampled_stats=None, **kwargs):
-        self.log.debug("eval_energy called on SFJ(%s)", self.element)
-        self.bad_bulges = []
-        if nodes is not None and self.element not in nodes:
-            return 0.
-        try:
-            sampled_pdb_name = cg.sampled[self.element][0]
-        except KeyError:
-            self.log.warning("Missing key %s in cg.sampled expected by SampledFragmentJunctionClosureEnergy. Returning energy of 0.", self.element)
-            return 0.
-        self.log.debug("Searching for sampled pdb_name=%r", sampled_pdb_name)
-        if sampled_stats is None:
-            for stat in self.stat_source.iterate_stats_for(cg, self.element):
-                if stat.pdb_name == sampled_pdb_name:
-                    break
-            else:
-                log.debug(list(map(str, self.stat_source.iterate_stats_for(cg, self.element))))
-                raise ValueError("Sampled stat is inconsistent in SJF")
-                self.log.warning("Sampled stat %s for %s not found in stat_source. Returning an energy of 0.", self.element, sampled_pdb_name)
-                return 0.
-        else:
-            assert self.element in sampled_stats
-            stat = sampled_stats[self.element]
-        self.bad_bulges = [self.element]
-        self.log.debug("Returning deviation for %s", stat.pdb_name)
-        return (self._stat_deviation(cg, stat)**self.adjustment)*self.prefactor
-
 
 def _iter_subgraphs(cg, use_subgraphs):
     """
@@ -1252,7 +1212,15 @@ class PDDEnergy(EnergyFunction):
             target_pdd = pd.DataFrame({"distance":dists, "count":counts})
         else:
             target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True)
-        return cls(cg.seq_length, target_pdd, prefactor, adjustment, level=level)
+
+        stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/len(target_pdd)
+        distdiff = target_pdd["distance"].values[1:]-target_pdd["distance"].values[:-1]
+        if np.all(np.abs(distdiff-stepsize)<0.5):
+            stepsize=distdiff[0]
+        else:
+            log.info("Unequally spaced target distribution. Stepsizes are %s. Rescaling", distdiff)
+            stepsize=None
+        return cls(cg.seq_length, target_pdd, prefactor, adjustment, level=level, stepwidth=stepsize)
 
     @staticmethod
     def stepwidth_from_level(level):
@@ -1275,7 +1243,7 @@ class PDDEnergy(EnergyFunction):
                 raise ValueError("wrongLevel")
         return ftuv.pair_distance_distribution(points, stepsize)
 
-    def __init__(self, length, target_pdd, prefactor, adjustment, level="R"):
+    def __init__(self, length, target_pdd, prefactor, adjustment, level="R", stepwidth=None):
         """
         :param length: The RNA's sequence length
         :param target_pdd: A pandas dataframe with 2 columns: distance, count
@@ -1285,7 +1253,11 @@ class PDDEnergy(EnergyFunction):
             raise ValueError("Level has to be either 'A' or 'R', "
                              "but '{}' was given".format(level))
         self._level=level
-        self._stepwidth=self.stepwidth_from_level(level)
+        if stepwidth is None:
+            self._stepwidth=self.stepwidth_from_level(level)
+        else:
+            self._stepwidth=stepwidth
+        log.info("Initializing PDD energy with stepsize %s", self._stepwidth)
         super(PDDEnergy, self).__init__(prefactor, adjustment)
         maxlen=int(max(target_pdd["distance"])//self._stepwidth)
         self._target_pdd = np.zeros(maxlen+1, dtype=float)
