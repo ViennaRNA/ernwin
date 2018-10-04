@@ -378,7 +378,7 @@ class SpatialModel:
                     self.bg.vposs[d]=ed.vres
                     log.error("Set %s to %s", d, ed.vres)
             except:
-                log.error("Error setting {}".format(d))
+                log.debug("Error setting {}".format(d))
                 raise
 
     def change_mst(self, new_mst):

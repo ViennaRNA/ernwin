@@ -640,7 +640,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         if nodes is None:
             nodes = cg.defines.keys()
 
-        log.debug("%s stems: %s", len([stem for stem in nodes if stem[0]=="s"]), nodes)
+        self.log.debug("%s stems: %s", len([stem for stem in nodes if stem[0]=="s"]), nodes)
         if len([stem for stem in nodes if stem[0]=="s"])<2:
             # Special case, if only one stem is present.
             return 0.
@@ -650,13 +650,13 @@ class StemVirtualResClashEnergy(EnergyFunction):
                 s = d
                 s_len = cg.stem_length(s)
                 #stem_inv = cg.stem_invs[s]
-                log.debug("s %s, slen %s", s, s_len)
+                self.log.debug("s %s, slen %s", s, s_len)
                 for i in range(s_len):
                     (p, v, v_l, v_r) = cg.v3dposs[d][i]
 
                     points += [(p+ mult * v_l, d, i, 1)]
                     points += [(p+ mult * v_r, d, i, 0)]
-        log.debug("points: %s, nodes %s, defines %s", points, nodes, cg.defines)
+        self.log.debug("points: %s, nodes %s, defines %s", points, nodes, cg.defines)
         coords = np.vstack([point[0] for point in points])
         clash_pairs = []
         #kk = ss.KDTree(np.array(l))
@@ -822,13 +822,13 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     @profile
     def eval_energy(self, cg, background=True, nodes=None,  sampled_stats=None, **kwargs):
         self.bad_bulges = []
-        log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
+        self.log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
         if nodes is not None and self.element not in nodes:
-            log.debug("Self.element %s not in nodes %s", self.element, nodes)
+            self.log.debug("Self.element %s not in nodes %s", self.element, nodes)
             return 0.
         best_deviation = float('inf')
         if sampled_stats is not None:
-            log.debug("FJC using sampled stat!")
+            self.log.debug("FJC using sampled stat!")
             assert self.element in sampled_stats
              # Assertion fails, if structure was built with JDIST energy but sampled
              # with this energy. Should never happen!
@@ -836,13 +836,14 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             self.used_stat = sampled_stats[self.element]
             best_deviation = self._stat_deviation(cg, sampled_stats[self.element])
         else:
+            self.log.debug("No stat sampled for %s. Searching for a suitable stat", self.element)
             for stat in self.stat_source.iterate_stats_for(cg, self.element):
                 curr_dev = self._stat_deviation(cg, stat)
                 if curr_dev < best_deviation:
                     best_deviation = curr_dev
                     #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                     self.used_stat = stat
-        log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
+        self.log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
         self.bad_bulges = [self.element]
         return (best_deviation**self.adjustment)*self.prefactor
