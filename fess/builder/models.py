@@ -503,15 +503,21 @@ class SpatialModel:
                 #load angle_stats in direction of build order!
                 for bo in build_order:
                     if bo[1]==d:
-                        stat=self.bg.get_bulge_angle_stats_core(d,(bo[0],bo[2]))
+                        if self.bg.defines[bo[0]]<self.bg.defines[bo[2]]:
+                            forward=True
+                        else:
+                            forward=False
+                        stat=self.bg.get_bulge_angle_stats_core(d, forward=forward)
                         break
                 else: #Not in build_order. Probably broken ml segment
                     assert d[0]=="m"
                     #If it was frozen or stored in the file, we add its stats to elem_defs.
                     if line or d in self.frozen_elements:
                         stat,=[s for s in self.bg.get_bulge_angle_stats(d) if s.ang_type==self.bg.get_angle_type(d, allow_broken=True)]
+                        log.info("Loading stat from file for broken ml segment %s to %s", d, stat)
                     else:
                         #Do not add this element to elem_defs!
+                        log.info("Not adding stat to broken ml segment %s", d)
                         continue
             if line: #Use original define and pdb_name.
                 stat.pdb_name=line[0]
