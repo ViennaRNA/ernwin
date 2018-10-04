@@ -561,6 +561,7 @@ _statisticsDefaultOptions={
 }
 
 
+
 class SamplingStatistics:
     def __init__(self, cg, energy_functions=[], stat_source=None,
                  options="all", output_directory = None):
@@ -804,9 +805,21 @@ def update_parser(parser):
                                        "for the --energy option.\n"
                                        "These energies are not used for sampling, \n"
                                        "but only calculated after each step.")
+    monitor_options.add_argument('--fewer-statistics', default=False,
+                        help='Do not output so many statistics every step.', action='store_true')
 
 def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
     options={}
+    if args.fewer_statistics:
+        options.update({
+                "acc":False,
+                "name": False,
+                "length": False,
+                "local_coverage":False,
+                "extreme_rmsd": False,
+                "asphericity": False,
+                "anisotropy": False,
+                "ml_closing": False })
     if args.no_rmsd:
         options["rmsd"] = False
         options["acc"]  = False
