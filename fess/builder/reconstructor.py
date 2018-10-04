@@ -394,7 +394,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     :param elem_to: The element to replace
     :param elem_from: The source element
     :param chains_to: A dict chainid:chain. The chains to graft onto
-    :pamend_ram chains_from: A dict chainid:chain. The chains to excise from
+    :param chains_from: A dict chainid:chain. The chains to excise from
 
     :returns: a list of tuples containing gaps to mend
     '''
