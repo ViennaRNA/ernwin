@@ -115,7 +115,7 @@ def make_continuous( discrete_angle_stats):
         continue
 
     try:
-        return = ss.gaussian_kde(np.array(data).T)
+        return ss.gaussian_kde(np.array(data).T)
     except np.linalg.LinAlgError as lae:
         print("Singular matrix, dimensions:", dims, file=sys.stderr)
 
