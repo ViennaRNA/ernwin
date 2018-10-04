@@ -94,15 +94,56 @@ letter_to_stat_type = {
     "i": "angle"
 }
 
+def make_continuous( discrete_angle_stats):
+    '''
+    Create a kernel density estimation of the statistics
+    for each bulge dimension represented in the collection
+    of discrete angle statistics.
+
+    Each KDE will have six dimensions corresponding to the six
+    dimensions necessary for describing the orientation of one
+    helix with respect to another.
+
+    :param discrete_angle_statistics: A dictionary of dictionaries,
+        each one containing and AngleStats structure.
+    '''
+    import scipy.stats as ss
+    for d in discrete_angle_stats:
+        data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
+
+    if len(data) < 3:
+        continue
+
+    try:
+        return = ss.gaussian_kde(np.array(data).T)
+    except np.linalg.LinAlgError as lae:
+        print("Singular matrix, dimensions:", dims, file=sys.stderr)
+
+class ContinuouseStatSampler:
+    def __init__(self, kde):
+        self.kde = kde
+    def sample(self):
+        u,v,t,r1,u1,v = self.kde.resample(1).T
+        stat = ftmstats.AngleStat(stat_type="angle", pdb_name='continuouse_stat',
+                                dim1=key[0], dim2=key[1], u=u, v=v, t=t, r1=r1, u1=u1, v1=v1,
+                                ang_type=key[2], define=[], seq="", vres={})
+        return stat
+
 
 class StatStorage(object):
-    def __init__(self, filename, fallback_filenames = None):
+    def __init__(self, filename, fallback_filenames = None, coninuouse=None):
         self.filename = filename
         if fallback_filenames is None:
             fallback_filenames = []
         self.fallbacks = fallback_filenames
         self._sources = None
         self._has_reported = set() #Only emit warnings about insufficient stats once.
+        if continuouse:
+            if any(elem[0] not in "mi" for elem in continuouse):
+                raise ValueError("Continuouse stats are only allowed for interior and multiloops.")
+            self.continuouse = continuouse[:]
+        else:
+            self.continuouse = []
 
     @staticmethod
     def key_from_bg_and_elem(bg, elem):
@@ -186,7 +227,6 @@ class StatStorage(object):
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
         return weights, choose_from
 
-
     def sample_for(self, bg, elem, min_entries = 100):
         """
         Sample a stat for the given coarse-grained element elem of bulge graph bg.
@@ -204,18 +244,37 @@ class StatStorage(object):
         :param elem: The element name, e.g. "s0"
         :param min_entries: If less than min-entries stats are found, try to use
                     the fallback-files to gather enough stats to sample from.
-        :param return: A singe Stat object, sampled from the possible stats.
+        :param return: A single Stat object, sampled from the possible stats.
         """
+        if elem in self.continuouse:
+            return self._sample_continuouse_stat(bg, elem, min_entries)
+        else:
+            key = self.key_from_bg_and_elem(bg, elem)
+            log.debug("Calling _possible_stats with %r, %r", letter_to_stat_type[elem[0]], key)
+            weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
+            r = random.uniform(0, sum(weights))
+            for i, w in enumerate(weights):
+                if r<=w:
+                    return stats[i]
+                r-=w
+            assert False
+            return stats[0] #Fallback if asserts are disabled. Should be unreachable.
+
+    def _sample_continuouse_stat(self, bg, elem, min_entries=100):
         key = self.key_from_bg_and_elem(bg, elem)
-        log.debug("Calling _possible_stats with %r, %r", letter_to_stat_type[elem[0]], key)
-        weights, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries)
-        r = random.uniform(0, sum(weights))
-        for i, w in enumerate(weights):
-            if r<=w:
-                return stats[i]
-            r-=w
-        assert False
-        return stats[0] #Fallback if asserts are disabled. Should be unreachable.
+        kde = self._get_statsampler(letter_to_stat_type[elem[0]], key, min_entries)
+        return kde.sample()
+
+    def _iterate_continuouse_stat(self, bg, elem, min_entries=100):
+        key = self.key_from_bg_and_elem(bg, elem)
+        kde = self._get_statsampler(letter_to_stat_type[elem[0]], key, min_entries)
+        while True:
+            yield kde.sample()
+
+    def _get_statsampler(self, stat_type, key, min_entries):
+        all_stats = list(self.iterate_stats(stat_type, key, min_entries, False))
+        kde = make_continuous(all_stats)
+        return ContinuouseStatSampler(kde)
 
     def iterate_stats(self, stat_type, key, min_entries = 100, cycle = False):
         weights, stats = self._possible_stats(stat_type, key, min_entries)
@@ -238,10 +297,13 @@ class StatStorage(object):
         generated every time the iterator is created and after iterating the
         main stats iteration continues over the sample of the fallback stats.
         """
-        key = self.key_from_bg_and_elem(bg, elem)
-        log.debug("Key is %s, elem is %s, elem[0] is %s", key, elem, elem[0])
-        log.debug("letter_to_stat_type[elem[0]] is %s", letter_to_stat_type[elem[0]])
-        return self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries)
+        if elem in self.continuouse:
+            return self._iterate_continuouse_stat(bg, elem, min_entries)
+        else:
+            key = self.key_from_bg_and_elem(bg, elem)
+            log.debug("Key is %s, elem is %s, elem[0] is %s", key, elem, elem[0])
+            log.debug("letter_to_stat_type[elem[0]] is %s", letter_to_stat_type[elem[0]])
+            return self.iterate_stats(letter_to_stat_type[elem[0]], key, min_entries)
 
 
 
@@ -370,6 +432,10 @@ def update_parser(parser):
                                    "for interior loops to matching motifs.\n"
                                    "Requires the correct paths to jar3d to be set in\n "
                                    "fess.builder.config.py"   )
+    stat_options.add_argument('--continuouse-stats', type=str, help='A list of names of interior'
+                                'or multiloops. The stats of these elements will be sampled from'
+                                ' a continuouse distribution.')
+
 
 def from_args(args, cg):
     if args.sequence_based:
