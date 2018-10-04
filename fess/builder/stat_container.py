@@ -78,7 +78,12 @@ def parse_stats_file(file_handle):
 
 def read_stats_file(filename):
     with open (filename) as f:
-        return parse_stats_file(f)
+        try:
+            return parse_stats_file(f)
+        except Exception as e:
+            with log_to_exception(log, e):
+                log.error("Failed to parse file %s", filename)
+            raise
 
 letter_to_stat_type = {
     "s": "stem",
