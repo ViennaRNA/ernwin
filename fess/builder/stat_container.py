@@ -123,14 +123,30 @@ def make_continuous( discrete_angle_stats):
         print("Singular matrix, dimensions:", dims, file=sys.stderr)
 
 class ContinuouseStatSampler:
-    def __init__(self, kde, key):
+    def __init__(self, all_stats, key):
+        kde = make_continuous(all_stats)
         self.kde = kde
         self.key = key
+        data=[]
+        for d in all_stats:
+            data += [[d.u, d.v, d.t, d.r1, d.u1, d.v1]]
+        self.data = np.array(data)
     def sample(self):
-        sample = self.kde.resample(1).T
-        #log.debug("continuouse stat sample %s", sample)
-        u,v,t,r1,u1,v1 = sample[0]
-        stat = ftmstats.AngleStat(stat_type="angle", pdb_name='continuouse_stat',
+        import scipy.stats as ss
+        log.debug("DATA %s with shape %s", self.data, self.data.shape)
+        r1 = ss.gaussian_kde(self.data[:, 3]).resample(1)[0][0]
+        log.debug("r1 is %s", r1)
+        rnd = np.random.rand(5) # 5 random values from 0 to 1
+        u = rnd[0]*np.pi
+        v = rnd[1]*2*np.pi-np.pi
+        t = rnd[2]*2*np.pi-np.pi
+        u1 = rnd[3]*np.pi
+        v1 = rnd[4]*2*np.pi-np.pi
+        
+        #sample = self.kde.resample(1).T
+        log.debug("continuouse stat sample %s", (u,v,t,r1,u1,v1))
+        #u,v,t,r1,u1,v1 = sample[0]
+        stat = ftmstats.AngleStat(stat_type="angle", pdb_name='cont-{:.1f}_{:.1f}_{:.1f}_{:.1f}_{:.1f}_{:.1f}'.format(u,v,t,r1,u1,v1),
                                 dim1=self.key[0], dim2=self.key[1], u=u, v=v, t=t, r1=r1, u1=u1, v1=v1,
                                 ang_type=self.key[2], define=[], seq="", vres={})
         return stat
@@ -281,8 +297,7 @@ class StatStorage(object):
     def _get_statsampler(self, stat_type, key, min_entries):
         log.debug("Getting continuouse kde-based sampler for %s", key)
         all_stats = list(self.iterate_stats(stat_type, key, min_entries, False))
-        kde = make_continuous(all_stats)
-        return ContinuouseStatSampler(kde, key)
+        return ContinuouseStatSampler(all_stats, key)
 
     def iterate_stats(self, stat_type, key, min_entries = 100, cycle = False):
         weights, stats = self._possible_stats(stat_type, key, min_entries)

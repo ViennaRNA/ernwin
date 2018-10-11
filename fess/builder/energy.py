@@ -1061,6 +1061,10 @@ class AMinorEnergy(CoarseGrainEnergy):
         self._accepted_measure_start_index=0
         # Note: self._accepted_measures (initialized in super)
         #       lists in this case tuples of dicts.
+        if excluded_elements is None:
+            self.excluded_elements = []
+        else:
+            self.excluded_elements = excluded_elements[:]
         super(AMinorEnergy, self).__init__(num_stems, prefactor, adjustment)
 
     def reset_distributions(self, num_stems):
@@ -1181,7 +1185,7 @@ class PerLoopAMinor(AMinorEnergy):
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         """
-        Get the A-minor energiy for the CoarseGrainedRNA
+        Get the A-minor energy for the CoarseGrainedRNA
 
         :param pre: Energy prefactor
         :param adj: Adjustment
@@ -1339,7 +1343,7 @@ def _minimal_h_h_distance(cg, elem1, elem2_iterator):
 
     :param cg: The CoarseGrain RNA
     :param elem1: A STRING. A name of a hairpin loop. e.g. "h1"
-    :param elem2_iterator: A ITERATOR/ LIST. Element names to compare h1 with.
+    :param elem2_iterator: An ITERATOR/ LIST. Element names to compare elem1 with.
     """
     min_dist = float("inf")
     for elem2 in elem2_iterator:
@@ -1369,7 +1373,8 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         """
         energies=[]
         for hloop in cg.hloop_iterator():
-            energies+= [cls(rna_length = cg.seq_length, loop_name = hloop,
+            if hloop not in cg.interacting_elements:
+                energies+= [cls(rna_length = cg.seq_length, loop_name = hloop,
                             prefactor = prefactor, adjustment = adjustment)]
         return CombinedEnergy(energies)
 
@@ -1468,7 +1473,9 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         return kde_with_uniform
 
     def _get_cg_measure(self, cg):
-        min_dist = _minimal_h_h_distance(cg, self.loop_name, cg.hloop_iterator())
+        min_dist = _minimal_h_h_distance(cg, self.loop_name,
+                                        [hloop for hloop in cg.hloop_iterator()
+                                         if hloop not in cg.interacting_elements ])
         return min_dist
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         '''
@@ -1700,6 +1707,7 @@ def update_parser(parser):
     energy_options.add_argument('--pdd-file', type=str,
                                 help="A file with the pair distance "
                                      "distribution from the SAX experiment.")
+
 def from_args(args, cg, stat_source, replica=None):
     energy_string = replica_substring(args.energy, replica)
     energies = EnergyFunction.from_string(energy_string,

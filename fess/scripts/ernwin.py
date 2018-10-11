@@ -50,6 +50,11 @@ parser.add_argument('--num-builds', action='store', type=int,
                          "Each of it will be sampled for \n"
                          "--iterations steps independently")
 
+parser.add_argument('--externally-interacting', type=str,
+                            help="A comma-separated list of element names or nt positions, "
+                                 "which have interactions with proteins/... and "
+                                 " will be excluded from A-Minor and "
+                                 "loop-loop interaction energies.")
 
 # Each of the following modules of ernwin adds its own options to the parser.
 for module in [fbstat, fess.directory_utils, fbe, fbmov, fbm, fbb, fbmodel]:
@@ -61,6 +66,23 @@ def main():
 
     cg, = fuc.cgs_from_args(args, nargs=1, rna_type="cg",
                             enable_logging=True) # Set log-level as a sideeffect
+    if args.externally_interacting:
+        elems_or_nts=args.externally_interacting.split(",")
+        nts = []
+        for pos in elems_or_nts:
+            try:
+                nt = int(pos)
+            except Exception:
+                d = cg.defines[elem] #Might raise a KeyError, but that is fine
+                if d:
+                    nts.append(d[0])
+                else:
+                    log.warning("Not setting %s to externally interacting, because it contains 0 nucleotides.", elem)
+            else:
+                nts.append(nt)
+        cg.interacting_residues.extend(nts)
+        log.info("The RNA now has the following elements not perticipating in interaction energies (if presenty): %s", cg.interacting_elements)
+        
     if len(list(cg.stem_iterator()))<2:
         raise ValueError("No sampling can be done for structures with fewer than 2 stems")
 
@@ -136,9 +158,8 @@ def build_spatial_models(args, cg, stat_source, main_dir):
     build_function = fbb.from_args(args, stat_source, main_dir)
     sm = None
     for i in range(build_count):
-        if sm is None or args.iterations>0 or fbmodel.some_replica_different(args):
-            curr_cg = copy.deepcopy(cg)
-            sm = fbmodel.from_args(args, curr_cg, stat_source, i)
+        curr_cg = copy.deepcopy(cg)
+        sm = fbmodel.from_args(args, curr_cg, stat_source, i)
         build_function(sm)
         yield sm
 
