@@ -9,6 +9,7 @@ import math
 from collections import defaultdict
 import logging
 import string
+import os.path as op
 
 import numpy as np
 
@@ -17,6 +18,8 @@ from logging_exceptions import log_to_exception
 import forgi.threedee.model.stats as ftmstats
 
 from fess import data_file
+from fess.builder import config
+import fess.motif.annotate as fma
 
 log = logging.getLogger(__name__)
 try:
@@ -142,7 +145,7 @@ class ContinuouseStatSampler:
         t = rnd[2]*2*np.pi-np.pi
         u1 = rnd[3]*np.pi
         v1 = rnd[4]*2*np.pi-np.pi
-        
+
         #sample = self.kde.resample(1).T
         log.debug("continuouse stat sample %s", (u,v,t,r1,u1,v1))
         #u,v,t,r1,u1,v1 = sample[0]
@@ -277,6 +280,7 @@ class StatStorage(object):
             r = random.uniform(0, sum(weights))
             for i, w in enumerate(weights):
                 if r<=w:
+                    # TODO: Penalize stats found with JARED, but for another loop
                     return stats[i]
                 r-=w
             assert False
@@ -475,12 +479,12 @@ def from_args(args, cg):
         jared_out    = op.join(config.Configuration.sampling_output_dir, "jar3d.stats")
         jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")
         motifs = fma.annotate_structure(cg, jared_tmp, cg.name.split('_')[0])
-        fma.print_stats_for_motifs(motifs, filename = jared_out, temp_dir = config.Configuration.sampling_output_dir )
+        fma.print_stats_for_motifs(motifs, filename = jared_out, temp_dir = config.Configuration.sampling_output_dir, args=args )
         #Here, all stats are fallback stats for the JAR3D hits.
         new_fallbacks = [args.stats_file]
         if args.fallback_stats_files is not None:
             new_fallbacks += args.fallback_stats_files
-        stat_source = StatSourceClass(jared_out, new_fallbacksi, **kwargs)
+        stat_source = StatSourceClass(jared_out, new_fallbacks, **kwargs)
     else:
         stat_source = StatSourceClass(args.stats_file, args.fallback_stats_files, **kwargs)
     return stat_source

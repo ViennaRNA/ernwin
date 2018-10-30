@@ -29,7 +29,9 @@ import fess.builder.models as fbmodel
 import fess.builder.sampling as fbs
 from fess.utils import get_version_string
 
+import logging
 
+log=logging.getLogger("ernwin.__main__")
 
 parser = fuc.get_rna_input_parser("ERNWIN: Coarse-grained sampling of RNA 3D structures.",
                                   nargs=1, rna_type="cg",
@@ -80,9 +82,9 @@ def main():
                     log.warning("Not setting %s to externally interacting, because it contains 0 nucleotides.", elem)
             else:
                 nts.append(nt)
-        cg.interacting_residues.extend(nts)
+        cg.interacting_residues.extend([ cg.seq.to_resid(nt) for nt in nts])
         log.info("The RNA now has the following elements not perticipating in interaction energies (if presenty): %s", cg.interacting_elements)
-        
+
     if len(list(cg.stem_iterator()))<2:
         raise ValueError("No sampling can be done for structures with fewer than 2 stems")
 

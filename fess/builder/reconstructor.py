@@ -56,6 +56,9 @@ class Reconstructor(object):
         self.cg_library_path = cg_library_path
         self.pdb_library_path = pdb_library_path
         self.stem_use_average_method = True
+        self._loaded_cgs = {}
+        self._loaded_pdbs = {}
+
     def reconstruct(self, sm):
         '''
         Re-construct a full-atom model from a coarse-grain model.
@@ -65,11 +68,10 @@ class Reconstructor(object):
         '''
         # First, reconstruct the stems, which will be used as scaffold for the bulges
         chains = {}
-        for stem in sm.elem_defs:
-            if stem[0] != "s":
-                continue
+        num_stems = len(list(sm.bg.stem_iterator()))
+        for i, stem in enumerate(sm.bg.stem_iterator()):
             self._reconstruct_stem(sm, stem, chains)
-
+            print("{} out of {} stems reconstructed".format(i+1, num_stems))
         #Some validation
         try:
             _compare_cg_chains_partial(sm.bg, chains)
@@ -111,10 +113,19 @@ class Reconstructor(object):
         pdb_filename = op.expanduser(op.join(self.pdb_library_path, "_".join(pdb_basename.split("_")[:-1])+".pdb"))
         cg_filename = op.expanduser(op.join(self.cg_library_path, pdb_basename+".cg"))
         #Make sure the files exist.
-        with open(pdb_filename): pass
-        with open(cg_filename): pass
+        try:
+            try:
+                with open(pdb_filename): pass
+            except IOError:
+                pdb_filename = pdb_filename.rstrip(".pdb")+".cif"
+                with open(pdb_filename): pass
+            with open(cg_filename): pass
+        except Exception as e:
+            with log_to_exception(log, e):
+                log.error("Failed to open files for stat %s", stat.pdb_name)
+            raise
         log.debug("Opening cg-file %s to extract stat %s", cg_filename, stat.pdb_name)
-        cg = ftmc.CoarseGrainRNA.from_bg_file(cg_filename) #The cg with the template
+        cg = self.get_cg(cg_filename)  #The cg with the template
 
         chains, missing_residues, _ = ftup.get_all_chains(pdb_filename, no_annotation=True)
         new_chains = []
@@ -124,6 +135,23 @@ class Reconstructor(object):
         chains = {c.id:c for c in new_chains}
 
         return cg, chains
+
+    def get_cg(self, fn):
+        if fn not in self._loaded_cgs:
+            cg = ftmc.CoarseGrainRNA.from_bg_file(fn)
+            self._loaded_cgs[fn] = cg
+        return self._loaded_cgs[fn]
+
+    def get_pdb(self, fn):
+        if fn not in self._loaded_pdbs:
+            chains, missing_residues, _ = ftup.get_all_chains(fn, no_annotation=True)
+            new_chains = []
+            for chain in chains:
+                chain, modifications = ftup.clean_chain(chain)
+                new_chains.append(chain)
+            chains = {c.id:c for c in new_chains}
+            self._loaded_pdbs[fn]=chains
+        return self._loaded_pdbs[fn]
 
     def _reconstruct_stem(self, sm, stem_name, new_chains):
         '''
@@ -297,8 +325,10 @@ def _validate_pdb_to_stem(target_stem, chains, cg, elem_name):
     tw1_polar_target = ftuv.spherical_cartesian_to_polar(target_stem.twists[0])
     d_twist_u = abs(tw1_polar_pdb[1]-tw1_polar_target[1])
     d_twist_v = abs(tw1_polar_pdb[2]-tw1_polar_target[2])
-    assert d_twist_u<0.01, "Deviation of twist angle u too big: {:f}".format(d_twist_u)
-    assert d_twist_v<0.01, "Deviation of twist angle v too big: {:f}".format(d_twist_u)
+    if d_twist_u>0.01:
+        log.warning("Deviation of twist angle u too big for %s: %s", elem_name, d_twist_u)
+    if d_twist_v>0.01:
+        log.warning("Deviation of twist angle v too big for %s: %s", elem_name, d_twist_v)
     return True
 
 def translate_chain(chains, translation):
@@ -462,6 +492,9 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     define_to = cg_to.defines[elem_to]
     define_from = cg_from.defines[elem_from]
     if len(define_from)!=len(define_to):
+        raise ValueError("Inconsistent defines: %s and %s for %s", define_from, define_to, elem_to)
+    if cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
+        log.error("%s not consistent with %s: Missing residues", define_from, define_to)
         # TODO: We have missing residues in the original sequence!
         raise NotImplementedError("TODO: MISSING RESIDUES")
         log.error("%s has different len than %s for angle type %s", define_from, define_to, angle_type)

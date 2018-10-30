@@ -67,7 +67,7 @@ def annotate_structure(cg, temp_dir, exclude_structure=None, jared_file=None, il
 
 
 
-def get_cg_from_pdb(pdb_file, chains, temp_dir=None, cg_filename=None):
+def get_cg_from_pdb(pdb_file, chains, args, temp_dir=None, cg_filename=None):
     '''
     Get a BulgeGraph from a pdb file.
 
@@ -80,13 +80,29 @@ def get_cg_from_pdb(pdb_file, chains, temp_dir=None, cg_filename=None):
         temp_dir = op.join(temp_dir, 'cg_temp')
 
     log.info("Creating CG RNA for: %s", pdb_file)
-    cg = ftmc.from_pdb(pdb_file, chain_id = chains, remove_pseudoknots = False)
+    cg, = ftmc.CoarseGrainRNA.from_pdb(pdb_file, load_chains = chains,
+                                       remove_pseudoknots = False,
+                                       dissolve_length_one_stems=not args.keep_length_one_stems,
+                                       annotation_tool=args.pdb_annotation_tool)
 
     if cg_filename is not None:
         cg.to_file(cg_filename)
     return cg
 
-def get_coarse_grain_files(struct_name, chains, temp_dir=None):
+def cgdirname_from_args(args):
+    if args.pdb_annotation_tool:
+        annot_tool=args.pdb_annotation_tool
+    else:
+        import forgi.config
+        c = forgi.config.read_config()
+        if "PDB_ANNOTATION_TOOL" in c:
+            annot_tool = c["PDB_ANNOTATION_TOOL"]
+        else:
+            log.warning("No preferred PDB-Annotation-tool set. Inconcistencies due to cached data are possible.")
+            annot_tool="?" # In this case, inconsistencies are possible.
+    return "cgs_{}_{}".format(int(args.keep_length_one_stems), annot_tool)
+
+def get_coarse_grain_files(struct_name, chains, args, temp_dir=None):
     '''
     Load all connected coarse-grain files for a structure.
     Download the corresponding pdb, if needed.
@@ -96,7 +112,7 @@ def get_coarse_grain_files(struct_name, chains, temp_dir=None):
                    the chains have to be connected by at least one basepair.
     @return: A forgi.graph.bulge_graph structure describing this chain.
     '''
-    CG_DIR = op.join(JARED_DIR, "cgs")
+    CG_DIR = op.join(JARED_DIR, cgdirname_from_args(args))
     PDB_DIR = op.join(JARED_DIR, "pdbs")
 
     if not op.exists(PDB_DIR):
@@ -105,7 +121,7 @@ def get_coarse_grain_files(struct_name, chains, temp_dir=None):
     if not op.exists(CG_DIR):
         os.makedirs(CG_DIR)
 
-    cg_filename = op.join(CG_DIR, struct_name+"_"+"-".join(sorted(chains)))
+    cg_filename = op.join(CG_DIR, struct_name+"_"+"-".join(sorted(chains))+".cg")
 
     # do we already have the cg representation
     if op.exists(cg_filename):
@@ -116,7 +132,7 @@ def get_coarse_grain_files(struct_name, chains, temp_dir=None):
         #do we at least have a pdb file
         if op.exists(pdb_filename):
             return get_cg_from_pdb(pdb_filename, chains,
-                                   temp_dir=temp_dir, cg_filename=cg_filename)
+                                   temp_dir=temp_dir, cg_filename=cg_filename, args=args)
         else:
             log.info ("Downloading pdb for: %s", struct_name)
             import urllib2
@@ -129,10 +145,10 @@ def get_coarse_grain_files(struct_name, chains, temp_dir=None):
                 f.flush()
 
                 return get_cg_from_pdb(pdb_filename, chains, temp_dir=temp_dir,
-                                      cg_filename=cg_filename)
+                                      cg_filename=cg_filename, args=args)
 
 
-def print_stats_for_motifs(motifs, filename, temp_dir=None, ):
+def print_stats_for_motifs(motifs, filename, args, temp_dir=None):
     '''
     Convert all of the motif alignments to coarse-grain element names. This
     requires that the coarse grain representation of the pdb file from
@@ -142,19 +158,23 @@ def print_stats_for_motifs(motifs, filename, temp_dir=None, ):
     :param motifs: A dictionary indexed by an element name. The values are the
                    json motif object from the BGSU motif atlas.
     :param filename: The filename where the stats will be written to.
+    :param args: Tha argparse Namespace object. Needed, to use the correct PDB annotation tool.
     '''
     new_motifs = clcs.defaultdict(list)
     i=0
     with open(filename, "w") as file_:
         for key in motifs:
             for motif_entry in motifs[key]:
+                log.info(motif_entry)
                 for a in motif_entry['alignment']:
                     alignment = ma.MotifAlignment(motif_entry['alignment'][a],
                                             motif_entry['chainbreak'])
 
                     try:
                         cg = get_coarse_grain_files(alignment.struct,
-                                                 temp_dir=temp_dir, chains = alignment.chains)
+                                                 temp_dir=temp_dir,
+                                                 chains = alignment.chains,
+                                                 args=args)
                     except fgb.GraphConstructionError as e:
                         log.warning("Skipping JAR3D entry for {}. Could not "
                                     "construct BulgeGraph because: {}".format(alignment, e))
@@ -163,8 +183,7 @@ def print_stats_for_motifs(motifs, filename, temp_dir=None, ):
                     elements = set()
                     for r in alignment.residues:
                         log.info(r)
-                        r = cg.seq_ids.index(r)+1
-                        elements.add(cg.get_node_from_residue_num(r))
+                        elements.add(cg.get_elem(r))
 
                     loop_elements = set()
                     for e in elements:
@@ -181,7 +200,7 @@ def print_stats_for_motifs(motifs, filename, temp_dir=None, ):
                     for stat in stats:
                         i+=1
                         # To ensure unique stat-ids, we use 'j' to identify JAR3D followed by an increasing integer.
-                        stat.pdb_name = stat.pdb_name+":{}_j{}".format(element_id[0], i)
+                        stat.pdb_name = motif_entry["motif_id"]+"_"+stat.pdb_name+":{}_j{}".format(element_id[0], i)
                         print(stat, file = file_)
 
 def cg_to_jared_input(cg):

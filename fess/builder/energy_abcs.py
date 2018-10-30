@@ -210,6 +210,84 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
 
     __nonzero__=__bool__
 
+
+class InteractionEnergy(EnergyFunction):
+    """
+    A base-class for A-Minor and SLD energy. Uses the reference ratio method
+    """
+    def __init__(self, rna_length, num_loops, prefactor, adjustment):
+        self.num_loops = num_loops
+        super(InteractionEnergy, self).__init__(prefactor, adjustment)
+        self.reset_distributions(rna_length)
+
+    @classmethod
+    def qualifying_loops(cls, cg, loop_iterator):
+        for l in loop_iterator:
+            if l in cg.incomplete_elements or l in cg.interacting_elements:
+                continue
+            yield l
+
+
+    @abstractmethod
+    def reset_distributions(self, rna_length):
+        """
+        This should set the following attributes:
+
+        self.reference_interactions: A list with the fraction of loops that interact per entry.
+                                     Each entry must correspond to self.num_loops loops.
+        self.target_interactions: The fraction of loops that interact in the PDB
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_cg_measure(self, cg):
+        """
+        Return the fraction of loops that interact, i.e. the interaction-count/self.num_loops
+        """
+        raise NotImplementedError
+
+    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
+                    plot_debug=False):
+        if plot_debug or nodes is not None:
+            raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
+                                      " for InteractionEnergies")
+        if use_accepted_measure:
+            m = self.accepted_measures[-1]
+        else:
+            m = self._get_cg_measure(cg)
+        self._last_measure = m
+
+        reference_perc = sum(self.reference_interactions)/len(self.reference_interactions)
+        target_perc    = self.target_interactions
+        if background:
+            e_i = -np.log( target_perc) + np.log(reference_perc)
+            e_noi = -np.log( 1-target_perc) + np.log(1-reference_perc)
+        else:
+            e_i=-np.log(target_perc)
+            e_noi=-np.log(1-target_perc)
+        self.log.debug("%s , %s", e_i, e_noi)
+        energy_contrib = e_i-e_noi
+
+        num_interactions = int(round(m*self.num_loops))
+        self.log.debug("Energy contribution of %s = %s, "
+                  "with %s interactions (background=%s)",
+                  self.shortname,
+                  energy_contrib, num_interactions, background)
+        energy=energy_contrib*num_interactions
+        return self.prefactor*energy
+
+
+    def _set_target_distribution(self):
+        """
+        Not needed, since the adjustment is multiplied to the
+        target value in every eval_energy call
+        """
+        pass
+
+    def _resample_background_kde(self):
+        self.reference_interactions = self.accepted_measures[:]
+
+
 class CoarseGrainEnergy(EnergyFunction):
     """
     A base-class for Energy functions that use a background distribution.
@@ -402,7 +480,7 @@ class CoarseGrainEnergy(EnergyFunction):
             try:
                 k = scipy.stats.gaussian_kde(values)
             except np.linalg.linalg.LinAlgError:
-                log.exception("")
+                log.exception("Setting KDE for %s to None because of", values)
                 return None
         else:
             floc = -0.1
@@ -410,6 +488,7 @@ class CoarseGrainEnergy(EnergyFunction):
             f = scipy.stats.beta.fit(values, floc=floc, fscale=fscale)
             k = lambda x: scipy.stats.beta.pdf(x, f[0], f[1], f[2], f[3])
         return k
+
     @abstractmethod
     def _get_cg_measure(self, cg):
         raise NotImplementedError
@@ -430,10 +509,11 @@ class CoarseGrainEnergy(EnergyFunction):
 
         if plot_debug: #For debuging
             self.plot_distributions(val=m)
-        try:
-            log.debug("Measure is {:1.4f}".format(m))
-        except ValueError:
-            log.exception("m is {}".format(repr(m)))
+        if self.log.isEnabledFor(logging.DEBUG):
+            try:
+                self.log.debug("Measure is {:1.4f}".format(m))
+            except ValueError:
+                self.log.debug("Measure is {}".format(m))
 
 
         self._last_measure = m
@@ -441,14 +521,23 @@ class CoarseGrainEnergy(EnergyFunction):
         if background:
             ref_val = self.reference_distribution(m)
             tar_val = self.target_distribution(m)
-            energy, = (np.log( tar_val ) - np.log(ref_val))
+            if len(ref_val)>1:
+                self.log.debug("ref_values: %s", ref_val)
+                self.log.debug("tar_values: %s", tar_val)
+
+                energy = sum(np.log( tar_val ) - np.log(ref_val))
+            else:
+                energy, = (np.log( tar_val ) - np.log(ref_val))
             log.debug("Energy (not yet scaled) = {}".format(energy))
             self.prev_energy = energy
             return -1 * self.prefactor * energy
         else:
             l = np.log(self.target_distribution(m))
             log.debug("Energy, = {}".format(l))
-            energy, = l
+            if len(l)>1:
+                energy = sum(l)
+            else:
+                energy, = l
             return -energy
 
     def _update_adj(self):

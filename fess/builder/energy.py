@@ -15,6 +15,7 @@ import pkgutil as pu
 import math
 import re
 import sys
+import copy
 import inspect
 import itertools
 from pprint import pprint
@@ -48,7 +49,7 @@ import forgi.threedee.model.descriptors as ftmd
 import forgi.threedee.classification.aminor as ftca
 
 
-from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR
+from .energy_abcs import EnergyFunction, CoarseGrainEnergy, DEFAULT_ENERGY_PREFACTOR, InteractionEnergy
 import fess.builder.aminor as fba
 from fess.builder._commandline_helper import replica_substring
 from ..utils import get_all_subclasses, get_version_string
@@ -91,6 +92,7 @@ class RandomEnergy(EnergyFunction):
 class ConstantEnergy(EnergyFunction):
     _shortname = "CNST"
     HELPTEXT = "Constant Energy"
+    can_constrain = "junction"
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         if adjustment is not None:
@@ -1032,7 +1034,7 @@ class NormalDistributedRogEnergy(RadiusOfGyrationEnergy):
     def _set_target_distribution(self):
         self.target_distribution = lambda x: np.array([scipy.stats.norm(loc=0.77*self.adjustment, scale=0.23*self.adjustment).pdf(x)])
 
-class AMinorEnergy(CoarseGrainEnergy):
+class AMinorEnergy(InteractionEnergy):
     _shortname = "AME"
     HELPTEXT = "A-Minor energy"
     LOOPS=["i", "h"]
@@ -1047,137 +1049,59 @@ class AMinorEnergy(CoarseGrainEnergy):
 
         :returns: An AMinorEnergy instance
         """
-        return cls(len(list(cg.stem_iterator())), prefactor=prefactor, adjustment=adjustment)
+        energies = []
+        for loop in cls.LOOPS:
+            cls.loop_type = loop
+            energies.append(cls(loop, len(list(cg.stem_iterator())),
+                                len(list(cls.qualifying_loops(cg, cg.defines))),
+                                prefactor=prefactor, adjustment=adjustment))
+        return CombinedEnergy(energies)
 
-    def __init__(self, num_stems, prefactor, adjustment, knowledge_weight=1000):
+    def __init__(self, loop_type, num_stems, num_loops, prefactor, adjustment, knowledge_weight=1000):
         """
         :param num_stems: Number of stems in the cg.
         :param knowledge_weight: The weight of the initial reference distribution,
                                  given as the number of sampling steps it should correspond to.
         """
-        self.knowledge_weight=knowledge_weight
+        self.loop_type = loop_type
 
-        # Index telling us, what accepted measures have already been added to the reference distr.
-        self._accepted_measure_start_index=0
-        # Note: self._accepted_measures (initialized in super)
-        #       lists in this case tuples of dicts.
-        if excluded_elements is None:
-            self.excluded_elements = []
-        else:
-            self.excluded_elements = excluded_elements[:]
-        super(AMinorEnergy, self).__init__(num_stems, prefactor, adjustment)
+        self.knowledge_weight=knowledge_weight
+        super(AMinorEnergy, self).__init__(num_stems, num_loops, prefactor, adjustment)
 
     def reset_distributions(self, num_stems):
         data = pd.read_csv(self.sampled_stats_fn, comment="#", sep=",", skipinitialspace=True)
-        # sum of interacting and non-interacting loops in reference distribution
-        self.reference_length={}
-        # interacting loops
-        self.reference_interactions={}
-        # Target interaction probability
-        self.target_fraction={}
-        for loop in self.LOOPS:
-            loop_data=data[data["typ"]==loop[0]]
-            max_stems=max(loop_data["stems"])
-            stems=min(max_stems, num_stems)
-            row=loop_data[loop_data["stems"]==stems]
-            target, = row["target"].values
-            background, = row["random"]
-            self.target_fraction[loop[0]]=target
-            self.reference_interactions[loop]=int(self.knowledge_weight*background)
-            self.reference_length[loop]=self.knowledge_weight
+        loop_data=data[data["typ"]==self.loop_type]
+        max_stems=max(loop_data["stems"])
+        stems=min(max_stems, num_stems)
+        row=loop_data[loop_data["stems"]==stems]
+        target, = row["target"].values
+        background, = row["random"]
 
-    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
-                    plot_debug=False):
-        if plot_debug or nodes is not None:
-            raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
-                                      " for AMinorEnergy")
-        if use_accepted_measure:
-            m = self.accepted_measures[-1]
-        else:
-            m = self._get_cg_measure(cg)
-
-        self._last_measure=m
-
-        energy=0
-        # The straight forward implementation of a Coarse Grained Energy would be
-        # to assign an energy to interactions and a different energy to non-interactions.
-        # However, since 0 is arbitrary, we choose to set non-interactions to 0
-        # and adjust the energy of interactions.
-        # This means that the energy of structures without interactions is not adjusted by the
-        # reference ratio method, only the energy of interactions is adjusted.
-        loop_counts, interaction_counts = m
-        for loop in self.LOOPS:
-            num_interactions=interaction_counts[loop]
-            target_perc = self.target_fraction[loop[0]]*self.adjustment
-            reference_perc = self.reference_interactions[loop]/self.reference_length[loop]
-            if background:
-                e_i = -np.log( target_perc) + np.log(reference_perc)
-                e_noi = -np.log( 1-target_perc) + np.log(1-reference_perc)
-            else:
-                e_i=-np.log(target_perc)
-                e_noi=-np.log(1-target_perc)
-            self.log.debug("%s , %s", e_i, e_noi)
-            energy_contrib = e_i-e_noi
-            self.log.debug("Energy contribution for loop type %s = %s, "
-                      "with %s interactions (background=%s)", loop,
-                      energy_contrib, num_interactions, background)
-            energy+=energy_contrib*num_interactions
-        log.debug("Total (unscaled) AME energy is %s", energy)
-        return self.prefactor*energy
-
-    def _set_target_distribution(self):
-        """
-        Not needed, since the adjustment is multiplied to the
-        target value in every eval_energy call
-        """
-        pass
-
-    def _resample_background_kde(self):
-        for loop in self.LOOPS:
-            for m in self.accepted_measures[self._accepted_measure_start_index:]:
-                loop_counts, interaction_counts = m
-                self.reference_interactions[loop]+=interaction_counts[loop]
-                self.reference_length[loop]+=loop_counts[loop]
-        self._accepted_measure_start_index=len(self.accepted_measures)
-
-    def dump_measures(self, base_directory, iteration=None):
-        output_file = op.join(base_directory, self.name+"_"+str(hex(id(self)))+".measures")
-        lines=[]
-        for loop in self.LOOPS:
-            loop_counts=0
-            interaction_counts=0
-            for m in self.accepted_measures:
-                loop_counts+=m[0][loop]
-                interaction_counts+=m[1][loop]
-            lines.append("{:s} {:d} {:d}\n".format(loop, loop_count, interaction_count))
-
-        with open(output_file, 'w') as f:
-            print("".join(lines), file=f)
-        if iteration is not None:
-            with open(output_file + ".%d" % (iteration), 'w') as f:
-                print("".join(lines), file=f)
-
-    @property
-    def last_accepted_measure(self):
-        m=self.accepted_measures[-1]
-        return m[1]
+        self.reference_interactions=[background]*self.knowledge_weight
+        self.target_interactions=target
 
     def _get_cg_measure(self, cg):
         interactions = ftca.all_interactions(cg)
         interactions = set(pair[0] for pair in interactions)
-        loop_counts=Counter()
-        interaction_counts=Counter()
-        for loop in self.LOOPS:
-            for d in cg.defines:
-                if d[0]!=loop and d!=loop:
-                    continue
-                if 'A' not in "".join(cg.get_define_seq_str(d)):
-                    continue
-                if d not in cg.incomplete_elements and d not in cg.interacting_elements:
-                    if d in interactions:
-                        interaction_counts[loop]+=1
-                    loop_counts[loop]+=1
-        return loop_counts, interaction_counts
+        interaction_counts=0
+        for d in self.qualifying_loops(cg, cg.defines):
+            if d in interactions:
+                interaction_counts+=1
+        return interaction_counts/self.num_loops
+
+    @classmethod
+    def qualifying_loops(cls, cg, loop_iterator):
+        for l in super(cls, AMinorEnergy).qualifying_loops(cg, loop_iterator):
+            if l[0]!=cls.loop_type and l!=cls.loop_type:
+                continue
+            if 'A' not in "".join(cg.get_define_seq_str(l)):
+                continue
+            yield l
+
+    @property
+    def shortname(self):
+        sn = super(AMinorEnergy, self).shortname
+        return sn.replace(self._shortname, "{}({})".format(self._shortname,self.loop_type))
 
 
 class PerLoopAMinor(AMinorEnergy):
@@ -1185,46 +1109,96 @@ class PerLoopAMinor(AMinorEnergy):
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         """
-        Get the A-minor energy for the CoarseGrainedRNA
+        Get the A-minor energiy for the CoarseGrainedRNA
 
         :param pre: Energy prefactor
         :param adj: Adjustment
 
         :returns: An AMinorEnergy instance
         """
-        return cls(len(list(cg.stem_iterator())), prefactor=prefactor, adjustment=adjustment, loops=[ d for d in cg.defines if d[0] in "ih"])
-    def __init__(self, num_stems, loops, prefactor, adjustment, knowledge_weight=1000):
-        """
-        :param loops: A list of loop names used
-        :param num_stems: Number of stems in the cg.
-        :param knowledge_weight: The weight of the initial reference distribution,
-                                 given as the number of sampling steps it should correspond to.
-        """
-        self.LOOPS=list(loops)
-        super(PerLoopAMinor, self).__init__(num_stems, prefactor, adjustment)
+        energies = []
+        for loop in cls.LOOPS:
+            for  l in cg.defines:
+                if l[0]==loop:
+                    energies.append(cls(l, len(list(cg.stem_iterator())),
+                                1, prefactor=prefactor, adjustment=adjustment))
+        return CombinedEnergy(energies)
 
 
-
-class PDDEnergy(EnergyFunction):
-    _shortname = "PDD"
-    HELPTEXT = "Pair distance distribution energy for fitting SAXS data."
+class LoopLoopInteractionEnergy(InteractionEnergy):
+    _shortname="LLI"
+    HELPTEXT="LLI"
+    cutoff = 15
+    target_interactions = 0.27
+    knowledge_weight = 50
 
     @classmethod
-    def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
-        if pdd_target=="__cg__":
-            dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
-            target_pdd = pd.DataFrame({"distance":dists, "count":counts})
-        else:
-            target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True)
+    def from_cg(cls, prefactor, adjustment, cg, **kwargs):
+        """
+        Get the shortest loopdistance per loop energy for each hloop.
 
-        stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/len(target_pdd)
-        distdiff = target_pdd["distance"].values[1:]-target_pdd["distance"].values[:-1]
-        if np.all(np.abs(distdiff-stepsize)<0.5):
-            stepsize=distdiff[0]
-        else:
-            log.info("Unequally spaced target distribution. Stepsizes are %s. Rescaling", distdiff)
-            stepsize=None
-        return cls(cg.seq_length, target_pdd, prefactor, adjustment, level=level, stepwidth=stepsize)
+        :param cg: The coarse grained RNA
+        :returns: A CombinedEnergy
+        """
+        return cls( cg.seq_length, len(list(cls.qualifying_loops(cg, cg.hloop_iterator()))),
+                    prefactor = prefactor, adjustment = adjustment)
+
+
+    def _get_cg_measure(self, cg):
+        interactions = 0
+        for loop1 in self.qualifying_loops(cg, cg.hloop_iterator()):
+            a,b = cg.coords[loop1]
+            for loop2 in self.qualifying_loops(cg, cg.hloop_iterator()):
+                if loop1 == loop2:
+                    continue
+                c,d = cg.coords[loop2]
+                if ftuv.elements_closer_than(a,b,c,d, self.cutoff):
+                    interactions+=1
+                    break
+        return interactions/self.num_loops
+
+    def reset_distributions(self, rna_length):
+        self.reference_interactions = [0.13] * self.knowledge_weight
+
+class _PDD_Mixin(object):
+    def check_level(self, level):
+        if level not in ["A", "R"]:
+            raise ValueError("Level has to be either 'A' or 'R', "
+                             "but '{}' was given".format(level))
+        return level
+
+    def check_stepwidth(self, stepwidth):
+        if stepwidth is None:
+            stepwidth=self.stepwidth_from_level(self._level)
+        log.info("Initializing PDD energy with stepsize %s", stepwidth)
+        return stepwidth
+
+    def check_target_pdd(self, distances, values, log=True):
+        maxlen=int(max(distances)//self._stepwidth)
+        _target_pdd = np.zeros(maxlen+1, dtype=float)
+        for i, distance in enumerate(distances):
+            fraction = values[i]
+            bin_no=int(distance//self._stepwidth)
+            if log:
+                self.log.debug("%s, %s -> Bin %s", distance, fraction, bin_no)
+            bin_no=min(bin_no, len(_target_pdd)-1)
+            if log:
+                self.log.debug("%s, %r", bin_no, bin_no)
+            _target_pdd[bin_no]+=fraction
+        # Some sanity check: We only like zeros after the maximal Radius.
+        num_zeros = len(_target_pdd[1:])-np.count_nonzero(_target_pdd[1:])
+        if log:
+            if not np.all(_target_pdd[1:-num_zeros]>0):
+                self.log.error("There are holes in the rescaled target distribution: %s.\n"
+                     "This might be due to an incompatible step-size in the "
+                     "target distribution.\n"
+                     "This can lead to strange sampling results!",
+                     _target_pdd)
+        if sum(_target_pdd)!=1:
+            if log:
+                self.log.warning("Target_PDD is not normalized. Now normalizing...")
+            _target_pdd/=sum(_target_pdd)
+        return _target_pdd
 
     @staticmethod
     def stepwidth_from_level(level):
@@ -1232,6 +1206,15 @@ class PDDEnergy(EnergyFunction):
             return 5
         else:
             return 2
+
+    def pad(self, array):
+        out=np.zeros(self.target_values.shape[-1])
+        if len(array)>len(out):
+            out=array[:len(out)]
+            out[-1]+=sum(array[len(out):])
+        else:
+            out[:len(array)]=array
+        return out
 
     @classmethod
     def get_pdd(cls, cg, level, stepsize):
@@ -1247,49 +1230,39 @@ class PDDEnergy(EnergyFunction):
                 raise ValueError("wrongLevel")
         return ftuv.pair_distance_distribution(points, stepsize)
 
+    @classmethod
+    def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
+        if pdd_target=="__cg__":
+            dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
+            target_pdd = pd.DataFrame({"distance":dists, "count":counts})
+        else:
+            target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True)
+
+        stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/len(target_pdd)
+        distdiff = target_pdd["distance"].values[1:]-target_pdd["distance"].values[:-1]
+        if np.all(np.abs(distdiff-stepsize)<0.5):
+            stepsize=distdiff[0]
+        else:
+            log.warning("Unequally spaced target distribution. Stepsizes are %s. Rescaling", distdiff)
+            assert False
+            stepsize=None
+        return cls(cg.seq_length, target_pdd, prefactor, adjustment, level=level, stepwidth=stepsize)
+
+
+class PDDEnergy(_PDD_Mixin, EnergyFunction):
+    _shortname = "PDD"
+    HELPTEXT = "Pair distance distribution energy for fitting SAXS data."
+
     def __init__(self, length, target_pdd, prefactor, adjustment, level="R", stepwidth=None):
         """
         :param length: The RNA's sequence length
         :param target_pdd: A pandas dataframe with 2 columns: distance, count
         :param level: Either "A" for virtual atoms or "R" for virtual residues.
         """
-        if level not in ["A", "R"]:
-            raise ValueError("Level has to be either 'A' or 'R', "
-                             "but '{}' was given".format(level))
-        self._level=level
-        if stepwidth is None:
-            self._stepwidth=self.stepwidth_from_level(level)
-        else:
-            self._stepwidth=stepwidth
-        log.info("Initializing PDD energy with stepsize %s", self._stepwidth)
+        self._level=self.check_level(level)
         super(PDDEnergy, self).__init__(prefactor, adjustment)
-        maxlen=int(max(target_pdd["distance"])//self._stepwidth)
-        self._target_pdd = np.zeros(maxlen+1, dtype=float)
-        for row in target_pdd.itertuples(index=False):
-            distance, fraction = row.distance, row.count
-            bin_no=int(distance//self._stepwidth)
-            self.log.debug("%s, %s -> Bin %s", distance, fraction, bin_no)
-            bin_no=min(bin_no, len(self._target_pdd)-1)
-            self.log.debug("%s, %r", bin_no, bin_no)
-            self._target_pdd[bin_no]+=fraction
-        # Some sanity check: We only like zeros after the maximal Radius.
-        num_zeros = len(self._target_pdd)-len(np.nonzero(self._target_pdd)[0])
-        if not np.all(self._target_pdd[:-num_zeros])==0:
-            self.log.error("There are holes in the rescaled target distribution: %s.\n"
-                     "This might be due to an incompatible step-size in the "
-                     "target distribution.\n"
-                     "This can lead to strange sampling results!", self._target_pdd)
-        if sum(self._target_pdd)!=1:
-            self.log.warning("Target_PDD is not normalized. Now normalizing...")
-            self._target_pdd/=sum(self._target_pdd)
-    def pad(self, array):
-        out=np.zeros(len(self._target_pdd))
-        if len(array)>len(out):
-            out=array[:len(out)]
-            out[-1]+=sum(array[len(out):])
-        else:
-            out[:len(array)]=array
-        return out
+        self._stepwidth=self.check_stepwidth(stepwidth)
+        self.target_values = self.check_target_pdd(target_pdd["distance"], target_pdd["count"])
 
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
                     plot_debug=False):
@@ -1303,14 +1276,14 @@ class PDDEnergy(EnergyFunction):
             m=self.pad(m)
             m=m/np.sum(m)
         self._last_measure=m
-        diff_vec = m-self._target_pdd
+        diff_vec = m-self.target_values
         self.log.debug("Diffs: %s", diff_vec)
         integral = np.sum(np.abs(diff_vec))*self._stepwidth
         self._last_integral=integral
         #if math.sqrt(self.step)%10==2:
         #    import matplotlib.pyplot as plt
         #    plt.plot(np.arange(len(m)), m, label="current")
-        #    plt.plot(np.arange(len(m)), self._target_pdd, label="target")
+        #    plt.plot(np.arange(len(m)), self.target_values, label="target")
         #    plt.legend()
         #    plt.title("Integral {}".format(integral))
         #    plt.show()
@@ -1332,6 +1305,93 @@ class PDDEnergy(EnergyFunction):
 
         if iteration is not None:
             np.savetxt(output_file + ".{:d}".format(iteration), arr)
+
+class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
+    sampled_stats_fn = None
+    HELPTEXT="EPD"
+    _shortname = "EPD"
+    def generate_target_distribution(self, *args, **kwargs):
+        raise NotImplementedError("Not needed. Use experiments")
+
+    def __init__(self, length, target_pdd, prefactor, adjustment, level="R", stepwidth=None):
+        """
+        :param length: The RNA's sequence length
+        :param target_pdd: A pandas dataframe with 2 columns: distance, count
+        :param level: Either "A" for virtual atoms or "R" for virtual residues.
+        """
+        self.log = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
+        self._level=self.check_level(level)
+        self._stepwidth=self.check_stepwidth(stepwidth)
+
+        target = [self.check_target_pdd(target_pdd["distance"], target_pdd["count"])]
+        e = np.maximum(target_pdd["error"], 5*10**-8)
+        for i in range(50):
+            for _ in range(50-i):
+                target.append(self.check_target_pdd(target_pdd["distance"], np.maximum(target_pdd["count"]-i*e, 0), log=False))
+                target.append(self.check_target_pdd(target_pdd["distance"], target_pdd["count"]+i*e, log=False))
+
+        self.target_values = np.array(target)
+        super(Ensemble_PDD_Energy, self).__init__(prefactor, adjustment)
+        self.reset_distributions(length)
+
+    def reset_distributions(self, length):
+        # At the start of sampling, set the reference PDD equal to the target PDD
+        # The target-PDD never changes
+        self.accepted_measures = list(self.target_values)
+        self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
+        self._set_target_distribution()
+
+    @classmethod
+    def _get_distribution_from_values(cls, values):
+        '''
+        Return a probability distribution from the given values.
+
+        :param values: A list of values to fit a distribution to.
+        :return: A probability distribution fit to the values.
+        '''
+        values = np.asarray(values)
+        log.debug("Getting distribution from len(%s [0]) = %s", values, len(values[0]))
+        log.debug("values[:,0] = %s", values[:,0])
+
+        kdes = [ super(Ensemble_PDD_Energy, cls)._get_distribution_from_values(values[:,i])
+                    for i in range(len(values[0]))
+                ]
+        log.debug("Ensemble_PDD used %s KDEs: %s", len(kdes), kdes)
+        class KDE(object):
+            def __init__(self, kdes):
+                self._kdes = kdes
+            def __call__(self, values):
+                log.debug("Evaluating %s", values)
+                out = []
+                for i in range(len(values)):
+                    if self._kdes[i] is not None:
+                        v, = self._kdes[i](values[i])
+                        v=max(v,10**-300)
+                        out.append(v)
+                    else:
+                        out.append(10**-300)
+                    #import matplotlib.pyplot as plt
+                    #fig,ax=plt.subplots()
+                    #plt.title(i)
+                    #ax.plot(np.linspace(-0.01,0.03,100), self._kdes[i](np.linspace(-0.01,0.03,100)))
+                    #ax.plot([values[i]], self._kdes[i](values[i]), "ro")
+                    #plt.show()
+                return np.array(out)
+        return KDE(kdes)
+
+    def _get_values_from_file(cls, filename, nt_length):
+        raise NotImplementedError()
+
+    def _get_cg_measure(self, cg):
+        m = self.get_pdd(cg, self._level, self._stepwidth)[1]
+        m = self.pad(m)
+        m = m/np.sum(m)
+        return m
+
+    def eval_energy(self, *args, **kwargs):
+        energy = super(Ensemble_PDD_Energy, self).eval_energy(*args, **kwargs)
+        return 0.01*energy
+
 
 class DoNotContribute(Exception):
     pass
@@ -1356,6 +1416,7 @@ def _minimal_h_h_distance(cg, elem1, elem2_iterator):
         if dist < min_dist:
             min_dist = dist
     return min_dist
+
 
 class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
     _shortname = "SLD"
@@ -1492,6 +1553,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
             except DoNotContribute:
                 energy=0
             return energy
+
 
 class CombinedFunction(object):
     def __init__(self, funcs):

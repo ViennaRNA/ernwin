@@ -5,6 +5,10 @@ import forgi.threedee.utilities.pdb as ftup
 import fess.builder.models as fbm
 import fess.builder.reconstructor as fbr
 
+import logging
+
+log = logging.getLogger("reconstruct.py")
+
 def get_parser():
     parser = fuc.get_rna_input_parser("Reconstruct a pdb from a forgi *.coord file produced by ernwin.",
                                       1, "only_cg", enable_logging=True)
@@ -24,9 +28,27 @@ def main(args):
         sm = fbm.SpatialModel(cg)
         sm.load_sampled_elems()
         sm.new_traverse_and_build()
-        rec = fbr.Reconstructor(args.source_pdb_dir, args.source_cg_dir)
-        chains = rec.reconstruct(sm)
-        ftup.output_multiple_chains(chains.values(), args.outfilename)
+        try:
+            rec = fbr.Reconstructor(args.source_pdb_dir, args.source_cg_dir)
+            chains = rec.reconstruct(sm)
+            ftup.output_multiple_chains(chains.values(), args.outfilename)
+        except Exception as e:
+            log.exception("Error %s occurred", e)
+        i=0
+        while True:
+            i+=1
+            next_fn = raw_input("Please specify the next filename to reconstruct:")
+            cg = fuc.load_rna(next_fn, "only_cg", False )
+            sm = fbm.SpatialModel(cg)
+            sm.load_sampled_elems()
+            sm.new_traverse_and_build()
+            try:
+                chains = rec.reconstruct(sm)
+                ftup.output_multiple_chains(chains.values(), args.outfilename+"-"+i)
+            except Exception as e:
+                log.exception("Error %s occurred", e)
+
+
 
 parser = get_parser()
 if __name__=="__main__":
