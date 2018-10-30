@@ -495,10 +495,31 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         raise ValueError("Inconsistent defines: %s and %s for %s", define_from, define_to, elem_to)
     if cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
         log.error("%s not consistent with %s: Missing residues", define_from, define_to)
-        # TODO: We have missing residues in the original sequence!
-        raise NotImplementedError("TODO: MISSING RESIDUES")
         log.error("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
-
+        if define_to[1]-define_to[0]>define_from[1]-define_from[0]:
+            # Apply an indel
+            try:
+                import moderna
+            except ImportError:
+                raise RuntimeError("ModeRNA is required for processing indels!")
+            missing =  (define_to[1]-define_to[0])-(define_from[1]-define_from[0])
+            len_left = define_from[1]-define_from[0] + 3 #plus 3 for adjacent
+            # Extract only one side.
+            fragment_chain = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
+            if len(fragment_chain)>1:
+                raise NotImplementedError("TODO")
+            mod_models = moderna.load_model(fragment_chain.values()[0], data_type="chain")
+            log.error("Replaing strand: %s to %s", seq_ids_a_from[1], seq_ids_a_from[len_left-2])
+            target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
+            log.error("With target seq %s", target_seq)
+            moderna.apply_indel(mod_model, seq_ids_a_from[1],
+                                seq_ids_a_from[len_left-2],
+                                target_seq
+                                )
+            # Back to PDB
+            chains_from = {seq_ids_a_from[0].chain: mod_model.get_structure()}
+        else:
+            raise NotImplementedError("TODO")
     seq_ids_to = []
     seq_ids_from = []
     for i in range(0, len(define_from), 2):
