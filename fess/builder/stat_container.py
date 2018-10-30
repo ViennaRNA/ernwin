@@ -68,6 +68,7 @@ def parse_stats_file(file_handle):
                           " Does the stat come from a faulty BulgeGraph?".format(angle_stat.pdb_name))
                 continue
             angle_stat.ang_type = patch_angtype(angle_stat.ang_type)
+            log.debug("Reading angle_stat with dimensions %s and %s, and type %s. With define %s", angle_stat.dim1, angle_stat.dim2, angle_stat.ang_type, angle_stat.define)
             stats["angle"][(angle_stat.dim1, angle_stat.dim2, angle_stat.ang_type)].append(angle_stat)
             # Adding the reverse does not work as intended and produces a lot of structures
             # that do not fulfill the constraint energy.
