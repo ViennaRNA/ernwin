@@ -1435,7 +1435,7 @@ class ShortestLoopDistancePerLoop(CoarseGrainEnergy):
         energies=[]
         for hloop in cg.hloop_iterator():
             if hloop not in cg.interacting_elements:
-                energies+= [cls(rna_length = cg.seq_length, loop_name = hloop,
+                energies+= [cls(cg.seq_length, loop_name = hloop,
                             prefactor = prefactor, adjustment = adjustment)]
         return CombinedEnergy(energies)
 

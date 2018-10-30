@@ -18,6 +18,7 @@ def get_parser():
     parser.add_argument("--source-cg-dir", type=str, required=True,
                         help="A directory where the cg-files corresponding to the pdb files in "
                              "source-pdb-dir are located.")
+    parser.add_argument("--interactive", action="store_true")
     parser.add_argument("--outfilename", type=str,
                         help="Target filename for the pdb to be written.", default="out.pdb")
     return parser
@@ -35,7 +36,7 @@ def main(args):
         except Exception as e:
             log.exception("Error %s occurred", e)
         i=0
-        while True:
+        while args.interactive:
             i+=1
             next_fn = raw_input("Please specify the next filename to reconstruct:")
             cg = fuc.load_rna(next_fn, "only_cg", False )
