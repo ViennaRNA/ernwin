@@ -461,10 +461,9 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         for nt in range(define_a_from[i], define_a_from[i+1]+1):
             seq_ids_a_from.append(cg_from.seq.to_resid(nt))
 
-
     #The loop fragment to insert in a dict {chain_id:chain}
     try:
-        pdb_fragment_to_insert = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
+        chains_from = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
     except Exception as e:
         with log_to_exception(log, e):
             log.error("Could not extract fragment %s from pdb: "
@@ -504,12 +503,10 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
                 raise RuntimeError("ModeRNA is required for processing indels!")
             missing =  (define_to[1]-define_to[0])-(define_from[1]-define_from[0])
             len_left = define_from[1]-define_from[0] + 3 #plus 3 for adjacent
-            # Extract only one side.
-            fragment_chain = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
-            if len(fragment_chain)>1:
+            if len(chains_from)>1:
                 raise NotImplementedError("TODO")
-            mod_model = moderna.load_model(fragment_chain.values()[0], data_type="chain")
-            log.error("Replacing strand: %s to %s", seq_ids_a_from[1].resid, seq_ids_a_from[len_left-2].resid)
+            mod_models = moderna.load_model(chains_from.values()[0], data_type="chain")
+            log.error("Replacing strand: %s to %s", seq_ids_a_from[1], seq_ids_a_from[len_left-2])
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
             log.error("With target seq %s", target_seq)
             res5p = seq_ids_a_from[1].resid
@@ -525,22 +522,37 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         else:
             raise NotImplementedError("TODO")
     seq_ids_to = []
-    seq_ids_from = []
-    for i in range(0, len(define_from), 2):
-        try:
-            for nt in range(define_from[i], define_from[i+1]+1):
-                seq_ids_from.append(cg_from.seq.to_resid(nt))
-        except IndexError:
-            log.error(define_from)
-            raise
+    for i in range(0, len(define_to), 2):
         for nt in range(define_to[i], define_to[i+1]+1):
             seq_ids_to.append(cg_to.seq.to_resid(nt))
-    assert len(seq_ids_to)==len(seq_ids_from)
+    seq_ids_from = []
+    # Now append first strand to seq_ids_from
+    assert closing_bps_from[0].chain = closing_bps_from[1].chain
+    chain = chains_from[closing_bps_from[0].chain]
+    for res in chain:
+        if res.id == closing_bps_from[0].resid:
+            continue
+        if res.id == closing_bps_from[1].resid:
+            break
+        seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
+    if len(closing_bps_from)>2:
+        chain = chains_from[closing_bps_from[2].chain]
+        assert closing_bps_from[2].chain = closing_bps_from[3].chain
+        found = False
+        for res in chain:
+            if res.id == closing_bps_from[2].resid:
+                found=True
+            elif found==True:
+                if res.id== closing_bps_from[3].resid:
+                    break
+                seq_ids_from.append(RESID(closing_bps_from[2].chain, res.id))
+
+    assert len(seq_ids_from) == len(seq_ids_to)
+
     # Now copy the residues from the fragment chain to the scaffold chain.
-    for i in range(len(seq_ids_from)):
+    for i in range(len(seq_ids_to)):
         resid_from = seq_ids_from[i]
         resid_to   = seq_ids_to[i]
-
         residue = chains_from[resid_from.chain][resid_from.resid]
         #Change the resid to the target
         residue.parent = None
@@ -565,6 +577,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[3]-1),
                                cg_to.seq.to_resid(define_a_to[3]) ] )
     return gaps_to_mend
+
 def mend_breakpoints(chains, gap):
     """
     :param gap: A list of res_ids, which can be moved to mend the gap.
