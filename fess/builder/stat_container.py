@@ -177,11 +177,16 @@ class StatStorage(object):
         if elem[0] in "i, m":
             ang_type = bg.get_angle_type(elem, allow_broken = True)
             ang_type = patch_angtype(ang_type)
-            return tuple([dims[0], dims[1], ang_type])
+            key = tuple([dims[0], dims[1], ang_type])
         elif elem[0]=="h" and dims[0]<3:
-            return 3 #Hairpins<3 probably means missing residues. Just return the smalles possible dimension
+            key = 3 #Hairpins<3 probably means missing residues. Just return the smalles possible dimension
         else:
-            return dims[0]
+            key = dims[0]
+        log.debug("Key for bg %s and element %s is %s (node dimensions without_missing "
+                  "%s, with missing %s)", bg.name, elem, key,
+                  bg.get_node_dimensions(elem, with_missing=False),
+                  bg.get_node_dimensions(elem, with_missing=True))
+        return key
 
     def _iter_stat_sources(self):
         if self._sources is None:
