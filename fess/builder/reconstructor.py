@@ -508,13 +508,17 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             fragment_chain = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
             if len(fragment_chain)>1:
                 raise NotImplementedError("TODO")
-            mod_models = moderna.load_model(fragment_chain.values()[0], data_type="chain")
-            log.error("Replaing strand: %s to %s", seq_ids_a_from[1], seq_ids_a_from[len_left-2])
+            mod_model = moderna.load_model(fragment_chain.values()[0], data_type="chain")
+            log.error("Replacing strand: %s to %s", seq_ids_a_from[1].resid, seq_ids_a_from[len_left-2].resid)
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
             log.error("With target seq %s", target_seq)
-            moderna.apply_indel(mod_model, seq_ids_a_from[1],
-                                seq_ids_a_from[len_left-2],
-                                target_seq
+            res5p = seq_ids_a_from[1].resid
+            res5p = (str(res5p[1])+res5p[2]).strip()
+            res3p = seq_ids_a_from[len_left-2].resid
+            res3p = (str(res3p[1])+res3p[2]).strip()
+            moderna.apply_indel(mod_model, res5p,
+                                res3p,
+                                str(target_seq)
                                 )
             # Back to PDB
             chains_from = {seq_ids_a_from[0].chain: mod_model.get_structure()}
