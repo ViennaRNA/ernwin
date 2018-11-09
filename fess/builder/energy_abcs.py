@@ -218,6 +218,8 @@ class InteractionEnergy(EnergyFunction):
     def __init__(self, rna_length, num_loops, prefactor, adjustment):
         self.num_loops = num_loops
         super(InteractionEnergy, self).__init__(prefactor, adjustment)
+        if num_loops == 0:
+            log.warning("The number of loops is 0 for %s", self.shortname)
         self.reset_distributions(rna_length)
 
     @classmethod

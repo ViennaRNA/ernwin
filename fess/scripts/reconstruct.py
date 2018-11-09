@@ -1,17 +1,23 @@
 #!python
+from __future__ import print_function
+
 import forgi.utilities.commandline_utils as fuc
 import forgi.threedee.utilities.pdb as ftup
 
 import fess.builder.models as fbm
 import fess.builder.reconstructor as fbr
 
+import fess.builder.stat_container as fbs
+import sys
+import collections
 import logging
-
+import logging_exceptions
+import os.path as op
 log = logging.getLogger("reconstruct.py")
 
 def get_parser():
     parser = fuc.get_rna_input_parser("Reconstruct a pdb from a forgi *.coord file produced by ernwin.",
-                                      1, "only_cg", enable_logging=True)
+                                      "+", "only_cg", enable_logging=True)
     parser.add_argument("--source-pdb-dir", type=str, required=True,
                         help="A directory where all the pdb files, from which fragments "
                              "can be extracted, are located.")
@@ -19,35 +25,84 @@ def get_parser():
                         help="A directory where the cg-files corresponding to the pdb files in "
                              "source-pdb-dir are located.")
     parser.add_argument("--interactive", action="store_true")
-    parser.add_argument("--outfilename", type=str,
-                        help="Target filename for the pdb to be written.", default="out.pdb")
+    parser.add_argument("--server", action="store_true")
+    parser.add_argument("--reassign-broken",action="store_true")
+    fbs.update_parser(parser)
     return parser
 
+def reconstruct(cg, fn, args, rec):
+    print("Processing", fn)
+    sm = fbm.SpatialModel(cg)
+    sm.load_sampled_elems()
+    if args.reassign_broken:
+        sm.bg.traverse_graph()
+        for ml in sm.bg.mloop_iterator():
+            if ml not in sm.bg.mst:
+                del sm.elem_defs[ml]
+        stat_source = fbs.from_args(args, cg)
+        fbm._perml_energy_to_sm(sm, "1FJC1", stat_source)
+        for ml in sm.bg.mloop_iterator():
+            if ml not in sm.bg.mst:
+                e = sm.junction_constraint_energy[ml].eval_energy(sm.bg)
+                log.info("Deviation for %s is %s", ml, e)
+                used_stat = sm.junction_constraint_energy[ml].used_stat
+                log.info("Used stat for %s is %s", ml, used_stat)
+                sm.elem_defs[ml] = used_stat
+        log.info("Broken stats reassigned. Storing cg.")
+        sm.bg.to_cg_file(fn+".reassigned.cg")
+    sm.new_traverse_and_build()
+    chains = rec.reconstruct(sm)
+    print("Writing", fn+".reconstr.pdb")
+    ftup.output_multiple_chains(chains.values(), fn+".reconstr.pdb")
+
 def main(args):
+    rec = fbr.Reconstructor(args.source_pdb_dir, args.source_cg_dir, args.server)
     with fuc.hide_traceback(): # Applies only to WrongFileFormat
-        cg, = fuc.cgs_from_args(args, 1, rna_type="only_cg", enable_logging=True)
+        cgs, fns = fuc.cgs_from_args(args, 1, rna_type="only_cg", enable_logging=True, return_filenames=True)
+    # Preprocessing
+    most_common_pdbs = collections.Counter()
+    for cg in cgs:
         sm = fbm.SpatialModel(cg)
         sm.load_sampled_elems()
-        sm.new_traverse_and_build()
-        try:
-            rec = fbr.Reconstructor(args.source_pdb_dir, args.source_cg_dir)
-            chains = rec.reconstruct(sm)
-            ftup.output_multiple_chains(chains.values(), args.outfilename)
-        except Exception as e:
-            log.exception("Error %s occurred", e)
-        i=0
-        while args.interactive:
-            i+=1
-            next_fn = raw_input("Please specify the next filename to reconstruct:")
-            cg = fuc.load_rna(next_fn, "only_cg", False )
-            sm = fbm.SpatialModel(cg)
-            sm.load_sampled_elems()
-            sm.new_traverse_and_build()
+        curr_fns = set()
+        for stat in sm.elem_defs.values():
+            stat_name = stat.pdb_name
+            pdb_basename = stat_name.split(":")[0]
+            pdb_filename = op.expanduser(op.join(rec.pdb_library_path, "_".join(pdb_basename.split("_")[:-1])+".cif"))
             try:
-                chains = rec.reconstruct(sm)
-                ftup.output_multiple_chains(chains.values(), args.outfilename+"-"+i)
-            except Exception as e:
-                log.exception("Error %s occurred", e)
+		with open(pdb_filename): pass
+            except IOError:
+                pdb_filename = pdb_filename.rstrip(".cif")+".pdb"
+            curr_fns.add(pdb_filename)
+        for fn in curr_fns:
+            most_common_pdbs[fn]+=1
+    for fn, count in most_common_pdbs.most_common(250):
+        if count==1:
+            break
+        print("Preloading {}, used {} times".format(fn, count))
+        rec.get_pdb(fn, True)
+    print("Preloading of most common PDBs done")
+    logging.getLogger("forgi").setLevel(logging.ERROR)
+    logging_exceptions.config_from_args(args)
+    for i, cg in enumerate(cgs):
+        try:
+            fn = fns[i]
+            reconstruct(cg, fn, args, rec)
+        except Exception as e:
+            logging_exceptions.log_exception(e)
+            log.exception("During reconstruction of cg %s, an error occurred: %s", fn, e)
+    i=0
+    print("Waiting for stdin", file=sys.stderr)
+    while True:
+        try:
+            line = sys.stdin.readline()
+            fn=line.strip()
+            print("Received", fn, file=sys.stderr)
+            cg = fuc.load_rna(fn, "only_cg", False )
+            reconstruct(cg, fn, args, rec)
+        except Exception as e:
+            logging_exceptions.log_exception(e)
+            log.exception("During reconstruction of additional cg %s, an error occurred: %s", fn, e)
 
 
 

@@ -843,7 +843,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
                 curr_dev = self._stat_deviation(cg, stat)
                 if curr_dev < best_deviation:
                     best_deviation = curr_dev
-                    #log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
+                    #self.log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                     self.used_stat = stat
         self.log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
@@ -1052,7 +1052,8 @@ class AMinorEnergy(InteractionEnergy):
         energies = []
         for loop in cls.LOOPS:
             cls.loop_type = loop
-            energies.append(cls(loop, len(list(cg.stem_iterator())),
+            if len(list(cls.qualifying_loops(cg, cg.defines)))!=0:
+                energies.append(cls(loop, len(list(cg.stem_iterator())),
                                 len(list(cls.qualifying_loops(cg, cg.defines))),
                                 prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
@@ -1140,8 +1141,11 @@ class LoopLoopInteractionEnergy(InteractionEnergy):
         :param cg: The coarse grained RNA
         :returns: A CombinedEnergy
         """
-        return cls( cg.seq_length, len(list(cls.qualifying_loops(cg, cg.hloop_iterator()))),
-                    prefactor = prefactor, adjustment = adjustment)
+        if len(list(cls.qualifying_loops(cg, cg.hloop_iterator())))>1:
+            return cls( cg.seq_length, len(list(cls.qualifying_loops(cg, cg.hloop_iterator()))),
+                        prefactor = prefactor, adjustment = adjustment)
+        else:
+            return CombinedEnergy([])
 
 
     def _get_cg_measure(self, cg):
@@ -1647,11 +1651,14 @@ class CombinedEnergy(object):
             else:
                 log.debug("Removing energy %s", e.shortname)
         self.energies = new_energies
+
     @property
     def can_constrain(self):
         can_constrain = []
         for e in self.iterate_energies():
-            can_constrain.append(e.can_constrain)
+                can_constrain.append(e.can_constrain)
+        if not can_constrain:
+            return None
         if all(c == can_constrain[0] for c in can_constrain):
             return can_constrain[0]
         else:

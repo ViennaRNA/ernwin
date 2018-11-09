@@ -14,6 +14,7 @@ import fess.builder.config as fbc
 from fess import data_file
 import os.path as op
 
+from forgi.graph.residue import RESID
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.graph_pdb as ftug
@@ -52,13 +53,16 @@ log=logging.getLogger(__name__)
 import numpy as np
 
 class Reconstructor(object):
-    def __init__(self, pdb_library_path, cg_library_path):
+    def __init__(self, pdb_library_path, cg_library_path, server=False):
+        """
+        :param server: If True, assume a lot of memory is available
+        """
         self.cg_library_path = cg_library_path
         self.pdb_library_path = pdb_library_path
         self.stem_use_average_method = True
         self._loaded_cgs = {}
         self._loaded_pdbs = {}
-
+        self.store=server
     def reconstruct(self, sm):
         '''
         Re-construct a full-atom model from a coarse-grain model.
@@ -77,6 +81,18 @@ class Reconstructor(object):
             _compare_cg_chains_partial(sm.bg, chains)
         except Exception:
             log.exception("Validation could not be performed due to the following error!")
+
+
+        # Some more verification
+        for res in sm.bg.seq._seqids:
+            if sm.bg.get_elem(res)[0]=="s":
+                try:
+                    chains[res.chain][res.resid]
+                except LookupError as e:
+                    log.error("STEM Residue missing in reconstructed PDB: %s (KeyError %s)", res, e)
+                    log.error("It belongs to %s", sm.bg.get_elem(res))
+
+
         #ftup.output_multiple_chains(chains.values(), "reconstr_stems.pdb")
         '''# Some more validation. Useless unless searching for a bug
         chains_in_file = ftup.get_all_chains("reconstr_stems.pdb")
@@ -95,6 +111,18 @@ class Reconstructor(object):
         #ftup.output_multiple_chains(chains.values(), "base_replaced.pdb")
         reorder_residues(chains, sm.bg)
         chains = mend_breakpoints(chains, gaps_to_mend)
+
+
+        # Some verification
+        for res in sm.bg.seq._seqids:
+            try:
+                chains[res.chain][res.resid]
+            except LookupError as e:
+                log.error("Residue missing in reconstructed PDB: %s (KeyError %s)", res, e)
+                log.error("It belongs to %s", sm.bg.get_elem(res))
+
+
+
         #ftup.output_multiple_chains(chains.values(), "mended.pdb")
         return chains
 
@@ -126,23 +154,17 @@ class Reconstructor(object):
             raise
         log.debug("Opening cg-file %s to extract stat %s", cg_filename, stat.pdb_name)
         cg = self.get_cg(cg_filename)  #The cg with the template
-
-        chains, missing_residues, _ = ftup.get_all_chains(pdb_filename, no_annotation=True)
-        new_chains = []
-        for chain in chains:
-            chain, modifications = ftup.clean_chain(chain)
-            new_chains.append(chain)
-        chains = {c.id:c for c in new_chains}
+        chains = self.get_pdb(pdb_filename, store = self.store)
 
         return cg, chains
 
     def get_cg(self, fn):
         if fn not in self._loaded_cgs:
             cg = ftmc.CoarseGrainRNA.from_bg_file(fn)
-            self._loaded_cgs[fn] = cg
+            return cg
         return self._loaded_cgs[fn]
 
-    def get_pdb(self, fn):
+    def get_pdb(self, fn, store=False):
         if fn not in self._loaded_pdbs:
             chains, missing_residues, _ = ftup.get_all_chains(fn, no_annotation=True)
             new_chains = []
@@ -150,7 +172,9 @@ class Reconstructor(object):
                 chain, modifications = ftup.clean_chain(chain)
                 new_chains.append(chain)
             chains = {c.id:c for c in new_chains}
-            self._loaded_pdbs[fn]=chains
+            if store:
+                self._loaded_pdbs[fn]=chains
+            return chains
         return self._loaded_pdbs[fn]
 
     def _reconstruct_stem(self, sm, stem_name, new_chains):
@@ -364,7 +388,7 @@ def rotate_chain(chains, rot_mat, offset):
             new_coords.append(atom.coord)
             atom.transform(rot_mat, offset)
         dev_from_cent = ftuv.magnitude(np.sum(new_coords, axis=0)/len(new_coords))
-        if dev_from_cent>1:
+        if dev_from_cent>5:
             log.warning("{} not close to zero".format(dev_from_cent))
 
 
@@ -428,7 +452,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 
     :returns: a list of tuples containing gaps to mend
     '''
-
+    log.info("Inserting element %s",elem_to)
     assert elem_from[0]==elem_to[0], "{}[0]!={}[0]".format(elem_from, elem_to)
     # The define of the loop with adjacent nucleotides (if present) in both cgs
     define_a_to = cg_to.define_a(elem_to)
@@ -491,10 +515,10 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     define_to = cg_to.defines[elem_to]
     define_from = cg_from.defines[elem_from]
     if len(define_from)!=len(define_to):
-        raise ValueError("Inconsistent defines: %s and %s for %s", define_from, define_to, elem_to)
+        raise ValueError("Inconsistent defines: {} and {} for {}".format(define_from, define_to, elem_to))
     if cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
-        log.error("%s not consistent with %s: Missing residues", define_from, define_to)
-        log.error("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
+        log.warning("%s not consistent with %s: Missing residues", define_from, define_to)
+        log.warning("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
         if define_to[1]-define_to[0]>define_from[1]-define_from[0]:
             # Apply an indel
             try:
@@ -505,20 +529,23 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             len_left = define_from[1]-define_from[0] + 3 #plus 3 for adjacent
             if len(chains_from)>1:
                 raise NotImplementedError("TODO")
-            mod_models = moderna.load_model(chains_from.values()[0], data_type="chain")
-            log.error("Replacing strand: %s to %s", seq_ids_a_from[1], seq_ids_a_from[len_left-2])
+            mod_model = moderna.load_model(chains_from.values()[0], data_type="chain")
+            log.info("For Replacing:  %s", seq_ids_a_from)
+            log.info("Replacing strand: %s to %s", closing_bps_from[0], closing_bps_from[1])
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
-            log.error("With target seq %s", target_seq)
-            res5p = seq_ids_a_from[1].resid
+            log.info("With target seq %s", target_seq)
+            res5p = closing_bps_from[0].resid
             res5p = (str(res5p[1])+res5p[2]).strip()
-            res3p = seq_ids_a_from[len_left-2].resid
+            res3p = closing_bps_from[1].resid
             res3p = (str(res3p[1])+res3p[2]).strip()
             moderna.apply_indel(mod_model, res5p,
                                 res3p,
                                 str(target_seq)
                                 )
             # Back to PDB
-            chains_from = {seq_ids_a_from[0].chain: mod_model.get_structure()}
+            pdb_model = mod_model.get_structure()[0]
+            mod_chain, = pdb_model.child_list
+            chains_from = {seq_ids_a_from[0].chain: mod_chain}
         else:
             raise NotImplementedError("TODO")
     seq_ids_to = []
@@ -527,17 +554,18 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             seq_ids_to.append(cg_to.seq.to_resid(nt))
     seq_ids_from = []
     # Now append first strand to seq_ids_from
-    assert closing_bps_from[0].chain = closing_bps_from[1].chain
+    assert closing_bps_from[0].chain == closing_bps_from[1].chain
     chain = chains_from[closing_bps_from[0].chain]
     for res in chain:
-        if res.id == closing_bps_from[0].resid:
+        if elem_to[0]!="f" and res.id == closing_bps_from[0].resid:
             continue
-        if res.id == closing_bps_from[1].resid:
+        if elem_to[0]!="t" and res.id == closing_bps_from[1].resid:
             break
+        log.info("Appending seqid %s %s",res, res.id)
         seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
     if len(closing_bps_from)>2:
         chain = chains_from[closing_bps_from[2].chain]
-        assert closing_bps_from[2].chain = closing_bps_from[3].chain
+        assert closing_bps_from[2].chain == closing_bps_from[3].chain
         found = False
         for res in chain:
             if res.id == closing_bps_from[2].resid:
@@ -546,8 +574,11 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
                 if res.id== closing_bps_from[3].resid:
                     break
                 seq_ids_from.append(RESID(closing_bps_from[2].chain, res.id))
+                log.info("Appending seqid %s %s",res, res.id)
 
-    assert len(seq_ids_from) == len(seq_ids_to)
+    log.info("Fragment %s", seq_ids_from)
+    log.info("Target %s", seq_ids_to)
+    assert len(seq_ids_from) == len(seq_ids_to), "{} {}".format(seq_ids_from, seq_ids_to)
 
     # Now copy the residues from the fragment chain to the scaffold chain.
     for i in range(len(seq_ids_to)):
@@ -619,16 +650,15 @@ def mend_breakpoints(chains, gap):
     # We have to replace them back.
     for chain_id in chains:
         for res in mended_chains[chain_id]:
-            if res.id[0].strip():
-                changed = False
-                for o_res in chains[chain_id]:
-                    if o_res.id[1:]==res.id[1:]:
-                        log.warning("Changing Moderna residue %s to %s", res, o_res)
-                        assert not changed #Only one residue per number+icode
-                        res.id = o_res.id
-                        res.resname = o_res.resname
-                        log.warning("Moderna residue now %s", res)
-                        changed = True
+            changed = False
+            for o_res in chains[chain_id]:
+                if o_res.id[1:]==res.id[1:]:
+                    log.warning("Changing Moderna residue %s to %s", res, o_res)
+                    assert not changed #Only one residue per number+icode
+                    res.id = o_res.id
+                    res.resname = o_res.resname
+                    log.warning("Moderna residue now %s", res)
+                    changed = True
     return mended_chains
 
 def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
@@ -758,9 +788,12 @@ def replace_bases(chains, cg):
         residues = chain.get_list()
 
         for residue in residues:
+            if residue.id[0].strip():
+                residue.id = (" ", residue.id[1], residue.id[2])
             #num = ress[i].id[1]
             old_name = residue.resname.strip()
             target_name = cg.seq[fgb.RESID(chain = chain_name, resid = residue.id)]
+            log.debug("resname is %s, target name is %s for %s", old_name, target_name, residue)
             if target_name == old_name:
                 #Don't replace the correct residues
                 log.debug("Not replacing %s by %s", old_name, target_name )

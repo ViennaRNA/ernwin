@@ -919,6 +919,9 @@ def _auto_contrib_for_loop(loop, sm, stat_source):
 def _perml_energy_to_sm(sm, energy_string, stat_source):
     log.info("Setting up constraint energy from string %s", energy_string)
     all_loops = sm.bg.find_mlonly_multiloops()
+    if not all_loops:
+        log.info("Ignoring perml-energy. No loops present")
+        return
     if energy_string == "AUTO":
         contribs = []
         for loop in  all_loops:
@@ -991,7 +994,7 @@ def update_parser(parser):
                                     Prefix contributions by a multiloop segment name followed by
                                     a colon, to apply the following contribution only to the
                                     multiloop containing this segment.
-                                    Example: `m1:JDIST,M8[1SFJ1]` applies the JDIST energy only
+                                    Example: `m1:JDIST,M8[1FJC1]` applies the JDIST energy only
                                     to the junction containing the m1 segment, and additionally
                                     the M8[1SFJ1] energy to all multiloops.
                                     """))
