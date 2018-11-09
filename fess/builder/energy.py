@@ -1177,7 +1177,7 @@ class _PDD_Mixin(object):
         log.info("Initializing PDD energy with stepsize %s", stepwidth)
         return stepwidth
 
-    def check_target_pdd(self, distances, values, log=True):
+    def check_target_pdd(self, distances, values, log=True, normalize=True):
         maxlen=int(max(distances)//self._stepwidth)
         _target_pdd = np.zeros(maxlen+1, dtype=float)
         for i, distance in enumerate(distances):
@@ -1198,7 +1198,7 @@ class _PDD_Mixin(object):
                      "target distribution.\n"
                      "This can lead to strange sampling results!",
                      _target_pdd)
-        if sum(_target_pdd)!=1:
+        if normalize and sum(_target_pdd)!=1:
             if log:
                 self.log.warning("Target_PDD is not normalized. Now normalizing...")
             _target_pdd/=sum(_target_pdd)
@@ -1327,13 +1327,12 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         self._level=self.check_level(level)
         self._stepwidth=self.check_stepwidth(stepwidth)
 
-        target = [self.check_target_pdd(target_pdd["distance"], target_pdd["count"])]
-        e = np.maximum(target_pdd["error"], 5*10**-8)
-        for i in range(50):
-            for _ in range(50-i):
-                target.append(self.check_target_pdd(target_pdd["distance"], np.maximum(target_pdd["count"]-i*e, 0), log=False))
-                target.append(self.check_target_pdd(target_pdd["distance"], target_pdd["count"]+i*e, log=False))
-
+        target_pdd = self.check_target_pdd(target_pdd["distance"], target_pdd["count"], normalize=False)
+        self.normalization_factor = sum(target_pdd)
+        target = [ target_pdd/normalization_factor ]
+        e = np.maximum(target_pdd["error"], 10**-8)
+        target = [ target_pdd/self.normalization_factor ]
+        self.error = e
         self.target_values = np.array(target)
         super(Ensemble_PDD_Energy, self).__init__(prefactor, adjustment)
         self.reset_distributions(length)
@@ -1341,7 +1340,19 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
     def reset_distributions(self, length):
         # At the start of sampling, set the reference PDD equal to the target PDD
         # The target-PDD never changes
-        self.accepted_measures = list(self.target_values)
+        self.accepted_measures = [self.target_values]
+        err = np.linspace(0, max(1,int(self.adjustment)), 11)[1:]
+        for i in err:
+            v = self.check_target_pdd(target_pdd["distance"],
+                                      np.maximum(0, target_pdd["count"]-i*self.error),
+                                      log=False, normalize=False)
+            v=v/self.normalization_factor
+            self.accepted_measures.append(v)
+            v = self.check_target_pdd(target_pdd["distance"],
+                                      target_pdd["count"]=i*self.error,
+                                      log=False, normalize=False)
+            v=v/self.normalization_factor
+            self.accepted_measures.append(v)
         self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
         self._set_target_distribution()
 
@@ -1395,6 +1406,13 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
     def eval_energy(self, *args, **kwargs):
         energy = super(Ensemble_PDD_Energy, self).eval_energy(*args, **kwargs)
         return 0.01*energy
+
+    def _set_target_distribution(self):
+        def gaussian(mu, sig):
+            def g_inner(x):
+                return np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*pi)*sig)
+            return g_inner
+        self.target_distribution = gaussian(self._target_values, self.error*self.adjustment)
 
 
 class DoNotContribute(Exception):
