@@ -472,10 +472,10 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     elif len(define_a_to)==4 and angle_type<0:
         for nt in define_a_to:
             closing_bps_to.append(cg_to.seq.to_resid(nt))
-        closing_bps_from=[ cg_from.seq_ids[define_a_from[2]-1],
-                           cg_from.seq_ids[define_a_from[3]-1],
-                           cg_from.seq_ids[define_a_from[1]-1],
-                           cg_from.seq_ids[define_a_from[0]-1],
+        closing_bps_from=[ cg_from.seq.to_resid(define_a_from[2]),
+                           cg_from.seq.to_resid(define_a_from[3]),
+                           cg_from.seq.to_resid(define_a_from[1]),
+                           cg_from.seq.to_resid(define_a_from[0]),
                          ]
     else:
         assert False
@@ -497,7 +497,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 
     # A list of tuples (seq_id_from, seq_id_to) for the nucleotides
     # that will be used for alignment.
-    log.info("Closing_bps _from are %s", closing_bps_from)
+    log.error("Closing_bps _from are %s", closing_bps_from)
     alignment_positions = []
     assert elem_from[0]!="s", "No stems allowed in insert_element"
     if elem_from[0]=="f":

@@ -49,7 +49,7 @@ def reconstruct(cg, fn, args, rec):
                 log.info("Used stat for %s is %s", ml, used_stat)
                 sm.elem_defs[ml] = used_stat
         log.info("Broken stats reassigned. Storing cg.")
-        sm.bg.to_cg_file(fn+".reassigned.cg")
+        sm.bg.to_file(fn+".reassigned.cg")
     sm.new_traverse_and_build()
     chains = rec.reconstruct(sm)
     print("Writing", fn+".reconstr.pdb")
