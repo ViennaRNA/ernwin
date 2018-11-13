@@ -534,10 +534,8 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             log.info("Replacing strand: %s to %s", closing_bps_from[0], closing_bps_from[1])
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
             log.info("With target seq %s", target_seq)
-            res5p = closing_bps_from[0].resid
-            res5p = (str(res5p[1])+res5p[2]).strip()
-            res3p = closing_bps_from[1].resid
-            res3p = (str(res3p[1])+res3p[2]).strip()
+            res5p = resid_to_moderna(closing_bps_from[0])
+            res3p = resid_to_moderna(closing_bps_from[1])
             moderna.apply_indel(mod_model, res5p,
                                 res3p,
                                 str(target_seq)
@@ -609,6 +607,15 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
                                cg_to.seq.to_resid(define_a_to[3]) ] )
     return gaps_to_mend
 
+def resid_to_moderna(resid):
+    """
+    :param resid: fgr.RESID
+    :returns: A string of the form "123" or "123B"
+    """
+    res = resid.resid
+    res = (str(res[1])+res[2]).strip()
+    return res
+
 def mend_breakpoints(chains, gap):
     """
     :param gap: A list of res_ids, which can be moved to mend the gap.
@@ -630,7 +637,7 @@ def mend_breakpoints(chains, gap):
                 continue
             if g[0].chain not in mod_models:
                 mod_models[g[0].chain] =  moderna.load_model(chains[g[0].chain], data_type="chain")#moderna.load_model(op.join(tmpdir, "tmp.pdb"), g[0].chain)
-            moderna.fix_backbone(mod_models[g[0].chain], g[0].resid[1], g[1].resid[1])
+            moderna.fix_backbone(mod_models[g[0].chain], resid_to_moderna(g[0]), resid_to_moderna(g[1]))
             moderna.write_model(mod_models[g[0].chain], op.join(tmpdir, "tmp.pdb"))
         for chain_id, model in mod_models.items():
             moderna.write_model(model,  op.join(tmpdir, "mended_{}.pdb".format(chain_id)))
