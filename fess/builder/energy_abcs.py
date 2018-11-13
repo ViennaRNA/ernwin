@@ -175,7 +175,7 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
             return value,  0, float("inf") # Value is a number
         # Now value is a string or not a legal value.
         if "_" in value:
-            p, s, f = "_".split(value)
+            p, s, f = value.split("_")
             return float(p), float(s), int(f)
         else:
             return float(value),  0, float("inf")
@@ -530,12 +530,12 @@ class CoarseGrainEnergy(EnergyFunction):
                 energy = sum(np.log( tar_val ) - np.log(ref_val))
             else:
                 energy, = (np.log( tar_val ) - np.log(ref_val))
-            log.debug("Energy (not yet scaled) = {}".format(energy))
+            self.log.debug("Energy (not yet scaled) = {}".format(energy))
             self.prev_energy = energy
             return -1 * self.prefactor * energy
         else:
             l = np.log(self.target_distribution(m))
-            log.debug("Energy, = {}".format(l))
+            self.log.debug("Energy, = {}".format(l))
             if len(l)>1:
                 energy = sum(l)
             else:

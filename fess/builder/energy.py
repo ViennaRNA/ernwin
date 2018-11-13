@@ -161,8 +161,6 @@ class FitVolume(EnergyFunction):
             else:
                 self.log.debug("No overlap")
         overlap = (density>0) & (self.data>self.cutoff)
-        print(overlap)
-        print(np.sum(density>0), np.sum(overlap))
         return density
 class ProjectionMatchEnergy(EnergyFunction):
     _shortname = "PRO"
@@ -1250,7 +1248,7 @@ class _PDD_Mixin(object):
             log.warning("Unequally spaced target distribution. Stepsizes are %s. Rescaling", distdiff)
             assert False
             stepsize=None
-        return cls(cg.seq_length, target_pdd, prefactor, adjustment, level=level, stepwidth=stepsize)
+        return cls(length=cg.seq_length, target_pdd=target_pdd, prefactor=prefactor, adjustment=adjustment, level=level, stepwidth=stepsize)
 
 
 class PDDEnergy(_PDD_Mixin, EnergyFunction):
@@ -1264,7 +1262,7 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         :param level: Either "A" for virtual atoms or "R" for virtual residues.
         """
         self._level=self.check_level(level)
-        super(PDDEnergy, self).__init__(prefactor, adjustment)
+        super(PDDEnergy, self).__init__(length=length,prefactor=prefactor, adjustment=adjustment)
         self._stepwidth=self.check_stepwidth(stepwidth)
         self.target_values = self.check_target_pdd(target_pdd["distance"], target_pdd["count"])
 
@@ -1323,18 +1321,19 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         :param target_pdd: A pandas dataframe with 2 columns: distance, count
         :param level: Either "A" for virtual atoms or "R" for virtual residues.
         """
+        self.target_pdd = target_pdd
         self.log = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._level=self.check_level(level)
         self._stepwidth=self.check_stepwidth(stepwidth)
 
-        target_pdd = self.check_target_pdd(target_pdd["distance"], target_pdd["count"], normalize=False)
-        self.normalization_factor = sum(target_pdd)
-        target = [ target_pdd/normalization_factor ]
+        target = self.check_target_pdd(target_pdd["distance"], target_pdd["count"], normalize=False)
+        self.normalization_factor = sum(target)
+        target =  target/self.normalization_factor
         e = np.maximum(target_pdd["error"], 10**-8)
-        target = [ target_pdd/self.normalization_factor ]
         self.error = e
         self.target_values = np.array(target)
-        super(Ensemble_PDD_Energy, self).__init__(prefactor, adjustment)
+        super(Ensemble_PDD_Energy, self).__init__(length, prefactor=prefactor, adjustment=adjustment)
+        self.log.debug("Now (re-) setting distributions")
         self.reset_distributions(length)
 
     def reset_distributions(self, length):
@@ -1343,13 +1342,13 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         self.accepted_measures = [self.target_values]
         err = np.linspace(0, max(1,int(self.adjustment)), 11)[1:]
         for i in err:
-            v = self.check_target_pdd(target_pdd["distance"],
-                                      np.maximum(0, target_pdd["count"]-i*self.error),
+            v = self.check_target_pdd(self.target_pdd["distance"],
+                                      np.maximum(0, self.target_pdd["count"]-i*self.error),
                                       log=False, normalize=False)
             v=v/self.normalization_factor
             self.accepted_measures.append(v)
-            v = self.check_target_pdd(target_pdd["distance"],
-                                      target_pdd["count"]=i*self.error,
+            v = self.check_target_pdd(self.target_pdd["distance"],
+                                      self.target_pdd["count"]+i*self.error,
                                       log=False, normalize=False)
             v=v/self.normalization_factor
             self.accepted_measures.append(v)
@@ -1405,14 +1404,20 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
 
     def eval_energy(self, *args, **kwargs):
         energy = super(Ensemble_PDD_Energy, self).eval_energy(*args, **kwargs)
-        return 0.01*energy
+        return 0.1*energy
 
     def _set_target_distribution(self):
         def gaussian(mu, sig):
             def g_inner(x):
-                return np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*pi)*sig)
+                return np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*np.pi)*sig)
             return g_inner
-        self.target_distribution = gaussian(self._target_values, self.error*self.adjustment)
+        self.log.debug("Adj: %s, self.error*adj=%s", self.adjustment, self.error/self.normalization_factor*self.adjustment)
+        self.target_distribution = gaussian(self.target_values, self.error/self.normalization_factor*self.adjustment)
+        self.log.debug("target_distr(target)=\n%s", self.target_distribution(self.target_values))
+        self.log.debug("target_distr(target+0.005)=\n%s", self.target_distribution(self.target_values+0.005))
+        self.log.debug("target_distr(target+0.01)=\n%s", self.target_distribution(self.target_values+0.01))
+        self.log.debug("target_distr(target+0.05)=\n%s", self.target_distribution(self.target_values+0.05))
+        self.log.debug("target_distr(target+0.1)=\n%s", self.target_distribution(self.target_values+0.1))
 
 
 class DoNotContribute(Exception):
