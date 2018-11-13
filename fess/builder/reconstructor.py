@@ -598,12 +598,12 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[0]),
                                cg_to.seq.to_resid(define_a_to[0]+1) ] )
         d = gap_length(chains_to, cg_to.seq.to_resid(define_a_to[0]),  cg_to.seq.to_resid(define_a_to[0]+1))
-        print("Elem %s: dist %s - %s is %s", elem_to, define_a_to[0], define_a_to[0]+1, d)
+        print("Elem {}: dist {} - {} is {}".format(elem_to, define_a_to[0], define_a_to[0]+1, d))
     if elem_from[0]!="t":
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[1]-1),
                                cg_to.seq.to_resid(define_a_to[1]) ] )
         d = gap_length(chains_to, cg_to.seq.to_resid(define_a_to[1]-1),  cg_to.seq.to_resid(define_a_to[1]))
-        print("Elem %s: dist %s - %s is %s", elem_to, define_a_to[1], define_a_to[1]-1, d)
+        print("Elem {}: dist {} - {} is {}".format(elem_to, define_a_to[1], define_a_to[1]-1, d))
 
     if elem_from[0]=="i":
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[2]),
@@ -615,7 +615,11 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 def gap_length(chains, resid1, resid2):
     res1 = chains[resid1.chain][resid1.resid]
     res2 = chains[resid2.chain][resid2.resid]
-    d = ftuv.vec_distance(res1["P"].coords, res2["P"].coords)
+    try:
+        d = ftuv.vec_distance(res1["P"].coord, res2["P"].coord)
+    except KeyError as e:
+        log.exception("%s not in %s or %s",e,res1.child_dict, res2.child_dict)
+        return None
     return d
 
 def resid_to_moderna(resid):
