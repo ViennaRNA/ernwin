@@ -520,8 +520,8 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         for i, target_seq in enumerate(target_seqs):
             if closing_bps_from[2*i].chain!=closing_bps_from[2*i+1].chain:
                 raise NotImplementedError("TODO")
-            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[2*i].chain],
-                                             closing_bps_from[2*i], closing_bps_from[2*i+1], target_seq)
+            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[2*i].chain], target_seq,
+                                             closing_bps_from[2*i], closing_bps_from[2*i+1] )
             chains_from[seq_ids_a_from[0].chain]= mod_chain
     elif cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
         log.warning("%s not consistent with %s: Missing residues", define_from, define_to)
@@ -531,8 +531,8 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             if closing_bps_from[0].chain!=closing_bps_from[1].chain:
                 raise NotImplementedError("TODO")
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
-            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain],
-                                             closing_bps_from[0], closing_bps_from[1], target_seq)
+            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain], target_seq,
+                                             closing_bps_from[0], closing_bps_from[1])
             chains_from[seq_ids_a_from[0].chain]= mod_chain
         else:
             raise NotImplementedError("TODO")
