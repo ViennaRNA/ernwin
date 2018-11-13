@@ -518,21 +518,22 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         log.error("Inconsistent defines: {} and {} for {}. Using ModeRNA fragment instead.".format(define_from, define_to, elem_to))
         target_seqs = cg_to.get_define_seq_str(elem_to) # One or two strands
         for i, target_seq in enumerate(target_seqs):
-            if closing_bps_to[2*i].chain!=closing_bps_to[2*i+1].chain:
+            if closing_bps_from[2*i].chain!=closing_bps_from[2*i+1].chain:
                 raise NotImplementedError("TODO")
-            mod_chain = use_moderna_fragment(chains_to[closing_bps_to[2*i].chain], closing_bps_to[2*i], closing_bps_to[2*i+1], target_seq)
-            chains_to[seq_ids_a_from[0].chain]= mod_chain
-
-    if cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
+            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[2*i].chain],
+                                             closing_bps_from[2*i], closing_bps_from[2*i+1], target_seq)
+            chains_from[seq_ids_a_from[0].chain]= mod_chain
+    elif cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
         log.warning("%s not consistent with %s: Missing residues", define_from, define_to)
         log.warning("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
         if define_to[1]-define_to[0]>define_from[1]-define_from[0]:
             # Apply an indel on the left side
-            if closing_bps_to[0].chain!=closing_bps_to[1].chain:
+            if closing_bps_from[0].chain!=closing_bps_from[1].chain:
                 raise NotImplementedError("TODO")
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
-            mod_chain = use_moderna_fragment(chains_to[closing_bps_to[0].chain], closing_bps_to[0], closing_bps_to[1], target_seq)
-            chains_to[seq_ids_a_from[0].chain]= mod_chain
+            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain],
+                                             closing_bps_from[0], closing_bps_from[1], target_seq)
+            chains_from[seq_ids_a_from[0].chain]= mod_chain
         else:
             raise NotImplementedError("TODO")
     seq_ids_to = []
