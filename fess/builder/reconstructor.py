@@ -515,35 +515,24 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     define_to = cg_to.defines[elem_to]
     define_from = cg_from.defines[elem_from]
     if len(define_from)!=len(define_to):
-        raise ValueError("Inconsistent defines: {} and {} for {}".format(define_from, define_to, elem_to))
+        log.error("Inconsistent defines: {} and {} for {}. Using ModeRNA fragment instead.".format(define_from, define_to, elem_to))
+        target_seqs = cg_to.get_define_seq_str(elem_to) # One or two strands
+        for i, target_seq in enumerate(target_seqs):
+            if closing_bps_to[2*i].chain!=closing_bps_to[2*i+1].chain:
+                raise NotImplementedError("TODO")
+            mod_chain = use_moderna_fragment(chains_to[closing_bps_to[2*i].chain], closing_bps_to[2*i], closing_bps_to[2*i+1], target_seq)
+            chains_to[seq_ids_a_from[0].chain]= mod_chain
+
     if cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
         log.warning("%s not consistent with %s: Missing residues", define_from, define_to)
         log.warning("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
         if define_to[1]-define_to[0]>define_from[1]-define_from[0]:
-            # Apply an indel
-            try:
-                import moderna
-            except ImportError:
-                raise RuntimeError("ModeRNA is required for processing indels!")
-            missing =  (define_to[1]-define_to[0])-(define_from[1]-define_from[0])
-            len_left = define_from[1]-define_from[0] + 3 #plus 3 for adjacent
-            if len(chains_from)>1:
+            # Apply an indel on the left side
+            if closing_bps_to[0].chain!=closing_bps_to[1].chain:
                 raise NotImplementedError("TODO")
-            mod_model = moderna.load_model(chains_from.values()[0], data_type="chain")
-            log.info("For Replacing:  %s", seq_ids_a_from)
-            log.info("Replacing strand: %s to %s", closing_bps_from[0], closing_bps_from[1])
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
-            log.info("With target seq %s", target_seq)
-            res5p = resid_to_moderna(closing_bps_from[0])
-            res3p = resid_to_moderna(closing_bps_from[1])
-            moderna.apply_indel(mod_model, res5p,
-                                res3p,
-                                str(target_seq)
-                                )
-            # Back to PDB
-            pdb_model = mod_model.get_structure()[0]
-            mod_chain, = pdb_model.child_list
-            chains_from = {seq_ids_a_from[0].chain: mod_chain}
+            mod_chain = use_moderna_fragment(chains_to[closing_bps_to[0].chain], closing_bps_to[0], closing_bps_to[1], target_seq)
+            chains_to[seq_ids_a_from[0].chain]= mod_chain
         else:
             raise NotImplementedError("TODO")
     seq_ids_to = []
@@ -611,6 +600,24 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[3]-1),
                                cg_to.seq.to_resid(define_a_to[3]) ] )
     return gaps_to_mend
+
+def use_moderna_fragment(chain, target_seq, resid1, resid2):
+    try:
+        import moderna
+    except ImportError:
+        raise RuntimeError("ModeRNA is required for processing indels!")
+    mod_model = moderna.load_model(chain, data_type="chain")
+    res5p = resid_to_moderna(resid1)
+    res3p = resid_to_moderna(resid2)
+    moderna.apply_indel(mod_model, res5p,
+                        res3p,
+                        str(target_seq)
+                        )
+    # Back to PDB
+    pdb_model = mod_model.get_structure()[0]
+    mod_chain, = pdb_model.child_list
+    return mod_chain
+
 
 def gap_length(chains, resid1, resid2):
     res1 = chains[resid1.chain][resid1.resid]
