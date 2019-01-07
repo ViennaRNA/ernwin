@@ -53,6 +53,7 @@ log=logging.getLogger(__name__)
 import numpy as np
 
 class Reconstructor(object):
+    LIBRARY_DIRECTORY="/scr/risa/thiel/RECONSTRUCTOR/FRAGMENTS"
     def __init__(self, pdb_library_path, cg_library_path, server=False):
         """
         :param server: If True, assume a lot of memory is available
@@ -126,6 +127,33 @@ class Reconstructor(object):
         #ftup.output_multiple_chains(chains.values(), "mended.pdb")
         return chains
 
+    def _get_fragment(self, stat, sm):
+        key = stat.pdb_name+"__def_"+"-".join(stat.define)
+        new_fragment=False`
+        try:
+            fragment,_,_ = ftup.get_all_chains(os.path.join(self.LIBRARY_DIRECTORY, key+".pdb"),
+                                             no_annotation=True)
+        except Exception:
+            cg, chains = self._get_source_cg_and_chain(stat, sm)
+            new_fragment=True
+        else:
+            cg_filename = op.expanduser(op.join(self.cg_library_path, pdb_basename+".cg"))
+            cg = self.get_cg(cg_filename)  #The cg with the template
+        elem = cg.get_node_from_residue_num(stat.define[0])
+        if stat.define != cg.defines[elem]:
+            err = ValueError("The CG files where the stats where extracted and "
+                             "the cg file used for reconstruction are not consistent!")
+            with log_to_exception(log, err):
+                log.error("%s != %s for element %s (%s)", stat.define, cg.defines[elem], elem, stat.pdb_name)
+            raise err
+        if new_fragment:
+            fragment  = ftup.extract_subchains_from_seq_ids(chains,
+                            cg.define_residue_num_iterator(elem, seq_ids=True,
+                                                           adjacent=(elem[0]!="s")))
+            ftup.output_multiple_chains(fragment.values(),
+                                        os.path.join(self.LIBRARY_DIRECTORY, key+".pdb"))
+            return cg, elem, fragment
+
     def _get_source_cg_and_chain(self, stat, sm):
         """
         Load the fragment defined in the stat from the fragment library as pdb and cg.
@@ -190,17 +218,7 @@ class Reconstructor(object):
         stem_stat = sm.elem_defs[stem_name]
         orig_def = sm.bg.defines[stem_name]
         cg_orig = sm.bg
-        cg, chains = self._get_source_cg_and_chain(stem_stat, sm)
-        #: The define of the stem in the original cg where the fragment is from
-        sd = cg.get_node_from_residue_num(stem_stat.define[0])
-        chains  = ftup.extract_subchains_from_seq_ids(chains,
-                                                      cg.define_residue_num_iterator(sd, seq_ids=True))
-        if stem_stat.define != cg.defines[sd]:
-            err = ValueError("The CG files where the stats where extracted and "
-                             "the cg file used for reconstruction are not consistent!")
-            with log_to_exception(log, err):
-                log.error("%s != %s for stem %s (%s)", stem_stat.define, cg.defines[sd], sd, stem_stat.pdb_name)
-            raise err
+        cg, sd, chains = self._get_fragment(stem_stat, sm)
 
         _align_chain_to_stem(cg, chains, sd, stem, self.stem_use_average_method)
 
@@ -244,15 +262,13 @@ class Reconstructor(object):
             log.warning("Not part of MST. Trying to extract stat from SM")
             angle_stat=sm.bg.get_bulge_angle_stats_core(ld,(s1,s2))
 
-        cg_from, chains_from = self._get_source_cg_and_chain(angle_stat, sm)
+        cg_from, elem_from, chains_from = self._get_fragment(angle_stat, sm)
         cg_to = sm.bg
         chains_to = chains
         elem_to = ld
         if not angle_stat.define:
             # A zero-length multiloop. We do not need to insert any fragment.
             return []
-
-        elem_from = cg_from.get_node_from_residue_num(angle_stat.define[0])
 
         if isinstance(angle_stat, ftms.AngleStat):
             angle_type = angle_stat.ang_type
