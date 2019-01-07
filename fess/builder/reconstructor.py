@@ -137,6 +137,7 @@ class Reconstructor(object):
             cg, chains = self._get_source_cg_and_chain(stat, sm)
             new_fragment=True
         else:
+            log.debug("Used stored fragment for %s", key)
             cg_filename = op.expanduser(op.join(self.cg_library_path, pdb_basename+".cg"))
             cg = self.get_cg(cg_filename)  #The cg with the template
         elem = cg.get_node_from_residue_num(stat.define[0])
@@ -150,6 +151,7 @@ class Reconstructor(object):
             fragment  = ftup.extract_subchains_from_seq_ids(chains,
                             cg.define_residue_num_iterator(elem, seq_ids=True,
                                                            adjacent=(elem[0]!="s")))
+            log.debug("Stored newly-created fragment for %s", key)
             ftup.output_multiple_chains(fragment.values(),
                                         os.path.join(self.LIBRARY_DIRECTORY, key+".pdb"))
             return cg, elem, fragment
