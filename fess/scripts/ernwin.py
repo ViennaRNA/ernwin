@@ -66,7 +66,7 @@ for module in [fbstat, fess.directory_utils, fbe, fbmov, fbm, fbb, fbmodel]:
 def main():
     args = parser.parse_args()
 
-    cg, = fuc.cgs_from_args(args, nargs=1, rna_type="cg",
+    cg, = fuc.cgs_from_args(args, rna_type="cg",
                             enable_logging=True) # Set log-level as a sideeffect
     if args.externally_interacting:
         elems_or_nts=args.externally_interacting.split(",")

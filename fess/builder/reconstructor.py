@@ -131,7 +131,7 @@ class Reconstructor(object):
         key = stat.pdb_name+"__def_"+"-".join(stat.define)
         new_fragment=False`
         try:
-            fragment,_,_ = ftup.get_all_chains(os.path.join(self.LIBRARY_DIRECTORY, key+".pdb"),
+            fragment,_,_ = ftup.get_all_chains(op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".pdb"),
                                              no_annotation=True)
         except Exception:
             cg, chains = self._get_source_cg_and_chain(stat, sm)
@@ -153,7 +153,7 @@ class Reconstructor(object):
                                                            adjacent=(elem[0]!="s")))
             log.debug("Stored newly-created fragment for %s", key)
             ftup.output_multiple_chains(fragment.values(),
-                                        os.path.join(self.LIBRARY_DIRECTORY, key+".pdb"))
+                                        op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".pdb"))
             return cg, elem, fragment
 
     def _get_source_cg_and_chain(self, stat, sm):
