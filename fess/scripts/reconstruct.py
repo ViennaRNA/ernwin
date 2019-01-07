@@ -40,7 +40,7 @@ def reconstruct(cg, fn, args, rec):
             if ml not in sm.bg.mst:
                 del sm.elem_defs[ml]
         stat_source = fbs.from_args(args, cg)
-        fbm._perml_energy_to_sm(sm, "1FJC1", stat_source)
+        fbm._perml_energy_to_sm(sm, "MAX200[1FJC1]", stat_source)
         for ml in sm.bg.mloop_iterator():
             if ml not in sm.bg.mst:
                 e = sm.junction_constraint_energy[ml].eval_energy(sm.bg)
