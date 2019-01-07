@@ -677,7 +677,13 @@ def mend_breakpoints(chains, gap):
                             g[0], g[1])
                 continue
             if g[0].chain not in mod_models:
-                mod_models[g[0].chain] =  moderna.load_model(chains[g[0].chain], data_type="chain")#moderna.load_model(op.join(tmpdir, "tmp.pdb"), g[0].chain)
+                try:
+                    mod_models[g[0].chain] =  moderna.load_model(chains[g[0].chain], data_type="chain")#moderna.load_model(op.join(tmpdir, "tmp.pdb"), g[0].chain)
+                except Exception as e:
+                    with log_to_exception(log, e):
+                        log.error("g is %s, g[0] is %s, g[0].chain is %s", g, g[0], g[0].chain)
+                        log.error("chains is %s", chains)
+                    raise
             moderna.fix_backbone(mod_models[g[0].chain], resid_to_moderna(g[0]), resid_to_moderna(g[1]))
             moderna.write_model(mod_models[g[0].chain], op.join(tmpdir, "tmp.pdb"))
         for chain_id, model in mod_models.items():
