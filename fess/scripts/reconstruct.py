@@ -58,7 +58,7 @@ def reconstruct(cg, fn, args, rec):
 def main(args):
     rec = fbr.Reconstructor(args.source_pdb_dir, args.source_cg_dir, args.server)
     with fuc.hide_traceback(): # Applies only to WrongFileFormat
-        cgs, fns = fuc.cgs_from_args(args, 1, rna_type="only_cg", enable_logging=True, return_filenames=True)
+        cgs, fns = fuc.cgs_from_args(args, rna_type="only_cg", enable_logging=True, return_filenames=True)
     # Preprocessing
     most_common_pdbs = collections.Counter()
     for cg in cgs:
@@ -92,17 +92,17 @@ def main(args):
             logging_exceptions.log_exception(e)
             log.exception("During reconstruction of cg %s, an error occurred: %s", fn, e)
     i=0
-    print("Waiting for stdin", file=sys.stderr)
-    while True:
-        try:
-            line = sys.stdin.readline()
-            fn=line.strip()
-            print("Received", fn, file=sys.stderr)
-            cg = fuc.load_rna(fn, "only_cg", False )
-            reconstruct(cg, fn, args, rec)
-        except Exception as e:
-            logging_exceptions.log_exception(e)
-            log.exception("During reconstruction of additional cg %s, an error occurred: %s", fn, e)
+    #print("Waiting for stdin", file=sys.stderr)
+    #while True:
+    #    try:
+    #        line = sys.stdin.readline()
+    #        fn=line.strip()
+    #        print("Received", fn, file=sys.stderr)
+    #        cg = fuc.load_rna(fn, "only_cg", False )
+    #        reconstruct(cg, fn, args, rec)
+    #    except Exception as e:
+    #        logging_exceptions.log_exception(e)
+    #        log.exception("During reconstruction of additional cg %s, an error occurred: %s", fn, e)
 
 
 

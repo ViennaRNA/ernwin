@@ -128,19 +128,25 @@ class Reconstructor(object):
         return chains
 
     def _get_fragment(self, stat, sm):
-        key = stat.pdb_name+"__def_"+"-".join(stat.define)
-        new_fragment=False`
+        key = stat.pdb_name+"__def_"+"-".join(map(str,stat.define))
+        new_fragment=False
         try:
-            fragment,_,_ = ftup.get_all_chains(op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".pdb"),
+            fragment,_,_ = ftup.get_all_chains(op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".cif"),
                                              no_annotation=True)
         except Exception:
             cg, chains = self._get_source_cg_and_chain(stat, sm)
             new_fragment=True
         else:
+            fragment = {c.id:c for c in fragment}
             log.debug("Used stored fragment for %s", key)
+            pdb_basename = stat.pdb_name.split(":")[0]
             cg_filename = op.expanduser(op.join(self.cg_library_path, pdb_basename+".cg"))
             cg = self.get_cg(cg_filename)  #The cg with the template
-        elem = cg.get_node_from_residue_num(stat.define[0])
+        try:
+            elem = cg.get_node_from_residue_num(stat.define[0])
+        except Exception:
+            log.error("stat %s with define %s", stat, stat.define)
+            raise
         if stat.define != cg.defines[elem]:
             err = ValueError("The CG files where the stats where extracted and "
                              "the cg file used for reconstruction are not consistent!")
@@ -151,10 +157,13 @@ class Reconstructor(object):
             fragment  = ftup.extract_subchains_from_seq_ids(chains,
                             cg.define_residue_num_iterator(elem, seq_ids=True,
                                                            adjacent=(elem[0]!="s")))
-            log.debug("Stored newly-created fragment for %s", key)
+            log.debug("Storing newly-created fragment for %s", key
+)
+            import distutils.dir_util
+            distutils.dir_util.mkpath(op.join(self.LIBRARY_DIRECTORY, key[2:4]))
             ftup.output_multiple_chains(fragment.values(),
-                                        op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".pdb"))
-            return cg, elem, fragment
+                                        op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".cif"), "cif")
+        return cg, elem, fragment
 
     def _get_source_cg_and_chain(self, stat, sm):
         """
@@ -264,13 +273,13 @@ class Reconstructor(object):
             log.warning("Not part of MST. Trying to extract stat from SM")
             angle_stat=sm.bg.get_bulge_angle_stats_core(ld,(s1,s2))
 
+        if not angle_stat.define:
+            # A zero-length multiloop. We do not need to insert any fragment.
+            return []
         cg_from, elem_from, chains_from = self._get_fragment(angle_stat, sm)
         cg_to = sm.bg
         chains_to = chains
         elem_to = ld
-        if not angle_stat.define:
-            # A zero-length multiloop. We do not need to insert any fragment.
-            return []
 
         if isinstance(angle_stat, ftms.AngleStat):
             angle_type = angle_stat.ang_type
