@@ -679,7 +679,8 @@ def mend_breakpoints(chains, gap):
     mod_models = {}
     with fus.make_temp_directory() as tmpdir:
         log.warning("Writing chains %s", chains.values())
-        ftup.output_multiple_chains(chains.values(), op.join(tmpdir, "tmp.pdb"))
+
+        #ftup.output_multiple_chains(chains.values(), op.join(tmpdir, "tmp.pdb"))
         for g in gap:
             if g[0].chain != g[1].chain:
                 log.warning("Not mending gap between multiple chains: %s and %s",
@@ -694,16 +695,14 @@ def mend_breakpoints(chains, gap):
                         log.error("chains is %s", chains)
                     raise
             moderna.fix_backbone(mod_models[g[0].chain], resid_to_moderna(g[0]), resid_to_moderna(g[1]))
-            moderna.write_model(mod_models[g[0].chain], op.join(tmpdir, "tmp.pdb"))
-        for chain_id, model in mod_models.items():
-            moderna.write_model(model,  op.join(tmpdir, "mended_{}.pdb".format(chain_id)))
+            #moderna.write_model(mod_models[g[0].chain], op.join(tmpdir, "tmp.pdb"))
+        #for chain_id, model in mod_models.items():
+        #    moderna.write_model(model,  op.join(tmpdir, "mended_{}.pdb".format(chain_id)))
         #Load back to Biopython
         mended_chains = {}
         for chain_id in chains.keys():
             if chain_id in mod_models:
-                mended_chains[chain_id] = ftup.get_first_chain(
-                                                op.join(tmpdir,
-                                                        "mended_{}.pdb".format(chain_id)))
+                mended_chains[chain_id] = mod_models[chain_id] #Mod models are chain subclasses anyway
                 log.info("Mended:", mended_chains)
                 mended_chains[chain_id].id = chain_id
             else:
