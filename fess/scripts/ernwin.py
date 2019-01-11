@@ -37,7 +37,7 @@ parser = fuc.get_rna_input_parser("ERNWIN: Coarse-grained sampling of RNA 3D str
                                   nargs=1, rna_type="cg",
                                   parser_kwargs={"formatter_class":argparse.RawTextHelpFormatter})
 parser.add_argument('--seed', action='store',
-                    help="Seed for the random number generator.",
+                    help="Seed for the random number generator. It is taken module 2**32 to work with numpy.",
                     type=int)
 parser.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
 parser.add_argument('--replica-exchange', type=int, help="Experimental")
@@ -203,8 +203,9 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
 
 def setup_rng(args):
     if args.seed:
-        seed_num=args.seed
+        seed_num=args.seed % 2**32
     else:
+        # We need a seed that we can use and print to the user, so the user can reproduce this run in the future.
         seed_num = random.randint(0,4294967295) #4294967295 is maximal value for numpy
     random.seed(seed_num)
     np.random.seed(seed_num)
