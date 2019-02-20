@@ -113,17 +113,6 @@ class Reconstructor(object):
         reorder_residues(chains, sm.bg)
         chains = mend_breakpoints(chains, gaps_to_mend)
 
-
-        # Some verification
-        for res in sm.bg.seq._seqids:
-            try:
-                chains[res.chain][res.resid]
-            except LookupError as e:
-                log.error("Residue missing in reconstructed PDB: %s (KeyError %s)", res, e)
-                log.error("It belongs to %s", sm.bg.get_elem(res))
-
-
-
         #ftup.output_multiple_chains(chains.values(), "mended.pdb")
         return chains
 
@@ -721,7 +710,8 @@ def mend_breakpoints(chains, gap):
                     res.resname = o_res.resname
                     log.warning("Moderna residue now %s", res)
                     changed = True
-    return mended_chains
+    # Convert back from ModeRNA to Biopython
+    return {k:v.get_structure()[0][k] for k,v in mended_chains.items()}
 
 def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
     """
@@ -796,8 +786,10 @@ def align_residues(res_dir, res_ref):
     :param res_ref: The reference residue to be rotated
     :return res: A residue with the atoms of res_ref pointing in the direction of res_dir
     '''
-    #TODO: BT: In the future we might align based on ALL non-sidechain atoms using optimal_superposition.
-    #     If we stick to 3 reference atoms, we could use ftuv.get_double_alignment_matrix instead.
+    #TODO: BT: In the future we might align based on ALL non-sidechain atoms
+    #     using optimal_superposition.
+    #     If we stick to 3 reference atoms, we could use
+    #     ftuv.get_double_alignment_matrix instead.
 
     av = { 'U': ['N1', "C1'", "C2'"], 'C': ['N1', "C1'", "C2'"], 'A': ['N9', "C1'", "C2'"], 'G': ['N9', "C1'", "C2'"],
            'rU': ['N1', "C1'", "C2'"], 'rC': ['N1', "C1'", "C2'"], 'rA': ['N9', "C1'", "C2'"], 'rG': ['N9', "C1'", "C2'"] }
@@ -856,19 +848,28 @@ def replace_bases(chains, cg):
             old_name = residue.resname.strip()
             target_name = cg.seq[fgb.RESID(chain = chain_name, resid = residue.id)]
             log.debug("resname is %s, target name is %s for %s", old_name, target_name, residue)
-            if target_name == old_name:
-                #Don't replace the correct residues
-                log.debug("Not replacing %s by %s", old_name, target_name )
-                continue
+            # Also replace identical, because they may miss atoms
+            #if target_name == old_name:
+            #    #Don't replace the correct residues
+            #    log.debug("Not replacing %s by %s", old_name, target_name )
+            #    continue
             log.debug("Replacing %s by %s", old_name, target_name)
             ref_res = templates[target_name]
             new_res = align_residues(residue, ref_res)
-            sca = ftup.side_chain_atoms[old_name]
-            for aname in sca:
-                residue.detach_child(aname)
-
+            nsca =  ftup.nonsidechain_atoms + ["OP1", "OP2", "H5'", "H3'", "H4'", "H2'", 'H5"']
+            log.debug("NSCA: %s", nsca)
+            for atom in residue.child_list[:]: # Need to iterate over copy
+                log.debug("%s", atom.get_name() )
+                if atom.get_name() not in nsca:
+                    log.debug("Detaching %s", atom)
+                    residue.detach_child( atom.get_name())
+                else:
+                    log.debug("Not detaching %s", atom)
+                    assert atom.get_name() not in ftup.side_chain_atoms[old_name]
+                    assert atom.get_name() not in ftup.side_chain_atoms[target_name]
             sca = ftup.side_chain_atoms[target_name]
             for aname in sca:
+                log.debug("Now adding %s", aname)
                 residue.add(new_res[aname])
 
             residue.resname = target_name

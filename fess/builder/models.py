@@ -277,6 +277,9 @@ class SpatialModel:
         self.elem_defs=dict()
 
         self.bg = bg
+        # We plan to modify the structure, so discard the cahin.
+        # This avoids a bug with virtual residues of loops.
+        self.bg.chains=None
         self.add_to_skip()
 
         try:
@@ -375,8 +378,12 @@ class SpatialModel:
             try:
                 self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
                 if d[0]!="s":
+                    try:
+                        log.debug("Updating vposs from %s. Were %s", d, self.bg.vposs[d] )
+                    except:
+                        pass
                     self.bg.vposs[d]=ed.vres
-                    log.debug("Set %s to %s", d, ed.vres)
+                    log.debug("Set %s to %s ", d, ed.vres)
             except:
                 log.debug("Error setting {}".format(d))
                 raise
@@ -698,10 +705,15 @@ class SpatialModel:
 
     def _finish_building(self):
         log.debug("Finish building")
+        log.debug("(1) vposs now %s", self.bg.vposs)
         self.fill_in_bulges_and_loops()
+        log.debug("(2) vposs now %s", self.bg.vposs)
         self._loops_to_coords()
+        log.debug("(3) vposs now %s", self.bg.vposs)
         self.save_sampled_elems()
+        log.debug("(4) vposs now %s", self.bg.vposs)
         self.bg.add_all_virtual_residues()
+        log.debug("(5) vposs now %s", self.bg.vposs)
 
     def add_to_skip(self):
         '''

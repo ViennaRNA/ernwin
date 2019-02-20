@@ -240,9 +240,18 @@ class EnergeticJunctionMover(Mover):
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
 
-    def _check_junction(self, sm, sampled_stats, elems):
+    def _check_junction(self, sm, sampled_stats, elems, whole_loop):
         for elem, new_stat in sampled_stats.items():
             sm.elem_defs[elem]=new_stat
+        # Energy may implement a pre-check to rule-out impossible conformations
+        # This heuristic saves 10-15% of evaluations for some text structures
+        # and saves between 0 and 10% of the runtime ...
+        try:
+            if sm.junction_constraint_energy[elems[-1]].precheck(sm.bg, whole_loop, sm.elem_defs)>0:
+                return False
+        except AttributeError:
+            pass
+        # Now we have to build the junction
         built_nodes = []
         for elem in elems[:-1]: # The last elem is broken!
             nodes = sm.new_traverse_and_build(start=elem, max_steps = 1, finish_building=False)
@@ -268,16 +277,16 @@ class EnergeticJunctionMover(Mover):
         :param elems: ML segments. Need to be ordered!
         """
         counter = 0
-        loop = self._sort_loop(sm, list(sm.bg.shortest_mlonly_multiloop(elems[0])))
+        whole_loop = self._sort_loop(sm, list(sm.bg.shortest_mlonly_multiloop(elems[0])))
         # We do not have to build the whole loop,
         # but only the part after the first changed element.
-        i = min(loop.index(elem) for elem in elems)
-        log.debug("For elems %s, loop index is %s, loop is %s", elems, i, loop)
-        loop = loop[i:]
+        i = min(whole_loop.index(elem) for elem in elems)
+        log.debug("For elems %s, loop index is %s, loop is %s", elems, i, whole_loop)
+        loop = whole_loop[i:]
         log.info("Loop now %s", loop)
         for sampled in create.stat_combinations(sm.bg, elems, self.stat_source):
             counter+=1
-            if self._check_junction(sm, sampled, loop):
+            if self._check_junction(sm, sampled, loop, whole_loop):
                 log.info("Succsessfuly combination found after %d tried", counter)
                 if self.max_tries is not None:
                     self.max_tries = int(max(self.original_max_tries, self.max_tries*3/4, counter+(self.original_max_tries/2)))

@@ -125,6 +125,11 @@ class Builder(object):
                     log.warning("Original structure does not fulfill "
                                 "multiloop constraint energy. Bad loops: %s", bad_segments)
                     warn = False
+                    for ml in sm.bg.mloop_iterator():
+                        if ml not in sm.bg.mst:
+                            if ml in sm.elem_defs and ml not in sm.frozen_elements:
+                                log.warning("Deleting sampled stats for broken ml %s!", ml)
+                                del sm.elem_defs[ml]
                 log.debug("Bad segments {}".format(bad_segments))
                 if not bad_segments:
                     log.debug("Evaluate clash energy:")
@@ -144,7 +149,12 @@ class Builder(object):
                         bad_segments = self._get_bad_clash_segments(sm, built_nodes)
                 # If we need to resample, go back somewhere into the past
                 if bad_segments:
-                    start_node = random.choice(bad_segments)
+                    try:
+                        start_node = random.choice([s for s in bad_segments if s not in sm.frozen_elements])
+                    except IndexError:
+                        raise ValueError("The structure could not be built, "
+                                         "because of a clash between frozen "
+                                         "elements: {}".format(bad_egments))
                     log.info("Resampling elem_def for %s", start_node)
                     sm.elem_defs[start_node] = self.stat_source.sample_for(sm.bg, start_node)
                     built_nodes = built_nodes[:built_nodes.index(start_node)]

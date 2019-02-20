@@ -526,8 +526,17 @@ class CoarseGrainEnergy(EnergyFunction):
             if len(ref_val)>1:
                 self.log.debug("ref_values: %s", ref_val)
                 self.log.debug("tar_values: %s", tar_val)
-
-                energy = sum(np.log( tar_val ) - np.log(ref_val))
+                ref_val=np.maximum(ref_val,0)
+                tar_val=np.maximum(tar_val,0)
+                energies = np.log( tar_val ) - np.log(ref_val)
+                energies = np.minimum(energies, 10**8)
+                energies = np.maximum(energies, -10**8)
+                energy = sum(energies)
+                if np.isinf(energy):
+                    log.warning(energies)
+                    for i,r in enumerate(ref_val):
+                        if r<=0 or tar_val[i]<=0:
+                            log.warning("%sth measure %s has prob. %s in reference distribution and %s in taret distribution", i, m[i],r, tar_val[i])
             else:
                 energy, = (np.log( tar_val ) - np.log(ref_val))
             self.log.debug("Energy (not yet scaled) = {}".format(energy))

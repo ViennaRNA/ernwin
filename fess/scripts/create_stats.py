@@ -15,7 +15,7 @@ parser=get_parser()
 if __name__ == "__main__":
     next_id = defaultdict(int)
     args = parser.parse_args()
-    cgs = fuc.cgs_from_args(args, '+', "only_cg")
+    cgs = fuc.cgs_from_args(args, "only_cg")
     for cg in cgs:
         if sys.stderr.isatty():
             print(cg.name, file=sys.stderr)

@@ -706,13 +706,13 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     HELPTEXT = "Junction constraint energy"
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
-        if adjustment:
-            warnings.warn("Adjustment {} ignored for JUNCT JunctionConstraintEnergy".format(repr(adjustment)))
-        return cls(prefactor)
-    def __init__(self, prefactor = None):
+        return cls(prefactor, adjustment)
+    def __init__(self, prefactor = None, adjustment=None):
         if prefactor is None:
             prefactor = self._JUNCTION_DEFAULT_PREFACTOR
-        super(RoughJunctionClosureEnergy, self).__init__(prefactor = prefactor)
+        if adjustment is None:
+            adjustment = 1
+        super(RoughJunctionClosureEnergy, self).__init__(prefactor = prefactor, adjustment=adjustment)
 
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         log.debug("Evaluating junction closure energy")
@@ -733,7 +733,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             #cutoff_distance = (bl) * 6.4 + 6.4
             cutoff_distance = (bl) * 6.22 + 14.0 #Peter's cyclic coordinate descent
             # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long.
-
+            cutoff_distance*=self.adjustment
             if (dist > cutoff_distance):
                 log.info("Junction closure: dist {} > cutoff {} for bulge {} with length {}".format(dist, cutoff_distance, bulge, bl))
                 self.bad_bulges += cg.find_bulge_loop(bulge, 200) + [bulge]
@@ -767,6 +767,20 @@ class MaxEnergyValue(EnergyFunction):
             log.debug("MaxEnergyValue: Threshold not exceeded: {}<{}".format(e, self.adjustment))
             self.bad_bulges = []
             return 0.
+
+    def precheck(self, cg, elems, elem_defs):
+        c = self._other_energy.precheck(cg, elems, elem_defs)
+        if c>=self.adjustment:
+            self.triggered()
+            return 10000.
+        return 0
+
+    def triggered(self):
+        """
+        Will show-up during profiling
+        """
+        pass
+
     @property
     def shortname(self):
         sn = super(MaxEnergyValue, self).shortname
@@ -780,7 +794,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     _shortname = "FJC"
     can_constrain = "junction"
     HELPTEXT = ("A Fragment based energy")
-
+    _always_search=False
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, stat_source, **kwargs):
         energies = []
@@ -807,10 +821,6 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
                                                         s1,
                                                         virtual_stat)
 
-        #pdev2, adev2, tdev2 = ftug.get_broken_ml_deviation(cg, self.element,
-        #                                                s1,
-        #                                                virtual_stat)
-        #log.debug("PDEV: %s or %s, ADEV %s or %s, TDEV: %s or %s", pdev, pdev2, adev, adev2, tdev, tdev2)
         adev = math.degrees(adev)
         tdev = math.degrees(tdev)
         self.log.debug("Deviation: %s Angstrom, %s degrees (orientation), %s degrees (twist)", pdev, adev, tdev)
@@ -818,6 +828,22 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
         tdev = tdev/4
         self.log.debug("Weighted deviation: pos: %s, orient %s, twist: %s", pdev, adev, tdev)
         return max(pdev, adev, tdev)
+
+
+    def precheck(self, cg, elems, elem_defs):
+        """
+        Try, if this conformation can be ruled-out based on the element
+        definitions, without building the structure.
+        """
+        if self._always_search:
+            return 0
+        lengths = [elem_defs[e].r1 for e in elems]
+        diff = 2*max(lengths)-sum(lengths)
+        if diff>0:
+            log.debug("Precheck for lengths %s is %s", lengths, diff)
+            return diff
+        return 0
+
 
     @profile
     def eval_energy(self, cg, background=True, nodes=None,  sampled_stats=None, **kwargs):
@@ -827,7 +853,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             self.log.debug("Self.element %s not in nodes %s", self.element, nodes)
             return 0.
         best_deviation = float('inf')
-        if sampled_stats is not None:
+        if sampled_stats is not None and not self._always_search:
             self.log.debug("FJC using sampled stat!")
             assert self.element in sampled_stats
              # Assertion fails, if structure was built with JDIST energy but sampled
@@ -852,6 +878,11 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     def shortname(self):
         sn = super(FragmentBasedJunctionClosureEnergy, self).shortname
         return sn.replace(self._shortname, "{}({})".format(self._shortname,self.element))
+
+class SearchingFragmentBasedJunctionClosureEnergy(FragmentBasedJunctionClosureEnergy):
+    _shortname = "SFJ"
+    _always_search=True
+
 
 def _iter_subgraphs(cg, use_subgraphs):
     """
@@ -1180,12 +1211,13 @@ class _PDD_Mixin(object):
         _target_pdd = np.zeros(maxlen+1, dtype=float)
         for i, distance in enumerate(distances):
             fraction = values[i]
-            bin_no=int(distance//self._stepwidth)
+            bin_no=int((distance+self._stepwidth/2)//self._stepwidth)
             if log:
                 self.log.debug("%s, %s -> Bin %s", distance, fraction, bin_no)
+                self.log.debug("s=%s, s*b=%s, d=%s, d+s/2=%s, (d+s/2)//s=%s", self._stepwidth, self._stepwidth*bin_no,distance, distance+self._stepwidth/2, (distance+self._stepwidth/2)//self._stepwidth)
             bin_no=min(bin_no, len(_target_pdd)-1)
-            if log:
-                self.log.debug("%s, %r", bin_no, bin_no)
+            #if log:
+            #    self.log.debug("%s, %r", bin_no, bin_no)
             _target_pdd[bin_no]+=fraction
         # Some sanity check: We only like zeros after the maximal Radius.
         num_zeros = len(_target_pdd[1:])-np.count_nonzero(_target_pdd[1:])
@@ -1238,16 +1270,19 @@ class _PDD_Mixin(object):
             dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
             target_pdd = pd.DataFrame({"distance":dists, "count":counts})
         else:
-            target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True)
-
-        stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/len(target_pdd)
-        distdiff = target_pdd["distance"].values[1:]-target_pdd["distance"].values[:-1]
-        if np.all(np.abs(distdiff-stepsize)<0.5):
-            stepsize=distdiff[0]
+            target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True,
+                                    dtype={'distance': float, 'count': float, 'error':float} )
+        if "pdd_stepsize" not in kwargs or kwargs["pdd_stepsize"] is None:
+            stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/(len(target_pdd)-1)
+            distdiff = target_pdd["distance"].values[1:]-target_pdd["distance"].values[:-1]
+            if np.all(np.abs(distdiff/stepsize-1)<0.1):
+                pass
+            else:
+                log.warning("Unequally spaced target distribution. Stepsizes are %s, avg%s", distdiff, stepsize)
+                assert False
+                stepsize=None
         else:
-            log.warning("Unequally spaced target distribution. Stepsizes are %s. Rescaling", distdiff)
-            assert False
-            stepsize=None
+            stepsize=kwargs["pdd_stepsize"]
         return cls(length=cg.seq_length, target_pdd=target_pdd, prefactor=prefactor, adjustment=adjustment, level=level, stepwidth=stepsize)
 
 
@@ -1355,6 +1390,9 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
         self._set_target_distribution()
 
+    def _update_adj(self):
+        super(Ensemble_PDD_Energy, self)._update_adj()
+
     @classmethod
     def _get_distribution_from_values(cls, values):
         '''
@@ -1407,12 +1445,20 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         return 0.1*energy
 
     def _set_target_distribution(self):
+        if self.adjustment<5:
+            self.log.warning("Adjustment<5 not allowed. Changing %s to 5", self.adjustment)
+            self.adjustment=5.
         def gaussian(mu, sig):
+            assert np.all(sig>0), sig
             def g_inner(x):
+                self.log.debug("Gaussian with shapes x: %s, mu: %s, sigme:%s", np.shape(x), np.shape(mu), np.shape(sig))
                 return np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*np.pi)*sig)
             return g_inner
-        self.log.debug("Adj: %s, self.error*adj=%s", self.adjustment, self.error/self.normalization_factor*self.adjustment)
-        self.target_distribution = gaussian(self.target_values, self.error/self.normalization_factor*self.adjustment)
+        error = self.check_target_pdd(self.target_pdd["distance"], self.error, normalize=False)
+        self.log.debug("Adj: %s, error*adj=%s", self.adjustment, error/self.normalization_factor*self.adjustment)
+        self.log.debug("Setting target_distribution with shapes mu: %s, sig:%s", np.shape(self.target_values), np.shape(error))
+        self.target_distribution = gaussian(self.target_values, error/self.normalization_factor*self.adjustment)
+
         self.log.debug("target_distr(target)=\n%s", self.target_distribution(self.target_values))
         self.log.debug("target_distr(target+0.005)=\n%s", self.target_distribution(self.target_values+0.005))
         self.log.debug("target_distr(target+0.01)=\n%s", self.target_distribution(self.target_values+0.01))
@@ -1799,11 +1845,14 @@ def update_parser(parser):
     energy_options.add_argument('--pdd-file', type=str,
                                 help="A file with the pair distance "
                                      "distribution from the SAX experiment.")
+    energy_options.add_argument('--pdd-stepsize', type=float,
+                                help="If given, rescale the PDD to this stepsize.")
 
 def from_args(args, cg, stat_source, replica=None):
     energy_string = replica_substring(args.energy, replica)
     energies = EnergyFunction.from_string(energy_string,
                                           cg=cg,
                                           stat_source=stat_source,
-                                          pdd_target=args.pdd_file)
+                                          pdd_target=args.pdd_file,
+                                          pdd_stepsize=args.pdd_stepsize)
     return CombinedEnergy(energies)
