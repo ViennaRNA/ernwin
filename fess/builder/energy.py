@@ -1297,7 +1297,7 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         :param level: Either "A" for virtual atoms or "R" for virtual residues.
         """
         self._level=self.check_level(level)
-        super(PDDEnergy, self).__init__(length=length,prefactor=prefactor, adjustment=adjustment)
+        super(PDDEnergy, self).__init__(prefactor=prefactor, adjustment=adjustment)
         self._stepwidth=self.check_stepwidth(stepwidth)
         self.target_values = self.check_target_pdd(target_pdd["distance"], target_pdd["count"])
 
@@ -1342,6 +1342,40 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
 
         if iteration is not None:
             np.savetxt(output_file + ".{:d}".format(iteration), arr)
+
+class LastNPDDsEnergy(PDDEnergy):
+    _shortname = "LNP"
+    N=10
+    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
+                    plot_debug=False):
+        if plot_debug or nodes is not None:
+            raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
+                                      " for PDD Energy")
+        if use_accepted_measure:
+            m = self.accepted_measures[-self.N:]
+        else:
+            m1 = self.get_pdd(cg, self._level, self._stepwidth)[1]
+            m1=self.pad(m1)
+            m = self.accepted_measures[-self.N+1:]
+            m.append(m1)
+            self._last_measure=m1
+        m = np.array(m)
+        self.log.error("Shape is %s", m.shape)
+        m=np.sum(m, axis=0)
+        m/=sum(m)
+        diff_vec = m-self.target_values
+        self.log.debug("Diffs: %s", diff_vec)
+        integral = np.sum(np.abs(diff_vec))*self._stepwidth
+        self._last_integral=integral
+        #if math.sqrt(self.step)%10==2:
+        #    import matplotlib.pyplot as plt
+        #    plt.plot(np.arange(len(m)), m, label="current")
+        #    plt.plot(np.arange(len(m)), self.target_values, label="target")
+        #    plt.legend()
+        #    plt.title("Integral {}".format(integral))
+        #    plt.show()
+        return self.prefactor*np.exp(integral*self.adjustment)
+
 
 class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
     sampled_stats_fn = None
