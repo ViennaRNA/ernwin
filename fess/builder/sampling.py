@@ -17,7 +17,7 @@ class MCMCSampler:
     '''
     Sample using tradition accept/reject sampling.
     '''
-    def __init__(self, sm, energy_function, mover, stats_collector):
+    def __init__(self, sm, energy_function, mover, stats_collector, rerun_prev_energy=False):
         """
         :param sm: A fess.builder.models.SpatialModel instance. The RNA that will be sampled.
         :param energy_function: A fess.builder.energy.CombinedEnergy instance.
@@ -29,6 +29,7 @@ class MCMCSampler:
         self.mover = mover
         self.energy_function = energy_function
         self.stats_collector =  stats_collector
+        self.rerun_prev_energy = rerun_prev_energy
         #: Store the previous energy.
         log.debug("MCMCSampler __init__ calling eval_energy")
         self.prev_energy = energy_function.eval_energy(sm.bg)
@@ -56,6 +57,9 @@ class MCMCSampler:
         Make a single sampling move and accept or reject the resulting RNA conformation.
         """
         self.step_counter += 1
+        if self.rerun_prev_energy:
+            # The energy of staying may get worse with every reject step
+            self.prev_energy = self.energy_function.eval_energy(self.sm.bg)
         #Make a sinle move (i.e. change the Spatial Model)
         movestring = self.mover.move(self.sm)
         # Accept or reject the new spatial model based on the energy.

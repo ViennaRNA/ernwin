@@ -1345,7 +1345,7 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
 
 class LastNPDDsEnergy(PDDEnergy):
     _shortname = "LNP"
-    N=10
+    N=100
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
                     plot_debug=False):
         if plot_debug or nodes is not None:
@@ -1353,8 +1353,11 @@ class LastNPDDsEnergy(PDDEnergy):
                                       " for PDD Energy")
         if use_accepted_measure:
             m = self.accepted_measures[-self.N:]
+            self.log.debug("Using accepted pdd %s", m[-1])
+
         else:
-            m1 = self.get_pdd(cg, self._level, self._stepwidth)[1]
+            m1 = self.get_pdd(cg, self._level, self._stepwidth)[1]*1.0
+            self.log.debug("Got pdd %s", m1)
             m1=self.pad(m1)
             m = self.accepted_measures[-self.N+1:]
             m.append(m1)
@@ -1362,11 +1365,23 @@ class LastNPDDsEnergy(PDDEnergy):
         m = np.array(m)
         self.log.error("Shape is %s", m.shape)
         m=np.sum(m, axis=0)
+        self.log.error("m= %s", m)
         m/=sum(m)
         diff_vec = m-self.target_values
         self.log.debug("Diffs: %s", diff_vec)
         integral = np.sum(np.abs(diff_vec))*self._stepwidth
         self._last_integral=integral
+        if False: #len(self.accepted_measures) in [20,100, 900]:
+            import matplotlib.pyplot as plt
+            fig,ax=plt.subplots()
+            for mi in self.accepted_measures:
+                x = np.linspace(0, self._stepwidth*len(mi), len(mi))
+                plt.plot(x, mi)
+            ax2=ax.twinx()
+            ax2.plot(x, m, linewidth=5, color="blue")
+            ax2.plot(x, self.target_values, linewidth=5, color="red")
+
+            plt.show()
         #if math.sqrt(self.step)%10==2:
         #    import matplotlib.pyplot as plt
         #    plt.plot(np.arange(len(m)), m, label="current")
