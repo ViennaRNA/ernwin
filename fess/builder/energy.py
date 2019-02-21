@@ -867,7 +867,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
                 curr_dev = self._stat_deviation(cg, stat)
                 if curr_dev < best_deviation:
                     best_deviation = curr_dev
-                    #self.log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
+                    self.log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                     self.used_stat = stat
         self.log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
@@ -1363,9 +1363,9 @@ class LastNPDDsEnergy(PDDEnergy):
             m.append(m1)
             self._last_measure=m1
         m = np.array(m)
-        self.log.error("Shape is %s", m.shape)
+        self.log.debug("Shape is %s", m.shape)
         m=np.sum(m, axis=0)
-        self.log.error("m= %s", m)
+        self.log.debug("m= %s", m)
         m/=sum(m)
         diff_vec = m-self.target_values
         self.log.debug("Diffs: %s", diff_vec)
@@ -1688,6 +1688,9 @@ class CombinedFunction(object):
         if not results or results[0] is None:
             return None
         return results
+    def __getattr__(self, name):
+        raise AttributeError("CombinedFunction (combining {}) has "
+                             "no attribute {}".format(self._funcs, name))
 
 class CombinedEnergy(object):
     def __init__(self, energies=None, normalize=False):
@@ -1716,6 +1719,7 @@ class CombinedEnergy(object):
     def __getattr__(self, name):
         #If no energies are present, do nothing (DON'T raise an error)
         if not self.energies:
+            log.info("Combined Energy has no energies and returns CombinedFunction for attr %s", name)
             return CombinedFunction([])
         log.debug("getattr delegating call to {}".format(name))
         attrs = []
@@ -1731,16 +1735,20 @@ class CombinedEnergy(object):
                 else:
                     # Else this is an error.
                     raise AttributeError("CombinedEnergy has no attribute '{}', because {}".format(name, e))
+        log.info("Attrs are %s", attrs)
         if len(attrs)==1:
             return attrs[0]
         try:
             return sum(attrs)
         except:
+            log.info("Cannot call sum on attrs %s because of %s", attrs, e)
             pass
         try:
             return join(attrs)
-        except:
+        except Exception as e:
+            log.info("Cannot call join on attrs %s because of %s", attrs, e)
             pass
+        log.info("Returning combined function")
         return CombinedFunction(attrs)
 
     def uses_background(self):

@@ -37,7 +37,7 @@ def patch_angtype(ang_type):
     """
     if 2<=abs(ang_type)<=3:
         return math.copysign(6, ang_type)
-    if abs(ang_type)==4:
+    if abs(ang_type)in [4,5]:
         return -math.copysign(6, ang_type)
     return ang_type
 

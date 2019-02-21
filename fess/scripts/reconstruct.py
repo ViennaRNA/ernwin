@@ -38,16 +38,28 @@ def reconstruct(cg, fn, args, rec):
         sm.bg.traverse_graph()
         for ml in sm.bg.mloop_iterator():
             if ml not in sm.bg.mst:
-                del sm.elem_defs[ml]
+                try:
+                    del sm.elem_defs[ml]
+                except KeyError:
+                    pass
         stat_source = fbs.from_args(args, cg)
-        fbm._perml_energy_to_sm(sm, "MAX200[1FJC1]", stat_source)
+        fbm._perml_energy_to_sm(sm, "1FJC1", stat_source)
         for ml in sm.bg.mloop_iterator():
             if ml not in sm.bg.mst:
                 e = sm.junction_constraint_energy[ml].eval_energy(sm.bg)
                 log.info("Deviation for %s is %s", ml, e)
-                used_stat = sm.junction_constraint_energy[ml].used_stat
+                energies = list(sm.junction_constraint_energy[ml].iterate_energies())
+                if len(energies)==1:
+                    log.debug("Getting used_stat for single energy %s",energies)
+                    used_stat = energies[0].used_stat
+                else:
+                    log.debug("Multiple energies. Iterating")
+                    for ef in energies:
+                        if ef.element==ml:
+                            used_stat = ef.used_stat
                 log.info("Used stat for %s is %s", ml, used_stat)
                 sm.elem_defs[ml] = used_stat
+        sm.save_sampled_elems()
         log.info("Broken stats reassigned. Storing cg.")
         sm.bg.to_file(fn+".reassigned.cg")
     sm.new_traverse_and_build()

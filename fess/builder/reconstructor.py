@@ -560,16 +560,36 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     # Now append first strand to seq_ids_from
     assert closing_bps_from[0].chain == closing_bps_from[1].chain
     chain = chains_from[closing_bps_from[0].chain]
+    reslist = chain.child_list
+    if closing_bps_from[1]<closing_bps_from[0]:
+        reslist=reversed(reslist)
+        include_start = elem_to[0]=="t"
+        include_end = elem_to[0]=="f"
+    else:
+        include_start = elem_to[0]=="f"
+        include_end = elem_to[0]=="t"
+
     for res in chain:
-        if elem_to[0]!="f" and res.id == closing_bps_from[0].resid:
-            continue
-        if elem_to[0]!="t" and res.id == closing_bps_from[1].resid:
-            break
-        log.info("Appending seqid %s %s",res, res.id)
-        seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
+        found = False
+        if res.id == closing_bps_from[0].resid:
+            found=True
+            if include_start:
+                seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
+                log.info("Appending seqid %s %s",res, res.id)
+        elif found==True:
+            if res.id== closing_bps_from[1].resid:
+                if include_end:
+                    seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
+                    log.info("Appending seqid %s %s",res, res.id)
+                break
+            seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
+            log.info("Appending seqid %s %s",res, res.id)
     if len(closing_bps_from)>2:
         chain = chains_from[closing_bps_from[2].chain]
         assert closing_bps_from[2].chain == closing_bps_from[3].chain
+        reslist = chain.child_list
+        if closing_bps_from[3]<closing_bps_from[2]:
+            reslist=reversed(reslist)
         found = False
         for res in chain:
             if res.id == closing_bps_from[2].resid:
@@ -582,7 +602,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 
     log.info("Fragment %s", seq_ids_from)
     log.info("Target %s", seq_ids_to)
-    assert len(seq_ids_from) == len(seq_ids_to), "{} {}".format(seq_ids_from, seq_ids_to)
+    assert len(seq_ids_from) == len(seq_ids_to), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
 
     # Now copy the residues from the fragment chain to the scaffold chain.
     for i in range(len(seq_ids_to)):

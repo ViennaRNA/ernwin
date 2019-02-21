@@ -78,5 +78,5 @@ setup(cmdclass={'build_py': build_py},
                              'stats/all_nr3.0_pkfree.stats',
                              'stats/residue_template.pdb',
                              'stats/AME_distributions.csv']},
-      scripts=['fess/scripts/ernwin.py', 'fess/scripts/reconstruct.py']
+      scripts=['fess/scripts/ernwin.py', 'fess/scripts/reconstruct.py', 'fess/scripts/multiernwin.py']
      )
