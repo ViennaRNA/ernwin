@@ -31,7 +31,7 @@ def get_parser():
     return parser
 
 def reconstruct(cg, fn, args, rec):
-    print("Processing", fn)
+    log.info("Processing %s", fn)
     sm = fbm.SpatialModel(cg)
     sm.load_sampled_elems()
     if args.reassign_broken:
@@ -43,7 +43,7 @@ def reconstruct(cg, fn, args, rec):
                 except KeyError:
                     pass
         stat_source = fbs.from_args(args, cg)
-        fbm._perml_energy_to_sm(sm, "1FJC1", stat_source)
+        fbm._perml_energy_to_sm(sm, "MAX10000[1FJC1]", stat_source)
         for ml in sm.bg.mloop_iterator():
             if ml not in sm.bg.mst:
                 e = sm.junction_constraint_energy[ml].eval_energy(sm.bg)
@@ -65,7 +65,11 @@ def reconstruct(cg, fn, args, rec):
     sm.new_traverse_and_build()
     chains = rec.reconstruct(sm)
     print("Writing", fn+".reconstr.pdb")
+    chains = ftup.rename_chains_for_pdb(chains)
     ftup.output_multiple_chains(chains.values(), fn+".reconstr.pdb")
+
+
+
 
 def main(args):
     rec = fbr.Reconstructor(args.source_pdb_dir, args.source_cg_dir, args.server)
@@ -82,7 +86,7 @@ def main(args):
             pdb_basename = stat_name.split(":")[0]
             pdb_filename = op.expanduser(op.join(rec.pdb_library_path, "_".join(pdb_basename.split("_")[:-1])+".cif"))
             try:
-		with open(pdb_filename): pass
+                with open(pdb_filename): pass
             except IOError:
                 pdb_filename = pdb_filename.rstrip(".cif")+".pdb"
             curr_fns.add(pdb_filename)

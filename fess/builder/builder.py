@@ -169,7 +169,18 @@ class Builder(object):
 
         for elem in _determined_broken_ml_segments(built_nodes, sm.bg):
             if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
-                used_stat = sm.junction_constraint_energy[elem].used_stat
+                energies = list(sm.junction_constraint_energy[elem].iterate_energies())
+                if len(energies)==1:
+                    log.debug("Getting used_stat for single energy %s",energies)
+                    used_stat = energies[0].used_stat
+                else:
+                    log.debug("Multiple energies. Iterating")
+                    for ef in energies:
+                        if ef.element==elem:
+                            used_stat = ef.used_stat
+                            break
+                    else:
+                        assert False
                 log.debug("Assigning stat %s to broken ml segment %s",
                           used_stat, elem)
                 sm.elem_defs[elem] = used_stat

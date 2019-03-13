@@ -24,6 +24,9 @@ from logging_exceptions import log_to_exception
 import forgi.threedee.model.descriptors as ftur
 import forgi.threedee.model.similarity as ftme
 import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.utilities.pdb as ftup
+
+import fess.builder.reconstructor as fbr
 
 from . import config as conf
 from . import energy as fbe
@@ -701,6 +704,13 @@ class SamplingStatistics:
                 os.makedirs(self.out_dir)
                 log.info ("Directory {} created.".format(self.out_dir))
 
+        if self.options["reconstruct_n"]>0 and self.options["reconstruct_cg"] and self.options["reconstruct_pdb"]:
+            self.reconstructor = fbr.Reconstructor(self.options["reconstruct_pdb"],
+                                                   self.options["reconstruct_cg"],
+                                                   True)
+        else:
+            self.reconstructor = None
+
     @contextlib.contextmanager
     def open_outfile(self):
         try:
@@ -770,6 +780,16 @@ class SamplingStatistics:
                 #                  'step{:06d}.coord'.format(self.step)))
                 print(cg_stri, file=f)
 
+        if self.reconstructor is not None and self.step % self.options["reconstruct_n"] ==0:
+            try:
+                chains = self.reconstructor.reconstruct(sm)
+                ftup.output_multiple_chains(chains.values(),
+                            os.path.join(self.out_dir,
+                                         'step{:06d}.reconstr.pdb'.format(self.step)))
+            except:
+                log.exception("Could not reconstruct all-atom PDB, because of the following error:")
+
+
 ####################################################################################
 # Handling of commandline arguments
 ####################################################################################
@@ -783,6 +803,18 @@ def update_parser(parser):
                         help='Save the best (lowest rmsd) n structures.', type=int)
     monitor_options.add_argument('--step-save', default=100, help="Save the structure at every n'th step.",
                          type=int)
+    monitor_options.add_argument('--reconstruct-every-n', default=500,
+                                 help="Reconstruct every n'th structure to an all-atom pdb.\n"
+                                     "Use 0 to disable reconstruction",
+                         type=int)
+
+    monitor_options.add_argument("--source-pdb-dir", type=str,
+                        help="A directory where all the pdb files, from which fragments "
+                             "can be extracted, are located.")
+    monitor_options.add_argument("--source-cg-dir", type=str,
+                        help="A directory where the cg-files corresponding to the pdb files in "
+                             "source-pdb-dir are located.")
+
     monitor_options.add_argument('--dump-energies', default=False, action='store_true',
                         help='Dump the measures used for energy calculation to file') #UNUSED OPTION. REMOVE
     monitor_options.add_argument('--no-rmsd', default=False,
@@ -824,6 +856,10 @@ def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
         options["rmsd"] = False
         options["acc"]  = False
     options[ "step_save" ] = args.step_save
+    options[ "reconstruct_n" ] = args.reconstruct_every_n
+    options[ "reconstruct_pdb" ] = args.source_pdb_dir
+    options[ "reconstruct_cg" ] = args.source_cg_dir
+
     options[ "save_n_best" ] = args.save_n_best
     options[ "save_min_rmsd" ] = args.save_min_rmsd
     options[ "measure" ]=[]

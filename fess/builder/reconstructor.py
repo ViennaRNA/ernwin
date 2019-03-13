@@ -7,6 +7,7 @@ Convert a bulge graph to the pdb-format.
 import multiprocessing as mp
 import warnings
 import glob
+from collections import defaultdict
 
 import itertools as it
 import fess.builder.models as models
@@ -52,6 +53,7 @@ log=logging.getLogger(__name__)
 
 import numpy as np
 
+
 class Reconstructor(object):
     LIBRARY_DIRECTORY="/scr/risa/thiel/RECONSTRUCTOR/FRAGMENTS"
     def __init__(self, pdb_library_path, cg_library_path, server=False):
@@ -76,7 +78,7 @@ class Reconstructor(object):
         num_stems = len(list(sm.bg.stem_iterator()))
         for i, stem in enumerate(sm.bg.stem_iterator()):
             self._reconstruct_stem(sm, stem, chains)
-            print("{} out of {} stems reconstructed".format(i+1, num_stems))
+            log.info("{} out of {} stems reconstructed".format(i+1, num_stems))
         #Some validation
         try:
             _compare_cg_chains_partial(sm.bg, chains)
@@ -441,6 +443,25 @@ def get_stem_rotation_matrix(stem, stem2, use_average_method=False):
 
     return rot_mat4
 
+def iter_resids_between(chain, from_, to, include_start, include_end):
+    log.debug("Iter resids vewtween %s and %s from %s", from_, to, [x.id for x in chain.child_list])
+    found = False
+    for res in chain:
+        if res.id == from_:
+            found=True
+            if include_start:
+                log.debug("yielding start %s", res.id)
+                yield RESID(chain.id, res.id)
+        elif res.id == to:
+            if include_end:
+                log.debug("yielding end %s", res.id)
+                yield RESID(chain.id, res.id)
+            return
+        elif found:
+            log.debug("yielding %s", res.id)
+            yield RESID(chain.id, res.id)
+
+
 def insert_element(cg_to, cg_from, elem_to, elem_from,
                    chains_to, chains_from, angle_type):
     '''
@@ -474,6 +495,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     define_a_to = cg_to.define_a(elem_to)
     define_a_from = cg_from.define_a(elem_from)
     assert len(define_a_to) == len(define_a_from)
+    nt_in_define_from=[x in cg_from.defines[elem_from] for x in define_a_from]
 
     # The defines translated to seq_ids.
     closing_bps_to = []
@@ -500,7 +522,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     for i in range(0, len(define_a_from), 2):
         for nt in range(define_a_from[i], define_a_from[i+1]+1):
             seq_ids_a_from.append(cg_from.seq.to_resid(nt))
-
+    log.debug("seqids_a from %s", seq_ids_a_from)
     #The loop fragment to insert in a dict {chain_id:chain}
     try:
         chains_from = ftup.extract_subchains_from_seq_ids(chains_from, seq_ids_a_from)
@@ -513,7 +535,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 
     # A list of tuples (seq_id_from, seq_id_to) for the nucleotides
     # that will be used for alignment.
-    log.error("Closing_bps _from are %s", closing_bps_from)
+    log.debug("Closing_bps _from are %s", closing_bps_from)
     alignment_positions = []
     assert elem_from[0]!="s", "No stems allowed in insert_element"
     if elem_from[0]=="f":
@@ -530,15 +552,20 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     #The defines and seq_ids WITHOUT adjacent elements
     define_to = cg_to.defines[elem_to]
     define_from = cg_from.defines[elem_from]
+    no_moderna = False
     if len(define_from)!=len(define_to):
-        log.error("Inconsistent defines: {} and {} for {}. Using ModeRNA fragment instead.".format(define_from, define_to, elem_to))
+        log.warning("Inconsistent defines: {} and {} for {}. Using ModeRNA fragment instead.".format(define_from, define_to, elem_to))
         target_seqs = cg_to.get_define_seq_str(elem_to) # One or two strands
         for i, target_seq in enumerate(target_seqs):
             if closing_bps_from[2*i].chain!=closing_bps_from[2*i+1].chain:
                 raise NotImplementedError("TODO")
-            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[2*i].chain], target_seq,
+            try:
+                mod_chain = use_moderna_fragment(chains_from[closing_bps_from[2*i].chain], target_seq,
                                              closing_bps_from[2*i], closing_bps_from[2*i+1] )
-            chains_from[seq_ids_a_from[0].chain]= mod_chain
+            except:
+                no_moderna=True
+            else:
+                chains_from[seq_ids_a_from[0].chain]= mod_chain
     elif cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
         log.warning("%s not consistent with %s: Missing residues", define_from, define_to)
         log.warning("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
@@ -547,95 +574,97 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             if closing_bps_from[0].chain!=closing_bps_from[1].chain:
                 raise NotImplementedError("TODO")
             target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
-            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain], target_seq,
-                                             closing_bps_from[0], closing_bps_from[1])
-            chains_from[seq_ids_a_from[0].chain]= mod_chain
+            try:
+                mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain], target_seq,
+                                                 closing_bps_from[0], closing_bps_from[1])
+            except:
+                no_moderna = True
+            else:
+                chains_from[seq_ids_a_from[0].chain]= mod_chain
         else:
             raise NotImplementedError("TODO")
     seq_ids_to = []
     for i in range(0, len(define_to), 2):
+        seq_ids_to.append([])
         for nt in range(define_to[i], define_to[i+1]+1):
-            seq_ids_to.append(cg_to.seq.to_resid(nt))
+            seq_ids_to[-1].append(cg_to.seq.to_resid(nt))
     seq_ids_from = []
     # Now append first strand to seq_ids_from
     assert closing_bps_from[0].chain == closing_bps_from[1].chain
-    chain = chains_from[closing_bps_from[0].chain]
-    reslist = chain.child_list
-    if closing_bps_from[1]<closing_bps_from[0]:
-        reslist=reversed(reslist)
-        include_start = elem_to[0]=="t"
-        include_end = elem_to[0]=="f"
+    log.debug("nt_in_define=%s", nt_in_define_from)
+    if closing_bps_from[0].resid<closing_bps_from[1].resid:
+        s = list(iter_resids_between(chains_from[closing_bps_from[0].chain], closing_bps_from[0].resid, closing_bps_from[1].resid, nt_in_define_from[0], nt_in_define_from[1]))
     else:
-        include_start = elem_to[0]=="f"
-        include_end = elem_to[0]=="t"
+        s = list(iter_resids_between(chains_from[closing_bps_from[0].chain], closing_bps_from[1].resid, closing_bps_from[0].resid, nt_in_define_from[1], nt_in_define_from[0]))
+        s[0].reverse()
+    if s:
+        seq_ids_from.append(s)
 
-    for res in chain:
-        found = False
-        if res.id == closing_bps_from[0].resid:
-            found=True
-            if include_start:
-                seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
-                log.info("Appending seqid %s %s",res, res.id)
-        elif found==True:
-            if res.id== closing_bps_from[1].resid:
-                if include_end:
-                    seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
-                    log.info("Appending seqid %s %s",res, res.id)
-                break
-            seq_ids_from.append(RESID(closing_bps_from[0].chain, res.id))
-            log.info("Appending seqid %s %s",res, res.id)
     if len(closing_bps_from)>2:
-        chain = chains_from[closing_bps_from[2].chain]
         assert closing_bps_from[2].chain == closing_bps_from[3].chain
-        reslist = chain.child_list
-        if closing_bps_from[3]<closing_bps_from[2]:
-            reslist=reversed(reslist)
-        found = False
-        for res in chain:
-            if res.id == closing_bps_from[2].resid:
-                found=True
-            elif found==True:
-                if res.id== closing_bps_from[3].resid:
-                    break
-                seq_ids_from.append(RESID(closing_bps_from[2].chain, res.id))
-                log.info("Appending seqid %s %s",res, res.id)
+        if closing_bps_from[2].resid<closing_bps_from[3].resid:
+            s = (list(iter_resids_between(chains_from[closing_bps_from[2].chain], closing_bps_from[2].resid, closing_bps_from[3].resid, nt_in_define_from[2], nt_in_define_from[3])))
+        else:
+            s = list(iter_resids_between(chains_from[closing_bps_from[2].chain], closing_bps_from[3].resid, closing_bps_from[2].resid, nt_in_define_from[3], nt_in_define_from[2]))
+            s.reverse()
+        if s:
+            seq_ids_from.append(s)
+
+
 
     log.info("Fragment %s", seq_ids_from)
     log.info("Target %s", seq_ids_to)
-    assert len(seq_ids_from) == len(seq_ids_to), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
-
+    if not no_moderna:
+        assert len(seq_ids_from[0]) == len(seq_ids_to[0]), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
+        if len(seq_ids_to)>1:
+            assert len(seq_ids_from[1]) == len(seq_ids_to[1]), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
+    log.debug("Copying %s to %s for %s", seq_ids_from, seq_ids_to, elem_to)
     # Now copy the residues from the fragment chain to the scaffold chain.
-    for i in range(len(seq_ids_to)):
-        resid_from = seq_ids_from[i]
-        resid_to   = seq_ids_to[i]
-        residue = chains_from[resid_from.chain][resid_from.resid]
-        #Change the resid to the target
-        residue.parent = None
-        residue.id = resid_to.resid
-        if resid_to.chain not in chains_to:
-            log.info("Adding chain with id %r for residue %r", resid_to.chain, resid_to)
-            chains_to[resid_to.chain] =  bpdb.Chain.Chain(resid_to.chain)
-        #Now, add the residue to the target chain
-        chains_to[resid_to.chain].add(residue)
-
+    lastres=[None, None]
+    for a in range(len(seq_ids_to)):
+        for i in range(len(seq_ids_to[a])):
+            try:
+                resid_from = seq_ids_from[a][i]
+            except IndexError:
+                lastres[a]= seq_ids_to[a][i-1]
+                break
+            resid_to   = seq_ids_to[a][i]
+            residue = chains_from[resid_from.chain][resid_from.resid]
+            #Change the resid to the target
+            residue.parent = None
+            residue.id = resid_to.resid
+            if resid_to.chain not in chains_to:
+                log.info("Adding chain with id %r for residue %r", resid_to.chain, resid_to)
+                chains_to[resid_to.chain] =  bpdb.Chain.Chain(resid_to.chain)
+            #Now, add the residue to the target chain
+            chains_to[resid_to.chain].add(residue)
     # Now we need to mend gaps created by imperfect alignment.
     gaps_to_mend = []
     if elem_from[0]!="f":
+        log.debug("To mend: %s %s ", cg_to.seq.to_resid(define_a_to[0]), cg_to.seq.to_resid(define_a_to[0]+1))
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[0]),
                                cg_to.seq.to_resid(define_a_to[0]+1) ] )
         d = gap_length(chains_to, cg_to.seq.to_resid(define_a_to[0]),  cg_to.seq.to_resid(define_a_to[0]+1))
-        print("Elem {}: dist {} - {} is {}".format(elem_to, define_a_to[0], define_a_to[0]+1, d))
+        log.debug("Elem {}: dist {} - {} is {}".format(elem_to, define_a_to[0], define_a_to[0]+1, d))
     if elem_from[0]!="t":
-        gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[1]-1),
-                               cg_to.seq.to_resid(define_a_to[1]) ] )
-        d = gap_length(chains_to, cg_to.seq.to_resid(define_a_to[1]-1),  cg_to.seq.to_resid(define_a_to[1]))
-        print("Elem {}: dist {} - {} is {}".format(elem_to, define_a_to[1], define_a_to[1]-1, d))
+        if lastres[0] is not None:
+            r=lastres[0]
+        else:
+            r=cg_to.seq.to_resid(define_a_to[1]-1)
+        gaps_to_mend.append( [ r, cg_to.seq.to_resid(define_a_to[1]) ] )
+        d = gap_length(chains_to, r,  cg_to.seq.to_resid(define_a_to[1]))
+        log.debug("Elem {}: dist {} - {} is {}".format(elem_to, define_a_to[1], define_a_to[1]-1, d))
 
     if elem_from[0]=="i":
         gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[2]),
                                cg_to.seq.to_resid(define_a_to[2]+1) ] )
-        gaps_to_mend.append( [ cg_to.seq.to_resid(define_a_to[3]-1),
+        if lastres[1] is not None:
+            r=lastres[1]
+        else:
+            r=cg_to.seq.to_resid(define_a_to[3]-1)
+        gaps_to_mend.append( [ r,
                                cg_to.seq.to_resid(define_a_to[3]) ] )
+    log.debug("To mend %s", gaps_to_mend)
     return gaps_to_mend
 
 def use_moderna_fragment(chain, target_seq, resid1, resid2):
@@ -687,7 +716,7 @@ def mend_breakpoints(chains, gap):
         return chains
     mod_models = {}
     with fus.make_temp_directory() as tmpdir:
-        log.warning("Writing chains %s", chains.values())
+        log.info("Writing chains %s", chains.values())
 
         #ftup.output_multiple_chains(chains.values(), op.join(tmpdir, "tmp.pdb"))
         for g in gap:
@@ -716,7 +745,7 @@ def mend_breakpoints(chains, gap):
                 mended_chains[chain_id].id = chain_id
             else:
                 mended_chains[chain_id] = chains[chain_id]
-    log.warning("mended_chains: %s", mended_chains)
+    log.info("mended_chains: %s", mended_chains)
     # Moderna may replace modified residues with "UNK" for unknown or otherrwise change the code.
     # We have to replace them back.
     for chain_id in chains:
@@ -724,14 +753,22 @@ def mend_breakpoints(chains, gap):
             changed = False
             for o_res in chains[chain_id]:
                 if o_res.id[1:]==res.id[1:]:
-                    log.warning("Changing Moderna residue %s to %s", res, o_res)
+                    log.debug("Changing Moderna residue %s to %s", res, o_res)
                     assert not changed #Only one residue per number+icode
                     res.id = o_res.id
                     res.resname = o_res.resname
-                    log.warning("Moderna residue now %s", res)
+                    log.debug("Moderna residue now %s", res)
                     changed = True
     # Convert back from ModeRNA to Biopython
-    return {k:v.get_structure()[0][k] for k,v in mended_chains.items()}
+    out_chains={}
+    for k,v in mended_chains.items():
+        s = v.get_structure()[0]
+        log.error("%s, %s %s", k, s, s.child_dict)
+        assert len(s.child_list)==1
+        out_chains[k]=s.child_list[0]
+        out_chains[k].id=k
+    return out_chains
+    #{k:v.get_structure()[0][k] for k,v in mended_chains.items()}
 
 def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
     """
@@ -755,9 +792,19 @@ def align_on_nucleotides(chains_fragment, chains_scaffold, nucleotides):
         #log.debug("res_frag %s res_scaf %s", res_frag, res_scaf)
         residue_frag = chains_fragment[res_frag.chain][res_frag.resid]
         residue_scaf = chains_scaffold[res_scaf.chain][res_scaf.resid]
-        for atom_label in ["C4'", "C3'", "O3'"]:
-            points_fragment.append(residue_frag[atom_label].coord)
-            points_scaffold.append(residue_scaf[atom_label].coord)
+        found=0
+        for atom_label in ["C5'", "C4'", "C3'", "O3'"]:
+            try:
+                frag_coords = residue_frag[atom_label].coord
+                scaf_coords = residue_scaf[atom_label].coord
+            except KeyError:
+                pass
+            else:
+                found+=1
+                points_fragment.append(residue_frag[atom_label].coord)
+                points_scaffold.append(residue_scaf[atom_label].coord)
+        if found<3:
+            raise ValueError("Cannot align_on_nucleotides: Too many missing atoms")
     points_fragment = np.asarray(points_fragment)
     points_scaffold = np.asarray(points_scaffold)
 
@@ -797,7 +844,7 @@ def _compare_cg_chains_partial(cg, chains):
                           cg_coords, ftuv.magnitude(pdb_coords-cg_coords))
 
 
-def align_residues(res_dir, res_ref):
+def align_residues(res_dir, res_ref, on=None):
     '''
     Orient res_ref so that it points in the same direction
     as res_dir.
@@ -811,8 +858,11 @@ def align_residues(res_dir, res_ref):
     #     If we stick to 3 reference atoms, we could use
     #     ftuv.get_double_alignment_matrix instead.
 
-    av = { 'U': ['N1', "C1'", "C2'"], 'C': ['N1', "C1'", "C2'"], 'A': ['N9', "C1'", "C2'"], 'G': ['N9', "C1'", "C2'"],
-           'rU': ['N1', "C1'", "C2'"], 'rC': ['N1', "C1'", "C2'"], 'rA': ['N9', "C1'", "C2'"], 'rG': ['N9', "C1'", "C2'"] }
+    if on is None:
+        av = { 'U': ['N1', "C1'", "C2'"], 'C': ['N1', "C1'", "C2'"], 'A': ['N9', "C1'", "C2'"], 'G': ['N9', "C1'", "C2'"],
+              'rU': ['N1', "C1'", "C2'"], 'rC': ['N1', "C1'", "C2'"], 'rA': ['N9', "C1'", "C2'"], 'rG': ['N9', "C1'", "C2'"] }
+    else:
+        av = defaultdict(lambda: on)
 
     dv = av[res_dir.resname.strip()]
     rv = av[res_ref.resname.strip()]
@@ -894,6 +944,10 @@ def replace_bases(chains, cg):
 
             residue.resname = target_name
 
+            if "O3'" not in residue:
+                log.info("Insertion O3' atom to %s", residue)
+                new_res = align_residues(residue, ref_res, on=["C3'", "C4'", "C5'"])
+                residue.add(new_res["O3'"])
 
 
 

@@ -817,7 +817,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     def _stat_deviation(self, cg, virtual_stat):
         # Broken mls are ordered by connections
         s1, s2 = cg.connections(self.element)
-        pdev, adev, tdev = ftug.get_broken_ml_deviation(cg, self.element,
+        pdev, adev, tdev = cytvec.get_broken_ml_deviation(cg, self.element,
                                                         s1,
                                                         virtual_stat)
 
