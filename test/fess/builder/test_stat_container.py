@@ -137,8 +137,8 @@ class StatStorageTest(unittest.TestCase):
 class StatStoragePublicAPITests(unittest.TestCase):
     def setUp(self):
         self.st = fbstat.StatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
-        self.cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
-        self.cg2 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....((((((...))))))..)))))",
+        self.cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
+        self.cg2 = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str =  "(((((.....((((((...))))))..)))))",
                                                   seq = "AAAAACCCCCGGGGGGAAACCCCCCCCUUUUU")
 
     def test_sample_for(self):
@@ -189,7 +189,7 @@ class StatStoragePublicAPITests(unittest.TestCase):
 class SequenceDependentStatStorageTests(unittest.TestCase):
     def setUp(self):
         self.st = fbstat.SequenceDependentStatStorage("test/fess/data/test1.stats", ["test/fess/data/fallback1.stats", "test/fess/data/fallback2.stats"])
-        self.cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((...)))))", seq = "AUGCACCCUGCAU")
+        self.cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str =  "(((((...)))))", seq = "AUGCACCCUGCAU")
 
     @unittest.skip("Not yet completely inmplemented")
     def test_sample_for(self):

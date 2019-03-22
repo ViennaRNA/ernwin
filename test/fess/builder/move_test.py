@@ -73,7 +73,7 @@ class TestMoverBaseClassPrivateMembers(unittest.TestCase):
     def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
         self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
-        cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((......)))))", seq="GGCGCAAAAAAGCGCC")
+        cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "(((((......)))))", seq="GGCGCAAAAAAGCGCC")
         self.sm = SpatialModel(cg)
         self.sm.sample_stats(self.stat_source_limited)
         self.sm.new_traverse_and_build()
@@ -124,7 +124,7 @@ class TestMoverBaseClassPublicAPI(unittest.TestCase):
     def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
         self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
-        cg1 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....(((((......)))))..)))))")
+        cg1 = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "(((((.....(((((......)))))..)))))")
         self.sm = SpatialModel(cg1)
         self.sm.sample_stats(self.stat_source_limited)
         self.sm.new_traverse_and_build()
@@ -143,7 +143,7 @@ class TestMoverBaseClassPublicAPI(unittest.TestCase):
 class TestConvenienceFunctions(unittest.TestCase):
     def setUp(self):
         self.stat_source = StatStorage("test/fess/data/test1.stats")
-        cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((......)))))")
+        cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "(((((......)))))")
         self.sm = SpatialModel(cg)
 
     def test_integration_with_commandlineparsable(self):

@@ -58,6 +58,13 @@ parser.add_argument('--externally-interacting', type=str,
                                  " will be excluded from A-Minor and "
                                  "loop-loop interaction energies.")
 
+parser.add_argument('--reference', action='store', type=str,
+                    help="A *.cg/ *.coord or *.pdb file.\n"
+                         "Calculate the RMSD and MCC relative to the structure\n"
+                         "in this file, not to the structure used as starting\n"
+                         "point for sampling.")
+
+
 # Each of the following modules of ernwin adds its own options to the parser.
 for module in [fbstat, fess.directory_utils, fbe, fbmov, fbm, fbb, fbmodel]:
     module.update_parser(parser)
@@ -68,6 +75,12 @@ def main():
 
     cg, = fuc.cgs_from_args(args, rna_type="cg",
                             enable_logging=True) # Set log-level as a sideeffect
+
+    if args.reference:
+        args.rna = [args.reference]
+        reference_cg, = fuc.cgs_from_args(args, rna_type="cg", enable_logging=False)
+    else:
+        reference_cg = None
     if args.externally_interacting:
         elems_or_nts=args.externally_interacting.split(",")
         nts = []
@@ -93,7 +106,7 @@ def main():
         with open(os.path.join(main_dir, 'input.cg'), "w") as f:
             print(cg_stri, file=f)
         try:
-            run(args, cg, main_dir)
+            run(args, cg, main_dir, reference_cg)
         except BaseException as e:
             with open(os.path.join(main_dir, 'exception.log'), "w") as f:
                 print("Running on python {}, the following error occurred:".format(sys.version), file=f)
@@ -101,7 +114,7 @@ def main():
                 print(str(traceback.format_exc()), file=f)
             raise
 
-def run(args, cg, main_dir):
+def run(args, cg, main_dir, reference_cg):
     setup_rng(args)
     stat_source = fbstat.from_args(args, cg) #Uses sampling_output_dir
 
@@ -111,13 +124,15 @@ def run(args, cg, main_dir):
     # we sample after all structures were built.
     samplers = []
     processes = []
+    if reference_cg is None:
+        reference_cg = cg
     for i, sm in enumerate(build_spatial_models(args, cg, stat_source, main_dir)):
         cg_stri = sm.bg.to_cg_string()
         with open(os.path.join(main_dir,
                                'build{:06d}.coord'.format(i+1)), "w") as f:
             print(cg_stri, file=f)
         if args.iterations>0:
-            sampler = setup_sampler(args, sm, stat_source, i, cg)
+            sampler = setup_sampler(args, sm, stat_source, i, reference_cg)
             samplers.append(sampler)
             if not args.replica_exchange and args.parallel:
                 p = multiprocessing.Process(target=sample_one_trajectory,
@@ -197,7 +212,7 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-    monitor = fbm.from_args(args, cg, sampling_energy, stat_source, out_dir, show_min_rmsd)
+    monitor = fbm.from_args(args, original_cg, sampling_energy, stat_source, out_dir, show_min_rmsd)
     sampler = fbs.MCMCSampler(sm, sampling_energy, mover, monitor)
     return sampler
 

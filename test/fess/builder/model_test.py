@@ -32,8 +32,7 @@ class TestAddLoop(unittest.TestCase):
         self.example_stem_stat=ftms.StemStat("stem exampleStat 3 5.29399999969 1.19302425058 1 3 7 9")
         self.example_hairpin_stat=ftms.LoopStat("loop exampleStat 3 14.8069260882 1.2124527925 1.12478051025 86 88")
     def test_add_loop_for_hairpin(self):
-        cg=ftmc.CoarseGrainRNA()
-        cg.from_dotbracket("(((...)))")
+        cg=ftmc.CoarseGrainRNA.from_dotbracket("(((...)))")
         sm=fbm.SpatialModel(cg)
         sm.elem_defs={}
         sm.elem_defs["s0"]=self.example_stem_stat
@@ -168,8 +167,8 @@ def assert_connected_graph(bg):
 class TestAsserts(unittest.TestCase):
     """Test, whether the costum asserts defined in this file work as intended."""
     def setUp(self):
-        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4way.cg'))
-        self.other_sm = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg'))
+        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4way.cg'))
+        self.other_sm = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A.cg'))
         self.stat_source = stat_container.StatStorage('test/fess/data/test1.stats')
     @unittest.skip("Update for deepdiff V3")
     def test_assertModelsEqual_works(self):
@@ -216,8 +215,8 @@ class TestAsserts(unittest.TestCase):
 
 class TestStatsFromAndToCoords_IL(unittest.TestCase):
     def setUp(self):
-        self.sm1=fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/il.cg'))
-        self.sm2=fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/il.cg'))
+        self.sm1=fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/il.cg'))
+        self.sm2=fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/il.cg'))
     def test_extracting_stats_from_sm_before_building(self):
         self.sm1.load_sampled_elems()
         self.sm2.elem_defs={}
@@ -241,8 +240,7 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
         self.sm2.load_sampled_elems()
         self.sm2.new_traverse_and_build()
         cg2_str = self.sm2.bg.to_cg_string()
-        bg_loaded=ftmc.CoarseGrainRNA()
-        bg_loaded.from_cg_string(cg2_str)
+        bg_loaded=ftmc.CoarseGrainRNA.from_bg_file(cg2_str)
         sm2_reloaded = fbm.SpatialModel( bg_loaded )
         sm2_reloaded.load_sampled_elems()
         self.assertAlmostEqual(ftmsim.cg_rmsd(self.sm2.bg, sm2_reloaded.bg), 0, places=6)
@@ -251,8 +249,8 @@ class TestStatsFromAndToCoords_IL(unittest.TestCase):
 
 class TestStatsFromAndToCoords_ML(unittest.TestCase):
     def setUp(self):
-        self.sm1=fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4way.cg'))
-        self.sm2=fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4way.cg'))
+        self.sm1=fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4way.cg'))
+        self.sm2=fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4way.cg'))
     def test_extracting_stats_from_sm_before_building(self):
         self.sm1.load_sampled_elems()
         self.sm2.elem_defs={}
@@ -295,8 +293,7 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
         self.sm2.load_sampled_elems()
         self.sm2.new_traverse_and_build()
         cg2_str = self.sm2.bg.to_cg_string()
-        bg_loaded=ftmc.CoarseGrainRNA()
-        bg_loaded.from_cg_string(cg2_str)
+        bg_loaded=ftmc.CoarseGrainRNA.from_bg_string(cg2_str)
         sm2_reloaded = fbm.SpatialModel( bg_loaded )
         sm2_reloaded.load_sampled_elems()
         assertModelsEqual(self.sm2, sm2_reloaded, 12)
@@ -308,13 +305,13 @@ class TestStatsFromAndToCoords_ML(unittest.TestCase):
 class TestModifyingMST(unittest.TestCase):
     """Test, whether changing the minimum spanning tree works."""
     def setUp(self):
-        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4way.cg'))
+        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4way.cg'))
         self.sm.load_sampled_elems()
         self.sm.new_traverse_and_build()
-        self.sm_zero_hairpin = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg'))
+        self.sm_zero_hairpin = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4GXY_A.cg'))
         self.sm_zero_hairpin.load_sampled_elems()
         self.sm_zero_hairpin.new_traverse_and_build()
-        self.sm_pseudoknot = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/pseudoknot.cg'))
+        self.sm_pseudoknot = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/pseudoknot.cg'))
         self.sm_pseudoknot.load_sampled_elems()
         self.sm_pseudoknot.new_traverse_and_build()
         self.example_angle_stat=ftms.AngleStat("angle exampleStat 0 1000 1.69462078307 0.313515399557 0.165804917419 5.08692965666 1.04129866007 0.717061903121 3  CC")
@@ -435,9 +432,9 @@ class TestModifyingMST(unittest.TestCase):
 class TestModifyingMSTWithoutLoadSampledElements(unittest.TestCase):
     """Additional tests for changing the minimum spanning tree."""
     def setUp(self):
-        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4way.cg'))
-        self.sm_zero_hairpin = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg'))
-        self.sm_pseudoknot = fbm.SpatialModel(ftmc.CoarseGrainRNA('test/fess/data/pseudoknot.cg'))
+        self.sm = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4way.cg'))
+        self.sm_zero_hairpin = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4GXY_A.cg'))
+        self.sm_pseudoknot = fbm.SpatialModel(ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/pseudoknot.cg'))
         self.example_angle_stat=ftms.AngleStat("angle exampleStat 0 1000 1.69462078307 0.313515399557 0.165804917419 5.08692965666 1.04129866007 0.717061903121 3  CC")
     def test_set_multiloop_break_segment_4way(self):
         self.use_sm_set_multiloop_break_segment_without_loading_sampled_elems(self.sm)
@@ -454,7 +451,7 @@ class TestModifyingMSTWithoutLoadSampledElements(unittest.TestCase):
 
 class TestModel(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A.cg')
         self.real_stats_fn = 'test/fess/data/real.stats'
         self.filtered_stats_fn = 'test/fess/data/filtered_stats_1gid.csv'
 
@@ -478,14 +475,13 @@ class TestModel(unittest.TestCase):
 
 class TestNewTraverse(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
-        self.cg_copy = ftmc.CoarseGrainRNA('test/fess/data/4GXY_A.cg')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4GXY_A.cg')
+        self.cg_copy = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4GXY_A.cg')
         self.sm = fbm.SpatialModel(self.cg)
         real_stats_fn = 'test/fess/data/real.stats'
         self.stat_source = stat_container.StatStorage(real_stats_fn)
-        self.cg2 = ftmc.CoarseGrainRNA()
-        self.cg2.from_dotbracket("(((.(((.(((.(((...))).))).))).)))")
-        self.cg3 = ftmc.CoarseGrainRNA(dotbracket_str = "(((((......)))))", seq="GGCGCAAAAAAGCGCC")
+        self.cg2 = ftmc.CoarseGrainRNA.from_dotbracket("(((.(((.(((.(((...))).))).))).)))")
+        self.cg3 = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "(((((......)))))", seq="GGCGCAAAAAAGCGCC")
 
         #(((.(((.(((.(((...))).))).))).)))
         #sssisssisssissshhhsssisssisssisss

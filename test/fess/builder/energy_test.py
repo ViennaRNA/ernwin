@@ -63,9 +63,9 @@ class FitVolumeTest(unittest.TestCase):
 
 class TestClashEnergy(unittest.TestCase):
     def setUp(self):
-        self.cg=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        self.cg2=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure2.coord')
-        self.cg_clash=ftmc.CoarseGrainRNA('test/fess/data/1GID_A-clash.coord')
+        self.cg=ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-structure1.coord')
+        self.cg2=ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-structure2.coord')
+        self.cg_clash=ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-clash.coord')
         self.cg.add_all_virtual_residues()
         self.cg2.add_all_virtual_residues()
         self.cg_clash.add_all_virtual_residues()
@@ -116,10 +116,10 @@ class TestClashEnergy(unittest.TestCase):
 
 class TestJunctionConstraintEnergy(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A.cg')
         self.cg.add_all_virtual_residues()
         self.junction_energy = fbe.RoughJunctionClosureEnergy()
-        self.cg_bad = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
+        self.cg_bad = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
         add_stem_coordinates(self.cg_bad, "s0", [0.,0.,0.], [0.,0.,10.])
         self.cg_bad.coords["h0"] = self.cg_bad.coords["s0"][1], self.cg_bad.coords["s0"][1]+[3.,6.,0.]
         self.cg_bad.coords["m0"] = self.cg_bad.coords["s0"][0], self.cg_bad.coords["s0"][0]+[2.,1.,300.]
@@ -135,7 +135,7 @@ class TestJunctionConstraintEnergy(unittest.TestCase):
         self.assertEqual(self.junction_energy.eval_energy(self.cg, nodes=["s0", "h0", "s1"]), 0)
         self.assertGreater(self.junction_energy.eval_energy(self.cg_bad, nodes=["m0"]), 1000)
     def test_energy_independent_of_nodes(self):
-        cg = ftmc.CoarseGrainRNA('test/fess/data/4way.cg')
+        cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/4way.cg')
         cg.add_all_virtual_residues()
         self.assertEqual(self.junction_energy.eval_energy(cg, nodes=["m0"]),
                          self.junction_energy.eval_energy(cg))
@@ -192,9 +192,9 @@ class TestFragmentJunctionEnergy(unittest.TestCase):
 
 class TestSLDEnergies(unittest.TestCase):
     def setUp(self):
-        self.cg1 = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg1 = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A.cg')
         self.cg1.add_all_virtual_residues()
-        self.cg_far = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
+        self.cg_far = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = '(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAA")
         add_stem_coordinates(self.cg_far, "s0", [0.,0.,0.], [0.,0.,10.])
         self.cg_far.coords["h0"] = self.cg_far.coords["s0"][1], self.cg_far.coords["s0"][1]+[3.,6.,0.]
         self.cg_far.coords["m0"] = self.cg_far.coords["s0"][0], self.cg_far.coords["s0"][0]+[2.,1.,200.]
@@ -202,7 +202,7 @@ class TestSLDEnergies(unittest.TestCase):
         self.cg_far.coords["h1"] = self.cg_far.coords["s1"][1], self.cg_far.coords["s1"][1]+[1.,6.,0.]
         self.cg_far.add_all_virtual_residues()
 
-        self.cg_five = ftmc.CoarseGrainRNA(dotbracket_str = '(((...)))...(((...)))...(((...)))...(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAAGGGUUUGGGAAAGGGUUUGGGAAAGGGUUUGGGAAA")
+        self.cg_five = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = '(((...)))...(((...)))...(((...)))...(((...)))...(((...)))', seq = "AAAGGGUUUGGGUUUGGGAAAGGGUUUGGGAAAGGGUUUGGGAAAGGGUUUGGGAAA")
         add_stem_coordinates(self.cg_five, "s0", [0.,0.,0.], [0.,0.,10.])
         for i in range(1, 5):
             m="m{}".format(i-1)
@@ -275,7 +275,7 @@ class TestSLDEnergies(unittest.TestCase):
 
 class TestAMinorEnergy(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A.cg')
         self.cg.add_all_virtual_residues()
         self.energy = fbe.AMinorEnergy.from_cg(None, None, self.cg1)
     @unittest.skip("Need retraining of KBP")
@@ -484,7 +484,7 @@ class TestCombinedEnergy(unittest.TestCase):
 
 class TestGyrationRadiusEnergies(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A.cg')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A.cg')
         self.cg.add_all_virtual_residues()
 
     def test_ROG_energy(self):
@@ -518,8 +518,8 @@ class TestProjectionMatchEnergySetup(unittest.TestCase):
 @unittest.skip("Projection match energy: The 3D structures changed, so we need to update the tests.")
 class TestProjectionMatchEnergy(unittest.TestCase):
     def setUp(self):
-        cg1 = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        cg2 = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure2.coord')
+        cg1 = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-structure1.coord')
+        cg2 = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-structure2.coord')
         self.sm1 = fbm.SpatialModel(cg1)
         self.sm2 = fbm.SpatialModel(cg2)
         self.sm1.load_sampled_elems()
@@ -616,16 +616,16 @@ class TestConvenienceFunctions(unittest.TestCase):
 
     def test_from_cg_AME(self):
         # A in hairpin and interiorloop
-        cg1 = ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGAAGGGAAACCCAACCC")
+        cg1 = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = '(((..(((...)))..)))', seq = "GGGAAGGGAAACCCAACCC")
         e1 = fbe.AMinorEnergy.from_cg(None, None, cg1)
         self.assertEqual(len(e1.energies), 2)
         # A only in hairpin
-        cg2 =  ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUUGGGAAACCCUUCCC")
+        cg2 =  ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUUGGGAAACCCUUCCC")
         e2 = fbe.AMinorEnergy.from_cg(None, None, cg2)
         self.assertEqual(len(e2.energies), 1)
         self.assertEqual(e2.energies[0].loop_type, "h")
         # A only in IL
-        cg2 =  ftmc.CoarseGrainRNA(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUAGGGUUUCCCUUCCC")
+        cg2 =  ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = '(((..(((...)))..)))', seq = "GGGUAGGGUUUCCCUUCCC")
         e2 = fbe.AMinorEnergy.from_cg(None, None, cg2)
         self.assertEqual(len(e2.energies), 1)
         self.assertEqual(e2.energies[0].loop_type, "i")
@@ -633,7 +633,7 @@ class TestConvenienceFunctions(unittest.TestCase):
 
 class TestHelperFunctions(unittest.TestCase):
     def test__iter_subgraphs(self):
-        cg = ftmc.CoarseGrainRNA(dotbracket_str = "...(((...)))...(((...)))...(((...(((...)))...)))", seq="AAAGGGAAACCCAAAGGGAAACCCAAAGGGUUUGGGAAACCCUUUCCC")
+        cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "...(((...)))...(((...)))...(((...(((...)))...)))", seq="AAAGGGAAACCCAAAGGGAAACCCAAAGGGUUUGGGAAACCCUUUCCC")
         sgs = fbe._iter_subgraphs(cg, 1)
         self.assertEqual(len(list(sgs)), 1)
         sgs = fbe._iter_subgraphs(cg, True)

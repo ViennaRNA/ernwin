@@ -34,13 +34,13 @@ class TestBuilderAccept(unittest.TestCase):
 
 class TestBuilderBaseClass(unittest.TestCase):
     def setUp(self):
-        self.cg = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
-        self.cg_copy = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-structure1.coord')
+        self.cg = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-structure1.coord')
+        self.cg_copy = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-structure1.coord')
         self.sm = fbm.SpatialModel(self.cg)
-        self.cg2 = ftmc.CoarseGrainRNA('test/fess/data/1GID_A-clash.coord')
+        self.cg2 = ftmc.CoarseGrainRNA.from_bg_file('test/fess/data/1GID_A-clash.coord')
         self.sm2 = fbm.SpatialModel(self.cg2)
 
-        real_stats_fn = 'fess/stats/all_nr2.92.stats'
+        real_stats_fn = 'fess/stats/all_nr3.36.stats'
         self.stat_source = stat_container.StatStorage(real_stats_fn)
         self.sm.constraint_energy = fbe.StemVirtualResClashEnergy()
         self.sm2.constraint_energy = fbe.StemVirtualResClashEnergy()

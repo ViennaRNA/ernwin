@@ -1154,6 +1154,40 @@ class PerLoopAMinor(AMinorEnergy):
                                 1, prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
 
+class UnspecificInteractionEnergy(InteractionEnergy):
+    _shortname="UIE"
+    HELPTEXT="Unspecific interaction energy on the level of virtual residues."
+    cutoff = 15
+    target_interactions = 0.27
+    knowledge_weight = 50
+
+    @classmethod
+    def from_cg(cls, prefactor, adjustment, cg, **kwargs):
+        """
+        Get the shortest loopdistance per loop energy for each hloop.
+
+        :param cg: The coarse grained RNA
+        :returns: A CombinedEnergy
+        """
+        if len(list(cls.qualifying_loops(cg, cg.hloop_iterator())))>1:
+            return cls( cg.seq_length, len(list(cls.qualifying_loops(cg, cg.hloop_iterator()))),
+                        prefactor = prefactor, adjustment = adjustment)
+        else:
+            return CombinedEnergy([])
+
+
+    def _get_cg_measure(self, cg):
+        interactions = 0
+        for loop1 in self.qualifying_loops(cg, cg.hloop_iterator()):
+            a,b = cg.coords[loop1]
+            for loop2 in self.qualifying_loops(cg, cg.hloop_iterator()):
+                if loop1 == loop2:
+                    continue
+                c,d = cg.coords[loop2]
+                if ftuv.elements_closer_than(a,b,c,d, self.cutoff):
+                    interactions+=1
+                    break
+        return interactions/self.num_loops
 
 class LoopLoopInteractionEnergy(InteractionEnergy):
     _shortname="LLI"
@@ -1192,6 +1226,27 @@ class LoopLoopInteractionEnergy(InteractionEnergy):
 
     def reset_distributions(self, rna_length):
         self.reference_interactions = [0.13] * self.knowledge_weight
+
+def read_gnom_out(filename):
+    block_found=False
+    data={"count":[], "distance":[]}
+    with open (filename) as f:
+        for line in f:
+            if block_found:
+                line=line.strip()
+                if not line or line[0]=="R":
+                    continue
+                fields=list(map(float, line.split()))
+                if fields[1]<0:
+                    break
+                data["distance"].append(fields[0])
+                data["count"].append(fields[1])
+            elif line=="      R          P(R)      ERROR\n":
+                block_found=True
+    df = pd.DataFrame(data)
+    df["error"]=sum(df["count"]/2000)
+    log.info("PDD read: %s", df)
+    return df
 
 class _PDD_Mixin(object):
     def check_level(self, level):
@@ -1237,7 +1292,7 @@ class _PDD_Mixin(object):
     @staticmethod
     def stepwidth_from_level(level):
         if level=="R":
-            return 5
+            return 2
         else:
             return 2
 
@@ -1251,9 +1306,11 @@ class _PDD_Mixin(object):
         return out
 
     @classmethod
-    def get_pdd(cls, cg, level, stepsize):
+    def get_pdd(cls, cg, level, stepsize, only_seqids=None):
         points=[]
         for i in range(1,len(cg.seq)+1):
+            if only_seqids is not None and cg.seq.to_resid(i) not in only_seqids:
+                continue
             if level=="R":
                 points.append(cg.get_virtual_residue(i, allow_single_stranded=True))
             elif level=="A":
@@ -1268,10 +1325,17 @@ class _PDD_Mixin(object):
     def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
         if pdd_target=="__cg__":
             dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
-            target_pdd = pd.DataFrame({"distance":dists, "count":counts})
+            target_pdd = pd.DataFrame({"distance":dists, "count":counts, "error":sum(counts)/2000})
         else:
-            target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True,
+            with open(pdd_target) as f:
+                line = next(f)
+            if line.startswith("distance"):
+                target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True,
                                     dtype={'distance': float, 'count': float, 'error':float} )
+            else:
+                target_pdd = read_gnom_out(pdd_target)
+            log.info("Read PDD: %s", target_pdd)
+
         if "pdd_stepsize" not in kwargs or kwargs["pdd_stepsize"] is None:
             stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/(len(target_pdd)-1)
             distdiff = target_pdd["distance"].values[1:]-target_pdd["distance"].values[:-1]
@@ -1283,8 +1347,11 @@ class _PDD_Mixin(object):
                 stepsize=None
         else:
             stepsize=kwargs["pdd_stepsize"]
-        return cls(length=cg.seq_length, target_pdd=target_pdd, prefactor=prefactor, adjustment=adjustment, level=level, stepwidth=stepsize)
-
+        energy= cls(length=cg.seq_length, target_pdd=target_pdd,
+                   prefactor=prefactor, adjustment=adjustment, level=level, stepwidth=stepsize)
+        if pdd_target=="__cg__":
+            energy.only_seqids = list(cg.seq.iter_resids(None,None,False))
+        return energy
 
 class PDDEnergy(_PDD_Mixin, EnergyFunction):
     _shortname = "PDD"
@@ -1300,7 +1367,7 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         super(PDDEnergy, self).__init__(prefactor=prefactor, adjustment=adjustment)
         self._stepwidth=self.check_stepwidth(stepwidth)
         self.target_values = self.check_target_pdd(target_pdd["distance"], target_pdd["count"])
-
+        self.only_seqids=None
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
                     plot_debug=False):
         if plot_debug or nodes is not None:
@@ -1309,7 +1376,7 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         if use_accepted_measure:
             m = self.accepted_measures[-1]
         else:
-            m = self.get_pdd(cg, self._level, self._stepwidth)[1]
+            m = self.get_pdd(cg, self._level, self._stepwidth,self.only_seqids)[1]
             m=self.pad(m)
             m=m/np.sum(m)
         self._last_measure=m
@@ -1356,7 +1423,7 @@ class LastNPDDsEnergy(PDDEnergy):
             self.log.debug("Using accepted pdd %s", m[-1])
 
         else:
-            m1 = self.get_pdd(cg, self._level, self._stepwidth)[1]*1.0
+            m1 = self.get_pdd(cg, self._level, self._stepwidth, self.only_seqids)[1]*1.0
             self.log.debug("Got pdd %s", m1)
             m1=self.pad(m1)
             m = self.accepted_measures[-self.N+1:]
@@ -1484,7 +1551,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         raise NotImplementedError()
 
     def _get_cg_measure(self, cg):
-        m = self.get_pdd(cg, self._level, self._stepwidth)[1]
+        m = self.get_pdd(cg, self._level, self._stepwidth, self.only_seqids)[1]
         m = self.pad(m)
         m = m/np.sum(m)
         return m

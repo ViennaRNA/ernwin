@@ -24,6 +24,8 @@ except:
     profile = lambda x: x
 
 import forgi.threedee.utilities.graph_pdb as ftug
+import forgi.threedee.utilities.vector as ftuv
+
 import logging
 
 import fess.builder.move as fbm
@@ -96,7 +98,10 @@ class Builder(object):
         else:
             sm.new_traverse_and_build()
             if sm.constraint_energy is not None or sm.junction_constraint_energy:
+                use_asserts = ftuv.USE_ASSERTS
+                ftuv.USE_ASSERTS=False
                 self._build_with_energies(sm, warn = True)
+                ftuv.USE_ASSERTS=use_asserts
             log.info("Done to build")
 
     def build(self, sm):
@@ -235,7 +240,7 @@ class Builder(object):
             bad_stems=set(x for clash_pair in sm.constraint_energy.bad_bulges for x in clash_pair)
             first = min(nodes.index(st) for st in bad_stems)
             assert first>=0
-            clash_nodes =  [ x for x in nodes[first:] if x[0] in ["m", "i"]]
+            clash_nodes = [ x for x in nodes[first:] if x[0] in ["m", "i"]]
             log.debug("Clash nodes {}".format(clash_nodes))
             return clash_nodes
         return []

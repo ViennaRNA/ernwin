@@ -69,7 +69,7 @@ class TestMSTchangingMoverPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
         self.stat_source_limited = StatStorage("test/fess/data/test1.stats")
-        cg1 = ftmc.CoarseGrainRNA(dotbracket_str = "((((......))((......))))")
+        cg1 = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "((((......))((......))))")
         self.sm = SpatialModel(cg1)
         self.sm.sample_stats(self.stat_source_real)
         self.sm.new_traverse_and_build()
@@ -142,7 +142,7 @@ class TestExhaustiveExplorerPrivateMembers(TestMoverBaseClassPrivateMembers):
                 self.mover_limitedstats._get_elem_and_stat(self.sm)
 
     def test_iter_moves_many(self):
-        cg = ftmc.CoarseGrainRNA(dotbracket_str = "(((((.....)))))", seq="GGCGCAAAAAGCGCC")
+        cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "(((((.....)))))", seq="GGCGCAAAAAGCGCC")
         self.sm = SpatialModel(cg)
 
         mov = fbmov.ExhaustiveMover("s0", "h0", stat_source=self.stat_source_limited,sm=self.sm )
@@ -161,7 +161,7 @@ class TestExhaustiveExplorerPublicAPI(TestMoverBaseClassPublicAPI):
 class TestWholeMLMoverPublicAPI(TestMoverBaseClassPublicAPI):
     def setUp(self):
         self.stat_source_real = StatStorage("test/fess/data/real.stats")
-        cg = ftmc.CoarseGrainRNA(dotbracket_str = "((((((((((......))))).....(((((......)))))....(((((......))))))))))")
+        cg = ftmc.CoarseGrainRNA.from_dotbracket(dotbracket_str = "((((((((((......))))).....(((((......)))))....(((((......))))))))))")
         self.sm = SpatialModel(cg)
         self.sm.sample_stats(self.stat_source_real)
         self.sm.new_traverse_and_build()
