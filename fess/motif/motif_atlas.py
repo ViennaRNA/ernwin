@@ -42,7 +42,7 @@ class MotifEntry:
             sparts = part.split('|')
 
             # find contiguous regions of nucleotides
-            resnum = fgb.resid_from_str("{}:{}".format(parts[2],int(parts[4].strip('"'))))
+            resnum = fgb.RESID("{}:{}".format(parts[2],int(parts[4].strip('"'))))
             self.define += [resnum]
 
         print (line, self.define)
@@ -79,7 +79,7 @@ class MotifAlignment:
             self.chains.add(sparts[2])
             #print "sparts:", sparts
 
-            resnum = fgb.resid_from_str("{}:{}".format(sparts[2],int(sparts[4].strip('"'))))
+            resnum = fgb.RESID("{}:{}".format(sparts[2],int(sparts[4].strip('"'))))
             self.residues += [resnum]
 
     def __str__(self):
