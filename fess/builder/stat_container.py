@@ -157,7 +157,7 @@ class ContinuouseStatSampler:
 
 
 class StatStorage(object):
-    def __init__(self, filename, fallback_filenames = None, continuouse=None):
+    def __init__(self, filename, fallback_filenames = None, continuouse=None, blacklist=[]):
         self.filename = filename
         if fallback_filenames is None:
             fallback_filenames = []
@@ -170,6 +170,15 @@ class StatStorage(object):
             self.continuouse = continuouse[:]
         else:
             self.continuouse = []
+        self.blacklist=blacklist
+
+    def in_blacklist(self, stat):
+        statname = stat.pdb_name
+        for pattern in self.blacklist:
+            if pattern in statname:
+                return True
+        return False
+
 
     @staticmethod
     def key_from_bg_and_elem(bg, elem):
@@ -224,7 +233,7 @@ class StatStorage(object):
                     self._has_reported.add((stat_type, key, min_entries))
                 break
             if key in source:
-                stats=source[key]
+                stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
                 num_stats = len(stats)
                 log.debug("Appending {} stats from source.".format(len(stats)))
                 choose_from.extend(stats)
@@ -423,7 +432,7 @@ class SequenceDependentStatStorage(StatStorage):
                     self._has_reported.add((stat_type, key, min_entries))
                 break
             if key in source:
-                stats=source[key]
+                stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
                 num_stats = len(stats)
                 choose_from.extend(stats)
                 if not weights:
@@ -469,8 +478,8 @@ def update_parser(parser):
                                    "fess.builder.config.py"   )
     stat_options.add_argument('--continuouse-stats', type=str, help='A list of names of interior'
                                 'or multiloops. The stats of these elements will be sampled from'
-                                ' a continuouse distribution.')
-
+                                ' a continuouse distribution. EXPERIMENTAL, DONT USE THIS.')
+    stat_options.add_argument('--blacklist-stats', type=str, help="A comma seperate list of pdb-ids. Disallow stats from these pdb ids.")
 
 def from_args(args, cg):
     if args.sequence_based:
@@ -480,7 +489,8 @@ def from_args(args, cg):
     kwargs={}
     if args.continuouse_stats:
         kwargs["continuouse"] = args.continuouse_stats.split(",")
-
+    if args.blacklist_stats:
+        kwargs["blacklist"] = args.blacklist_stats.split(",")
     if args.jar3d:
         jared_out    = op.join(config.Configuration.sampling_output_dir, "jar3d.stats")
         jared_tmp    = op.join(config.Configuration.sampling_output_dir, "jar3d")

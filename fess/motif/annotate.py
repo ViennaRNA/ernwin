@@ -193,7 +193,7 @@ def print_stats_for_motifs(motifs, filename, args, temp_dir=None):
                     try:
                         element_id, = loop_elements
                     except (TypeError, ValueError):
-                        log.warning("Skipping JAR3D entry for %s. Elements %s in cg do not match JAR3D.",alignment, elements)
+                        log.debug("Skipping JAR3D entry for %s. Elements %s in cg do not match JAR3D.",alignment, elements)
                         continue
 
                     stats = cg.get_stats(element_id)
