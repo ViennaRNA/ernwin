@@ -83,6 +83,7 @@ def parse_stats_file(file_handle):
     return stats
 
 def read_stats_file(filename):
+    log.info("Reading stats-file %s", filename)
     with open (filename) as f:
         try:
             return parse_stats_file(f)
@@ -226,7 +227,8 @@ class StatStorage(object):
         statfiles = self._iter_stat_sources()
         while sum(weights)<min_entries:
             try:
-                source = next(statfiles)[stat_type]
+                sf = next(statfiles)
+                source = sf[stat_type]
             except StopIteration: #All stat_files exhausted
                 if len(choose_from)<min_entries and (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
@@ -235,7 +237,7 @@ class StatStorage(object):
             if key in source:
                 stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
                 num_stats = len(stats)
-                log.debug("Appending {} stats from source.".format(len(stats)))
+                log.info("Appending {} stats from source {} for {}.".format(len(stats),id( sf), key))
                 choose_from.extend(stats)
                 if not weights:
                     weight = 1 #All stats from the first stat_source always has weight 1, even if there are more than min_entries stats.
@@ -243,6 +245,8 @@ class StatStorage(object):
                     remaining_total_weight = min_entries - sum(weights)
                     weight = min(1, remaining_total_weight/len(stats))
                 weights += [weight]*num_stats
+            else:
+                log.info("Appending NO stats from source {} for {}.".format(id( sf), key))
         if (stat_type, key, min_entries) not in self._has_reported:
             log.info("Found {} stats for {} with key {}".format(len(choose_from), stat_type, key))
             self._has_reported.add((stat_type, key, min_entries))
@@ -425,7 +429,8 @@ class SequenceDependentStatStorage(StatStorage):
         statfiles = self._iter_stat_sources()
         while sum(weights)<min_entries:
             try:
-                source = next(statfiles)[stat_type]
+                sf = next(statfiles)
+                source = sf[stat_type]
             except StopIteration: #All stat_files exhausted
                 if (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
@@ -434,6 +439,7 @@ class SequenceDependentStatStorage(StatStorage):
             if key in source:
                 stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
                 num_stats = len(stats)
+                log.info("Added %s stats ", num_stats)
                 choose_from.extend(stats)
                 if not weights:
                     weight = 1
@@ -443,6 +449,9 @@ class SequenceDependentStatStorage(StatStorage):
                 for stat in stats:
                     #log.debug("Evaluating score for %s %s %s", key, sequence, stat)
                     weights.append(weight*self.sequence_score(sequence, stat))
+            else:
+                log.info("Nothing added from stat_source %s",id(sf))
+
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
 
