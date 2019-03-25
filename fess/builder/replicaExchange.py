@@ -98,7 +98,7 @@ def MultiPipe(names):
     return MultiPipeConnection(names, conns1), MultiPipeConnection(names, conns2)
 
 class MultiprocessingReProcess(Process):
-    def __init__(self, pipe_lower, pipe_higher, sampler, prev_sm, next_sm, steps, idnr):
+    def __init__(self, pipe_lower, pipe_higher, sampler, prev_sm, next_sm, steps, idnr, args, stat_source):
         """
         :param pipe_lower:  The end of the pipe connecting to the neighboring process with the lower
                             temperature
@@ -118,6 +118,8 @@ class MultiprocessingReProcess(Process):
         self.sampler = sampler
         self.steps = steps
         self.id = idnr
+        self.args=args
+        self.stat_source=stat_source
 
     def run_exchange(self):
         log.warning("Sampler {} running with pid {}. Is lowest? {}".format(self.id, os.getpid(), self.pipe_lower is None))
@@ -183,10 +185,9 @@ class MultiprocessingReProcess(Process):
     def recv_exchange_notification(self):
         return self.pipe_higher.recv("exchange_result")
 
-    @staticmethod
-    def sm_from_cg_string(cg_string):
+    def sm_from_cg_string(self, cg_string):
         bg = ftmc.CoarseGrainRNA.from_bg_string(cg_string)
-        sm = fbm.SpatialModel(bg)
+        sm = fbm.from_args(self.args, bg, self.stat_source, self.id)
         sm.load_sampled_elems()
         sm.new_traverse_and_build()
         return sm
@@ -226,7 +227,7 @@ class MultiprocessingReProcess(Process):
         self.pipe_higher.send("exchanged_energy", e)
         return e
 
-def start_parallel_replica_exchange(sampler_list, num_steps):
+def start_parallel_replica_exchange(sampler_list, args, stat_source):
     prev_conn = None
     processes = []
     for i, sampler in enumerate(sampler_list):
@@ -242,7 +243,10 @@ def start_parallel_replica_exchange(sampler_list, num_steps):
             next_sm = sampler_list[i+1].sm
         else:
             next_sm = None
-        processes.append(MultiprocessingReProcess(prev_conn, conn1, sampler, prev_sm, next_sm, num_steps, i))
+        processes.append(MultiprocessingReProcess(prev_conn, conn1, sampler,
+                                                  prev_sm, next_sm,
+                                                  args.iterations, i,
+                                                  args, stat_source))
         prev_conn = conn2
     for p in processes:
         p.start()

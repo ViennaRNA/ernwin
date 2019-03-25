@@ -890,6 +890,8 @@ class SpatialModel:
                     return False
         return True
     def fulfills_clash_energy(self):
+        if self.constraint_energy is None:
+            warnings.warn("Model has no clash energy!")
         if self.constraint_energy is not None and self.constraint_energy.eval_energy(self.bg)>0:
             log.info("CLASHING")
             return False
@@ -1032,7 +1034,8 @@ def from_args(args, cg, stat_source, replica=None):
         clash_string = replica_substring(args.constraint_energy_clash, replica)
         clash_e = fbe.EnergyFunction.from_string( clash_string, cg=cg, iterations=None)
         sm.constraint_energy = fbe.CombinedEnergy(clash_e)
-
+    if not sm.constraint_energy:
+        log.error("WARNING: Not using constraint energy for SM")
     perml_string = replica_substring(args.constraint_energy_per_ml, replica)
     _perml_energy_to_sm(sm, perml_string, stat_source)
 

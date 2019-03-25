@@ -144,7 +144,7 @@ def run(args, cg, main_dir, reference_cg):
             sample_one_trajectory(sampler, args.iterations)
     elif args.replica_exchange:
         if args.parallel:
-            fbr.start_parallel_replica_exchange(samplers, args.iterations)
+            fbr.start_parallel_replica_exchange(samplers, args, stat_source)
         else:
             re = fbr.ReplicaExchange(samplers)
             re.run(args.iterations)

@@ -30,6 +30,9 @@ class MCMCSampler:
         self.energy_function = energy_function
         self.stats_collector =  stats_collector
         self.rerun_prev_energy = rerun_prev_energy
+        self.last_clashes=[]
+        self.last_bad_mls=[]
+
         #: Store the previous energy.
         log.debug("MCMCSampler __init__ calling eval_energy")
         self.prev_energy = energy_function.eval_energy(sm.bg)
@@ -47,8 +50,26 @@ class MCMCSampler:
 
     def eval_energy(self):
         if self.sm.fulfills_constraint_energy():
+            if self.sm.constraint_energy is None:
+                self.last_clashes="no_energy"
+            else:
+                self.last_clashes=[]
+            if self.sm.junction_constraint_energy is None:
+                self.last_bad_mls="no_energy"
+            else:
+                self.last_bad_mls=[]
+            self.last_bad_mls=[]
             return self.energy_function.eval_energy(self.sm.bg)
         else:
+            if self.sm.constraint_energy is None:
+                self.last_clashes="no_energy"
+            else:
+                self.last_clashes=self.sm.constraint_energy.bad_bulges
+            if self.sm.junction_constraint_energy is None:
+                self.last_bad_mls="no_energy"
+            else:
+                self.last_bad_mls=set( ml for e in self.sm.junction_constraint_energy.values() for ml in e.bad_bulges)
+
             log.info("Constraint energy not fulfilled!")
             return float("inf")
 
@@ -66,7 +87,10 @@ class MCMCSampler:
         # This stores the new energy as self.prev_energy
         ms, accepted = self.accept_reject()
         movestring += ms
-        self.stats_collector.update_statistics( self.sm, self.prev_energy, self.prev_constituing, movestring )
+        self.stats_collector.update_statistics( self.sm, self.prev_energy,
+                                                self.prev_constituing, movestring,
+                                                self.last_clashes,
+                                                self.last_bad_mls )
         return accepted
 
     def accept_reject(self):

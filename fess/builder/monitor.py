@@ -622,7 +622,7 @@ _statisticsDefaultOptions = {
     "reference_energy": None,
     "extreme_rmsd": True,
     "silent": False,
-    "constituing_energies": "no_clash",
+    "constituing_energies": True,
     "history": "all",
     "step_save": 0,
     "save_n_best": 0,
@@ -778,7 +778,7 @@ class SamplingStatistics:
         if self.options["reconstruct_n"] > 0 and self.options["reconstruct_cg"] and self.options["reconstruct_pdb"]:
             self.reconstructor = fbr.Reconstructor(self.options["reconstruct_pdb"],
                                                    self.options["reconstruct_cg"],
-                                                   True)
+                                                   False)
         else:
             self.reconstructor = None
 
@@ -812,9 +812,12 @@ class SamplingStatistics:
             contribs.append("( Constituing_Energies )")
         contribs.append(self.collector.header_str)
         contribs.append("Sampling Move")
+        contribs.append("Rej.Clashes")
+        contribs.append("Rej.BadMls")
+
         self.printline("\t".join(contribs))
 
-    def update_statistics(self, sm, energy, member_energies=[], change=""):
+    def update_statistics(self, sm, energy, member_energies=[], change="", clashes=[], bad_mls=[]):
         """
         Add a new structure to the statistics.
 
@@ -833,6 +836,15 @@ class SamplingStatistics:
                                   if x[0] not in ignore_names)+" )")
         line.append(self.collector.update(sm, self.step))
         line.append(change)
+        if isinstance(clashes, str):
+            line.append(clashes)
+        else:
+            line.append(",".join(["{}+{}".format(*c) for c in clashes]) or "noclash" )
+        if isinstance(bad_mls, str):
+            line.append(bad_mls)
+        else:
+            line.append(",".join(bad_mls) or "noclash")
+
         self.printline("\t".join(line))
 
         if self.best_cgs.can_insert_right((None, energy)):
@@ -982,6 +994,8 @@ class OutfileParser(object):
             for key, cls in self._lookup_table.items():
                 if header.startswith(key):
                     return cls
+        if header=="Sampling Move":
+            return header
         return None
 
     def _init_collector_lookup(self, headers):
@@ -1028,9 +1042,14 @@ class OutfileParser(object):
                                 data[i].append(int(field))
                             elif i == 1:  # Sampling_Energy
                                 data[i].append(float(field))
+
                             cls = self._collectors[i]
-                            if cls is not None:
+                            if cls=="Sampling Move":
+                                data[i].append(field)
+                            elif cls is not None:
                                 data[i].append(cls.parse_value(field))
+
+
                 except Exception as e:
                     with log_to_exception(log, e):
                         log.error(
@@ -1044,4 +1063,27 @@ class OutfileParser(object):
                             x[1] for x in data[i]]
                     else:
                         data_dic[header] = data[i]
+            data_dic["move_type"]=[]
+            data_dic["accepted"]=[]
+            data_dic["delta_E"]=[]
+            data_dic["stats_moved"]=[]
+
+            for d in data[-1]:
+                field, _, accepted = d.rpartition(";")
+                typ, _, field=field.partition(":")
+                data_dic["accepted"].append(accepted)
+                if typ=="RE":
+                    data_dic["delta_E"].append(float("nan"))
+                    data_dic["move_type"].append("RE")
+                    data_dic["stats_moved"].append(float("nan"))
+                else:
+                    self.update_data_move(data_dic, typ, field)
         return data_dic
+
+
+    def update_data_move(self, data, loop, field):
+        fields=field.split(";")
+        e0,_,e1 = fields[-1].partition("->")
+        data["delta_E"].append(float(e1)-float(e0))
+        data["stats_moved"].append(len(fields)-1)
+        data["move_type"].append(loop[0])

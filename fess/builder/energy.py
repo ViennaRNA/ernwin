@@ -632,7 +632,6 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.bases = dict()
         self.bad_bulges = []
         self.bad_atoms = defaultdict(list)
-        self.last_clashes=[]
         mult = 8
         points = []
         energy = 0.
