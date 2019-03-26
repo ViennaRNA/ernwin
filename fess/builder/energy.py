@@ -563,13 +563,14 @@ class StemVirtualResClashEnergy(EnergyFunction):
         clashes = 0
         indeces = kdt2.all_get_indices()
         for (ia,ib) in indeces:
-            if virtual_atoms[ia][1][0] == virtual_atoms[ib][1][0]:
-                continue
-            if virtual_atoms[ia][1] == virtual_atoms[ib][1]:
-                continue
-
             key1 = virtual_atoms[ia][1]
             key2 = virtual_atoms[ib][1]
+
+            if key1[0] == key2[0]:
+                continue
+            if  cg.edges[key1[0]] & cg.edges[key2[0]]:
+                 # Really do not consider connected stems,
+                continue
 
             resn1 = cg.stem_side_vres_to_resn(key1[0], key1[2], key1[1])
             resn2 = cg.stem_side_vres_to_resn(key2[0], key2[2], key2[1])
@@ -682,7 +683,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
             if s1 == s2:
                 continue
 
-            if len(set.intersection(cg.edges[s1], cg.edges[s2])) > 0:
+            if cg.edges[s1]&cg.edges[s2]:
                 # the stems are connected
                 continue
 
@@ -734,8 +735,8 @@ class RoughJunctionClosureEnergy(EnergyFunction):
             # Note: DOI: 10.1021/jp810014s claims that a typical MeO-P bond is 1.66A long.
             cutoff_distance*=self.adjustment
             if (dist > cutoff_distance):
-                log.info("Junction closure: dist {} > cutoff {} for bulge {} with length {}".format(dist, cutoff_distance, bulge, bl))
-                self.bad_bulges += cg.find_bulge_loop(bulge, 200) + [bulge]
+                self.log.debug("Junction closure: dist {} > cutoff {} for bulge {} with length {}".format(dist, cutoff_distance, bulge, bl))
+                self.bad_bulges += [bulge]
                 energy += (dist - cutoff_distance) * self.prefactor
 
         return energy
@@ -1475,7 +1476,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         self.log = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._level=self.check_level(level)
         self._stepwidth=self.check_stepwidth(stepwidth)
-
+        self.only_seqids=None
         target = self.check_target_pdd(target_pdd["distance"], target_pdd["count"], normalize=False)
         self.normalization_factor = sum(target)
         target =  target/self.normalization_factor

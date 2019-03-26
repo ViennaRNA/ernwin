@@ -752,7 +752,7 @@ class SpatialModel:
         :param end: Optional; End building once the given node is built.
                     If `end` and `max_steps` are given, the criterion that kicks in earlier counts.
         :param include_start: If True, build including the node given as start,
-                              if False, only build AFTER it.
+                              if False, only build AFTER it. Only has an effect is start is a stem.
         :param finish_building: Usually True. Set it to False, if self._finish_building
                                 should not be called after the stems have been built.
         :returns: A list of course_grained elements that have been built.

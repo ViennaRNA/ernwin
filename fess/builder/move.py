@@ -28,6 +28,7 @@ import forgi.threedee.model.stats as ftms
 from ..utils import get_all_subclasses
 from . import create
 from ._commandline_helper import replica_substring
+from . import relaxation_builder as fbrel
 
 log=logging.getLogger(__name__)
 
@@ -93,6 +94,7 @@ class Mover:
         else:
             self._prev_stats[elem] = prev_stat
         return prev_stat.pdb_name
+
     def _move(self, sm, elem, new_stat):
         prev_name = self._store_prev_stat(sm, elem)
         sm.elem_defs[elem]=new_stat
@@ -111,6 +113,39 @@ class Mover:
         self._prev_stats = {}
         sm.new_traverse_and_build(start='start', include_start = True)
 
+class MoveAndRelaxer(Mover):
+    def _store_prev_stat(self, sm, elem):
+        """
+        Store the stat from elem_defs to self._prev_stats and return its pdb_name.
+        Returns "UNSET" if the stat is not present.
+
+        Due to relaxation potentially affecting all stats, we just store all in this mover.
+        """
+        for e, stat in sm.elem_defs.items():
+            if e != elem:
+                self._prev_stats[e] = stat
+        try:
+            prev_stat = sm.elem_defs[elem]
+        except KeyError:
+            return "UNSET"
+        else:
+            self._prev_stats[elem] = prev_stat
+        return prev_stat.pdb_name
+
+    def move(self, sm):
+        """
+        Propose a single Monte Carlo move.
+        And relax the rest of the structure to remove clashes.
+
+        :param sm: The spatial model
+        """
+        log.info("%s move called", type(self).__name__)
+        elem, new_stat = self._get_elem_and_stat(sm)
+        self._prev_stats = {}
+        movestring = self._move(sm, elem, new_stat)
+        sm.new_traverse_and_build(start = elem, include_start = True)
+        ok, relaxstring = fbrel.relax_sm(sm, self.stat_source, [elem])
+        return movestring+relaxstring
 
 class MoverNoRegularML(Mover):
     def _get_elem(self, sm):
@@ -161,7 +196,7 @@ class EnergeticJunctionMover(Mover):
                                   "(Pseudoknots and external loops are "
                                   "not yet supported.)")
         for loop in regular_multiloops:
-            log.warning("Enumerating choices for loop %s with lengths %s",
+            log.debug("Enumerating choices for loop %s with lengths %s",
                         loop, list(map(sm.bg.element_length, loop)))
             if self.n_elements==-1:
                 if all(m not in sm.frozen_elements for m in loop):
@@ -239,6 +274,12 @@ class EnergeticJunctionMover(Mover):
                 movestring.append("{}:{}->{};".format(ml, p_name, stat.pdb_name))
             sm.new_traverse_and_build(start = "start", include_start = True)
             return "".join(movestring)
+
+    def _check_junction_pk():
+        """
+        No clever optimization for Pseudoknots. Just build the whole structure.
+        """
+        # TODO Implement
 
     def _check_junction(self, sm, sampled_stats, elems, whole_loop):
         for elem, new_stat in sampled_stats.items():

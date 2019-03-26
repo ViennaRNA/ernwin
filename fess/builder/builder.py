@@ -17,6 +17,7 @@ import random
 import copy
 import os
 import sys
+from collections import Counter
 #profile decorator from line_profiler (kernprof) or memory_profiler
 try:
     profile
@@ -29,6 +30,7 @@ import forgi.threedee.utilities.vector as ftuv
 import logging
 
 import fess.builder.move as fbm
+import fess.builder.relaxation_builder as fbrel
 
 log = logging.getLogger(__name__)
 
@@ -276,6 +278,38 @@ class Builder(object):
         log.debug("_rebuild_clash_only for {} was not successful.".format(nodes, i))
         return False
 
+class RelaxationBuilder(Builder):
+    def _build_with_energies(self, sm, warn=False):
+        while not self._build_with_energies_core(sm, warn):
+            warn=False
+            print("R", end="")
+            sm.sample_stats(self.stat_source)
+            sm.new_traverse_and_build()
+        print("D\n")
+
+
+
+    def _build_with_energies_core(self, sm, warn=False):
+        # Using the original junction energy
+        bad_bulges = self._get_bad_ml_segments(sm, sm.bg.defines.keys())
+        sm.constraint_energy.eval_energy(sm.bg)
+        clash_pairs = list(map(tuple, sm.constraint_energy.bad_bulges))
+        if warn and (bad_bulges or clash_pairs):
+            warn=False
+            log.warning("Multiloops %s do not fulfill constraint", bad_bulges )
+        if bad_bulges or clash_pairs:
+            for ml in sm.bg.mloop_iterator():
+                if ml not in sm.bg.mst:
+                    if ml in sm.elem_defs and ml not in sm.frozen_elements:
+                        log.warning("Deleting sampled stats for broken ml %s!", ml)
+                        del sm.elem_defs[ml]
+        ok, _ = fbrel.relax_sm(sm, self.stat_source)
+        return ok
+
+
+
+
+
 class FairBuilder(Builder):
     @profile
     def __init__(self, stat_source, output_dir = None, store_failed=False):
@@ -458,6 +492,8 @@ def update_parser(parser):
                                  help = "Try to build the structure using an experimental \n"
                                         "fair and slightly faster algorithm.\n "
                                         "This flag implies --start-from-scratch")
+    builder_options.add_argument('--relaxation-builder', action="store_true",
+                                 help = "EXPERIMENTAL. Use a builder tailored towards complex multiloops and especially pseudoknots")
 
     builder_options.add_argument('--start-from-scratch', default=False, action='store_true',
                         help="Do not attempt to start at the input conformation.\n"
@@ -470,7 +506,10 @@ def from_args(args, stat_source, out_dir):
     elif args.fair_building:
         build_function = FairBuilder(stat_source, store_failed="list", output_dir=out_dir).build
     else:
-        b = Builder(stat_source)
+        if args.relaxation_builder:
+            b = RelaxationBuilder(stat_source)
+        else:
+            b = Builder(stat_source)
         if args.start_from_scratch:
             build_function = b.build
         else:
