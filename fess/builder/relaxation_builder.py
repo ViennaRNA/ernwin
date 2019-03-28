@@ -30,9 +30,11 @@ class Relaxer:
         self.sm=sm
         self.stat_source=stat_source
         self.fixed_loops = fixed_loops
+        self.fixed_loops.extend(self.sm.frozen_elements)
+
         self.stat_iters = {}
         for elem in sm.bg.defines:
-            stat_iters[elem] = stat_source.iterate_stats_for(sm.bg, elem)
+            self.stat_iters[elem] = stat_source.iterate_stats_for(sm.bg, elem)
 
     def relax(self):
         movestring=""
@@ -43,7 +45,6 @@ class Relaxer:
             correct_loops = [ m for m in self.sm.bg.mloop_iterator()
                                     if m not in self.sm.bg.mst
                                     and m not in bad_bulges]
-            fixed_loops.extend(self.sm.frozen_elements)
             cycles = get_mst_cycles(self.sm.bg)
             log.info("BB: %s ", bad_bulges)
             while bad_bulges:
@@ -55,7 +56,7 @@ class Relaxer:
                     correct_loop_elements.extend(cycles[cl])
                 free_stats = [ elem for elem in cycles[brokenloop]
                                     if elem not in correct_loop_elements
-                                    and elem not in fixed_loops
+                                    and elem not in self.fixed_loops
                              ]
                 brokenloops=[brokenloop]
                 # If 2 loops have the same cycle, they can only be fixed together!
@@ -66,6 +67,7 @@ class Relaxer:
                 if not free_stats:
                     log.info("No degrees of freedom for %s", brokenloops)
                     return False, movestring+"{}XimmoveableX;".format(brokenloops[0])
+                log.info("Resolving loop %s, broken %s, free %s", cycles[brokenloops[0]], brokenloops, free_stats)
                 ok, lastmove = self.resolve_brokenloop(free_stats, brokenloops, clash_nodes=cycles[brokenloops[0]])
                 movestring+=lastmove
                 if not ok:
@@ -78,7 +80,7 @@ class Relaxer:
             assert bad_bulges==[]
             with open("loops_work.cg", "w") as f:
                 f.write(self.sm.bg.to_cg_string())
-            ok, lastmove = fix_clashes(self.sm, stat_source, fixed_loops)
+            ok, lastmove = fix_clashes(self.sm, self.stat_source, self.fixed_loops)
             movestring+=lastmove
             return ok, movestring
         except KeyboardInterrupt:
@@ -87,20 +89,31 @@ class Relaxer:
 
     def get_clashes(self, nodes=None):
         energy = self.sm.constraint_energy.eval_energy(self.sm.bg, nodes=nodes)
-        clash_pairs = sm.constraint_energy.bad_bulges
+        clash_pairs = self.sm.constraint_energy.bad_bulges
         return energy, clash_pairs
 
-    def resolve_brokenloop(free_stats, brokenloops, clash_nodes):
+    def resolve_brokenloop(self, free_stats, brokenloops, clash_nodes):
         # TODO: Potential improvement: take into account, which clashes can be fixed where.
+        free_stats = [elem for elem in free_stats if elem[0]!="s"]
         random.shuffle(free_stats)
         old_stats = { elem : self.sm.elem_defs[elem].pdb_name
                                         for elem in free_stats }
         exhausted=[]
+
         for elem in itertools.cycle(free_stats):
-            if set(exhausted)==set(free_stats):
-                log.info("Could not fix %s. All free stats exhausted.", brokenloops)
-                return False, "XbadJunction{}X".format(",".join(bad_bulges))
-            if elem in exhausted:
+            clash_pairs=self.get_clashes(clash_nodes)[1]
+            if clash_pairs:
+                clash_paths = get_clash_paths(self.sm.bg, clash_pairs)
+                irrelevant_elems = set(free_stats)
+                for path in clash_paths.values():
+                    irrelevant_elems = irrelevant_elems - set(path)
+
+            else:
+                irrelevant_elems={}
+            if set(exhausted)|set(irrelevant_elems)==set(free_stats):
+                log.info("Could not fix %s. All free stats %s exhausted. (Exhausted: %s, Irrelevant: %s)", brokenloops, free_stats, exhausted, irrelevant_elems)
+                return False, "XbadJunction{}X".format(",".join(brokenloops))
+            if elem in exhausted or elem in irrelevant_elems:
                 continue
             ok = self.do_gradient_step(brokenloops, elem, clash_nodes)
             if not ok:
@@ -111,30 +124,38 @@ class Relaxer:
         for elem in free_stats:
             new_pdbname = self.sm.elem_defs[elem].pdb_name
             if new_pdbname!=old_stats[elem]:
-                movestring.append("{}:{}->{}".format(elem, old_stats[elem], new_pdbname))
+                movestring+="{}:{}->{};".format(elem, old_stats[elem], new_pdbname)
         return True, movestring
 
     def do_gradient_step(self, brokenloops, elem, clash_nodes):
-        energy_function, max_val = get_junction_energies(sm, brokenloops)
+        energy_function, max_val = get_junction_energies(self.sm, brokenloops)
         clash_pairs=self.get_clashes(clash_nodes)[1]
+        original_stat=self.sm.elem_defs[elem]
         energy = energy_function.eval_energy(self.sm.bg, nodes=brokenloops)
-        log.info("Gradient step for %s (broken %s): Original Energy (%s): %s, original clash_pairs: %s",
+        log.debug("Gradient step for %s (broken %s): Original Energy (%s): %s, original clash_pairs: %s",
                         elem, brokenloops, energy_function.shortname, energy, clash_pairs)
-        steps=count_build_steps(elem, brokenloops[0], sm.bg)
+        steps=count_build_steps(elem, brokenloops[0], self.sm.bg)
+
         while True:
             try:
                 stat = next(self.stat_iters[elem])
             except StopIteration:
+                log.info("Stats for element %s have been exhausted.", elem)
+                self.sm.elem_defs[elem]=original_stat
+                self.sm.new_traverse_and_build(start=elem, include_start=True)
+
                 return False
-            sm.elem_defs[elem]=stat
-            sm.new_traverse_and_build(start=elem, max_steps=steps, include_start=True)
-            e2 = energy_function.eval_energy(sm.bg, nodes=brokenloops)
+            self.sm.elem_defs[elem]=stat
+            self.sm.new_traverse_and_build(start=elem, max_steps=steps, include_start=True)
+            e2 = energy_function.eval_energy(self.sm.bg, nodes=brokenloops)
             new_clash_pairs=self.get_clashes(clash_nodes)[1]
             if (set(new_clash_pairs)<set(clash_pairs)
-                        or (e2<energy and set(new_clash_pairs)==set(clash_pairs))):
-                log.info("Step taken for %s (broken %s): Energy: %s,"
-                         "clash_pairs: %s", elem, brokenloops, e2, new_clash_pairs)
-                if not new_clash_pairs and e2<max_val:
+                        or (e2<energy and not set(new_clash_pairs))):
+                log.info("Step taken for %s (broken %s): Energy: %s->%s,"
+                         "%s->%sclash_pairs: Removed %s", elem, brokenloops,
+                         energy, e2, len(clash_pairs), len(new_clash_pairs),
+                         set(clash_pairs)-set(new_clash_pairs))
+                if not new_clash_pairs and e2<=max_val:
                     log.info("The junction is fixed")
                     return "DONE"
                 return True
@@ -312,6 +333,8 @@ def count_build_steps_stems(elem, stems, bg):
             found+=1
         if found and s2 in stems:
             break
+    if found is None:
+        found=float('inf')
     return found
 
 
