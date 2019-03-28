@@ -1,8 +1,6 @@
 import fess.builder.energy as fbe
 import networkx as nx
 import logging
-import random
-import itertools
 
 log = logging.getLogger(__name__)
 
@@ -21,146 +19,62 @@ def get_sm_bad_bulges(sm):
                 bad_bulges.extend(l for l in sm.junction_constraint_energy[ml].bad_bulges if l not in sm.bg.mst)
     return bad_bulges
 
+
 def relax_sm(sm, stat_source, fixed_loops=[]):
-    relaxer = Relaxer(sm, stat_source, fixed_loops)
-    return relaxer.relax()
+    movestring=""
+    try:
+        bad_bulges = get_sm_bad_bulges(sm)
 
-class Relaxer:
-    def __init__(self, sm, stat_source, fixed_loops):
-        self.sm=sm
-        self.stat_source=stat_source
-        self.fixed_loops = fixed_loops
-        self.fixed_loops.extend(self.sm.frozen_elements)
-
-        self.stat_iters = {}
-        for elem in sm.bg.defines:
-            self.stat_iters[elem] = stat_source.iterate_stats_for(sm.bg, elem)
-
-    def relax(self):
-        movestring=""
-        try:
-            bad_bulges = get_sm_bad_bulges(self.sm)
-
-            # Loops that are already ok
-            correct_loops = [ m for m in self.sm.bg.mloop_iterator()
-                                    if m not in self.sm.bg.mst
-                                    and m not in bad_bulges]
-            cycles = get_mst_cycles(self.sm.bg)
-            log.info("BB: %s ", bad_bulges)
-            while bad_bulges:
-                brokenloop = get_loop_with_smallest_cycle(bad_bulges, cycles)
-                # Free stats are ONLY in the cycle we try to fix.
-                correct_loop_elements = []
-                log.info("Correct loops: %s", correct_loops)
-                for cl in correct_loops:
-                    correct_loop_elements.extend(cycles[cl])
-                free_stats = [ elem for elem in cycles[brokenloop]
-                                    if elem not in correct_loop_elements
-                                    and elem not in self.fixed_loops
-                             ]
-                brokenloops=[brokenloop]
-                # If 2 loops have the same cycle, they can only be fixed together!
-                for b in bad_bulges:
-                    if b!=brokenloop and cycles[brokenloop]==cycles[b]:
-                        brokenloops.append(b)
-                log.info("broken %s, Cycle %s: Free: %s", brokenloops, cycles[brokenloop], free_stats)
-                if not free_stats:
-                    log.info("No degrees of freedom for %s", brokenloops)
-                    return False, movestring+"{}XimmoveableX;".format(brokenloops[0])
-                log.info("Resolving loop %s, broken %s, free %s", cycles[brokenloops[0]], brokenloops, free_stats)
-                ok, lastmove = self.resolve_brokenloop(free_stats, brokenloops, clash_nodes=cycles[brokenloops[0]])
-                movestring+=lastmove
-                if not ok:
-                    return False, movestring
-                bad_bulges = get_sm_bad_bulges(self.sm)
-                log.info("After gradientwalk: bad_bulges=%s", bad_bulges)
-                assert not set(brokenloops) & set(bad_bulges)
-                correct_loops.extend(brokenloops)
-            bad_bulges = get_sm_bad_bulges(self.sm)
-            assert bad_bulges==[]
-            with open("loops_work.cg", "w") as f:
-                f.write(self.sm.bg.to_cg_string())
-            ok, lastmove = fix_clashes(self.sm, self.stat_source, self.fixed_loops)
-            movestring+=lastmove
-            return ok, movestring
-        except KeyboardInterrupt:
-            log.error("Movestring (junction) so far: %s", movestring)
-            raise
-
-    def get_clashes(self, nodes=None):
-        energy = self.sm.constraint_energy.eval_energy(self.sm.bg, nodes=nodes)
-        clash_pairs = self.sm.constraint_energy.bad_bulges
-        return energy, clash_pairs
-
-    def resolve_brokenloop(self, free_stats, brokenloops, clash_nodes):
-        # TODO: Potential improvement: take into account, which clashes can be fixed where.
-        free_stats = [elem for elem in free_stats if elem[0]!="s"]
-        random.shuffle(free_stats)
-        old_stats = { elem : self.sm.elem_defs[elem].pdb_name
-                                        for elem in free_stats }
-        exhausted=[]
-
-        for elem in itertools.cycle(free_stats):
-            clash_pairs=self.get_clashes(clash_nodes)[1]
-            if clash_pairs:
-                clash_paths = get_clash_paths(self.sm.bg, clash_pairs)
-                irrelevant_elems = set(free_stats)
-                for path in clash_paths.values():
-                    irrelevant_elems = irrelevant_elems - set(path)
-
+        # Loops that are already ok
+        correct_loops = [ m for m in sm.bg.mloop_iterator()
+                                if m not in sm.bg.mst
+                                and m not in bad_bulges]
+        fixed_loops.extend(sm.frozen_elements)
+        cycles = get_mst_cycles(sm.bg)
+        log.info("BB: %s ", bad_bulges)
+        while bad_bulges:
+            brokenloop = get_loop_with_smallest_cycle(bad_bulges, cycles)
+            # Free stats are ONLY in the cycle we try to fix.
+            correct_loop_elements = []
+            log.info("Correct loops: %s", correct_loops)
+            for cl in correct_loops:
+                correct_loop_elements.extend(cycles[cl])
+            free_stats = [ elem for elem in cycles[brokenloop]
+                                if elem not in correct_loop_elements
+                                and elem not in fixed_loops
+                         ]
+            brokenloops=[brokenloop]
+            # If 2 loops have the same cycle, they can only be fixed together!
+            for b in bad_bulges:
+                if b!=brokenloop and cycles[brokenloop]==cycles[b]:
+                    brokenloops.append(b)
+            log.info("broken %s, Cycle %s: Free: %s", brokenloops, cycles[brokenloop], free_stats)
+            if not free_stats:
+                log.info("No degrees of freedom for %s", brokenloops)
+                return False, movestring+"{}XimmoveableX;".format(brokenloops[0])
+            for (s1,elem,s2) in sm.bg.build_order:
+                if elem in free_stats:
+                    lastmove = do_gradient_walk(sm, brokenloops, elem,
+                                           stat_source, clash_nodes=cycles[brokenloops[0]])
+                    movestring+=lastmove
+                    bad_bulges = get_sm_bad_bulges(sm)
+                    log.info("After gradientwalk: bad_bulges=%s", bad_bulges)
+                    if not set(brokenloops) & set(bad_bulges):
+                        correct_loops.extend(brokenloops)
+                        break
             else:
-                irrelevant_elems={}
-            if set(exhausted)|set(irrelevant_elems)==set(free_stats):
-                log.info("Could not fix %s. All free stats %s exhausted. (Exhausted: %s, Irrelevant: %s)", brokenloops, free_stats, exhausted, irrelevant_elems)
-                return False, "XbadJunction{}X".format(",".join(brokenloops))
-            if elem in exhausted or elem in irrelevant_elems:
-                continue
-            ok = self.do_gradient_step(brokenloops, elem, clash_nodes)
-            if not ok:
-                exhausted.append(elem)
-            if ok == "DONE":
-                break
-        movestring=""
-        for elem in free_stats:
-            new_pdbname = self.sm.elem_defs[elem].pdb_name
-            if new_pdbname!=old_stats[elem]:
-                movestring+="{}:{}->{};".format(elem, old_stats[elem], new_pdbname)
-        return True, movestring
-
-    def do_gradient_step(self, brokenloops, elem, clash_nodes):
-        energy_function, max_val = get_junction_energies(self.sm, brokenloops)
-        clash_pairs=self.get_clashes(clash_nodes)[1]
-        original_stat=self.sm.elem_defs[elem]
-        energy = energy_function.eval_energy(self.sm.bg, nodes=brokenloops)
-        log.debug("Gradient step for %s (broken %s): Original Energy (%s): %s, original clash_pairs: %s",
-                        elem, brokenloops, energy_function.shortname, energy, clash_pairs)
-        steps=count_build_steps(elem, brokenloops[0], self.sm.bg)
-
-        while True:
-            try:
-                stat = next(self.stat_iters[elem])
-            except StopIteration:
-                log.info("Stats for element %s have been exhausted.", elem)
-                self.sm.elem_defs[elem]=original_stat
-                self.sm.new_traverse_and_build(start=elem, include_start=True)
-
-                return False
-            self.sm.elem_defs[elem]=stat
-            self.sm.new_traverse_and_build(start=elem, max_steps=steps, include_start=True)
-            e2 = energy_function.eval_energy(self.sm.bg, nodes=brokenloops)
-            new_clash_pairs=self.get_clashes(clash_nodes)[1]
-            if (set(new_clash_pairs)<set(clash_pairs)
-                        or (e2<energy and not set(new_clash_pairs))):
-                log.info("Step taken for %s (broken %s): Energy: %s->%s,"
-                         "%s->%sclash_pairs: Removed %s", elem, brokenloops,
-                         energy, e2, len(clash_pairs), len(new_clash_pairs),
-                         set(clash_pairs)-set(new_clash_pairs))
-                if not new_clash_pairs and e2<=max_val:
-                    log.info("The junction is fixed")
-                    return "DONE"
-                return True
-
-
+                log.info("Could not fix %s", brokenloops)
+                return False, movestring+"XbadjunxtionsX"
+        bad_bulges = get_sm_bad_bulges(sm)
+        assert bad_bulges==[]
+        with open("loops_work.cg", "w") as f:
+            f.write(sm.bg.to_cg_string())
+        ok, lastmove = fix_clashes(sm, stat_source, fixed_loops)
+        movestring+=lastmove
+        return ok, movestring
+    except KeyboardInterrupt:
+        log.error("Movestring (junction) so far: %s", movestring)
+        raise
 
 def fix_clashes(sm, stat_source, externally_fixed_elems):
     movestring=""
@@ -266,7 +180,44 @@ def mst_to_nx(bg):
 def get_loop_with_smallest_cycle(loops, cycles):
     return min(loops, key=lambda x:len(cycles[x]))
 
+def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[]):
+    energy_function, max_val = get_junction_energies(sm, brokenloops)
+    energy = energy_function.eval_energy(sm.bg, nodes=brokenloops)
+    sm.constraint_energy.eval_energy(sm.bg, nodes=clash_nodes)
+    clash_pairs = sm.constraint_energy.bad_bulges
 
+
+    log.info("Gradient walk for %s (broken %s): Original Energy (%s): %s, original clash_pairs: %s",
+                    elem, brokenloops, energy_function.shortname, energy, clash_pairs)
+    best_stat = sm.elem_defs[elem]
+    prev_name=best_stat.pdb_name
+    any_moved=False
+    # If all broken-loops have the same cycle, they require the same number of steps
+    steps=count_build_steps(elem, brokenloops[0], sm.bg)
+    for stat in stat_source.iterate_stats_for(sm.bg, elem):
+        sm.elem_defs[elem]=stat
+        sm.new_traverse_and_build(start=elem, max_steps=steps, include_start=True)
+        e2 = energy_function.eval_energy(sm.bg, nodes=brokenloops)
+        sm.constraint_energy.eval_energy(sm.bg, nodes=clash_nodes)
+        new_clash_pairs = sm.constraint_energy.bad_bulges
+        if (set(new_clash_pairs)<set(clash_pairs)
+            or (e2<energy and set(new_clash_pairs)==set(clash_pairs) and energy>=max_val)):
+            any_moved=True
+            clash_pairs=new_clash_pairs
+            energy=e2
+            log.info("Gradient walk for %s (broken %s): Intermediate Energy: %s,"
+                     "clash_pairs: %s", elem, brokenloops, energy, clash_pairs)
+            best_stat = stat
+            if energy<=max_val and not clash_pairs:
+                break
+    sm.elem_defs[elem]=best_stat
+    sm.new_traverse_and_build()
+    log.info("Gradient walk for %s (broken %s): Final Energy: %s, clash_pairs: %s", elem, brokenloops, energy, clash_pairs)
+    if any_moved:
+        movestring= "{}:{}->{};".format(elem, prev_name, best_stat.pdb_name)
+    else:
+        movestring=""
+    return movestring
 
 def do_clash_gradient_walk(sm, clash_pair, loop, stat_source):
     energy = sm.constraint_energy.eval_energy(sm.bg)
@@ -333,8 +284,6 @@ def count_build_steps_stems(elem, stems, bg):
             found+=1
         if found and s2 in stems:
             break
-    if found is None:
-        found=float('inf')
     return found
 
 
