@@ -27,9 +27,10 @@ def relax_sm(sm, stat_source, fixed_loops=[]):
 
 class Relaxer:
     def __init__(self, sm, stat_source, fixed_loops):
+        self.sm=sm
         self.stat_source=stat_source
         self.fixed_loops = fixed_loops
-        stat_iters = {}
+        self.stat_iters = {}
         for elem in sm.bg.defines:
             stat_iters[elem] = stat_source.iterate_stats_for(sm.bg, elem)
 
