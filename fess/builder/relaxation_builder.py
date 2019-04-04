@@ -19,6 +19,11 @@ def get_sm_bad_bulges(sm):
                 bad_bulges.extend(l for l in sm.junction_constraint_energy[ml].bad_bulges if l not in sm.bg.mst)
     return bad_bulges
 
+def sort_loops_buildorder(bg):
+    start = bg.build_order[0][0]
+    G = mst_to_nx(bg)
+    elems = list(bg.mst)
+    return list(sorted(elems, key=lambda x: nx.shortest_path_length(G,x, start)))
 
 def relax_sm(sm, stat_source, fixed_loops=[]):
     movestring=""
@@ -52,8 +57,8 @@ def relax_sm(sm, stat_source, fixed_loops=[]):
             if not free_stats:
                 log.info("No degrees of freedom for %s", brokenloops)
                 return False, movestring+"{}XimmoveableX;".format(brokenloops[0])
-            for (s1,elem,s2) in sm.bg.build_order:
-                if elem in free_stats:
+            for elem in sort_loops_buildorder(sm.bg):
+                if elem in free_stats and elem[0]!="s":
                     lastmove = do_gradient_walk(sm, brokenloops, elem,
                                            stat_source, clash_nodes=cycles[brokenloops[0]])
                     movestring+=lastmove
