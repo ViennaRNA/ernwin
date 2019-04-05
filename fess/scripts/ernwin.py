@@ -41,6 +41,7 @@ parser.add_argument('--seed', action='store',
                     type=int)
 parser.add_argument('-i', '--iterations', action='store', default=10000, help='Number of structures to generate', type=int)
 parser.add_argument('--replica-exchange', type=int, help="Experimental")
+parser.add_argument('--replica-exchange-every-n', type=int, default=1, help="After how many steps try a replica exchange?")
 parser.add_argument('--parallel', action="store_true",
                     help="Spawn parallel processes.\n"
                          "Only used if either --replica-exchange or --num_builds\n"

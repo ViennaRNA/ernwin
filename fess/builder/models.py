@@ -23,7 +23,7 @@ from commandline_parsable import split_by_outerlevel_character
 
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
-import forgi.threedee.utilities.graph_pdb as cgg
+import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.vector as ftuv
 import forgi.utilities.debug as fud
@@ -166,8 +166,8 @@ def get_stem_rotation_matrix(stem, stem2, use_average_method=False):
         twist2 = stem2.twists[0]
 
     else:
-        twist1 = cgg.virtual_res_3d_pos_core(stem.mids, stem.twists, 2, 4)[1]
-        twist2 = cgg.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
+        twist1 = ftug.virtual_res_3d_pos_core(stem.mids, stem.twists, 2, 4)[1]
+        twist2 = ftug.virtual_res_3d_pos_core(stem2.mids, stem2.twists, 2, 4)[1]
 
     return ftuv.get_double_alignment_matrix((stem.vec(), twist1),(stem2.vec(), twist2))
     # get normalvector to stem and twist.
@@ -217,11 +217,11 @@ def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
 
     transposed_stem1_basis = ftuv.create_orthonormal_basis(prev_stem.vec((s1b, s1e)), prev_stem.twists[s1e]).transpose()
     log.debug("Place new stem: transposed_stem1_basis: %s", transposed_stem1_basis)
-    start_location = cgg.stem2_pos_from_stem1_1(transposed_stem1_basis, bulge_params.position_params())
+    start_location = ftug.stem2_pos_from_stem1_1(transposed_stem1_basis, bulge_params.position_params())
     log.debug("Start location: %s", start_location)
-    stem_orientation = cgg.stem2_orient_from_stem1_1(transposed_stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
+    stem_orientation = ftug.stem2_orient_from_stem1_1(transposed_stem1_basis, [stem_params.phys_length] + list(bulge_params.orientation_params()))
     log.debug("Stem_orientation: %s", stem_orientation)
-    twist1 = cgg.twist2_orient_from_stem1_1(transposed_stem1_basis, bulge_params.twist_params())
+    twist1 = ftug.twist2_orient_from_stem1_1(transposed_stem1_basis, bulge_params.twist_params())
     log.debug("twist1: %s", twist1)
 
     #assert np.allclose(np.dot(stem_orientation, twist1), 0)
@@ -234,7 +234,7 @@ def place_new_stem(prev_stem, stem_params, bulge_params, s1b_s1e, stem_name=''):
     stem.mids = (mid1, mid2)
 
     log.debug("stem_params.twist_angle: %s", stem_params.twist_angle)
-    twist2 = cgg.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
+    twist2 = ftug.twist2_from_twist1(stem_orientation, twist1, stem_params.twist_angle)
     log.debug("twist2: %s", twist2)
     stem.twists = (twist1, twist2)
 
@@ -354,7 +354,7 @@ class SpatialModel:
         log.debug("prev stem %s: mids[%s]=%s, coords = %s", prev_stem_node, s1b, prev_stem.mids[s1b], self.bg.coords[prev_stem_node])
         (r, u, v) = params
 
-        direction = cgg.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
+        direction = ftug.stem2_pos_from_stem1(prev_stem.vec((s1e, s1b)), prev_stem.twists[s1b], (r, u, v))
         end_mid = start_mid + direction
         log.debug("loop added from %s to %s", start_mid, end_mid)
         self.bulges[name] = BulgeModel((start_mid, end_mid))
@@ -633,8 +633,6 @@ class SpatialModel:
 
         self.bg.coords[stem] = np.array([sm.mids[0], sm.mids[1]])
         self.bg.twists[stem] = np.array([sm.twists[0], sm.twists[1]])
-
-        #cgg.add_virtual_residues(self.bg, stem)
 
     def _loops_to_coords(self):
         '''
@@ -941,7 +939,7 @@ def _perml_energy_to_sm(sm, energy_string, stat_source):
         for loop in  all_loops:
             contribs.append(_auto_contrib_for_loop(loop, sm, stat_source))
         energy_string = ",".join(contribs)
-
+    mst=sm.bg.get_mst()
     if energy_string and energy_string != 'N':
         contributions = split_by_outerlevel_character(energy_string, ",")
         for contrib in contributions:
@@ -954,7 +952,10 @@ def _perml_energy_to_sm(sm, energy_string, stat_source):
             else:
                 raise ValueError("Too many colons in energy specification `{}` "
                                  "(at most 1 allowed)".format(contribution))
-            energy, = fbe.EnergyFunction.from_string(energy_string, cg=sm.bg, iterations=None, stat_source=stat_source)
+            energy, = fbe.EnergyFunction.from_string(energy_string, cg=sm.bg,
+                                                     iterations=None,
+                                                     stat_source=stat_source,
+                                                     elements=elem)
             if not hasattr(energy, "can_constrain") or energy.can_constrain != "junction":
                 e = ValueError("The energy '{}' cannot be used as a junction "
                                  "constraint energy".format(energy_string))
@@ -966,21 +967,15 @@ def _perml_energy_to_sm(sm, energy_string, stat_source):
                 raise e
             log.info("Searching for loops that contain element %s", elem)
             for loop in all_loops:
+                log.info("Potentially assigning something to %s", loop)
                 if not elem or elem in loop:
-                    if hasattr(energy, "remove_energies_if"):
-                        def has_wrong_element(energy):
-                            return hasattr(energy, "element") and energy.element not in loop
-                        energy.remove_energies_if(has_wrong_element)
-                        n_energy = energy
-                        energy, = fbe.EnergyFunction.from_string(energy_string, cg=sm.bg, iterations=None, stat_source=stat_source)
-                    else:
-                        n_energy = energy
-                    if n_energy:
-                        log.info("Assigning energy %s to loop %s", n_energy.shortname, loop)
-                        for loop_elem in loop:
-                            sm.junction_constraint_energy[loop_elem].energies.append(n_energy)
-                    else:
-                        log.info("Assigning nothing to loop %s", loop)
+                    for loop_elem in loop:
+                        if loop_elem in mst:
+                            continue
+                        if hasattr(energy, "element"):
+                            energy, = fbe.EnergyFunction.from_string(energy_string, cg=sm.bg, iterations=None, stat_source=stat_source, element=loop_elem)
+                        log.info("Assigning %s to %s", energy.shortname, loop_elem)
+                        sm.junction_constraint_energy[loop_elem].energies.append(energy)
 
 def update_parser(parser):
     sm_options = parser.add_argument_group("Options related to the Spatial Model",

@@ -15,6 +15,7 @@ import numpy as np
 import random
 import cProfile
 import warnings
+import traceback
 
 try:
     from contextlib import ExitStack, contextmanager
@@ -125,54 +126,65 @@ class MultiprocessingReProcess(Process):
         log.warning("Sampler {} running with pid {}. Is lowest? {}".format(self.id, os.getpid(), self.pipe_lower is None))
         with self.sampler.stats_collector.open_outfile():
             try:
+                sm_changed = False
                 for step in range(self.steps):
-                    sm_changed = self.sampler.step() #Return a boolean indicating if the step was accepted.
-                    replica_exchanged = False
-                    movestring ="RE:"
-                    if self.pipe_lower is not None:
-                        energy_curr_with_lower = self.recv_energy_with_different_sampler(sm_changed)
-                        energy_lower_with_lower = self.recv_step_result()
-                        energy_lower_with_curr = self.sampler.energy_function.eval_energy(self.sm_lower.bg)
+                    changed = self.sampler.step() #Return a boolean indicating if the step was accepted.
+                    sm_changed= sm_changed or changed
+                    if step%self.args.replica_exchange_every_n==0:
+                        log.error("%s Now trying replica exchange", self.id)
+                        replica_exchanged = False
+                        movestring ="RE:"
+                        if self.pipe_lower is not None:
+                            energy_curr_with_lower = self.recv_energy_with_different_sampler(sm_changed)
+                            energy_lower_with_lower = self.recv_step_result()
+                            energy_lower_with_curr = self.sampler.energy_function.eval_energy(self.sm_lower.bg)
 
-                        old_energy = self.sampler.prev_energy + energy_lower_with_lower
-                        total_exchanged_e = energy_curr_with_lower + energy_lower_with_curr
-                        p = np.exp(old_energy - total_exchanged_e) #np.exp can return inf instead of raising an Overflow error
-                        r=random.random()
-                        if r<=p:
-                            #EXCHANGE
-                            self.sampler.sm, self.sm_lower = self.sm_lower, self.sampler.sm
-                            self.sampler.accept(energy_lower_with_curr)
-                            self.notify_lower_about_exchange(True)
-                            sm_changed = True
-                            replica_exchanged = True
-                            movestring += "lower<>"
+                            old_energy = self.sampler.prev_energy + energy_lower_with_lower
+                            total_exchanged_e = energy_curr_with_lower + energy_lower_with_curr
+                            p = np.exp(old_energy - total_exchanged_e) #np.exp can return inf instead of raising an Overflow error
+                            r=random.random()
+                            if r<=p:
+                                #EXCHANGE
+                                self.sampler.sm, self.sm_lower = self.sm_lower, self.sampler.sm
+                                self.sampler.accept(energy_lower_with_curr)
+                                self.notify_lower_about_exchange(True)
+                                sm_changed = True
+                                replica_exchanged = True
+                                movestring += "lower<>"
+                            else:
+                                #NO EXCHANGE
+                                with warnings.catch_warnings():
+                                    warnings.simplefilter("ignore", NoopRevertWarning)
+                                    self.sampler.reject()
+                                self.notify_lower_about_exchange(False)
+                                movestring += "lowerXX"
+                        movestring+="this"
+                        if self.pipe_higher is not None:
+                            self.send_step_result(sm_changed)
+                            energy_higher_with_curr = self.send_energy_of_different_sm() #Stores sm_higher
+                            if self.recv_exchange_notification():
+                                self.sampler.sm, self.sm_higher = self.sm_higher, self.sampler.sm
+                                self.sampler.accept(energy_higher_with_curr)
+                                replica_exchanged = True
+                                movestring+="<>higher"
+                            else:
+                                with warnings.catch_warnings():
+                                    warnings.simplefilter("ignore", NoopRevertWarning)
+                                    self.sampler.reject()
+                                movestring+="XXhigher"
+                        if replica_exchanged:
+                            movestring+=";A"
                         else:
-                            #NO EXCHANGE
-                            with warnings.catch_warnings():
-                                warnings.simplefilter("ignore", NoopRevertWarning)
-                                self.sampler.reject()
-                            self.notify_lower_about_exchange(False)
-                            movestring += "lowerXX"
-                    movestring+="this"
-                    if self.pipe_higher is not None:
-                        self.send_step_result(sm_changed)
-                        energy_higher_with_curr = self.send_energy_of_different_sm() #Stores sm_higher
-                        if self.recv_exchange_notification():
-                            self.sampler.sm, self.sm_higher = self.sm_higher, self.sampler.sm
-                            self.sampler.accept(energy_higher_with_curr)
-                            replica_exchanged = True
-                            movestring+="<>higher"
-                        else:
-                            with warnings.catch_warnings():
-                                warnings.simplefilter("ignore", NoopRevertWarning)
-                                self.sampler.reject()
-                            movestring+="XXhigher"
-                    if replica_exchanged:
-                        movestring+=";A"
-                    else:
-                        movestring+=";R"
-                    log.error("PID {}: {}, {}".format(os.getpid(), self.sampler.prev_energy, type(self.sampler.prev_energy)))
-                    self.sampler.stats_collector.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
+                            movestring+=";R"
+                        sm_changed = False
+                        log.error("PID {}: {}, {}".format(os.getpid(), self.sampler.prev_energy, type(self.sampler.prev_energy)))
+                        self.sampler.stats_collector.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
+            except BaseException as e:
+                with open(os.path.join(self.stats_collector.out_file, 'exception.log'), "w") as f:
+                    print("Running on python {}, the following error occurred in sampler {} (process {}):".format(sys.version, self.id, os.getpid()), file=f)
+                    print("{}: {}".format(type(e).__name__, str(e)), file=f)
+                    print(str(traceback.format_exc()), file=f)
+                raise
             finally:
                 self.sampler.stats_collector.collector.to_file()
 

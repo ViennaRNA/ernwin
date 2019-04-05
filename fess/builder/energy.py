@@ -799,10 +799,15 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     def from_cg(cls, prefactor, adjustment, cg, stat_source, **kwargs):
         energies = []
         mst = cg.get_mst()
-        for ml in cg.mloop_iterator():
-            if ml not in mst:
-                log.debug("Creating %s energy for %s which is not in MST: %s", cls._shortname, ml, mst)
-                energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
+        if "element" in kwargs and kwargs["element"] is not None:
+            ml=kwargs["element"]
+            log.debug("Creating %s energy for %s which is not in MST: %s", cls._shortname, ml, mst)
+            energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
+        else:
+            for ml in cg.mloop_iterator():
+                if ml not in mst:
+                    log.debug("Creating %s energy for %s which is not in MST: %s", cls._shortname, ml, mst)
+                    energies.append(cls(ml, stat_source, prefactor=prefactor, adjustment=adjustment))
         return CombinedEnergy(energies)
 
     def __init__(self, element, stat_source, angular_weight=math.degrees(1)/4, prefactor = None, adjustment = None):
@@ -848,13 +853,15 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
     @profile
     def eval_energy(self, cg, background=True, nodes=None,  sampled_stats=None, **kwargs):
         self.bad_bulges = []
-        self.log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
+        logger_name=self.__class__.__module__+"."+self.__class__.__name__+".eval_energy"
+        log=logging.getLogger(logger_name)
+        log.debug("{}.eval_energy called with nodes {}".format(self.shortname, nodes))
         if nodes is not None and self.element not in nodes:
-            self.log.debug("Self.element %s not in nodes %s", self.element, nodes)
+            log.debug("Self.element %s not in nodes %s", self.element, nodes)
             return 0.
         best_deviation = float('inf')
         if sampled_stats is not None and not self._always_search:
-            self.log.debug("FJC using sampled stat!")
+            log.debug("FJC using sampled stat from %s!", sampled_stats.keys())
             assert self.element in sampled_stats
              # Assertion fails, if structure was built with JDIST energy but sampled
              # with this energy. Should never happen!
@@ -862,14 +869,14 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             self.used_stat = sampled_stats[self.element]
             best_deviation = self._stat_deviation(cg, sampled_stats[self.element])
         else:
-            self.log.debug("No stat sampled for %s. Searching for a suitable stat", self.element)
+            log.debug("No stat sampled for %s. Searching for a suitable stat", self.element)
             for stat in self.stat_source.iterate_stats_for(cg, self.element):
                 curr_dev = self._stat_deviation(cg, stat)
                 if curr_dev < best_deviation:
                     best_deviation = curr_dev
-                    self.log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
+                    log.debug("Setting used stat to %s, dev %s", stat, curr_dev)
                     self.used_stat = stat
-        self.log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
+        log.debug("FJC energy using fragment %s for element %s is %s", self.used_stat.pdb_name,
                                                                       self.element, best_deviation)
         self.bad_bulges = [self.element]
         return (best_deviation**self.adjustment)*self.prefactor

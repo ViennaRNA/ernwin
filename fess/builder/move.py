@@ -295,7 +295,7 @@ class EnergeticJunctionMover(Mover):
         # Now we have to build the junction
         built_nodes = []
         for elem in elems[:-1]: # The last elem is broken!
-            nodes = sm.new_traverse_and_build(start=elem, max_steps = 1, finish_building=False)
+            nodes = sm.new_traverse_and_build(start=elem, max_steps = 1)#, finish_building=False)
             built_nodes+=nodes
         try:
             broken_stat = sampled_stats[elems[-1]]

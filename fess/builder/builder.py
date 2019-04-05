@@ -212,7 +212,7 @@ class Builder(object):
         for ml in det_br_nodes:
             if ml in sm.junction_constraint_energy:
                 if ml in sm.elem_defs:
-                    sampled_stats={ml:sm.elem_defs[ml]}
+                    sampled_stats=sm.elem_defs
                 else:
                     sampled_stats=None
                 ej = sm.junction_constraint_energy[ml].eval_energy( sm.bg, nodes=det_br_nodes, sampled_stats = sampled_stats )
@@ -284,6 +284,9 @@ class RelaxationBuilder(Builder):
             warn=False
             print("R", end="")
             sm.sample_stats(self.stat_source)
+            for ml in sm.bg.mloop_iterator():
+                if ml not in sm.bg.mst and ml not in sm.elem_defs:
+                    sm.elem_defs[ml]=self.stat_source.sample_for(sm.bg, ml)
             sm.new_traverse_and_build()
         print("D\n")
 
@@ -298,11 +301,11 @@ class RelaxationBuilder(Builder):
             warn=False
             log.warning("Multiloops %s do not fulfill constraint", bad_bulges )
         if bad_bulges or clash_pairs:
+            # In contrast to the normal builder, we need to assign a stat
+            # to broken mls for the FJC energy
             for ml in sm.bg.mloop_iterator():
-                if ml not in sm.bg.mst:
-                    if ml in sm.elem_defs and ml not in sm.frozen_elements:
-                        log.warning("Deleting sampled stats for broken ml %s!", ml)
-                        del sm.elem_defs[ml]
+                if ml not in sm.bg.mst and ml not in sm.elem_defs:
+                         sm.elem_defs[ml]=self.stat_source.sample_for(sm.bg, ml)
         ok, _ = fbrel.relax_sm(sm, self.stat_source)
         return ok
 
