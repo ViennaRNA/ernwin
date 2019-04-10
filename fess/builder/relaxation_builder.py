@@ -134,7 +134,12 @@ def fix_clashes(sm, stat_source, externally_fixed_elems):
                     lastmove = do_clash_gradient_walk(sm, pair, loop, stat_source)
                     movestring+=lastmove
                     sm.constraint_energy.eval_energy(sm.bg)
-                    clash_pairs = list(map(tuple, sm.constraint_energy.bad_bulges))
+                    new_clash_pairs = list(map(tuple, sm.constraint_energy.bad_bulges))
+                    if not set(new_clash_pairs)<=set(clash_pairs):
+                        log.error("Introduced clash_pair while relaxing %s, target-pair %s.", loop, pair)
+                        log.error("Clash pairs:      %s        are not a subset of       %s.", new_clash_pairs, clash_pairs)
+                        raise RuntimeError("Clash-gradient walk introduced new clashes!")
+                    clash_pairs=new_clash_pairs
                     clash_paths = get_clash_paths(sm.bg, clash_pairs)
                     if pair not in clash_pairs:
                         # For clashes, we do not fix the loop, because it might
@@ -266,10 +271,9 @@ def do_clash_gradient_walk(sm, clash_pair, loop, stat_source):
     best_stat = sm.elem_defs[loop]
     prev_name=best_stat.pdb_name
     any_moved=False
-    steps=count_build_steps_stems(loop, clash_pair, sm.bg)
     for stat in stat_source.iterate_stats_for(sm.bg, loop):
         sm.elem_defs[loop]=stat
-        sm.new_traverse_and_build(start=loop, max_steps=steps, include_start=True)
+        sm.new_traverse_and_build(start=loop, include_start=True)
         e2 = sm.constraint_energy.eval_energy(sm.bg)
         new_clash_pairs = sm.constraint_energy.bad_bulges
         if set(new_clash_pairs)-set(all_clash_pairs):

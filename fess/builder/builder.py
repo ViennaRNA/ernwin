@@ -173,9 +173,9 @@ class Builder(object):
         except KeyboardInterrupt:
             print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
             raise
-        self._finish_energy_building(built_nodes)
+        self._finish_energy_building(sm, built_nodes)
 
-    def _finish_energy_building(self, built_nodes):
+    def _finish_energy_building(self, sm, built_nodes):
         for elem in _determined_broken_ml_segments(built_nodes, sm.bg):
             if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
                 energies = list(sm.junction_constraint_energy[elem].iterate_energies())
@@ -307,7 +307,7 @@ class RelaxationBuilder(Builder):
                          sm.elem_defs[ml]=self.stat_source.sample_for(sm.bg, ml)
             ok, _ = fbrel.relax_sm(sm, self.stat_source)
         else:
-            self._finish_energy_building(sm.bg.defines)
+            self._finish_energy_building(sm, sm.bg.defines)
             ok=True
         return ok
 
