@@ -173,7 +173,9 @@ class Builder(object):
         except KeyboardInterrupt:
             print("No valid structure could be built after {} iterations".format(iterations), file=sys.stderr)
             raise
+        self._finish_energy_building(built_nodes)
 
+    def _finish_energy_building(self, built_nodes):
         for elem in _determined_broken_ml_segments(built_nodes, sm.bg):
             if elem in sm.junction_constraint_energy and hasattr(sm.junction_constraint_energy[elem], "used_stat"):
                 energies = list(sm.junction_constraint_energy[elem].iterate_energies())
@@ -193,7 +195,6 @@ class Builder(object):
                 sm.elem_defs[elem] = used_stat
         sm.save_sampled_elems()
         log.debug("++++++++++++++++++++++++++++++++++++++")
-
 
     def _get_bad_ml_segments(self, sm, nodes):
         """
@@ -288,9 +289,7 @@ class RelaxationBuilder(Builder):
                 if ml not in sm.bg.mst and ml not in sm.elem_defs:
                     sm.elem_defs[ml]=self.stat_source.sample_for(sm.bg, ml)
             sm.new_traverse_and_build()
-        print("D\n")
-
-
+        print("D")
 
     def _build_with_energies_core(self, sm, warn=False):
         # Using the original junction energy
@@ -306,7 +305,10 @@ class RelaxationBuilder(Builder):
             for ml in sm.bg.mloop_iterator():
                 if ml not in sm.bg.mst and ml not in sm.elem_defs:
                          sm.elem_defs[ml]=self.stat_source.sample_for(sm.bg, ml)
-        ok, _ = fbrel.relax_sm(sm, self.stat_source)
+            ok, _ = fbrel.relax_sm(sm, self.stat_source)
+        else:
+            self._finish_energy_building(sm.bg.defines)
+            ok=True
         return ok
 
 

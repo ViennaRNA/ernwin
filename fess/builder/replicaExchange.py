@@ -13,9 +13,15 @@ log = logging.getLogger(__name__)
 import os
 import numpy as np
 import random
+import sys
 import cProfile
 import warnings
 import traceback
+
+class ConnectedPipeError(RuntimeError):
+    """
+    Cannot query a process, because it errored.
+    """
 
 try:
     from contextlib import ExitStack, contextmanager
@@ -85,13 +91,26 @@ class MultiPipeConnection(object):
         self._connections[name].send(object)
     def recv(self, name):
         log.warning("PID {}: Waiting to receive {}".format(os.getpid(),name))
+        while not self._connections[name].poll(30):
+            if self._connections["error"].poll():
+                e = self._connections["error"].recv()
+                log.error("Waiting in vain. Other process has errored: %s", e)
+                raise ConnectedPipeError("Other process errored. Cannot read {}".format(name))
+            log.warning("PID {}: Still waiting to receive {} from {}".format(os.getpid(),name, self._connections[name]))
         r =  self._connections[name].recv()
         log.warning("PID {}: Received {}.".format(os.getpid(), name))
         return r
 
+    def close(self):
+        for n,c in self._connections.items():
+            try:
+                c.close()
+            except Exception:
+                log.exception("Cannot close pipe %s", n)
 
 def MultiPipe(names):
     conns1, conns2 = [],[]
+    names = names+["error"]
     for i in range(len(names)):
         c1, c2 = Pipe()
         conns1.append(c1)
@@ -180,12 +199,21 @@ class MultiprocessingReProcess(Process):
                         log.error("PID {}: {}, {}".format(os.getpid(), self.sampler.prev_energy, type(self.sampler.prev_energy)))
                         self.sampler.stats_collector.update_statistics(self.sampler.sm, self.sampler.prev_energy, self.sampler.prev_constituing, movestring)
             except BaseException as e:
-                with open(os.path.join(self.stats_collector.out_file, 'exception.log'), "w") as f:
+                with open(os.path.join(self.sampler.stats_collector.out_dir, 'exception.log'), "w") as f:
                     print("Running on python {}, the following error occurred in sampler {} (process {}):".format(sys.version, self.id, os.getpid()), file=f)
                     print("{}: {}".format(type(e).__name__, str(e)), file=f)
                     print(str(traceback.format_exc()), file=f)
+                if self.pipe_lower is not None:
+                    self.pipe_lower.send("error", str(e))
+                if self.pipe_higher is not None:
+                    self.pipe_higher.send("error", str(e))
+
                 raise
             finally:
+                if self.pipe_lower is not None:
+                    self.pipe_lower.close()
+                if self.pipe_higher is not None:
+                    self.pipe_higher.close()
                 self.sampler.stats_collector.collector.to_file()
 
     def run(self):
@@ -215,6 +243,7 @@ class MultiprocessingReProcess(Process):
         if not changed:
             self.pipe_higher.send("step_result", (None, self.sampler.prev_energy))
         else:
+            self.sampler.sm.save_sampled_elems()
             self.pipe_higher.send("step_result", (self.sampler.sm.bg.to_cg_string(), self.sampler.prev_energy))
 
 

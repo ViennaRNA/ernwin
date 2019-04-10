@@ -214,7 +214,11 @@ def get_loop_with_smallest_cycle(loops, cycles):
 
 def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[]):
     energy_function, max_val = get_junction_energies(sm, brokenloops)
-    energy = energy_function.eval_energy(sm.bg, nodes=brokenloops, sampled_stats=sm.elem_defs)
+    try:
+        energy = energy_function.eval_energy(sm.bg, nodes=brokenloops, sampled_stats=sm.elem_defs)
+    except Exception as e:
+        log.exception("Cannot calculate junction energy")
+        raise RuntimeError("Cannot calculate junction energy: Relaxing {}, brokenloops {}, elem_defs: {}".format(elem, brokenloops, sm.elem_defs))
     sm.constraint_energy.eval_energy(sm.bg, nodes=clash_nodes)
     clash_pairs = sm.constraint_energy.bad_bulges
     assert energy>max_val or clash_pairs
