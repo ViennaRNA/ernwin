@@ -785,7 +785,7 @@ class SamplingStatistics:
         if self.options["stem_rmsds"]:
             names = remove_common_pre_and_postfixes(self.options["stem_rmsds"])
             for i, fn in enumerate(self.options["stem_rmsds"]):
-                collectors.append(StemRMSD(cg, fn, names[i], args))
+                collectors.append(StemRMSD(fn, names[i], args))
                 pass
             collectors.append(Delimitor())
 

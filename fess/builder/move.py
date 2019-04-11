@@ -405,7 +405,7 @@ def update_parser(parser):
     mover_help_intro = ("Which types of Moves to use during sampling.\n"
                         "If you specify more than one mover separated by a\n"
                         "comma, the mover will be picked at random at each step.\n"
-                        "Default: Mover\n"
+                        "Default: 'MoverNoRegularML,EnergeticJunctionMover[2]'\n"
                         "One or more of the following:")
     Mover.add_to_parser(parser, '--move-set', default="MoverNoRegularML,EnergeticJunctionMover[2]", help_intro=mover_help_intro)
 
