@@ -1314,18 +1314,23 @@ class _PDD_Mixin(object):
 
     @classmethod
     def get_pdd(cls, cg, level, stepsize, only_seqids=None):
-        points=[]
-        for i in range(1,len(cg.seq)+1):
-            if only_seqids is not None and cg.seq.to_resid(i) not in only_seqids:
-                continue
-            if level=="R":
-                points.append(cg.get_virtual_residue(i, allow_single_stranded=True))
-            elif level=="A":
-                va_dict = cg.virtual_atoms(i)
-                for k,v in va_dict.items():
-                    points.append(v)
-            else:
-                raise ValueError("wrongLevel")
+        use_asserts = ftuv.USE_ASSERTS
+        ftuv.USE_ASSERTS = False
+        try:
+            points=[]
+            for i in range(1,len(cg.seq)+1):
+                if only_seqids is not None and cg.seq.to_resid(i) not in only_seqids:
+                    continue
+                if level=="R":
+                    points.append(cg.get_virtual_residue(i, allow_single_stranded=True))
+                elif level=="A":
+                    va_dict = cg.virtual_atoms(i)
+                    for k,v in va_dict.items():
+                        points.append(v)
+                else:
+                    raise ValueError("wrongLevel")
+        finally:
+            ftuv.USE_ASSERTS = use_asserts
         return ftuv.pair_distance_distribution(points, stepsize)
 
     @classmethod
