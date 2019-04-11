@@ -254,11 +254,15 @@ class StemRMSD(StatisticsCollector):
         self._reference = reference_cg
         if name:
             self.header = ["stem_rmsd_of_"+name]
+        self.has_logged=False
 
     def update(self, sm, step):
         try:
-            srmsd = ftms.cg_stem_rmsd(sm.bg, self._reference)
-        except:
+            srmsd = ftme.cg_stem_rmsd(sm.bg, self._reference)
+        except Exception as e:
+            if not self.has_logged:
+                log.exception("Cannot calculate StemRMSD.")
+                self.has_logged=True
             srmsd=float("nan")
         self.history[0].append(srmsd)
         return "{:6.3f}".format(srmsd)
