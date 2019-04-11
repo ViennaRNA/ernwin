@@ -16,7 +16,7 @@ in benchmarks, but might be usefull in certain special applications.
 """
 
 class MSTchangingMover(Mover):
-    def __init__(self, stat_source):
+    def __init__(self, stat_source, **kwargs):
         super(MSTchangingMover, self).__init__(stat_source)
         self._prev_mst = None
     def move(self, sm):
@@ -112,7 +112,7 @@ class NElementMover(Mover):
     HELPTEXT = ("In every move, randomly replace \n"
                 "n different fragments.")
 
-    def __init__(self, n=2, stat_source=None):
+    def __init__(self, n=2, stat_source=None, **kwargs):
         """
         Change more than one element per iteration step.
 
@@ -140,7 +140,7 @@ class NElementMover(Mover):
 class OneOrMoreElementMover(NElementMover):
     HELPTEXT = ("In every move, randomly replace \n"
                 "1 to n fragments.")
-    def __init__(self, max_n=2, stat_source=None):
+    def __init__(self, max_n=2, stat_source=None, **kwargs):
         """
         Change more than one element per iteration step.
 

@@ -19,13 +19,13 @@ import itertools as it
 import numpy as np
 import pandas as pd
 
-from logging_exceptions import log_to_exception
+from logging_exceptions import log_to_exception, log_exception
 
 import forgi.threedee.model.descriptors as ftur
 import forgi.threedee.model.similarity as ftme
 import forgi.threedee.utilities.vector as ftuv
 import forgi.threedee.utilities.pdb as ftup
-
+import forgi.utilities.commandline_utils as fuc
 import fess.builder.reconstructor as fbr
 
 from . import config as conf
@@ -247,7 +247,8 @@ class StemRMSD(StatisticsCollector):
         try:
             args.rna = [ref_fn]
             reference_cg, = fuc.cgs_from_args(args, rna_type="cg", enable_logging=False)
-        except:
+        except Exception as e:
+            log.exception("Cannot create StemRMSD.")
             self.silent=True
             return
         self._reference = reference_cg
@@ -786,7 +787,6 @@ class SamplingStatistics:
             names = remove_common_pre_and_postfixes(self.options["stem_rmsds"])
             for i, fn in enumerate(self.options["stem_rmsds"]):
                 collectors.append(StemRMSD(fn, names[i], args))
-                pass
             collectors.append(Delimitor())
 
 
