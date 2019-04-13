@@ -1073,6 +1073,7 @@ class OutfileParser(object):
                     return cls
         if header=="Sampling Move":
             return header
+        log.error("Cannot Parse header '%s'", header)
         return None
 
     def _init_collector_lookup(self, headers):
