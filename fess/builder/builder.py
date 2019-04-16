@@ -34,14 +34,14 @@ import fess.builder.relaxation_builder as fbrel
 
 log = logging.getLogger(__name__)
 
-def load_sampled_elements(sm):
+def load_sampled_elements(sm, stat_source):
     """
     Try to load the sampled elements from the cg into the sm.
     :returns: True upon success, False upon failure (e.g. if cg was derived from a fasta file)
     """
     log.info("Trying to load sampled elements")
     try:
-        sm.load_sampled_elems()
+        sm.load_sampled_elems(stat_source)
     except Exception as e:
         log.warning("Cannot use structure from file. Need to resample.")
         log.debug("Reason for need to resampe: {}".format(e), exc_info=True)
@@ -519,7 +519,7 @@ def from_args(args, stat_source, out_dir):
             build_function = b.build
         else:
             def _build_function_with_loading(sm):
-                load_sampled_elements(sm)
+                load_sampled_elements(sm, stat_source)
                 return b.accept_or_build(sm)
             build_function = _build_function_with_loading
     log.debug("Build function used is %s", build_function.__name__)

@@ -388,7 +388,7 @@ class SpatialModel:
                 log.debug("Error setting {}".format(d))
                 raise
 
-    def change_mst(self, new_mst):
+    def change_mst(self, new_mst, stat_source):
         """
         Set bg.mst to new_mst and recalculate invalid values.
 
@@ -399,7 +399,7 @@ class SpatialModel:
 
         self.bg.build_order = None #No longer valid
         self.bg.ang_types = None
-        self.load_sampled_elems()
+        self.load_sampled_elems(stat_source=None)
         #self.new_traverse_and_build(start='start', include_start = True)
 
     def set_multiloop_break_segment(self, d):
@@ -434,7 +434,7 @@ class SpatialModel:
             self.bg.traverse_graph()
             log.info("mst: %s", self.bg.mst)
 
-            self.load_sampled_elems()
+            self.load_sampled_elems(stat_source=None)
             new_node, = missing_nodes
             return new_node
         elif len(missing_nodes)>=2:
@@ -483,12 +483,12 @@ class SpatialModel:
             if self.elem_defs and d in self.elem_defs:
                 del self.elem_defs[d]
             self.bg.traverse_graph()
-            self.load_sampled_elems()
+            self.load_sampled_elems(stat_source=None)
             return new_node
         elif len(missing_nodes)==0:
             raise ValueError("Cannot break loop {}. This multi loop is not cyclic and thus has no broken fragment.".format(d))
 
-    def load_sampled_elems(self):
+    def load_sampled_elems(self, stat_source):
         '''
         Load information from the CoarseGrainRNA into self.elem_defs
 
@@ -496,10 +496,6 @@ class SpatialModel:
         '''
         build_order = self.bg.traverse_graph()
         for d in self.bg.defines.keys():
-            if d in self.bg.sampled:
-                line = self.bg.sampled[d]
-            else:
-                line=[]
             if d[0]=="s":
                 stat=self.bg.get_stem_stats(d)
             elif d[0] in ("h","f","t"):
@@ -519,19 +515,23 @@ class SpatialModel:
                 else: #Not in build_order. Probably broken ml segment
                     assert d[0]=="m"
                     #If it was frozen or stored in the file, we add its stats to elem_defs.
-                    if line or d in self.frozen_elements:
+                    if d in self.frozen_elements:
                         stat,=[s for s in self.bg.get_bulge_angle_stats(d) if s.ang_type==self.bg.get_angle_type(d, allow_broken=True)]
-                        log.info("Loading stat from file for broken ml segment %s to %s", d, stat)
+                        log.info("Loading stat from cg for frozen ml segment %s to %s", d, stat)
                     else:
                         #Do not add this element to elem_defs!
-                        log.info("Not adding stat to broken ml segment %s", d)
+                        log.info("Not adding stat to broken ml segment %s from cg file", d)
                         continue
-            if line: #Use original define and pdb_name.
-                stat.pdb_name=line[0]
-                stat.define = line[2:]
             log.debug("Loading stat %s from bg to elem_defs[%s]", stat, d)
             self.elem_defs[d]=stat
-
+        if stat_source is not None:
+            if self.sm.bg.sampled:
+                log.info("Now overwriting stats by sampled stats from stat_source")
+            build_order = self.bg.traverse_graph()
+            for elem, sampled in self.bg.sampled.items():
+                pdb_name=sampled[0]
+                stat = stat_source.load_stat_by_name(self.sm.bg, elem, pdb_name)
+                sm.elem_defs[elem]=stat
 
     def get_transform(self, edge):
         '''

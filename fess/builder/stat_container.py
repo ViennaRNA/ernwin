@@ -335,6 +335,19 @@ class StatStorage(object):
             if not cycle:
                 break #Exhaust the generator
 
+    def load_stat_by_name(self, bg, elem, name):
+        key = self.key_from_bg_and_elem(bg, elem)
+        _, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries=float('inf'))
+        found=None
+        for stat in stats:
+            if stat.pdb_name == name:
+                assert found is None
+                found=stat
+        if not found:
+            raise RuntimeError("Cannot load stat %s for elem %s. Maybe a different stat file or different cg was used?")
+        return found
+
+
     def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
         """
         Iterate over all stats for the given element.
