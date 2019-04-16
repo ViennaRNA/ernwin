@@ -208,16 +208,16 @@ class StatStorage(object):
         raise StopIteration
 
     @lru_cache(maxsize = 128)
-    def _possible_stats(self, stat_type, key, min_entries=100, strict=False):
+    def _possible_stats(self, stat_type, key, min_entries=100, strict=False, enable_logging=True):
         try:
-            return self._possible_stats_inner(stat_type, key, min_entries, strict)
+            return self._possible_stats_inner(stat_type, key, min_entries, strict, enable_logging=enable_logging)
         except RuntimeError as e:
             if "recursion" not in str(e):
                 raise
             # Maximum recursion depth exceeded.
             raise LookupError("No stats found for {} with key {}, even after reducing length.".format(stat_type, key))
 
-    def _possible_stats_inner(self, stat_type, key, min_entries = 100, strict=False):
+    def _possible_stats_inner(self, stat_type, key, min_entries = 100, strict=False, enable_logging=True):
         """
         :returns: Two lists, `weights` and `choose_from` of the same length.
                   weights is a list of floats, choose_from is a list of stats.
@@ -230,14 +230,15 @@ class StatStorage(object):
                 sf = next(statfiles)
                 source = sf[stat_type]
             except StopIteration: #All stat_files exhausted
-                if len(choose_from)<min_entries and (stat_type, key, min_entries) not in self._has_reported:
+                if enable_logging and len(choose_from)<min_entries and (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
                     self._has_reported.add((stat_type, key, min_entries))
                 break
             if key in source:
                 stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
                 num_stats = len(stats)
-                log.info("Appending {} stats from source {} for {}.".format(len(stats),id( sf), key))
+                if enable_logging:
+                    log.info("Appending {} stats from source {} for {}.".format(len(stats),id( sf), key))
                 choose_from.extend(stats)
                 if not weights:
                     weight = 1 #All stats from the first stat_source always has weight 1, even if there are more than min_entries stats.
@@ -246,27 +247,28 @@ class StatStorage(object):
                     weight = min(1, remaining_total_weight/len(stats))
                 weights += [weight]*num_stats
             else:
-                log.info("Appending NO stats from source {} for {}.".format(id( sf), key))
-        if (stat_type, key, min_entries) not in self._has_reported:
+                if enable_logging:
+                     log.info("Appending NO stats from source {} for {}.".format(id( sf), key))
+        if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
             log.info("Found {} stats for {} with key {}".format(len(choose_from), stat_type, key))
             self._has_reported.add((stat_type, key, min_entries))
 
         if not choose_from:
             if not strict: # Fallback to the next smaller stat, until all options are exhausted.
                 if stat_type == "loop" and key>3:
-                    if (stat_type, key, min_entries) not in self._has_reported:
+                    if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
                         log.error("Trying key %s instead of %s for %s", key-1, key, stat_type)
                         self._has_reported.add((stat_type, key, min_entries))
-                    return self._possible_stats_inner(stat_type, key-1, min_entries, strict)
+                    return self._possible_stats_inner(stat_type, key-1, min_entries, strict, enable_logging)
                 elif stat_type == "angle" and (key[0]>0 or 1000>key[1]>0):
                     if 1000>key[1]>key[0]:
                         new_key = (key[0], key[1]-1, key[2])
                     else:
                         new_key = (key[0]-1, key[1], key[2])
-                    if (stat_type, key, min_entries) not in self._has_reported:
+                    if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
                         log.error("Trying key %s instead of %s for %s", new_key, key, stat_type)
                         self._has_reported.add((stat_type, key, min_entries))
-                    return self._possible_stats_inner(stat_type, new_key, min_entries, strict)
+                    return self._possible_stats_inner(stat_type, new_key, min_entries, strict, enable_logging)
             # If everything else fails, raise an error even if strict was disabled.
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
         return weights, choose_from
@@ -337,7 +339,8 @@ class StatStorage(object):
 
     def load_stat_by_name(self, bg, elem, name):
         key = self.key_from_bg_and_elem(bg, elem)
-        _, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries=float('inf'))
+        
+        _, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries=float('inf'), enable_logging=False)
         found=None
         for stat in stats:
             if stat.pdb_name == name:
@@ -431,7 +434,7 @@ class SequenceDependentStatStorage(StatStorage):
 
 
     @lru_cache(maxsize = 256)
-    def _possible_stats(self, stat_type, key, min_entries = 100):
+    def _possible_stats(self, stat_type, key, min_entries = 100, enable_loging=True):
         """
         :returns: Two lists, `weights` and `choose_from` of the same length.
                   weights is a list of floats, choose_from is a list of stats.
@@ -445,14 +448,15 @@ class SequenceDependentStatStorage(StatStorage):
                 sf = next(statfiles)
                 source = sf[stat_type]
             except StopIteration: #All stat_files exhausted
-                if (stat_type, key, min_entries) not in self._has_reported:
+                if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
                     log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
                     self._has_reported.add((stat_type, key, min_entries))
                 break
             if key in source:
                 stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
                 num_stats = len(stats)
-                log.info("Added %s stats ", num_stats)
+                if enable_logging:
+                    log.info("Added %s stats ", num_stats)
                 choose_from.extend(stats)
                 if not weights:
                     weight = 1
@@ -463,15 +467,16 @@ class SequenceDependentStatStorage(StatStorage):
                     #log.debug("Evaluating score for %s %s %s", key, sequence, stat)
                     weights.append(weight*self.sequence_score(sequence, stat))
             else:
-                log.info("Nothing added from stat_source %s",id(sf))
+                if enable_logging:
+                    log.info("Nothing added from stat_source %s",id(sf))
 
         if not choose_from:
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
-
-        log.info("For key %s: %s stats with weight in range %s-%s", key, len(choose_from), min(weights), max(weights))
-        if len(choose_from)<20:
-            for i, w in enumerate(weights):
-                log.debug("     Weight %f: %s", w, choose_from[i].seqs)
+        if enable_logging:
+            log.info("For key %s: %s stats with weight in range %s-%s", key, len(choose_from), min(weights), max(weights))
+            if len(choose_from)<20:
+                for i, w in enumerate(weights):
+                    log.debug("     Weight %f: %s", w, choose_from[i].seqs)
         return weights, choose_from
 
 
