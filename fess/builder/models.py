@@ -525,13 +525,13 @@ class SpatialModel:
             log.debug("Loading stat %s from bg to elem_defs[%s]", stat, d)
             self.elem_defs[d]=stat
         if stat_source is not None:
-            if self.sm.bg.sampled:
+            if self.bg.sampled:
                 log.info("Now overwriting stats by sampled stats from stat_source")
             build_order = self.bg.traverse_graph()
             for elem, sampled in self.bg.sampled.items():
                 pdb_name=sampled[0]
-                stat = stat_source.load_stat_by_name(self.sm.bg, elem, pdb_name)
-                sm.elem_defs[elem]=stat
+                stat = stat_source.load_stat_by_name(self.bg, elem, pdb_name)
+                self.elem_defs[elem]=stat
 
     def get_transform(self, edge):
         '''
