@@ -228,7 +228,7 @@ class MultiprocessingReProcess(Process):
     def sm_from_cg_string(self, cg_string):
         bg = ftmc.CoarseGrainRNA.from_bg_string(cg_string)
         sm = fbm.from_args(self.args, bg, self.stat_source, self.id)
-        sm.load_sampled_elems()
+        sm.load_sampled_elems(self.stat_source)
         sm.new_traverse_and_build()
         return sm
 
