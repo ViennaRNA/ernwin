@@ -384,6 +384,8 @@ class SpatialModel:
                         pass
                     self.bg.vposs[d]=ed.vres
                     log.debug("Set %s to %s ", d, ed.vres)
+                if d not in self.bg.get_mst():
+                    self.bg.infos["vstat_{}".format(d)]=str(ed)
             except:
                 log.debug("Error setting {}".format(d))
                 raise
