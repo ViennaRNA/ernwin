@@ -391,11 +391,11 @@ class EnergyTracking(StatisticsCollector):
     def update(self, sm, step):
         if self._background:
             log.debug("EnergyTracking calling eval_energy with background")
-            energy = self._energy_function.eval_energy(sm.bg, background=True)
+            energy = self._energy_function.eval_energy(sm.bg, background=True, sampled_stats=sm.elem_defs)
             self._energy_function.accept_last_measure()
         else:
             log.debug("EnergyTracking calling eval_energy without background")
-            energy = self._energy_function.eval_energy(sm.bg, background=False)
+            energy = self._energy_function.eval_energy(sm.bg, background=False, sampled_stats=sm.elem_defs)
         self.history[0].append(self._energy_function.shortname)
         self.history[1].append(energy)
         if isinstance(energy, np.ndarray) and len(energy) == 1:
