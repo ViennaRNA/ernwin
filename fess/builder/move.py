@@ -79,7 +79,11 @@ class Mover:
         elem, new_stat = self._get_elem_and_stat(sm)
         self._prev_stats = {}
         movestring = self._move(sm, elem, new_stat)
-        sm.new_traverse_and_build(start = elem, include_start = True)
+        if elem in sm.bg.get_mst(): 
+            start=elem
+        else:
+            start="end"
+        sm.new_traverse_and_build(start = "end", include_start = True)
         return movestring
 
     def _store_prev_stat(self, sm, elem):

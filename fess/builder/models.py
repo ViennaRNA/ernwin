@@ -798,7 +798,7 @@ class SpatialModel:
             self.stem_to_coords(first_stem)
             nodes.append(first_stem)
             build_step = 0
-        elif start[0] in "fth":
+        elif start=="end" or start[0] in "fth":
             self._finish_building()
             return []
         else:
