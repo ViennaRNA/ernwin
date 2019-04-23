@@ -1032,7 +1032,7 @@ def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
     else:
         options["distance"] = []
     track_energies = fbe.EnergyFunction.from_string(
-        args.track_energies, cg=cg, iterations=None)
+        args.track_energies, cg=cg, iterations=None, stat_source=stat_source)
     assert isinstance(energy, fbe.CombinedEnergy)
     track_energies += [e for e in energy.energies
                        if isinstance(e, (fbe.CombinedEnergy, fbe.CoarseGrainEnergy))]

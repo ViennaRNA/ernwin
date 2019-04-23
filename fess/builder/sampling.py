@@ -59,7 +59,7 @@ class MCMCSampler:
             else:
                 self.last_bad_mls=[]
             self.last_bad_mls=[]
-            return self.energy_function.eval_energy(self.sm.bg, sampled_stats=sm.elem_defs)
+            return self.energy_function.eval_energy(self.sm.bg, sampled_stats=self.sm.elem_defs)
         else:
             if self.sm.constraint_energy is None:
                 self.last_clashes="no_energy"
@@ -80,7 +80,7 @@ class MCMCSampler:
         self.step_counter += 1
         if self.rerun_prev_energy:
             # The energy of staying may get worse with every reject step
-            self.prev_energy = self.energy_function.eval_energy(self.sm.bg, , sampled_stats=sm.elem_defs)
+            self.prev_energy = self.energy_function.eval_energy(self.sm.bg , sampled_stats=self.sm.elem_defs)
         #Make a sinle move (i.e. change the Spatial Model)
         movestring = self.mover.move(self.sm)
         # Accept or reject the new spatial model based on the energy.
@@ -151,4 +151,4 @@ class MCMCSampler:
             warnings.warn(e.message, NoopRevertWarning)
         # We need to recaluculate the prev_energy, because Energy might have been recalibrated.
         log.debug("MCMCSampler After rejecting: reject calling eval_energy again")
-        self.prev_energy = self.energy_function.eval_energy(self.sm.bg, sampled_stats=sm.elem_defs)
+        self.prev_energy = self.energy_function.eval_energy(self.sm.bg, sampled_stats=self.sm.elem_defs)

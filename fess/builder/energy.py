@@ -861,12 +861,8 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             log.debug("Self.element %s not in nodes %s", self.element, nodes)
             return 0.
         best_deviation = float('inf')
-        if sampled_stats is not None and not self._always_search:
+        if sampled_stats is not None and self.element in sampled_stats and not self._always_search:
             log.debug("FJC using sampled stat from %s!", sampled_stats.keys())
-            assert self.element in sampled_stats
-             # Assertion fails, if structure was built with JDIST energy but sampled
-             # with this energy. Should never happen!
-            assert sampled_stats[self.element] is not None
             self.used_stat = sampled_stats[self.element]
             best_deviation = self._stat_deviation(cg, sampled_stats[self.element])
         else:
@@ -1382,7 +1378,7 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         self.target_values = self.check_target_pdd(target_pdd["distance"], target_pdd["count"])
         self.only_seqids=None
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
-                    plot_debug=False):
+                    plot_debug=False, **kwargs):
         if plot_debug or nodes is not None:
             raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
                                       " for PDD Energy")
@@ -1427,7 +1423,7 @@ class LastNPDDsEnergy(PDDEnergy):
     _shortname = "LNP"
     N=100
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
-                    plot_debug=False):
+                    plot_debug=False, **kwargs):
         if plot_debug or nodes is not None:
             raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
                                       " for PDD Energy")

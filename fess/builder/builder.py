@@ -305,7 +305,7 @@ class RelaxationBuilder(Builder):
             for ml in sm.bg.mloop_iterator():
                 if ml not in sm.bg.mst and ml not in sm.elem_defs:
                          sm.elem_defs[ml]=self.stat_source.sample_for(sm.bg, ml)
-            ok, _ = fbrel.relax_sm(sm, self.stat_source)
+            ok, _ = fbrel.relax_sm(sm, self.stat_source, num_stats_per_ml=1000)
         else:
             self._finish_energy_building(sm, sm.bg.defines)
             ok=True

@@ -40,7 +40,7 @@ def sort_elems_by_buildorder(bg, elems):
         i=bg.buildorder_of(elem)
         if i is None:
             return float("inf")
-        return i 
+        return i
     return sorted(elems, key=loop_key)
 
 def sort_loops_buildorder(bg):
@@ -53,7 +53,7 @@ def sort_loops_buildorder(bg):
             elems.append(ml)
     return elems
 
-def relax_sm(sm, stat_source, fixed_loops=[]):
+def relax_sm(sm, stat_source, fixed_loops=[], num_stats_per_ml=NUM_STATS_PER_ELEM):
     use_asserts = ftuv.USE_ASSERTS
     ftuv.USE_ASSERTS=False
     movestring=""
@@ -94,7 +94,8 @@ def relax_sm(sm, stat_source, fixed_loops=[]):
             for elem in sort_elems_by_buildorder(sm.bg, [s for s in free_stats if s[0]!="s"]):
                 log.info("Starting gradientwalk: %s (broken %s), free_stats=%s", elem, brokenloops, sort_elems_by_buildorder(sm.bg, [s for s in free_stats if s[0]!="s"]))
                 lastmove = do_gradient_walk(sm, brokenloops, elem,
-                                            stat_source, clash_nodes=cycles[brokenloops[0]])
+                                            stat_source, clash_nodes=cycles[brokenloops[0]],
+                                            num_stats_per_ml)
                 movestring+=lastmove
                 bad_bulges = get_sm_bad_bulges(sm)
                 log.debug("After gradientwalk: bad_bulges=%s", bad_bulges)
@@ -108,7 +109,7 @@ def relax_sm(sm, stat_source, fixed_loops=[]):
         assert not bad_bulges
         with open("loops_work.cg", "w") as f:
             f.write(sm.bg.to_cg_string())
-        ok, lastmove = fix_clashes(sm, stat_source, fixed_loops)
+        ok, lastmove = fix_clashes(sm, stat_source, fixed_loops, num_stats_per_ml)
         movestring+=lastmove
         return ok, movestring
     except KeyboardInterrupt:
@@ -118,7 +119,7 @@ def relax_sm(sm, stat_source, fixed_loops=[]):
         ftuv.USE_ASSERTS=use_asserts
 
 
-def fix_clashes(sm, stat_source, externally_fixed_elems):
+def fix_clashes(sm, stat_source, externally_fixed_elems, num_stats_per_ml=NUM_STATS_PER_ELEM):
     movestring=""
     try:
         sm.constraint_energy.eval_energy(sm.bg)
@@ -141,7 +142,7 @@ def fix_clashes(sm, stat_source, externally_fixed_elems):
             pair = get_loop_with_smallest_cycle(clash_pairs, clash_paths)
             for (s1,loop,s2) in sm.bg.build_order:
                 if loop in clash_paths[pair] and loop not in fixed_elems:
-                    lastmove = do_clash_gradient_walk(sm, pair, loop, stat_source)
+                    lastmove = do_clash_gradient_walk(sm, pair, loop, stat_source, num_stats_per_ml)
                     movestring+=lastmove
                     sm.constraint_energy.eval_energy(sm.bg)
                     new_clash_pairs = list(map(tuple, sm.constraint_energy.bad_bulges))
@@ -227,7 +228,7 @@ def mst_to_nx(bg):
 def get_loop_with_smallest_cycle(loops, cycles):
     return min(loops, key=lambda x:len(cycles[x]))
 
-def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[]):
+def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[], num_stats_per_ml = NUM_STATS_PER_ELEM):
     energy_function, max_val = get_junction_energies(sm, brokenloops)
     try:
         energy = energy_function.eval_energy(sm.bg, nodes=brokenloops, sampled_stats=sm.elem_defs)
@@ -247,7 +248,7 @@ def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[]):
     steps=count_build_steps(elem, brokenloops[0], sm.bg)
     stat_choices=list(stat_source.iterate_stats_for(sm.bg, elem))
     random.shuffle(stat_choices)
-    for stat in stat_choices[:NUM_STATS_PER_ELEM]:
+    for stat in stat_choices[:num_stats_per_ml]:
         sm.elem_defs[elem]=stat
         if elem not in brokenloops:
             sm.new_traverse_and_build(start=elem, max_steps=steps, include_start=True)
@@ -274,7 +275,7 @@ def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[]):
         movestring=""
     return movestring
 
-def do_clash_gradient_walk(sm, clash_pair, loop, stat_source):
+def do_clash_gradient_walk(sm, clash_pair, loop, stat_source, num_stats_per_ml=NUM_STATS_PER_ELEM):
     energy = sm.constraint_energy.eval_energy(sm.bg)
     all_clash_pairs = sm.constraint_energy.bad_bulges
     log.debug("Gradient walk for %s (clash %s): Original Energy (%s): %s, original clashpairs: %s",
@@ -286,7 +287,7 @@ def do_clash_gradient_walk(sm, clash_pair, loop, stat_source):
 
     stat_choices=list(stat_source.iterate_stats_for(sm.bg, loop))
     random.shuffle(stat_choices)
-    for stat in stat_choices[:NUM_STATS_PER_ELEM]:
+    for stat in stat_choices[:num_stats_per_ml]:
         sm.elem_defs[loop]=stat
         sm.new_traverse_and_build(start=loop, include_start=True)
         e2 = sm.constraint_energy.eval_energy(sm.bg)

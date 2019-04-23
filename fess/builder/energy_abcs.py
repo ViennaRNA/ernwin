@@ -142,7 +142,7 @@ class EnergyFunction(with_metaclass(ABCMeta, object)):
         return
 
     @abstractmethod
-    def eval_energy(self, cg, background=True, nodes=None):
+    def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         raise NotImplementedError
 
     def dump_measures(self, base_directory, iteration=None):
@@ -249,7 +249,7 @@ class InteractionEnergy(EnergyFunction):
         raise NotImplementedError
 
     def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False,
-                    plot_debug=False):
+                    plot_debug=False, **kwargs):
         if plot_debug or nodes is not None:
             raise NotImplementedError("'plot_debug' and 'nodes' args are not implemented"
                                       " for InteractionEnergies")
@@ -495,7 +495,7 @@ class CoarseGrainEnergy(EnergyFunction):
     def _get_cg_measure(self, cg):
         raise NotImplementedError
 
-    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False, plot_debug=False):
+    def eval_energy(self, cg, background=True, nodes=None, use_accepted_measure=False, plot_debug=False, **kwargs):
         '''
         A generic function which simply evaluates the energy based on the
         previously calculated probability distributions.
