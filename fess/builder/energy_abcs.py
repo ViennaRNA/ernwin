@@ -377,11 +377,15 @@ class CoarseGrainEnergy(EnergyFunction):
                 from_ = min(it.chain(self.accepted_measures, self.target_values))
             except AttributeError:
                 from_ = min(self.accepted_measures)*0.8
+            except ValueError:
+                from_ = 0
         if to_ is None:
             try:
                 to_ = max(it.chain(self.accepted_measures, self.target_values))
             except AttributeError:
                 to_ = max(self.accepted_measures)*1.2
+            except ValueError:
+                to_ = 10
         xs=np.linspace(from_, to_, 2000)
         fig,ax1 = plt.subplots()
         ax2 = ax1.twinx()

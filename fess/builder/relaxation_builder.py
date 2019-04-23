@@ -95,7 +95,7 @@ def relax_sm(sm, stat_source, fixed_loops=[], num_stats_per_ml=NUM_STATS_PER_ELE
                 log.info("Starting gradientwalk: %s (broken %s), free_stats=%s", elem, brokenloops, sort_elems_by_buildorder(sm.bg, [s for s in free_stats if s[0]!="s"]))
                 lastmove = do_gradient_walk(sm, brokenloops, elem,
                                             stat_source, clash_nodes=cycles[brokenloops[0]],
-                                            num_stats_per_ml)
+                                            num_stats_per_ml=num_stats_per_ml)
                 movestring+=lastmove
                 bad_bulges = get_sm_bad_bulges(sm)
                 log.debug("After gradientwalk: bad_bulges=%s", bad_bulges)

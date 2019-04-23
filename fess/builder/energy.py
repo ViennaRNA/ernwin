@@ -1334,7 +1334,9 @@ class _PDD_Mixin(object):
     def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
         if pdd_target=="__cg__":
             dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
-            target_pdd = pd.DataFrame({"distance":dists, "count":counts, "error":sum(counts)/2000})
+            errors=sum(counts)/1000
+            errors/=1.5**max(0,6-cg.seq_length//100) # sum(counts)/11000 seems reasonable for tRNA
+            target_pdd = pd.DataFrame({"distance":dists, "count":counts, "error":errors})
         else:
             with open(pdd_target) as f:
                 line = next(f)
@@ -1497,10 +1499,12 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         self.reset_distributions(length)
 
     def reset_distributions(self, length):
-        # At the start of sampling, set the reference PDD equal to the target PDD
+        # At the start of sampling, set the reference PDD
+        # compareable to but broader than the target PDD
         # The target-PDD never changes
         self.accepted_measures = [self.target_values]
-        err = np.linspace(0, max(1,int(self.adjustment)), 11)[1:]
+        self.log.debug("Target values = %s", self.target_values)
+        err = np.linspace(0, max(1,2*int(self.adjustment)), 11)[1:]
         for i in err:
             v = self.check_target_pdd(self.target_pdd["distance"],
                                       np.maximum(0, self.target_pdd["count"]-i*self.error),
@@ -1514,9 +1518,40 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
             self.accepted_measures.append(v)
         self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
         self._set_target_distribution()
+        print("Reset distribution")
+        if True:
+            all_tvs = []
+            refs = []
+            for x in np.linspace(0,0.06,150):
+                tvs = self.target_distribution([x]*len(self.target_values))
+                all_tvs.append(tvs)
+                refs.append(self.reference_distribution([x]*len(self.target_values)))
+            all_tvs = np.array(all_tvs)
+            refs = np.array(refs)
+            import matplotlib.pyplot as plt
+            plt.title("Initial distributions")
+            plt.plot(np.linspace(0,0.06,150), all_tvs[:,1], label="target")
+            plt.plot(np.linspace(0,0.06,150), refs[:,1], label="reference")
+            plt.legend()
+            plt.show()
 
     def _update_adj(self):
         super(Ensemble_PDD_Energy, self)._update_adj()
+        if True:
+            all_tvs = []
+            refs = []
+            for x in np.linspace(0,0.06,150):
+                tvs = self.target_distribution([x]*len(self.target_values))
+                all_tvs.append(tvs)
+                refs.append(self.reference_distribution([x]*len(self.target_values)))
+            all_tvs = np.array(all_tvs)
+            refs = np.array(refs)
+            import matplotlib.pyplot as plt
+            plt.title("Initial distributions")
+            plt.plot(np.linspace(0,0.06,150), all_tvs[:,1], label="target")
+            plt.plot(np.linspace(0,0.06,150), refs[:,1], label="reference")
+            plt.legend()
+            plt.show()
 
     @classmethod
     def _get_distribution_from_values(cls, values):
@@ -1528,7 +1563,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         '''
         values = np.asarray(values)
         log.debug("Getting distribution from len(%s [0]) = %s", values, len(values[0]))
-        log.debug("values[:,0] = %s", values[:,0])
+        log.debug("values[:,1] = %s", values[:,1])
 
         kdes = [ super(Ensemble_PDD_Energy, cls)._get_distribution_from_values(values[:,i])
                     for i in range(len(values[0]))
@@ -1547,12 +1582,13 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
                         out.append(v)
                     else:
                         out.append(10**-300)
-                    #import matplotlib.pyplot as plt
-                    #fig,ax=plt.subplots()
-                    #plt.title(i)
-                    #ax.plot(np.linspace(-0.01,0.03,100), self._kdes[i](np.linspace(-0.01,0.03,100)))
-                    #ax.plot([values[i]], self._kdes[i](values[i]), "ro")
-                    #plt.show()
+                    if False and i%10==1:
+                        import matplotlib.pyplot as plt
+                        fig,ax=plt.subplots()
+                        plt.title(i)
+                        ax.plot(np.linspace(-0.01,0.06,100), self._kdes[i](np.linspace(-0.01,0.06,100)))
+                        ax.plot([values[i]], self._kdes[i](values[i]), "ro")
+                        plt.show()
                 return np.array(out)
         return KDE(kdes)
 
@@ -1576,8 +1612,10 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         def gaussian(mu, sig):
             assert np.all(sig>0), sig
             def g_inner(x):
-                self.log.debug("Gaussian with shapes x: %s, mu: %s, sigme:%s", np.shape(x), np.shape(mu), np.shape(sig))
-                return np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*np.pi)*sig)
+                self.log.debug("Gaussian with shapes x: %s, mu: %s, sigma:%s", np.shape(x), np.shape(mu), np.shape(sig))
+                out = np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*np.pi)*sig)
+                self.log.debug("Target Distr:  %s", out)
+                return out
             return g_inner
         error = self.check_target_pdd(self.target_pdd["distance"], self.error, normalize=False)
         self.log.debug("Adj: %s, error*adj=%s", self.adjustment, error/self.normalization_factor*self.adjustment)
