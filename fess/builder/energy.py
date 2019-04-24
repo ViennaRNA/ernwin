@@ -1528,12 +1528,13 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
                 refs.append(self.reference_distribution([x]*len(self.target_values)))
             all_tvs = np.array(all_tvs)
             refs = np.array(refs)
-            import matplotlib.pyplot as plt
-            plt.title("Initial distributions")
-            plt.plot(np.linspace(0,0.06,150), all_tvs[:,1], label="target")
-            plt.plot(np.linspace(0,0.06,150), refs[:,1], label="reference")
-            plt.legend()
-            plt.show()
+            if False:
+                import matplotlib.pyplot as plt
+                plt.title("Initial distributions")
+                plt.plot(np.linspace(0,0.06,150), all_tvs[:,1], label="target")
+                plt.plot(np.linspace(0,0.06,150), refs[:,1], label="reference")
+                plt.legend()
+                plt.show()
 
     def _update_adj(self):
         super(Ensemble_PDD_Energy, self)._update_adj()
@@ -1546,12 +1547,13 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
                 refs.append(self.reference_distribution([x]*len(self.target_values)))
             all_tvs = np.array(all_tvs)
             refs = np.array(refs)
-            import matplotlib.pyplot as plt
-            plt.title("Initial distributions")
-            plt.plot(np.linspace(0,0.06,150), all_tvs[:,1], label="target")
-            plt.plot(np.linspace(0,0.06,150), refs[:,1], label="reference")
-            plt.legend()
-            plt.show()
+            if False:
+                import matplotlib.pyplot as plt
+                plt.title("Initial distributions")
+                plt.plot(np.linspace(0,0.06,150), all_tvs[:,1], label="target")
+                plt.plot(np.linspace(0,0.06,150), refs[:,1], label="reference")
+                plt.legend()
+                plt.show()
 
     @classmethod
     def _get_distribution_from_values(cls, values):

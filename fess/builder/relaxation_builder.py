@@ -99,7 +99,7 @@ def relax_sm(sm, stat_source, fixed_loops=[], num_stats_per_ml=NUM_STATS_PER_ELE
                 movestring+=lastmove
                 bad_bulges = get_sm_bad_bulges(sm)
                 log.debug("After gradientwalk: bad_bulges=%s", bad_bulges)
-                if not set(brokenloops) & bad_bulges:
+                if not (set(brokenloops) & bad_bulges):
                     correct_loops.extend(brokenloops)
                     break
             else:
