@@ -170,7 +170,6 @@ class ConnectedElementMover(NElementMover):
             return super(ConnectedElementMover, self)._get_elem(sm)
         neighbors = { d for changed_elem in self._prev_stats for d in sm.bg.edges[changed_elem]
                         if d not in self._prev_stats
-                            and d in sm.bg.mst
                             and d not in sm.frozen_elements }
         return random.choice(list(neighbors))
 
@@ -212,9 +211,8 @@ class WholeMLMover(Mover):
     def _get_missing_ml_nodes(self, sm):
         sampled = set(k for k in self._prev_stats)
         whole_ml = set(sm.bg.shortest_mlonly_multiloop(list(sampled)[0]))
-        whole_ml = whole_ml & sm.bg.mst
         missing = whole_ml - sampled - sm.frozen_elements
-        log.info("_get_missing_ml_nodes: sampled {}, mst {}, missing {}".format(sampled, sm.bg.mst, missing))
+        log.info("_get_missing_ml_nodes: sampled {},  missing {}".format(sampled, missing))
         return missing
 
     def _get_elem_and_stat(self, sm):

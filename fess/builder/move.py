@@ -61,7 +61,7 @@ class Mover:
         self._prev_stats = None
 
     def _get_elem(self, sm):
-        possible_elements = sm.bg.get_mst() - sm.frozen_elements
+        possible_elements = set(sm.bg.defines.keys()) - sm.frozen_elements
         return random.choice(list(possible_elements))
 
     def _get_elem_and_stat(self, sm):
@@ -79,7 +79,7 @@ class Mover:
         elem, new_stat = self._get_elem_and_stat(sm)
         self._prev_stats = {}
         movestring = self._move(sm, elem, new_stat)
-        if elem in sm.bg.get_mst(): 
+        if elem in sm.bg.get_mst():
             start=elem
         else:
             start="end"
