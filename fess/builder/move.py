@@ -147,7 +147,11 @@ class MoveAndRelaxer(Mover):
         elem, new_stat = self._get_elem_and_stat(sm)
         self._prev_stats = {}
         movestring = self._move(sm, elem, new_stat)
-        sm.new_traverse_and_build(start = elem, include_start = True)
+        if elem in sm.bg.get_mst():
+            start=elem
+        else:
+            start="end"
+        sm.new_traverse_and_build(start = start, include_start = True)
         ok, relaxstring = fbrel.relax_sm(sm, self.stat_source, [elem])
         return movestring+relaxstring
 
