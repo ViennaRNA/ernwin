@@ -883,11 +883,13 @@ class SpatialModel:
     def fulfills_constraint_energy(self):
         return self.fulfills_clash_energy() and self.fulfills_junction_energy()
     def fulfills_junction_energy(self):
-        for loop in self.bg.find_mlonly_multiloops():
-            if loop[0] in self.junction_constraint_energy:
-                if self.junction_constraint_energy[loop[0]].eval_energy(self.bg, nodes=loop, sampled_stats=self.elem_defs)>0:
-                    log.info("Junction {} is not closed".format(loop))
-                    return False
+        for mloop in self.bg.find_mlonly_multiloops():
+            for loop in mloop:
+                if loop not in self.bg.get_mst() and loop[0] in self.junction_constraint_energy:
+                    log.debug("Evaluating junction constraint energy %s", self.junction_constraint_energy[loop[0]].shortname)
+                    if self.junction_constraint_energy[loop[0]].eval_energy(self.bg, nodes=loop, sampled_stats=self.elem_defs)>0:
+                        log.info("Junction {} is not closed".format(loop))
+                        return False
         return True
     def fulfills_clash_energy(self):
         if self.constraint_energy is None:
