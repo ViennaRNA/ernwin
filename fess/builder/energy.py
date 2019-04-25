@@ -109,6 +109,11 @@ class CheatingEnergy(EnergyFunction):
     HELPTEXT = "Cheating Energy. Tries to minimize the RMSD."
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
+        if "reference_cg" in kwargs:
+            cg=kwargs.reference_cg
+            self.log.info("Using refverence cg for Cheating energy")
+        else:
+            self.log.warning("Using BUILT cg for Cheating energy")
         return cls(cg, prefactor, adjustment)
     def __init__(self, ref_cg, prefactor = None, adjustment = None):
         """
@@ -1125,10 +1130,13 @@ class AMinorEnergy(InteractionEnergy):
 
     @classmethod
     def qualifying_loops(cls, cg, loop_iterator):
+        loggger = logging.getLogger(cls.__module__+"."+cls.__name__)
         for l in super(cls, AMinorEnergy).qualifying_loops(cg, loop_iterator):
             if l[0]!=cls.loop_type and l!=cls.loop_type:
+                loggger.debug("Loop %s has wrong loop type. Not %s", l, cls.loop_type)
                 continue
             if 'A' not in "".join(cg.get_define_seq_str(l)):
+                loggger.debug("Loop %s has no A. (''%s')", l, "&".join(cg.get_define_seq_str(l)))
                 continue
             yield l
 
@@ -1332,7 +1340,12 @@ class _PDD_Mixin(object):
 
     @classmethod
     def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
+        logger = logging.getLogger(cls.__module__+"."+cls.__name__)
+        if "reference_cg" in kwargs and kwargs["reference_cg"] is not None:
+            cg=kwargs["reference_cg"]
         if pdd_target=="__cg__":
+            if "reference_cg" not in kwargs or kwargs["reference_cg"] is None:
+                logger.warning("Using BUILT cg for pdd '__cg__'!")
             dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
             errors=sum(counts)/1000
             errors/=1.5**max(0,6-cg.seq_length//100) # sum(counts)/11000 seems reasonable for tRNA
@@ -1345,7 +1358,7 @@ class _PDD_Mixin(object):
                                     dtype={'distance': float, 'count': float, 'error':float} )
             else:
                 target_pdd = read_gnom_out(pdd_target)
-            log.info("Read PDD: %s", target_pdd)
+            logger.info("Read PDD: %s", target_pdd)
 
         if "pdd_stepsize" not in kwargs or kwargs["pdd_stepsize"] is None:
             stepsize = (target_pdd["distance"].values[-1]-target_pdd["distance"].values[0])/(len(target_pdd)-1)
@@ -1353,7 +1366,7 @@ class _PDD_Mixin(object):
             if np.all(np.abs(distdiff/stepsize-1)<0.1):
                 pass
             else:
-                log.warning("Unequally spaced target distribution. Stepsizes are %s, avg%s", distdiff, stepsize)
+                logger.warning("Unequally spaced target distribution. Stepsizes are %s, avg%s", distdiff, stepsize)
                 assert False
                 stepsize=None
         else:
@@ -2021,11 +2034,12 @@ def update_parser(parser):
     energy_options.add_argument('--pdd-stepsize', type=float,
                                 help="If given, rescale the PDD to this stepsize.")
 
-def from_args(args, cg, stat_source, replica=None):
+def from_args(args, cg, stat_source, replica=None, reference_cg=None):
     energy_string = replica_substring(args.energy, replica)
     energies = EnergyFunction.from_string(energy_string,
                                           cg=cg,
                                           stat_source=stat_source,
                                           pdd_target=args.pdd_file,
-                                          pdd_stepsize=args.pdd_stepsize)
+                                          pdd_stepsize=args.pdd_stepsize,
+                                          reference_cg=reference_cg)
     return CombinedEnergy(energies)

@@ -224,8 +224,12 @@ class InteractionEnergy(EnergyFunction):
 
     @classmethod
     def qualifying_loops(cls, cg, loop_iterator):
+        logger = logging.getLogger(cls.__module__+"."+cls.__name__)
         for l in loop_iterator:
             if l in cg.incomplete_elements or l in cg.interacting_elements:
+                logger.debug("Loop %s does not qualify because it is interacting or incomplete.", l)
+                logger.debug("Interacting %s.", cg.interacting_elements)
+                logger.debug("Incomplete %s.", cg.incomplete_elements)
                 continue
             yield l
 

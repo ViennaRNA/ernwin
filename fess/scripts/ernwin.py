@@ -194,15 +194,11 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
     """
     # The monitor uses the original structure as reference, IF it has 3D coordinates
     if original_cg.coords.is_filled and original_cg.twists.is_filled:
-        cg=original_cg
         show_min_rmsd=True
-        log.warning("Using reference_cg for energy and RMSD")
     else:
-        cg=sm.bg
         show_min_rmsd=False
-        log.warning("Using BUILT cg for energy and RMSD")
     # The PDD energy may want to use the original cg
-    sampling_energy = fbe.from_args(args, cg, stat_source, replica_nr)
+    sampling_energy = fbe.from_args(args, sm.bg, stat_source, reference_cg=original_cg)
     mover = fbmov.from_args(args, stat_source, sm, replica_nr)
     if args.replica_exchange:
         out_dir = os.path.join(config.Configuration.sampling_output_dir,
