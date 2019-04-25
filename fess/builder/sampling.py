@@ -37,6 +37,7 @@ class MCMCSampler:
         log.debug("MCMCSampler __init__ calling eval_energy")
         self.prev_energy = energy_function.eval_energy(sm.bg, sampled_stats=sm.elem_defs)
         log.info("Initial energy of the SpatialModel is {}".format(self.prev_energy))
+        log.info("Junction energy is %s", {k:v.shortname for k,v in sm.junction_constraint_energy.items()})
         #: Store the previouse constituing energies (for StatisticsCollector)
         self.prev_constituing = self.energy_function.constituing_energies
 
