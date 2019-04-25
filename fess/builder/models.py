@@ -888,7 +888,7 @@ class SpatialModel:
                 log.debug("Trying junction constraint energy for %s. Energies are %s", mloop, self.junction_constraint_energy.keys())
                 if loop not in self.bg.get_mst() and loop in self.junction_constraint_energy:
                     log.debug("Evaluating junction constraint energy %s", self.junction_constraint_energy[loop].shortname)
-                    if self.junction_constraint_energy[loop].eval_energy(self.bg, nodes=loop, sampled_stats=self.elem_defs)>0:
+                    if self.junction_constraint_energy[loop].eval_energy(self.bg, nodes=mloop, sampled_stats=self.elem_defs)>0:
                         log.info("Junction {} is not closed".format(mloop))
                         return False
         return True
