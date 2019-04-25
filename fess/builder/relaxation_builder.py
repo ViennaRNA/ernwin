@@ -237,7 +237,7 @@ def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[], num_sta
         raise RuntimeError("Cannot calculate junction energy: Relaxing {}, brokenloops {}, elem_defs: {}".format(elem, brokenloops, sm.elem_defs))
     sm.constraint_energy.eval_energy(sm.bg, nodes=clash_nodes)
     clash_pairs = sm.constraint_energy.bad_bulges
-    assert energy>max_val or clash_pairs
+    assert energy>=max_val or clash_pairs, "Assertion {}>{} or clash_pairs failed".format(energy, max_val)
 
     log.debug("Gradient walk for %s (broken %s): Original Energy (%s): %s (max=%s), original clash_pairs: %s",
                     elem, brokenloops, energy_function.shortname, energy, max_val, clash_pairs)
@@ -263,7 +263,7 @@ def do_gradient_walk(sm, brokenloops, elem, stat_source, clash_nodes=[], num_sta
             log.debug("Gradient walk for %s (broken %s): Intermediate Energy: %s,"
                      "clash_pairs: %s", elem, brokenloops, energy, clash_pairs)
             best_stat = stat
-            if energy<=max_val and not clash_pairs:
+            if energy<max_val and not clash_pairs:
                 log.debug("Junction fixed!")
                 break
     sm.elem_defs[elem]=best_stat

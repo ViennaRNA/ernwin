@@ -198,7 +198,7 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
     else:
         show_min_rmsd=False
     # The PDD energy may want to use the original cg
-    sampling_energy = fbe.from_args(args, sm.bg, stat_source, reference_cg=original_cg)
+    sampling_energy = fbe.from_args(args, sm.bg, stat_source, replica_nr, reference_cg=original_cg)
     mover = fbmov.from_args(args, stat_source, sm, replica_nr)
     if args.replica_exchange:
         out_dir = os.path.join(config.Configuration.sampling_output_dir,

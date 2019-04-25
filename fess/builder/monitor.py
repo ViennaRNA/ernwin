@@ -7,6 +7,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 #                             unicode, xrange, StandardError)
 
 import sys
+import math
 import time
 import copy
 import os.path
@@ -541,6 +542,28 @@ class Distance(StatisticsCollector):
         return float(stri.split()[0])
 
 
+class AngleTracker(StatisticsCollector):
+    """
+    The distance between two nucleotides
+    """
+    header = ["Angle_"]
+
+    def __init__(self, stem1, stem2):
+        super(AngleTracker, self).__init__()
+        self._elem1 = stem1
+        self._elem2 = stem2
+        self.header = ["Angle_{}-{}".format(self._elem1, self._elem2)]
+
+    def update(self, sm, step):
+        angle = ftuv.vec_angle(sm.bg.coords.get_direction(self._elem1),
+                               sm.bg.coords.get_direction(self._elem2))
+        self.history[0].append(angle)
+        return "{:6.2f}".format(math.degrees(angle))
+
+    @staticmethod
+    def parse_value(stri):
+        return math.radians(float(stri))
+
 class LocalFragmentCoverage(StatisticsCollector):
     """
     What fraction of different stats (fragments) were accepted.
@@ -666,6 +689,7 @@ _statisticsDefaultOptions = {
     "save_min_rmsd": 0,
     "measure": [],
     "distance": [],
+    "angles":False,
     "asphericity": True,
     "anisotropy": True,
     "ml_closing": False
@@ -802,12 +826,21 @@ class SamplingStatistics:
         if self.options["anisotropy"]:
             collectors.append(AnisotropyStatistics())
 
+
         if self.options["distance"]:
             collectors.append(Delimitor())
             for n1, n2 in self.options["distance"]:
                 collectors.append(Distance(n1, n2))
 
         collectors.append(Delimitor())
+
+        if self.options["angles"]:
+            for elem in cg.defines:
+                if elem[0] in "im":
+                    stem1, stem2 = cg.connections(elem)
+                    collectors.append(AngleTracker(stem1, stem2))
+            collectors.append(Delimitor())
+
 
         if self.options["local_coverage"]:
             collectors.append(LocalFragmentCoverage(stat_source, cg))
@@ -979,6 +1012,8 @@ def update_parser(parser):
                                  "Example: '1,15:3,20..' will print the distance between\n"
                                  "          nucleoitide 1 and 15 and the distance \n"
                                  "          between nucleotide 3 and 20.")
+    monitor_options.add_argument('--angles', action="store_true",
+                                 help="Track angles between all adjacent stems")
     monitor_options.add_argument('--track-energies', action='store', type=str, default="",
                                  help="A list of energies.\n"
                                  "Each energy is given in the format specified\n"
@@ -1031,6 +1066,11 @@ def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
             ':'), it.repeat(",")))  # map is from future!
     else:
         options["distance"] = []
+
+    if args.angles:
+        options["angles"]=True
+    else:
+        options["angles"]=False
     track_energies = fbe.EnergyFunction.from_string(
         args.track_energies, cg=cg, iterations=None, stat_source=stat_source,
         pdd_target=args.pdd_file)
