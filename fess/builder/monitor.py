@@ -847,6 +847,7 @@ class SamplingStatistics:
             collectors.append(Delimitor())
 
         for ef in energy_functions:
+            log.debug("Add Energy tracking for %s", ef.shortname)
             collectors.append(EnergyTracking(ef))
         if energy_functions:
             collectors.append(Delimitor())
@@ -1076,7 +1077,7 @@ def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
         pdd_target=args.pdd_file)
     assert isinstance(energy, fbe.CombinedEnergy)
     track_energies += [e for e in energy.energies
-                       if isinstance(e, (fbe.CombinedEnergy, fbe.CoarseGrainEnergy))]
+                       if isinstance(e, (fbe.CombinedEnergy, fbe.CoarseGrainEnergy, fbe.InteractionEnergy))]
 
     return SamplingStatistics(copy.deepcopy(cg), track_energies, stat_source,
                               output_directory=out_dir, options=options, args=args)
