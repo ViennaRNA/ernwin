@@ -83,7 +83,8 @@ class Mover:
             start=elem
         else:
             start="end"
-        sm.new_traverse_and_build(start = "end", include_start = True)
+        log.debug("Mover building (start=%s")
+        sm.new_traverse_and_build(start = start, include_start = True)
         return movestring
 
     def _store_prev_stat(self, sm, elem):
@@ -101,6 +102,7 @@ class Mover:
 
     def _move(self, sm, elem, new_stat):
         prev_name = self._store_prev_stat(sm, elem)
+        log.debug("%s MOVE: Assigning %s to %s", type(self).__name__, new_stat.pdb_name, elem)
         sm.elem_defs[elem]=new_stat
         return "{}:{}->{};".format(elem, prev_name, new_stat.pdb_name)
 
@@ -113,6 +115,7 @@ class Mover:
             raise RuntimeError("No (more) step(s) to revert.")
         for elem, stat in self._prev_stats.items():
             assert stat is not None
+            log.debug("%s REVERT Assigning %s to %s", type(self).__name__, stat.pdb_name, elem)
             sm.elem_defs[elem] = stat
         self._prev_stats = {}
         sm.new_traverse_and_build(start='start', include_start = True)

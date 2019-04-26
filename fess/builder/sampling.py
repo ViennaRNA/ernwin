@@ -148,6 +148,7 @@ class MCMCSampler:
         try:
             self.mover.revert(self.sm)
         except RuntimeError as e:
+            raise
             #This warning will be ignored in ReplicaExchangeSimulations
             warnings.warn(e.message, NoopRevertWarning)
         # We need to recaluculate the prev_energy, because Energy might have been recalibrated.
