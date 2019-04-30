@@ -158,6 +158,13 @@ class MoveAndRelaxer(Mover):
         ok, relaxstring = fbrel.relax_sm(sm, self.stat_source, [elem])
         return movestring+relaxstring
 
+class MoveAndRelaxML(MoveAndRelaxer):
+    def _get_elem(self, sm):
+        possible_elements = set(sm.bg.mloop_iterator()) - sm.frozen_elements
+        if not possible_elements:
+            raise UnsuitableMover("No ML in structure")
+        return random.choice(list(possible_elements))
+
 class MoverNoRegularML(Mover):
     def _get_elem(self, sm):
         while True:
@@ -381,16 +388,30 @@ class RotationMover(Mover):
 class MixedMover():
     def __init__(self, movers=[]):
         self.movers = movers
+        self.moveAndRelML = None
+        for mover in self.movers:
+            if isinstance(mover, MoveAndRelaxML):
+                self.moveAndRelML = mover
+                self.movers.remove(mover)
         self.last_mover = None
+        self.i=0
     def move(self, sm):
+        self.i+=1
         try:
-            self.last_mover = random.choice(self.movers)
+            if self.i%25==0 and self.moveAndRelML is not None:
+                self.last_mover = self.moveAndRelML
+            else:
+                self.last_mover = random.choice(self.movers)
         except IndexError:
             raise ValueError("None of the provided Movers is suitable for this RNA.")
         try:
             return self.last_mover.move(sm)
         except UnsuitableMover:
-            self.movers.remove(self.last_mover)
+            try:
+                self.movers.remove(self.last_mover)
+            except ValueError:
+                self.moveAndRelML = None
+            self.i-=1
             return self.move(sm)
 
     def revert(self, sm):
