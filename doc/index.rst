@@ -10,6 +10,7 @@ Contents:
 
     install.rst
     tutorial.rst
+    bvht.rst
     changelog.rst
     license_link.rst
 
