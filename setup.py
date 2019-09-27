@@ -60,7 +60,7 @@ setup(cmdclass={'build_py': build_py},
          "deepdiff<3.3.1",
          "networkx",
          "future",
-         "forgi",
+         "forgi>2.0.3",
          "logging_exceptions",
          "commandline_parsable"
       ],

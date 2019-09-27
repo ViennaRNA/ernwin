@@ -19,9 +19,9 @@ Modelling a long noncoding RNA with ERNWIN
 
 To reproduce the results shown in the paper about bvht by Kim, Thiel, Mrozowich, Hennelly, Hofacker, Patel and Sanbonmatsu (submitted), additional resources are needed: Over 50000 short artificial structures were generated [1] mostly with Rosetta [2] (with some additional structures generated with SimRNA [3]  or iFoldRNA [4]) and used as fallback fragments, when less than 100 examples of a secondary structure element could be found in the PDB. This was especially the case for larger exterior loop segments and other large unpaired loops, which are underrepresented in the PDB due to their flexibility. These artificial PDB structures can be downloaded from www.tbi.univie.ac.at/~thiel/fallback_pdbs.tar.gz (Only needed for all-atom reconstruction)
 
-To use them in sampling, the file fallback.stats from this repository has to be used with the following commandline argument::
+To use them in sampling, the file fallback.stats from the folder RESOURCES in this repository has to be used with the following commandline argument::
 
-  --fallback-stat fallback.stats
+  --fallback-stat /path/to/fallback.stats
 
 Modelling with experimental SAXS data
 -------------------------------------

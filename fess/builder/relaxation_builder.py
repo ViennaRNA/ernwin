@@ -106,7 +106,7 @@ def relax_sm(sm, stat_source, fixed_loops=[], num_stats_per_ml=NUM_STATS_PER_ELE
                 log.info("Could not fix %s", brokenloops)
                 return False, movestring+"XbadjunxtionsX;"
         bad_bulges = get_sm_bad_bulges(sm)
-        assert not bad_bulges
+        assert not bad_bulges, bad_bulges
         with open("loops_work.cg", "w") as f:
             f.write(sm.bg.to_cg_string())
         ok, lastmove = fix_clashes(sm, stat_source, fixed_loops, num_stats_per_ml)

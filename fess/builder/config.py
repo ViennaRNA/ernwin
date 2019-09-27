@@ -2,19 +2,10 @@ import os
 
 class Configuration:
     mids_method="template"
-    #mids_method="basenormals"
-    #base_dir = os.path.expanduser('~/projects/ernwin')
-    #data_base_dir = os.path.expanduser('~/doarse/processed/')
-    #pdb_base_dir = os.path.expanduser('~/data/ernwin/pdb')
-    #stats_file = os.path.join(base_dir, 'fess/stats/temp.stats')
-    #stem_fragment_dir = os.path.join(base_dir, 'fess/stats/stems')
-    #lric_stats_fn = os.path.join(base_dir, 'fess/stats/temp.energy')
-    #longrange_contact_stats_fn = os.path.join(base_dir, 'fess/stats/temp.longrange.contact')
-    #test_input_dir = os.path.expanduser('~/data/ernwin/processed/')
-    #test_output_dir = os.path.join(base_dir, "test_output")
+    
     sampling_output_dir = 'sampling_out'
-    #barnacle_dir = '/scr/plastilin/pkerp/apps/Barnacle'
-    #stem_library = dict()
+
+    default_stats_file = "stats/all_nr3.36.stats" # Can be overridden by commandline arguments.
 
     #The file where ideal bases are stored for base-replacement during reconstruction
     template_residue_fn = 'stats/residue_template.pdb'

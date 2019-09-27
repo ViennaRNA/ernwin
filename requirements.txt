@@ -6,7 +6,7 @@ biopython
 deepdiff
 networkx
 future
-forgi
+forgi=2.0.3
 logging_exceptions>=0.1.6
 bitarray
 commandline_parsable
