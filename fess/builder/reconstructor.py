@@ -55,7 +55,7 @@ import numpy as np
 
 
 class Reconstructor(object):
-    LIBRARY_DIRECTORY="/scr/risa/thiel/RECONSTRUCTOR/FRAGMENTS"
+    LIBRARY_DIRECTORY=None #
     def __init__(self, pdb_library_path, cg_library_path, server=False):
         """
         :param server: If True, assume a lot of memory is available
@@ -144,7 +144,7 @@ class Reconstructor(object):
             with log_to_exception(log, err):
                 log.error("%s != %s for element %s (%s)", stat.define, cg.defines[elem], elem, stat.pdb_name)
             raise err
-        if new_fragment:
+        if new_fragment and elf.LIBRARY_DIRECTORY is not None:
             fragment  = ftup.extract_subchains_from_seq_ids(chains,
                             cg.define_residue_num_iterator(elem, seq_ids=True,
                                                            adjacent=(elem[0]!="s")))
