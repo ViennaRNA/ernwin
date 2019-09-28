@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+Release Version 1.0
+-------------------
+
+The main script is now called `ernwin.py`
+
 Release Version 0.1
 -------------------
 
