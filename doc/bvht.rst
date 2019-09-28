@@ -17,11 +17,13 @@ You can now run simulations with the following command::
 Modelling a long noncoding RNA with ERNWIN
 ==========================================
 
-To reproduce the results shown in the paper about bvht by Kim, Thiel, Mrozowich, Hennelly, Hofacker, Patel and Sanbonmatsu (submitted), additional resources are needed: Over 50000 short artificial structures were generated [1] mostly with Rosetta [2] (with some additional structures generated with SimRNA [3]  or iFoldRNA [4]) and used as fallback fragments, when less than 100 examples of a secondary structure element could be found in the PDB. This was especially the case for larger exterior loop segments and other large unpaired loops, which are underrepresented in the PDB due to their flexibility. These artificial PDB structures can be downloaded from www.tbi.univie.ac.at/~thiel/fallback_pdbs.tar.gz (Only needed for all-atom reconstruction). The corresponding forgi files are at www.tbi.univie.ac.at/~thiel/fallback_cgs.tar.gz 
+To reproduce the results shown in the paper about bvht by Kim, Thiel, Mrozowich, Hennelly, Hofacker, Patel and Sanbonmatsu (submitted), additional resources are needed: Over 50000 short artificial structures were generated  :ref:`[1] <ref1>` mostly with Rosetta :ref:`[2] <ref2>` (with some additional structures generated with SimRNA :ref:`[3] <ref3>`  or iFoldRNA :ref:`[4] <ref4>`) and used as fallback fragments, when less than 100 examples of a secondary structure element could be found in the PDB. This was especially the case for larger exterior loop segments and other large unpaired loops, which are underrepresented in the PDB due to their flexibility. These artificial PDB structures can be downloaded from www.tbi.univie.ac.at/~thiel/fallback_pdbs.tar.gz (Only needed for all-atom reconstruction). The corresponding forgi files are at www.tbi.univie.ac.at/~thiel/fallback_cgs.tar.gz . For reconstruction to work, put the files into your folders PDB_DIR and CGS respectively.
 
 To use them in sampling, the file fallback.stats from the folder RESOURCES in this repository has to be used with the following commandline argument::
 
   --fallback-stat /path/to/fallback.stats
+
+
 
 Modelling with experimental SAXS data
 -------------------------------------
@@ -40,5 +42,29 @@ Where the file FILE.csv should be of the following format::
   0.8000E+01,0.7981E-05,0.4338E-07
 
 
+References
+----------
 
+.. _ref1:
 
+[1] *Peter Kerpedjiev, Christian Höner zu Siederdissen and Ivo L. Hofacker*.
+**Predicting RNA 3D structure using a coarse-grain helix-centered model.**
+RNA (2015) 21:1110-1121.
+
+.. _ref2:
+
+[2] *R. Das and D. Baker*.
+**Automated de novo prediction of native-like RNA tertiary structures.**
+Proc Natl Acad Sci (2007) 104:14664-14669
+
+.. _ref3:
+
+[3] *Boniecki MJ, Lach G, Dawson WK, Tomala K, Lukasz P, Soltysinski T, Rother KM, Bujnicki JM*
+**SimRNA: a coarse-grained method for RNA folding simulations and 3D structure prediction**
+Nucleic Acids Res 2015 [doi: 10.1093/nar/gkv1479]
+
+.. _ref4:
+
+[4] *S. Sharma, F. Ding, and N. V. Dokholyan*
+**iFoldRNA:Three-dimensional RNA structure prediction and folding**
+Bioinformatics 2008, 24: 1951-1952
