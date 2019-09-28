@@ -11,7 +11,7 @@ PDB-files do not store the secondary structure of the RNA chains and different s
 
 You can now run simulations with the following command::
 
-    ernwin.py INPUT_FILE --source-cg-dir CGS --source-pdb-dir PDB_DIR --reconstruct-every-n 1
+    ernwin.py INPUT_FILE --source-cg-dir CGS --source-pdb-dir PDB_DIR --reconstruct-every-n 100
 
 
 Modelling a long noncoding RNA with ERNWIN
