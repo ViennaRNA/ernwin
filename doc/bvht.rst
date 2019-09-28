@@ -6,7 +6,7 @@ After installation of ernwin and its dependencies, you can start sampling right 
 Ernwin comes with the file all_nr3.36.stats which contains angles and distances between secoondary structure elements of solved RNA structures. This is enough to sample coarse grained structures, but for all-atom reconstruction, you in addition need the pdb files which were used to create this stats file.
 Create a directory, lets call it PDB_DIR, and put all pdb files referenced in the representative set of RNA structures, Version 3.36, into it (in cif format)
 
-PDB-files do not store the secondary structure of the RNA chains and different structure annotation tools have different results. To ensure consistency, we have deposited the secondary structures and corresponding residue numbers in forgi format in this repository. When you extract the file CGS.tar.gz, this will create the directory CGS.
+PDB-files do not store the secondary structure of the RNA chains and different structure annotation tools have different results. To ensure consistency, we have deposited the secondary structures and corresponding residue numbers in forgi format in this repository. When you extract the file RESOURCES/CGS.tar.gz, this will create the directory CGS.
 
 
 You can now run simulations with the following command::
@@ -30,7 +30,7 @@ Modelling with experimental SAXS data
 
 To give an experimental SAXS data file to ernwin, use the following commandline arguments::
 
-  --energy PDD[R],SLD,AME --pdd-file FILE.csv
+  --energy PDD6[R],SLD,AME --pdd-file FILE.csv
 
 Where the file FILE.csv should be of the following format::
 
@@ -41,6 +41,7 @@ Where the file FILE.csv should be of the following format::
   0.6000E+01,0.5714E-05,0.4946E-07
   0.8000E+01,0.7981E-05,0.4338E-07
 
+The number 6 after the string PDD specifies how closely the predicted ensemble should fit the SAXS data file. Values between 1 and 10 are reasonable.
 
 References
 ----------
