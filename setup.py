@@ -46,10 +46,10 @@ except OSError: #Outside of a git repo, do nothing.
 
 setup(cmdclass={'build_py': build_py},
       name='ernwin',
-      version='0.3-alpha',
+      version='1.0',
       description='Coarse Grain 3D RNA Structure Modelling',
-      author='Peter Kerpedjiev, Bernhard Thiel',
-      author_email='pkerp@tbi.univie.ac.at, thiel@tbi.univie.ac.at',
+      author='Bernhard Thiel, Peter Kerpedjiev',
+      author_email='thiel@tbi.univie.ac.at, pkerp@tbi.univie.ac.at',
       url='http://www.tbi.univie.ac.at/~thiel/ernwin/',
       packages = ['fess', 'fess.builder', 'fess.ccd', 'fess.motif'],
       install_requires = [
@@ -78,5 +78,5 @@ setup(cmdclass={'build_py': build_py},
                              'stats/all_nr3.0_pkfree.stats',
                              'stats/residue_template.pdb',
                              'stats/AME_distributions.csv']},
-      scripts=['fess/scripts/ernwin.py', 'fess/scripts/reconstruct.py', 'fess/scripts/multiernwin.py']
+      scripts=['fess/scripts/ernwin.py']
      )
