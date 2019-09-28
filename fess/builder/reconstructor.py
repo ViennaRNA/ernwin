@@ -144,16 +144,16 @@ class Reconstructor(object):
             with log_to_exception(log, err):
                 log.error("%s != %s for element %s (%s)", stat.define, cg.defines[elem], elem, stat.pdb_name)
             raise err
-        if new_fragment and elf.LIBRARY_DIRECTORY is not None:
+        if new_fragment:
             fragment  = ftup.extract_subchains_from_seq_ids(chains,
                             cg.define_residue_num_iterator(elem, seq_ids=True,
                                                            adjacent=(elem[0]!="s")))
-            log.debug("Storing newly-created fragment for %s", key
-)
-            import distutils.dir_util
-            distutils.dir_util.mkpath(op.join(self.LIBRARY_DIRECTORY, key[2:4]))
-            ftup.output_multiple_chains(fragment.values(),
-                                        op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".cif"), "cif")
+            if self.LIBRARY_DIRECTORY is not None:
+                log.debug("Storing newly-created fragment for %s", key)
+                import distutils.dir_util
+                distutils.dir_util.mkpath(op.join(self.LIBRARY_DIRECTORY, key[2:4]))
+                ftup.output_multiple_chains(fragment.values(),
+                                            op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".cif"), "cif")
         return cg, elem, fragment
 
     def _get_source_cg_and_chain(self, stat, sm):
