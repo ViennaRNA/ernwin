@@ -7,9 +7,9 @@ Install ernwin
 
 #. Optionally, install the version of the dependencies that is known to work with ernwin. If this step is skipped, the newest version of the dependencies will be installed in the next step::
 
-        pip3 install -r requirenments.txt
+        pip2 install -r requirenments.txt
 
 #. Install ernwin::
 
-        pip3 install path/to/ernwin/directory
+        pip2 install path/to/ernwin/directory
 
