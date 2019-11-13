@@ -120,9 +120,9 @@ class CheatingEnergy(EnergyFunction):
         The energy is RMSD**adjustment*prefactor
         """
         super(CheatingEnergy, self).__init__(prefactor = prefactor, adjustment = adjustment)
-        self.real_residues = ftug.bg_virtual_residues(ref_cg)
+        self.real_residues = ref_cg.get_ordered_virtual_residue_poss()
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
-        new_residues = ftug.bg_virtual_residues(cg)
+        new_residues = cg.get_ordered_virtual_residue_poss()
         return  ftms.rmsd(self.real_residues, new_residues)**self.adjustment*self.prefactor
 
 
