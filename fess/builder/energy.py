@@ -110,10 +110,10 @@ class CheatingEnergy(EnergyFunction):
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         if "reference_cg" in kwargs:
-            cg=kwargs.reference_cg
-            self.log.info("Using refverence cg for Cheating energy")
+            cg=kwargs["reference_cg"]
+            log.info("Using refverence cg for Cheating energy")
         else:
-            self.log.warning("Using BUILT cg for Cheating energy")
+            log.warning("Using BUILT cg for Cheating energy")
         return cls(cg, prefactor, adjustment)
     def __init__(self, ref_cg, prefactor = None, adjustment = None):
         """
