@@ -113,19 +113,19 @@ class CheatingEnergy(EnergyFunction):
     @classmethod
     def from_cg(cls, prefactor, adjustment, cg, **kwargs):
         if "reference_cg" in kwargs:
-            cg=kwargs.reference_cg
-            self.log.info("Using refverence cg for Cheating energy")
+            cg=kwargs["reference_cg"]
+            log.info("Using refverence cg for Cheating energy")
         else:
-            self.log.warning("Using BUILT cg for Cheating energy")
+            log.warning("Using BUILT cg for Cheating energy")
         return cls(cg, prefactor, adjustment)
     def __init__(self, ref_cg, prefactor = None, adjustment = None):
         """
         The energy is RMSD**adjustment*prefactor
         """
         super(CheatingEnergy, self).__init__(prefactor = prefactor, adjustment = adjustment)
-        self.real_residues = ftug.bg_virtual_residues(ref_cg)
+        self.real_residues = ref_cg.get_ordered_virtual_residue_poss()
     def eval_energy(self, cg, background=None, nodes=None, **kwargs):
-        new_residues = ftug.bg_virtual_residues(cg)
+        new_residues = cg.get_ordered_virtual_residue_poss()
         return  ftms.rmsd(self.real_residues, new_residues)**self.adjustment*self.prefactor
 
 
