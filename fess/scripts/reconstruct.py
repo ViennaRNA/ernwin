@@ -32,8 +32,9 @@ def get_parser():
 
 def reconstruct(cg, fn, args, rec):
     log.info("Processing %s", fn)
+    stat_source = fbs.from_args(args, cg)
     sm = fbm.SpatialModel(cg)
-    sm.load_sampled_elems()
+    sm.load_sampled_elems(stat_source)
     if args.reassign_broken:
         sm.bg.traverse_graph()
         for ml in sm.bg.mloop_iterator():
@@ -42,7 +43,6 @@ def reconstruct(cg, fn, args, rec):
                     del sm.elem_defs[ml]
                 except KeyError:
                     pass
-        stat_source = fbs.from_args(args, cg)
         fbm._perml_energy_to_sm(sm, "MAX10000[1FJC1]", stat_source)
         for ml in sm.bg.mloop_iterator():
             if ml not in sm.bg.mst:
@@ -79,7 +79,7 @@ def main(args):
     most_common_pdbs = collections.Counter()
     for cg in cgs:
         sm = fbm.SpatialModel(cg)
-        sm.load_sampled_elems()
+        sm.load_sampled_elems(None)
         curr_fns = set()
         for stat in sm.elem_defs.values():
             stat_name = stat.pdb_name

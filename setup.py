@@ -80,5 +80,5 @@ setup(cmdclass={'build_py': build_py},
                              'stats/sld_target_dist_1S72_0.csv',
                              'stats/residue_template.pdb',
                              'stats/AME_distributions.csv']},
-      scripts=['fess/scripts/ernwin.py']
+      scripts=['fess/scripts/ernwin.py', 'fess/scripts/reconstruct.py']
      )
