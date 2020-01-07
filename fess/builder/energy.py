@@ -1276,7 +1276,40 @@ class _PDD_Mixin(object):
         log.info("Initializing PDD energy with stepsize %s", stepwidth)
         return stepwidth
 
-    def check_target_pdd(self, distances, values, log=True, normalize=True):
+    def _rescale_distrib_interpol(self, distances, values):
+        # Rescale via linear interpolation. good for small stepsizes
+        maxlen=int(max(distances)//self._stepwidth)
+        _target_pdd = np.zeros(maxlen+1, dtype=float)
+        for bin_no in range(maxlen+1):
+            dist = bin_no*self._stepwidth
+            dist_low, dist_high = None, None
+            index_low, index_high = None, None
+            for i, in_dist in enumerate(distances):
+                if in_dist>dist:
+                    dist_high = in_dist
+                    dist_low = distances[i-1]
+                    index_high=i
+                    index_low=i-1
+                    break
+            if dist_high is None:
+                value = 0.0
+                self.log.info("Setting PDD for d>max_d to 0")
+            else:
+                fraction = (dist-dist_low)/(dist_high-dist_low)
+                value = values[index_low]+fraction*(values[index_high]-values[index_low])
+                self.log.error("Linear interpolation: bin%s: dist %s between %s and %s: %s (%s-%s)",
+                                       bin_no, dist, dist_high, dist_low, value, values[index_high], values[index_low])
+
+            _target_pdd[bin_no] = value
+        # import matplotlib.pyplot as plt
+        # plt.plot(distances, values)
+        # plt.plot(np.arange(len(_target_pdd))*self._stepwidth, _target_pdd, label="resc")
+        # plt.legend()
+        # plt.show()
+        return _target_pdd
+
+    def _rescale_distrib_cum(self, distances, values, log):
+        # Rescale via summation. Good for large stepsizes
         maxlen=int(max(distances)//self._stepwidth)
         _target_pdd = np.zeros(maxlen+1, dtype=float)
         for i, distance in enumerate(distances):
@@ -1289,6 +1322,19 @@ class _PDD_Mixin(object):
             #if log:
             #    self.log.debug("%s, %r", bin_no, bin_no)
             _target_pdd[bin_no]+=fraction
+        return _target_pdd
+
+    def check_target_pdd(self, distances, values, log=True, normalize=True):
+        print(distances)
+        print(distances.iloc[-1])
+        experimental_stepsize = distances.iloc[-1]/len(distances)
+        self.log.warning("exp_stepwidth: %s, self._stepwidth: %s, factor: %s",
+                    experimental_stepsize, self._stepwidth, self._stepwidth/experimental_stepsize)
+        if self._stepwidth/experimental_stepsize>2.2 or not normalize:
+            _target_pdd = self._rescale_distrib_cum(distances, values, log)
+        else:
+            _target_pdd = self._rescale_distrib_interpol(distances, values)
+
         # Some sanity check: We only like zeros after the maximal Radius.
         num_zeros = len(_target_pdd[1:])-np.count_nonzero(_target_pdd[1:])
         if log:
