@@ -46,7 +46,7 @@ except OSError: #Outside of a git repo, do nothing.
 
 setup(cmdclass={'build_py': build_py},
       name='ernwin',
-      version='1.0',
+      version='1.0.1',
       description='Coarse Grain 3D RNA Structure Modelling',
       author='Bernhard Thiel, Peter Kerpedjiev',
       author_email='thiel@tbi.univie.ac.at, pkerp@tbi.univie.ac.at',

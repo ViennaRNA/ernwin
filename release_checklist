@@ -1,5 +1,5 @@
 * Create a release branch from develop. (Only bugfixes in release branch)
-* Increment version number in __init__.py and in doc/index.rst
+* Increment version number in setup.py, __init__.py and in doc/index.rst
 * Run nose2
 * Update documentation
 * Build the documentation (`sphinx-build -a -E -W -b html doc compiledDoc` to build it)

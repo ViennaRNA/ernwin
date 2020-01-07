@@ -1,5 +1,5 @@
-ernwin 1.0
-==========
+ernwin 1.0.1
+============
 
 Ernwin is a program for sampling coarse grained RNA structures.
 
