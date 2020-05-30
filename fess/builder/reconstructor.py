@@ -261,9 +261,9 @@ class Reconstructor(object):
             angle_stat = sm.elem_defs[ld]
         except KeyError:
             s1,s2 = sorted(sm.bg.edges[ld], key=lambda x: sm.bg.defines[x][0])
-            log.warning("Not part of MST. Trying to extract stat from SM")
+            log.warning("%s Not part of MST. Trying to extract stat from SM", ld)
             angle_stat=sm.bg.get_bulge_angle_stats_core(ld,(s1,s2))
-
+            log.debug("angle stat is %s", angle_stat)
         if not angle_stat.define:
             # A zero-length multiloop. We do not need to insert any fragment.
             return []
@@ -501,22 +501,11 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     closing_bps_to = []
     closing_bps_from = []
 
-    # We need to distinguish between loops and angles
-    if len(define_a_to)==2 or angle_type>=0:
-        for nt in define_a_to:
-            closing_bps_to.append(cg_to.seq.to_resid(nt))
-        for nt in define_a_from:
-            closing_bps_from.append(cg_from.seq.to_resid(nt))
-    elif len(define_a_to)==4 and angle_type<0:
-        for nt in define_a_to:
-            closing_bps_to.append(cg_to.seq.to_resid(nt))
-        closing_bps_from=[ cg_from.seq.to_resid(define_a_from[2]),
-                           cg_from.seq.to_resid(define_a_from[3]),
-                           cg_from.seq.to_resid(define_a_from[1]),
-                           cg_from.seq.to_resid(define_a_from[0]),
-                         ]
-    else:
-        assert False
+    log.debug("Angle type is %s", angle_type)
+    for nt in define_a_to:
+        closing_bps_to.append(cg_to.seq.to_resid(nt))
+    for nt in define_a_from:
+        closing_bps_from.append(cg_from.seq.to_resid(nt))
     # Seq_ids of all nucleotides in the loop that will be inserted
     seq_ids_a_from = []
     for i in range(0, len(define_a_from), 2):
