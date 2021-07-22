@@ -368,9 +368,9 @@ def _validate_pdb_to_stem(target_stem, chains, cg, elem_name):
     d_twist_u = abs(tw1_polar_pdb[1]-tw1_polar_target[1])
     d_twist_v = abs(tw1_polar_pdb[2]-tw1_polar_target[2])
     if d_twist_u>0.01:
-        log.warning("Deviation of twist angle u too big for %s: %s", elem_name, d_twist_u)
+        log.info("Deviation of twist angle u too big for %s: %s", elem_name, d_twist_u)
     if d_twist_v>0.01:
-        log.warning("Deviation of twist angle v too big for %s: %s", elem_name, d_twist_v)
+        log.info("Deviation of twist angle v too big for %s: %s", elem_name, d_twist_v)
     return True
 
 def translate_chain(chains, translation):
@@ -407,7 +407,7 @@ def rotate_chain(chains, rot_mat, offset):
             atom.transform(rot_mat, offset)
         dev_from_cent = ftuv.magnitude(np.sum(new_coords, axis=0)/len(new_coords))
         if dev_from_cent>5:
-            log.warning("{} not close to zero".format(dev_from_cent))
+            log.info("{} not close to zero".format(dev_from_cent))
 
 
 
@@ -571,6 +571,8 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             else:
                 chains_from[seq_ids_a_from[0].chain]= mod_chain
         else:
+            if elem_to[0]=="h" and define_to[1]-define_to[0]<3:
+                raise NotImplementedError("Reconstruction of hairpins with length ,3 is not supportet!")
             raise NotImplementedError("TODO")
     seq_ids_to = []
     for i in range(0, len(define_to), 2):
