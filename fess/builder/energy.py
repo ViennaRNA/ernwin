@@ -1378,6 +1378,9 @@ class _PDD_Mixin(object):
                     va_dict = cg.virtual_atoms(i)
                     for k,v in va_dict.items():
                         points.append(v)
+                elif level=="T":
+                    for point in cg.iter_three_points(i):
+                        points.append(point)
                 else:
                     raise ValueError("wrongLevel")
         finally:

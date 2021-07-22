@@ -377,6 +377,9 @@ class SpatialModel:
         for d, ed in self.elem_defs.items():
             try:
                 self.bg.sampled[d] = [ed.pdb_name] + [len(ed.define)] + ed.define
+                self.bg.vbase[d] = ed.vbase
+                self.bg.vsugar[d] = ed.vsugar
+                self.bg.vbackbone[d] = ed.vbackbone
                 if d[0]!="s":
                     try:
                         log.debug("Updating vposs from %s. Were %s", d, self.bg.vposs[d] )
