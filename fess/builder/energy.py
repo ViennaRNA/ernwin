@@ -1262,8 +1262,8 @@ def read_gnom_out(filename):
 
 class _PDD_Mixin(object):
     def check_level(self, level):
-        if level not in ["A", "R"]:
-            raise ValueError("Level has to be either 'A' or 'R', "
+        if level not in ["A", "R", "T"]:
+            raise ValueError("Level has to be either 'A', 'T' or 'R', "
                              "but '{}' was given".format(level))
         return level
 
@@ -1674,7 +1674,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
             self.log.warning("Adjustment<5 not allowed. Changing %s to 5", self.adjustment)
             self.adjustment=5.
         def gaussian(mu, sig):
-            assert np.all(sig>0), sig
+            assert np.all(sig>=0), sig
             def g_inner(x):
                 self.log.debug("Gaussian with shapes x: %s, mu: %s, sigma:%s", np.shape(x), np.shape(mu), np.shape(sig))
                 out = np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*np.pi)*sig)
