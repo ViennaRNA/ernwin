@@ -39,12 +39,12 @@ import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
 from logging_exceptions import log_to_exception
 
 import forgi.threedee.utilities.vector as ftuv
+import forgi.threedee.model.coarse_grain as ftmc
+import forgi.threedee.utilities.graph_pdb as ftug
 try:
     from forgi.threedee.utilities import cytvec
 except ImportError:
-    cytvec=ftuv
-import forgi.threedee.model.coarse_grain as ftmc
-import forgi.threedee.utilities.graph_pdb as ftug
+    cytvec=ftug
 import forgi.projection.projection2d as fpp
 import forgi.projection.hausdorff as fph
 import forgi.threedee.model.similarity as ftms
