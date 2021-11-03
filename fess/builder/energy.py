@@ -1350,9 +1350,9 @@ class _PDD_Mixin(object):
     @staticmethod
     def stepwidth_from_level(level):
         if level=="R":
-            return 2
+            return 2.
         else:
-            return 2
+            return 2.
 
     def pad(self, array):
         out=np.zeros(self.target_values.shape[-1])
@@ -1393,6 +1393,7 @@ class _PDD_Mixin(object):
         if "reference_cg" in kwargs and kwargs["reference_cg"] is not None:
             cg=kwargs["reference_cg"]
         if pdd_target=="__cg__":
+            logger.debug("Setting up energy from reference cg")
             if "reference_cg" not in kwargs or kwargs["reference_cg"] is None:
                 logger.warning("Using BUILT cg for pdd '__cg__'!")
             dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
@@ -1424,6 +1425,7 @@ class _PDD_Mixin(object):
                    prefactor=prefactor, adjustment=adjustment, level=level, stepwidth=stepsize)
         if pdd_target=="__cg__":
             energy.only_seqids = list(cg.seq.iter_resids(None,None,False))
+            logger.debug("Finished setting up energy from reference cg")
         return energy
 
 class PDDEnergy(_PDD_Mixin, EnergyFunction):

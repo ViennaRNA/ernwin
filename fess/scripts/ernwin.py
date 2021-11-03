@@ -11,11 +11,11 @@ import os
 import copy
 import multiprocessing
 import traceback
-
+import itertools
 import numpy as np
 
 import forgi.utilities.commandline_utils as fuc
-
+import forgi.threedee.utilities.vector as ftuv
 import fess.builder.stat_container as fbstat
 import fess.directory_utils
 import fess.builder.energy as fbe
