@@ -31,6 +31,17 @@ except ImportError:
         lru_cache = lambda *args, **kwargs: lambda x: x #No-op decorator taking arguments
 
 
+def key_to_human_readable(key):
+    try:
+        if key[2]==1:
+            return "interior loop with {} and {} unpaired nucleotides.".format(key[0], key[1])
+        elif key[2]==6:
+            return "multiloop segemnt with {} nucleotides".format(key[0])
+    except Exception:
+        pass
+    return "key {}".format(key)
+
+
 def patch_angtype(ang_type):
     """
     Instead of having 3 angle_types 2,3 and 4 for junjtion segments, use one generic angle type '6'
@@ -231,8 +242,8 @@ class StatStorage(object):
                 source = sf[stat_type]
             except StopIteration: #All stat_files exhausted
                 if enable_logging and len(choose_from)<min_entries and (stat_type, key, min_entries) not in self._has_reported:
-                    log.warning("Only {} stats found for {} with key {}".format(len(choose_from), stat_type, key))
-                    self._has_reported.add((stat_type, key, min_entries))
+                    log.warning("Only {} {}-stats found for {}".format(len(choose_from), stat_type, key_to_human_readable(key)))
+                    has_reported = True
                 break
             if key in source:
                 stats=[ stat for stat in source[key] if not self.in_blacklist(stat) ]
@@ -251,7 +262,7 @@ class StatStorage(object):
                      log.info("Appending NO stats from source {} for {}.".format(id( sf), key))
         if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
             log.info("Found {} stats for {} with key {}".format(len(choose_from), stat_type, key))
-            self._has_reported.add((stat_type, key, min_entries))
+            has_reported = True
 
         if not choose_from:
             if not strict: # Fallback to the next smaller stat, until all options are exhausted.
@@ -271,6 +282,8 @@ class StatStorage(object):
                     return self._possible_stats_inner(stat_type, new_key, min_entries, strict, enable_logging)
             # If everything else fails, raise an error even if strict was disabled.
             raise LookupError("No stats found for {} with key {}".format(stat_type, key))
+        if has_reported:
+            self._has_reported.add((stat_type, key, min_entries))
         return weights, choose_from
 
     def sample_for(self, bg, elem, min_entries = 100):

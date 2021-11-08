@@ -43,7 +43,7 @@ def load_sampled_elements(sm, stat_source):
     try:
         sm.load_sampled_elems(stat_source)
     except Exception as e:
-        log.warning("Cannot use structure from file. Need to resample.")
+        log.warning("No (useable) 3D structure found in the input file. Starting to build an initial model.")
         log.debug("Reason for need to resampe: {}".format(e), exc_info=True)
         return False
     if not sm.elem_defs:
