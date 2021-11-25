@@ -1586,7 +1586,6 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
             self.accepted_measures.append(v)
         self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
         self._set_target_distribution()
-        print("Reset distribution")
         if True:
             all_tvs = []
             refs = []

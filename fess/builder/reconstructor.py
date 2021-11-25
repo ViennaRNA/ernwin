@@ -55,8 +55,8 @@ import numpy as np
 
 
 class Reconstructor(object):
-    LIBRARY_DIRECTORY=None #
-    def __init__(self, pdb_library_path, cg_library_path, server=False):
+
+    def __init__(self, pdb_library_path, cg_library_path, server=False, library_directory=None):
         """
         :param server: If True, assume a lot of memory is available
         """
@@ -66,6 +66,7 @@ class Reconstructor(object):
         self._loaded_cgs = {}
         self._loaded_pdbs = {}
         self.store=server
+        self.library_directory=library_directory
     def reconstruct(self, sm):
         '''
         Re-construct a full-atom model from a coarse-grain model.
@@ -122,7 +123,7 @@ class Reconstructor(object):
         key = stat.pdb_name+"__def_"+"-".join(map(str,stat.define))
         new_fragment=False
         try:
-            fragment,_,_ = ftup.get_all_chains(op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".cif"),
+            fragment,_,_ = ftup.get_all_chains(op.join(self.library_directory, key[2:4], key+".cif"),
                                              no_annotation=True)
         except Exception:
             cg, chains = self._get_source_cg_and_chain(stat, sm)
@@ -148,12 +149,12 @@ class Reconstructor(object):
             fragment  = ftup.extract_subchains_from_seq_ids(chains,
                             cg.define_residue_num_iterator(elem, seq_ids=True,
                                                            adjacent=(elem[0]!="s")))
-            if self.LIBRARY_DIRECTORY is not None:
+            if self.library_directory is not None:
                 log.debug("Storing newly-created fragment for %s", key)
                 import distutils.dir_util
-                distutils.dir_util.mkpath(op.join(self.LIBRARY_DIRECTORY, key[2:4]))
+                distutils.dir_util.mkpath(op.join(self.library_directory, key[2:4]))
                 ftup.output_multiple_chains(fragment.values(),
-                                            op.join(self.LIBRARY_DIRECTORY, key[2:4], key+".cif"), "cif")
+                                            op.join(self.library_directory, key[2:4], key+".cif"), "cif")
         return cg, elem, fragment
 
     def _get_source_cg_and_chain(self, stat, sm):

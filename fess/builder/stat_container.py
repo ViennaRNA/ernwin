@@ -34,9 +34,9 @@ except ImportError:
 def key_to_human_readable(key):
     try:
         if key[2]==1:
-            return "interior loop with {} and {} unpaired nucleotides.".format(key[0], key[1])
+            return "interior loop with {} and {} unpaired nucleotides".format(key[0], key[1])
         elif key[2]==6:
-            return "multiloop segemnt with {} nucleotides".format(key[0])
+            return "multiloop segment with {} nucleotides".format(key[0])
     except Exception:
         pass
     return "key {}".format(key)
@@ -268,7 +268,7 @@ class StatStorage(object):
             if not strict: # Fallback to the next smaller stat, until all options are exhausted.
                 if stat_type == "loop" and key>3:
                     if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
-                        log.error("Trying key %s instead of %s for %s", key-1, key, stat_type)
+                        log.error("Trying %s instead of %s for %s-stat", key_to_human_readable(key-1), key_to_human_readable(key), stat_type)
                         self._has_reported.add((stat_type, key, min_entries))
                     return self._possible_stats_inner(stat_type, key-1, min_entries, strict, enable_logging)
                 elif stat_type == "angle" and (key[0]>0 or 1000>key[1]>0):
@@ -277,7 +277,7 @@ class StatStorage(object):
                     else:
                         new_key = (key[0]-1, key[1], key[2])
                     if enable_logging and (stat_type, key, min_entries) not in self._has_reported:
-                        log.error("Trying key %s instead of %s for %s", new_key, key, stat_type)
+                        log.error("Trying key %s instead of %s for %s-stat", key_to_human_readable(new_key), key_to_human_readable(key), stat_type)
                         self._has_reported.add((stat_type, key, min_entries))
                     return self._possible_stats_inner(stat_type, new_key, min_entries, strict, enable_logging)
             # If everything else fails, raise an error even if strict was disabled.
