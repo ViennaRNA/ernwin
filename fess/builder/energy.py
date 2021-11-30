@@ -1417,8 +1417,7 @@ class _PDD_Mixin(object):
                 pass
             else:
                 logger.warning("Unequally spaced target distribution. Stepsizes are %s, avg%s", distdiff, stepsize)
-                assert False
-                stepsize=None
+                raise ValueError("Unequally spaced target PDD. Please provide a step-size using the --pdd-stepsize option")
         else:
             stepsize=kwargs["pdd_stepsize"]
         energy= cls(length=cg.seq_length, target_pdd=target_pdd,
@@ -1586,7 +1585,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
             self.accepted_measures.append(v)
         self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
         self._set_target_distribution()
-        if True:
+        if False:
             all_tvs = []
             refs = []
             for x in np.linspace(0,0.06,150):
@@ -1605,7 +1604,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
 
     def _update_adj(self):
         super(Ensemble_PDD_Energy, self)._update_adj()
-        if True:
+        if False:
             all_tvs = []
             refs = []
             for x in np.linspace(0,0.06,150):

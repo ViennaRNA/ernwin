@@ -6,7 +6,7 @@ contextlib2==0.6.0
 cycler==0.10.0
 decorator==4.4.0
 deepdiff==3.3.0
-forgi==2.0.2
+forgi==2.1.2
 future==0.17.1
 jsonpickle==1.2
 kiwisolver==1.1.0
