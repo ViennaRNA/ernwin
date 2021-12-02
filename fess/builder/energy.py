@@ -39,12 +39,10 @@ import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
 from logging_exceptions import log_to_exception
 
 import forgi.threedee.utilities.vector as ftuv
+
+from forgi.threedee.utilities import cytvec
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.graph_pdb as ftug
-try:
-    from forgi.threedee.utilities import cytvec
-except ImportError:
-    cytvec=ftug
 import forgi.projection.projection2d as fpp
 import forgi.projection.hausdorff as fph
 import forgi.threedee.model.similarity as ftms
@@ -1265,8 +1263,8 @@ def read_gnom_out(filename):
 
 class _PDD_Mixin(object):
     def check_level(self, level):
-        if level not in ["A", "R"]:
-            raise ValueError("Level has to be either 'A' or 'R', "
+        if level not in ["A", "R", "T"]:
+            raise ValueError("Level has to be either 'A', 'T' or 'R', "
                              "but '{}' was given".format(level))
         return level
 
@@ -1353,9 +1351,9 @@ class _PDD_Mixin(object):
     @staticmethod
     def stepwidth_from_level(level):
         if level=="R":
-            return 2
+            return 2.
         else:
-            return 2
+            return 2.
 
     def pad(self, array):
         out=np.zeros(self.target_values.shape[-1])
@@ -1381,6 +1379,9 @@ class _PDD_Mixin(object):
                     va_dict = cg.virtual_atoms(i)
                     for k,v in va_dict.items():
                         points.append(v)
+                elif level=="T":
+                    for point in cg.iter_three_points(i):
+                        points.append(point)
                 else:
                     raise ValueError("wrongLevel")
         finally:
@@ -1393,6 +1394,7 @@ class _PDD_Mixin(object):
         if "reference_cg" in kwargs and kwargs["reference_cg"] is not None:
             cg=kwargs["reference_cg"]
         if pdd_target=="__cg__":
+            logger.debug("Setting up energy from reference cg")
             if "reference_cg" not in kwargs or kwargs["reference_cg"] is None:
                 logger.warning("Using BUILT cg for pdd '__cg__'!")
             dists, counts = cls.get_pdd(cg, level, cls.stepwidth_from_level(level))
@@ -1416,14 +1418,14 @@ class _PDD_Mixin(object):
                 pass
             else:
                 logger.warning("Unequally spaced target distribution. Stepsizes are %s, avg%s", distdiff, stepsize)
-                assert False
-                stepsize=None
+                raise ValueError("Unequally spaced target PDD. Please provide a step-size using the --pdd-stepsize option")
         else:
             stepsize=kwargs["pdd_stepsize"]
         energy= cls(length=cg.seq_length, target_pdd=target_pdd,
                    prefactor=prefactor, adjustment=adjustment, level=level, stepwidth=stepsize)
         if pdd_target=="__cg__":
             energy.only_seqids = list(cg.seq.iter_resids(None,None,False))
+            logger.debug("Finished setting up energy from reference cg")
         return energy
 
 class PDDEnergy(_PDD_Mixin, EnergyFunction):
@@ -1449,12 +1451,16 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         if use_accepted_measure:
             m = self.accepted_measures[-1]
         else:
+            print(cg, self._level, self._stepwidth,self.only_seqids)
+            print("ACTUAL: \n {} \n {}".format(*self.get_pdd(cg, self._level, self._stepwidth,self.only_seqids)))
             m = self.get_pdd(cg, self._level, self._stepwidth,self.only_seqids)[1]
             m=self.pad(m)
             m=m/np.sum(m)
         self._last_measure=m
         diff_vec = m-self.target_values
         self.log.debug("Diffs: %s", diff_vec)
+        fft = np.fft.fft(diff_vec)
+        print("FFT of error: ", fft, "FFT energy", sum(fft*np.conj(fft))) 
         integral = np.sum(np.abs(diff_vec))*self._stepwidth
         self._last_integral=integral
         #if math.sqrt(self.step)%10==2:
@@ -1580,8 +1586,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
             self.accepted_measures.append(v)
         self.reference_distribution = self._get_distribution_from_values(self.accepted_measures)
         self._set_target_distribution()
-        print("Reset distribution")
-        if True:
+        if False:
             all_tvs = []
             refs = []
             for x in np.linspace(0,0.06,150):
@@ -1600,7 +1605,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
 
     def _update_adj(self):
         super(Ensemble_PDD_Energy, self)._update_adj()
-        if True:
+        if False:
             all_tvs = []
             refs = []
             for x in np.linspace(0,0.06,150):
@@ -1674,7 +1679,7 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
             self.log.warning("Adjustment<5 not allowed. Changing %s to 5", self.adjustment)
             self.adjustment=5.
         def gaussian(mu, sig):
-            assert np.all(sig>0), sig
+            assert np.all(sig>=0), sig
             def g_inner(x):
                 self.log.debug("Gaussian with shapes x: %s, mu: %s, sigma:%s", np.shape(x), np.shape(mu), np.shape(sig))
                 out = np.exp((-((x - mu)/sig)**2.)/2) / (np.sqrt(2.*np.pi)*sig)

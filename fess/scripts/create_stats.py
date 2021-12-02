@@ -25,18 +25,23 @@ if __name__ == "__main__":
                 continue
             base_name = "{}:{}_".format(cg.name, elem[0])
             for stat in cg.get_stats(elem):
-                idnr = next_id[base_name]
-                next_id[base_name]+=1
-                name = base_name+str(idnr)
-                stat.pdb_name = name
-                if elem.startswith("m"):
-                    try:
-                        dist = ftug.junction_virtual_atom_distance(cg, elem)
-                        stat_dist = stat.get_virtual_atom_distance()
-                    except:
-                        print(stat)
-                        #raise
+                if len(stat.vbase)  == len(stat.vsugar) == len(stat.vbackbone) == len(list(cg.define_residue_num_iterator(elem))):
+                    idnr = next_id[base_name]
+                    next_id[base_name]+=1
+                    name = base_name+str(idnr)
+                    stat.pdb_name = name
+                    if elem.startswith("m"):
+                        try:
+                            dist = ftug.junction_virtual_atom_distance(cg, elem)
+                            stat_dist = stat.get_virtual_atom_distance()
+                        except:
+                            print(stat)
+                            #raise
+                        else:
+                            print(stat, "# distance: {}. stat_dist {}".format(dist, stat_dist))
                     else:
-                        print(stat, "# distance: {}. stat_dist {}".format(dist, stat_dist))
+                        print(stat)
                 else:
-                    print(stat)
+                    print("#IGNORE:", stat, "3 lengths", len(stat.vbase),
+                          len(stat.vsugar), len(stat.vbackbone),
+                          len(list(cg.define_residue_num_iterator(elem))),  file = sys.stderr)

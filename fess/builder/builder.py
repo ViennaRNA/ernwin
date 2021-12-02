@@ -43,7 +43,7 @@ def load_sampled_elements(sm, stat_source):
     try:
         sm.load_sampled_elems(stat_source)
     except Exception as e:
-        log.warning("Cannot use structure from file. Need to resample.")
+        log.warning("No (useable) 3D structure found in the input file. Starting to build an initial model.")
         log.debug("Reason for need to resampe: {}".format(e), exc_info=True)
         return False
     if not sm.elem_defs:
@@ -92,7 +92,7 @@ class Builder(object):
             models.append(copy.deepcopy(sm))
         return models
 
-    def accept_or_build(self, sm):
+    def accept_or_build(self, sm, warn=True):
         log.info("building without constraint energy...")
         if not sm.elem_defs:
             log.info("No element definitions present. Starting from scratch")
@@ -102,7 +102,7 @@ class Builder(object):
             if sm.constraint_energy is not None or sm.junction_constraint_energy:
                 use_asserts = ftuv.USE_ASSERTS
                 ftuv.USE_ASSERTS=False
-                self._build_with_energies(sm, warn = True)
+                self._build_with_energies(sm, warn=warn)
                 ftuv.USE_ASSERTS=use_asserts
             log.info("Done to build")
 
@@ -114,7 +114,7 @@ class Builder(object):
         """
         log.debug("Sampling stats before building...")
         sm.sample_stats(self.stat_source)
-        self.accept_or_build(sm)
+        self.accept_or_build(sm, warn=False)
 
     def _build_with_energies(self, sm, warn=False):
         log.info("building with constraint energies")
@@ -244,7 +244,7 @@ class Builder(object):
             first = min(nodes.index(st) for st in bad_stems)
             assert first>=0
             clash_nodes = [ x for x in nodes[first:] if x[0] in ["m", "i"]]
-            log.debug("Clash nodes {}".format(clash_nodes))
+            log.debug("Clash nodes {}, bas_stems {}".format(clash_nodes, bad_stems))
             return clash_nodes
         return []
 
@@ -519,8 +519,8 @@ def from_args(args, stat_source, out_dir):
             build_function = b.build
         else:
             def _build_function_with_loading(sm):
-                load_sampled_elements(sm, stat_source)
-                return b.accept_or_build(sm)
+                warn = not load_sampled_elements(sm, stat_source)
+                return b.accept_or_build(sm, warn)
             build_function = _build_function_with_loading
     log.debug("Build function used is %s", build_function.__name__)
     return build_function

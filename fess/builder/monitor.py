@@ -880,7 +880,8 @@ class SamplingStatistics:
         if self.options["reconstruct_n"] > 0 and self.options["reconstruct_cg"] and self.options["reconstruct_pdb"]:
             self.reconstructor = fbr.Reconstructor(self.options["reconstruct_pdb"],
                                                    self.options["reconstruct_cg"],
-                                                   False)
+                                                   False,
+                                                   self.options["reconstruct_cache_dir"])
         else:
             self.reconstructor = None
 
@@ -983,7 +984,7 @@ class SamplingStatistics:
 def update_parser(parser):
     monitor_options = parser.add_argument_group("Controlling output",
                                                 description="These options control what statistics "
-                                                "about the sampling trajectory ERNWIN records.")
+                                                "about the sampling trajectory ERNWIN records and what output files ERNWIN writes.")
     monitor_options.add_argument('--save-n-best', default=3,
                                  help='Save the best (lowest energy) n structures.', type=int)
     monitor_options.add_argument('--save-min-rmsd', default=3,
@@ -1001,6 +1002,13 @@ def update_parser(parser):
     monitor_options.add_argument("--source-cg-dir", type=str,
                                  help="A directory where the cg-files corresponding to the pdb files in "
                                  "source-pdb-dir are located.")
+    monitor_options.add_argument("--reconstruction-cache-dir", type=str,
+                                 help="A directory where ernwin can store fragments \n"
+                                      "used for reconstruction.\n"
+                                      "If this is given, ernwin stores fragments it extracts from PDB files\n"
+                                      "in this directory, and uses them from there when it needs the same \n"
+                                      "fragment again. This speeds up reconstruction compared to always loading\n"
+                                      "the full PDB file.")
 
     monitor_options.add_argument('--dump-energies', default=False, action='store_true',
                                  help='Dump the measures used for energy calculation to file')  # UNUSED OPTION. REMOVE
@@ -1047,7 +1055,7 @@ def from_args(args, cg, energy, stat_source, out_dir, show_min_rmsd=True):
     options["reconstruct_n"] = args.reconstruct_every_n
     options["reconstruct_pdb"] = args.source_pdb_dir
     options["reconstruct_cg"] = args.source_cg_dir
-
+    options["reconstruction_cache_dir"] = args.reconstruction_cache_dir
     options["save_n_best"] = args.save_n_best
     options["save_min_rmsd"] = args.save_min_rmsd
     options["measure"] = []

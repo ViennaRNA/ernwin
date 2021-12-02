@@ -11,11 +11,11 @@ import os
 import copy
 import multiprocessing
 import traceback
-
+import itertools
 import numpy as np
 
 import forgi.utilities.commandline_utils as fuc
-
+import forgi.threedee.utilities.vector as ftuv
 import fess.builder.stat_container as fbstat
 import fess.directory_utils
 import fess.builder.energy as fbe
@@ -132,8 +132,11 @@ def run(args, cg, main_dir, reference_cg):
         with open(os.path.join(main_dir,
                                'build{:06d}.coord'.format(i+1)), "w") as f:
             print(cg_stri, file=f)
+        # The PDD energy may want to use the original cg
+        sampling_energy = fbe.from_args(args, sm.bg, stat_source, i, reference_cg)
+        print("Original energy: ", sampling_energy.eval_energy(sm.bg))
         if args.iterations>0:
-            sampler = setup_sampler(args, sm, stat_source, i, reference_cg)
+            sampler = setup_sampler(args, sm, stat_source, sampling_energy, i, reference_cg)
             samplers.append(sampler)
             if not args.replica_exchange and args.parallel:
                 p = multiprocessing.Process(target=sample_one_trajectory,
@@ -183,7 +186,7 @@ def build_spatial_models(args, cg, stat_source, main_dir):
 
 
 
-def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
+def setup_sampler(args, sm, stat_source, sampling_energy, replica_nr=None, original_cg=None):
     """
     Part of the setup, that has to be repeated for every
     replica in replica-exchange Monte Carlo.
@@ -197,8 +200,6 @@ def setup_sampler(args, sm, stat_source, replica_nr=None, original_cg=None):
         show_min_rmsd=True
     else:
         show_min_rmsd=False
-    # The PDD energy may want to use the original cg
-    sampling_energy = fbe.from_args(args, sm.bg, stat_source, replica_nr, reference_cg=original_cg)
     mover = fbmov.from_args(args, stat_source, sm, replica_nr)
     if args.replica_exchange:
         out_dir = os.path.join(config.Configuration.sampling_output_dir,

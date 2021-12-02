@@ -398,7 +398,7 @@ class MixedMover():
     def move(self, sm):
         self.i+=1
         try:
-            if self.i%25==0 and self.moveAndRelML is not None:
+            if self.i%25==1 and self.moveAndRelML is not None:
                 self.last_mover = self.moveAndRelML
             else:
                 self.last_mover = random.choice(self.movers)
