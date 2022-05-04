@@ -233,6 +233,7 @@ class StatStorage(object):
         :returns: Two lists, `weights` and `choose_from` of the same length.
                   weights is a list of floats, choose_from is a list of stats.
         """
+        has_reported=False
         choose_from = []
         weights = []
         statfiles = self._iter_stat_sources()

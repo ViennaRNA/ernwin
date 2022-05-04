@@ -960,4 +960,4 @@ def reorder_residues(chains, cg):
     :param cg: A coarse grain representation
     '''
     for chain_name, chain in chains.items():
-        chain.child_list.sort(key=lambda x: cg.seq.with_missing.to_integer(fgb.RESID(chain = chain_name, resid = x.id)))
+        chain.child_list.sort(key=lambda x: x.id)
