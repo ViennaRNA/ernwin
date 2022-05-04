@@ -557,7 +557,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             else:
                 chains_from[seq_ids_a_from[0].chain]= mod_chain
     elif cg_to.element_length(elem_to) != cg_from.element_length(elem_from):
-        log.warning("%s not consistent with %s: Missing residues", define_from, define_to)
+        log.warning("%s not consistent with %s: Missing residues for %s", define_from, define_to, elem_to)
         log.warning("%s has different len than %s for angle type %s", define_from, define_to, angle_type)
         if define_to[1]-define_to[0]>define_from[1]-define_from[0]:
             # Apply an indel on the left side
@@ -573,13 +573,17 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
                 chains_from[seq_ids_a_from[0].chain]= mod_chain
         else:
             if elem_to[0]=="h" and define_to[1]-define_to[0]<3:
-                raise NotImplementedError("Reconstruction of hairpins with length ,3 is not supportet!")
-            raise NotImplementedError("TODO")
+                raise NotImplementedError("Reconstruction of hairpins with length <3 is not supportet!")
+            target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
+            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain], target_seq,
+                                                 closing_bps_from[0], closing_bps_from[1])
+            chains_from[seq_ids_a_from[0].chain]= mod_chain
+
     seq_ids_to = []
     for i in range(0, len(define_to), 2):
         seq_ids_to.append([])
-        for nt in range(define_to[i], define_to[i+1]+1):
-            seq_ids_to[-1].append(cg_to.seq.to_resid(nt))
+        for seq_id in cg_to.seq.with_missing.iter_resids(cg_to.seq.to_resid(define_to[i]),cg_to.seq.to_resid(define_to[i+1])):
+            seq_ids_to[-1].append(seq_id)
     seq_ids_from = []
     # Now append first strand to seq_ids_from
     assert closing_bps_from[0].chain == closing_bps_from[1].chain
@@ -908,7 +912,7 @@ def replace_bases(chains, cg):
                 residue.id = (" ", residue.id[1], residue.id[2])
             #num = ress[i].id[1]
             old_name = residue.resname.strip()
-            target_name = cg.seq[fgb.RESID(chain = chain_name, resid = residue.id)]
+            target_name = cg.seq.with_missing[fgb.RESID(chain = chain_name, resid = residue.id)]
             log.debug("resname is %s, target name is %s for %s", old_name, target_name, residue)
             # Also replace identical, because they may miss atoms
             #if target_name == old_name:
@@ -952,4 +956,4 @@ def reorder_residues(chains, cg):
     :param cg: A coarse grain representation
     '''
     for chain_name, chain in chains.items():
-        chain.child_list.sort(key=lambda x: cg.seq.to_integer(fgb.RESID(chain = chain_name, resid = x.id)))
+        chain.child_list.sort(key=lambda x: cg.seq.with_missing.to_integer(fgb.RESID(chain = chain_name, resid = x.id)))
