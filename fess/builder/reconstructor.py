@@ -572,13 +572,13 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
             else:
                 chains_from[seq_ids_a_from[0].chain]= mod_chain
         else:
+            log.warning("Reconstruction for %s will contain nucleotides missing from the input structure", elem_to)
             if elem_to[0]=="h" and define_to[1]-define_to[0]<3:
-                raise NotImplementedError("Reconstruction of hairpins with length <3 is not supportet!")
-            target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
-            mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain], target_seq,
-                                                 closing_bps_from[0], closing_bps_from[1])
-            chains_from[seq_ids_a_from[0].chain]= mod_chain
-
+                raise NotImplementedError("Reconstruction of hairpins with length ,3 is not supportet!")
+            #target_seq = cg_to.get_define_seq_str(elem_to)[0] # Forward strand
+            #mod_chain = use_moderna_fragment(chains_from[closing_bps_from[0].chain], target_seq,
+            #                                     closing_bps_from[0], closing_bps_from[1])
+            #chains_from[seq_ids_a_from[0].chain]= mod_chain
     seq_ids_to = []
     for i in range(0, len(define_to), 2):
         seq_ids_to.append([])
@@ -587,8 +587,8 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
     seq_ids_from = []
     # Now append first strand to seq_ids_from
     assert closing_bps_from[0].chain == closing_bps_from[1].chain
-    log.debug("nt_in_define=%s", nt_in_define_from)
-    if closing_bps_from[0].resid<closing_bps_from[1].resid:
+    log.debug("define_from=%s, define_to=%s, nt_in_define=%s", define_from, define_to, nt_in_define_from)
+    if True: #closing_bps_from[0].resid<closing_bps_from[1].resid:
         s = list(iter_resids_between(chains_from[closing_bps_from[0].chain], closing_bps_from[0].resid, closing_bps_from[1].resid, nt_in_define_from[0], nt_in_define_from[1]))
     else:
         s = list(iter_resids_between(chains_from[closing_bps_from[0].chain], closing_bps_from[1].resid, closing_bps_from[0].resid, nt_in_define_from[1], nt_in_define_from[0]))
@@ -610,10 +610,10 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
 
     log.info("Fragment %s", seq_ids_from)
     log.info("Target %s", seq_ids_to)
-    if not no_moderna:
-        assert len(seq_ids_from[0]) == len(seq_ids_to[0]), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
-        if len(seq_ids_to)>1:
-            assert len(seq_ids_from[1]) == len(seq_ids_to[1]), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
+    #if not no_moderna:
+    #    assert len(seq_ids_from[0]) == len(seq_ids_to[0]), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
+    #    if len(seq_ids_to)>1:
+    #        assert len(seq_ids_from[1]) == len(seq_ids_to[1]), "Unequal length for {}: {} {}".format(elem_to, seq_ids_from, seq_ids_to)
     log.debug("Copying %s to %s for %s", seq_ids_from, seq_ids_to, elem_to)
     # Now copy the residues from the fragment chain to the scaffold chain.
     lastres=[None, None]
@@ -682,8 +682,12 @@ def use_moderna_fragment(chain, target_seq, resid1, resid2):
 
 
 def gap_length(chains, resid1, resid2):
-    res1 = chains[resid1.chain][resid1.resid]
-    res2 = chains[resid2.chain][resid2.resid]
+    try:
+        res1 = chains[resid1.chain][resid1.resid]
+        res2 = chains[resid2.chain][resid2.resid]
+    except KeyError as e:
+        log.exception("Cannot calculate gap length")
+        return None
     try:
         d = ftuv.vec_distance(res1["P"].coord, res2["P"].coord)
     except KeyError as e:
