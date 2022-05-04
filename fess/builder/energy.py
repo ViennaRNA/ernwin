@@ -1451,16 +1451,12 @@ class PDDEnergy(_PDD_Mixin, EnergyFunction):
         if use_accepted_measure:
             m = self.accepted_measures[-1]
         else:
-            print(cg, self._level, self._stepwidth,self.only_seqids)
-            print("ACTUAL: \n {} \n {}".format(*self.get_pdd(cg, self._level, self._stepwidth,self.only_seqids)))
             m = self.get_pdd(cg, self._level, self._stepwidth,self.only_seqids)[1]
             m=self.pad(m)
             m=m/np.sum(m)
         self._last_measure=m
         diff_vec = m-self.target_values
         self.log.debug("Diffs: %s", diff_vec)
-        fft = np.fft.fft(diff_vec)
-        print("FFT of error: ", fft, "FFT energy", sum(fft*np.conj(fft))) 
         integral = np.sum(np.abs(diff_vec))*self._stepwidth
         self._last_integral=integral
         #if math.sqrt(self.step)%10==2:
