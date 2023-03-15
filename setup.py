@@ -16,7 +16,7 @@ setup(
          "pandas>=0.19",
          "numpy",
          "scipy",
-         "biopython<=1.76",
+         "biopython",
          "deepdiff<3.3.1",
          "networkx",
          "future",

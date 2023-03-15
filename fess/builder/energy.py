@@ -36,7 +36,8 @@ import scipy.ndimage
 import scipy.misc
 import pandas as pd
 
-import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
+#import Bio.KDTree as kd #KD-Trees for distance-calculations in point-cloud.
+from Bio.PDB.kdtrees import KDTree
 
 from logging_exceptions import log_to_exception
 
@@ -559,18 +560,17 @@ class StemVirtualResClashEnergy(EnergyFunction):
         if len(virtual_atoms) == 0:
             return 0
 
-        #coords = np.vstack([p[0] for p in virtual_atoms])
-        #coords = np.array([ line for line in np.array(virtual_atoms)[:,0]])
         coords = np.array(coords)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            kdt2 = kd.KDTree(3)
-            kdt2.set_coords(coords)
-            kdt2.all_search(self.adjustment) #Distance in Angstrom. #1.8
+            kdt = KDTree(coords, bucket_size=10)
+            radius = self.adjustment
+            neighbors = kdt.neighbor_search(radius)
 
         clashes = 0
-        indeces = kdt2.all_get_indices()
-        for (ia,ib) in indeces:
+        for neighbor in neighbors:
+            ia = neighbor.index1
+            ib = neighbor.index2
             key1 = virtual_atoms[ia][1]
             key2 = virtual_atoms[ib][1]
 
@@ -667,36 +667,24 @@ class StemVirtualResClashEnergy(EnergyFunction):
         self.log.debug("points: %s, nodes %s, defines %s", points, nodes, cg.defines)
         coords = np.vstack([point[0] for point in points])
         clash_pairs = []
-        #kk = ss.KDTree(np.array(l))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            kdt = kd.KDTree(3)
-            kdt.set_coords(coords)
-            kdt.all_search(10.)
-        #print len(kdt.all_get_indices())
-        #print len(kk.query_pairs(7.))
-        indeces = kdt.all_get_indices()
-        for (ia,ib) in indeces:
+
+        kdt = KDTree(coords, bucket_size=10)
+        neighbors = kdt.neighbor_search(20)
+        for neighbor in neighbors:
+            ia = neighbor.index1
+            ib = neighbor.index2
             (s1,i1,a1) = (points[ia][1], points[ia][2], points[ia][3])
             (s2,i2,a2) = (points[ib][1], points[ib][2], points[ib][3])
             clash_pairs += [((s1,i1,a1), (s2,i2,a2))]
-            #print("NO NEW NODES: ", sorted(clash_pairs))
 
         #potential_clashes = 0
         for (s1, i1, a1), (s2,i2,a2) in clash_pairs:
-            #if new_nodes != None:
-            #    if s1 not in new_nodes and s2 not in new_nodes:
-            #        continue
-
             if s1 == s2:
                 continue
 
             if cg.edges[s1]&cg.edges[s2]:
                 # the stems are connected
                 continue
-
-            #potential_clashes += 1
-            #fud.pv('s1,s2')
 
             if (s1,i1,a1) not in self.vras.keys():
                 self.vras[(s1,i1,a1)] = ftug.virtual_residue_atoms(cg, s1, i1, a1)
