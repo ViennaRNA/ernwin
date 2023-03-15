@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -26,7 +28,7 @@ def main():
     r1 = cgg.bg_virtual_residues(bg1)
     r2 = cgg.bg_virtual_residues(bg2)
 
-    print cbr.centered_rmsd(r1, r2)
+    print(cbr.centered_rmsd(r1, r2))
 
 if __name__ == '__main__':
     main()

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from bisect import bisect_left, bisect_right
 
 """

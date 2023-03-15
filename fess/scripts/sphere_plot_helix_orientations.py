@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import random
 import numpy as np
 import math as m
@@ -65,7 +67,7 @@ def main():
     real_us_orig = np.copy(real_us)
     sampled_us_orig = np.copy(sampled_us)
 
-    print len(real_us), len(sampled_us)
+    print(len(real_us), len(sampled_us))
 
     real_us = np.vstack([real_us+[0,-2*m.pi], 
                          real_us+[0,0], 
@@ -89,11 +91,11 @@ def main():
     #real_us = real_us[random.sample(range(len(real_us)), len(real_us)/3)]
     #sampled_us = sampled_us[random.sample(range(len(sampled_us)), len(sampled_us)/3)]
     
-    print "len(real_us):", len(real_us)
+    print("len(real_us):", len(real_us))
     k_ro = ss.gaussian_kde(real_us_orig.T, bw_method="silverman")
     k_so = ss.gaussian_kde(sampled_us_orig.T, bw_method="silverman")
 
-    print len(real_us), len(sampled_us)
+    print(len(real_us), len(sampled_us))
 
     k_r = ss.gaussian_kde(real_us.T, bw_method=k_ro.factor/4.)
     k_s = ss.gaussian_kde(sampled_us.T, bw_method=k_so.factor/4.)
@@ -113,7 +115,7 @@ def main():
     #print "vals_r:", vals_r
     #print "vals_s:", vals_s
     #print "vals:", vals, 
-    print len(vals), len(vals[vals > 0]), np.mean(vals)
+    print(len(vals), len(vals[vals > 0]), np.mean(vals))
 
     fig = plt.figure(figsize=(10,10))
     ax = Axes3D(fig)

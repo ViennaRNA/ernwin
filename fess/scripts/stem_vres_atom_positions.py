@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import numpy as np
 import warnings
@@ -18,6 +20,8 @@ from optparse import OptionParser
 import matplotlib.pyplot as plt
 
 import logging
+from six.moves import map
+from six.moves import range
 logging.basicConfig(level=logging.WARNING)
 log = logging.getLogger(__name__)
 '''
@@ -45,8 +49,8 @@ def print_average_atom_positions(coords, res='A', pp=None):
                 co.defaultdict(lambda: co.defaultdict(list))]
     
     if pp is None:
-        print "import collections as co"
-        print "avg_stem_vres_atom_coords = [co.defaultdict(dict), co.defaultdict(dict)]\n"
+        print("import collections as co")
+        print("avg_stem_vres_atom_coords = [co.defaultdict(dict), co.defaultdict(dict)]\n")
     
     for i in range(2):
         for k in coords[i].keys():
@@ -66,8 +70,8 @@ def print_average_atom_positions(coords, res='A', pp=None):
 
             for j, a in enumerate(averages[i][r].keys()):
                 if pp is None:
-                    print 'avg_stem_vres_atom_coords[%d]["%s"]["%s"] = [%s]' % (i,r,a, 
-                            ",".join(map(str, np.mean(averages[i][r][a], axis=0))))
+                    print('avg_stem_vres_atom_coords[%d]["%s"]["%s"] = [%s]' % (i,r,a, 
+                            ",".join(map(str, np.mean(averages[i][r][a], axis=0)))))
                     #print i,r, a, np.mean(averages[i][r][a], axis=0)
                 else:
                     if i == 0:
@@ -156,7 +160,7 @@ def main():
             for k in c.keys():
                 for coords in c[k]:
                     for atom in coords.keys():
-                        print i, k, atom, " ".join(map(str, coords[atom]))
+                        print(i, k, atom, " ".join(map(str, coords[atom])))
 
 
 if __name__ == '__main__':

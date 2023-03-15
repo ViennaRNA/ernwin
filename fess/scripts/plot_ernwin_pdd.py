@@ -1,5 +1,7 @@
 #!python
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +11,7 @@ import forgi.utilities.commandline_utils as fuc
 import forgi
 
 import argparse
+from six.moves import range
 
 
 def get_pdd(energy, rna):

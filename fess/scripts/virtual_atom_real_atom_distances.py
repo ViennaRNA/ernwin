@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import warnings
 
@@ -13,6 +15,7 @@ import forgi.utilities.debug as cud
 import numpy as np
 
 from optparse import OptionParser
+from six.moves import range
 
 def main():
     usage = """
@@ -58,7 +61,7 @@ def main():
                     except KeyError as ke:
                         continue
 
-    print cbc.Configuration.mids_method, stem_length, cbr.rmsd(np.array(vposs), np.array(rposs))
+    print(cbc.Configuration.mids_method, stem_length, cbr.rmsd(np.array(vposs), np.array(rposs)))
 
 if __name__ == '__main__':
     main()

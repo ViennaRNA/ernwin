@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import numpy as np
 
@@ -11,6 +13,8 @@ import borgy.graph.graph_pdb as cgg
 import borgy.visual.pymol as cvp
 
 from optparse import OptionParser
+from six.moves import map
+from six.moves import range
 
 def main():
     usage = './bounding_box_coords.py temp.comp temp.pdb'
@@ -54,18 +58,18 @@ def main():
                 pp.add_sphere(corners[1][0], 'purple', 0.1, '', [238/255., 130/255., 238/255.])
                 pp.add_sphere(corners[1][1], 'purple', 0.1, '', [208/255., 32/255., 144/255.])
             else:
-                print '0','0', " ".join(map(str, corners[0][0]))
-                print '0','1', " ".join(map(str, corners[0][1]))
-                print '1','0', " ".join(map(str, corners[1][0]))
-                print '1','1', " ".join(map(str, corners[1][1]))
+                print('0','0', " ".join(map(str, corners[0][0])))
+                print('0','1', " ".join(map(str, corners[0][1])))
+                print('1','0', " ".join(map(str, corners[1][0])))
+                print('1','1', " ".join(map(str, corners[1][1])))
 
     if options.averages:
         all_corners = np.array(all_corners)
-        print '--averages--'
-        print '0', '0', " ".join(map(str, np.mean(np.array([c[0][0] for c in all_corners]), axis=0)))
-        print '0', '1', " ".join(map(str, np.mean(np.array([c[0][1] for c in all_corners]), axis=0)))
-        print '1', '0', " ".join(map(str, np.mean(np.array([c[1][0] for c in all_corners]), axis=0)))
-        print '1', '1', " ".join(map(str, np.mean(np.array([c[1][1] for c in all_corners]), axis=0)))
+        print('--averages--')
+        print('0', '0', " ".join(map(str, np.mean(np.array([c[0][0] for c in all_corners]), axis=0))))
+        print('0', '1', " ".join(map(str, np.mean(np.array([c[0][1] for c in all_corners]), axis=0))))
+        print('1', '0', " ".join(map(str, np.mean(np.array([c[1][0] for c in all_corners]), axis=0))))
+        print('1', '1', " ".join(map(str, np.mean(np.array([c[1][1] for c in all_corners]), axis=0))))
 
     if options.pymol:
         pp.output_pymol_file()

@@ -5,6 +5,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 from future.utils import viewkeys
 import unittest
 import sys
+from six.moves import range
 try: #py 3K
     from io import StringIO
 except ImportError:

@@ -1,13 +1,16 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 from Bio.PDB import *
 
 import pdb
 import sys, warnings
+from six.moves import range
 
 def main():
     if len(sys.argv) < 3:
-        print "Usage: ./get_first_chain.py input_pdb output_pdb"
+        print("Usage: ./get_first_chain.py input_pdb output_pdb")
         sys.exit(1)
 
 

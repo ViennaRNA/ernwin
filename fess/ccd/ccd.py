@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -18,6 +20,7 @@ import numpy as np
 from scipy import weave
 
 from math import pi, sqrt, atan2
+from six.moves import range
 
 def make_random_chain(n=12):
     """
@@ -71,9 +74,9 @@ def ccd(moving, fixed, iterations=10, print_d=True):
     moving = moving1
     rot_mat = np.eye(3,3)
 
-    for k in xrange(iterations):
+    for k in range(iterations):
         prev_i = 1
-        for i in xrange(1, len(moving) - 3, 1):
+        for i in range(1, len(moving) - 3, 1):
             TH = (moving[i] - moving[i-1])
 
             get_closer_rotation_matrix_cython(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
@@ -116,9 +119,9 @@ def ccd(moving, fixed, iterations=10, print_d=True):
 
         rmsd = calc_rmsd(moving[-3:], fixed)
         if print_d:
-            print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
+            print("iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed)) 
 
-    print "counter:", counter, "rmsd_d:", rmsd
+    print("counter:", counter, "rmsd_d:", rmsd)
     return moving
 
 def main():
@@ -140,12 +143,12 @@ def main():
     points = array([i for i in range(1, len(moving) - 3, 2)])
     if len(sys.argv) < 2:
         #ccd(array(moving), array(fixed), 20)
-        print "================="
+        print("=================")
         ccd_cython(moving, fixed, points, len(moving)-3, 20)
     else:
         ccd_cython(moving, fixed, points, len(moving)-3, int(sys.argv[1]))
 
-    print calc_rmsd(moving[-3:], fixed)
+    print(calc_rmsd(moving[-3:], fixed))
 
     '''
     if len(sys.argv) < 2:

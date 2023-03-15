@@ -50,7 +50,7 @@ def _sample_unique_stat_combinations(choices):
     if product_size>10**9:
         if tuple(choices.keys()) not in has_warned:
             log.warning("Too many stats-combination for unique sampling of %s: %s."
-                        "Sampling with replacement.", choices.keys(), product_size)
+                        "Sampling with replacement.", list(choices.keys()), product_size)
             has_warned.add(tuple(choices.keys()))
         while True:
             i = random.randrange(product_size)

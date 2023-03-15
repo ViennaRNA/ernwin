@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import json
 import sys
 from optparse import OptionParser
 import logging
 import forgi.utilities.debug as fud
 import forgi.graph.bulge_graph as fgb
+from six.moves import map
 
 log = logging.getLogger(__name__)
 class MotifEntry:
@@ -34,7 +37,7 @@ class MotifEntry:
         '''
         parts = line.split(",")
         pdb_id = parts[0].split('|')[0]
-        print ("MotifEntry", parts)
+        print(("MotifEntry", parts))
 
         prev_resnum = -10
 
@@ -45,7 +48,7 @@ class MotifEntry:
             resnum = fgb.RESID("{}:{}".format(parts[2],int(parts[4].strip('"'))))
             self.define += [resnum]
 
-        print (line, self.define)
+        print((line, self.define))
 
 class MotifAlignment:
     '''
@@ -194,7 +197,7 @@ def main():
             if motif['alignment']:
                 for a in motif['alignment']:
                     if a.find(options.struct.upper()) >= 0:
-                        print (motif["motif_id"])
+                        print((motif["motif_id"]))
                         al = MotifAlignment(motif['alignment'][a], motif['chainbreak'])
                         print (al)
 

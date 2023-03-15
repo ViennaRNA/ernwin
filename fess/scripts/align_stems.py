@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, os
 import warnings
 import numpy as np
@@ -17,6 +19,8 @@ import borgy.visual.pymol as cvp
 
 import Bio.PDB as bpdb
 import Bio.PDB.Chain as bpdbc
+from six.moves import map
+from six.moves import range
 
 def stem_def_from_filename(filename):
     parts = filename.split('.')[0].split('_')
@@ -117,7 +121,7 @@ def main():
             pp.stem_atoms(m.mids, m.twists, stem_def.bp_length+1)
             pp.dump_pymol_file('ss')
 
-        print stem_length, superimposed_rmsd[1], unsuperimposed_rmsd[1], unsuperimposed_rmsd[1] / superimposed_rmsd[1]
+        print(stem_length, superimposed_rmsd[1], unsuperimposed_rmsd[1], unsuperimposed_rmsd[1] / superimposed_rmsd[1])
 
     #means = np.mean(np.array(rmsds), axis=0) 
     #print stem_length, " ".join(map(str, means)), means[1] / means[0]

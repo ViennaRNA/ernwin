@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import absolute_import
 import os.path as op
 import os
 import subprocess as sp
@@ -12,6 +13,7 @@ import forgi.threedee.model.coarse_grain as ftmc
 import sys
 import forgi.graph.bulge_graph as fgb
 import logging
+from six.moves import map
 
 log = logging.getLogger(__name__)
 all = [ "annotate_structure" ]
@@ -135,8 +137,8 @@ def get_coarse_grain_files(struct_name, chains, args, temp_dir=None):
                                    temp_dir=temp_dir, cg_filename=cg_filename, args=args)
         else:
             log.info ("Downloading pdb for: %s", struct_name)
-            import urllib2
-            response = urllib2.urlopen('http://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=pdb&compression=NO&structureId=%s' % (struct_name))
+            import six.moves.urllib.request, six.moves.urllib.error, six.moves.urllib.parse
+            response = six.moves.urllib.request.urlopen('http://www.rcsb.org/pdb/download/downloadFile.do?fileFormat=pdb&compression=NO&structureId=%s' % (struct_name))
             html = response.read()
 
 

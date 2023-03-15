@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import matplotlib
 matplotlib.use("Agg")
 
@@ -166,7 +168,7 @@ def main():
     dists = []
     named_dists = dict()
     pp_dists = dict()
-    for k1, k2 in it.combinations(histograms.keys(), 2):
+    for k1, k2 in it.combinations(list(histograms.keys()), 2):
         per_point_distances = []
         for p1 in histograms[k1]:
             point_distances = []
@@ -193,7 +195,7 @@ def main():
     fud.pv('dists')
     Z = sch.complete(dists)
     fud.pv('Z')
-    sch.dendrogram(Z, labels = histograms.keys(), leaf_rotation=90)
+    sch.dendrogram(Z, labels = list(histograms.keys()), leaf_rotation=90)
     plt.subplots_adjust(bottom=0.25)
     
     plt.show()
@@ -242,7 +244,7 @@ def main():
     real_us_orig = np.copy(real_us)
     sampled_us_orig = np.copy(sampled_us)
 
-    print len(real_us), len(sampled_us)
+    print(len(real_us), len(sampled_us))
 
     fig = plt.figure(figsize=(10,10))
     ax = Axes3D(fig)

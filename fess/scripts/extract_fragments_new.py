@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import absolute_import
 import argparse
 import sys
 from collections import defaultdict
@@ -9,6 +10,7 @@ import forgi.graph.residue as fgr
 import forgi.utilities.commandline_utils as fuc
 import os.path as op
 import logging
+from six.moves import zip
 
 def generateParser():
     parser=fuc.get_rna_input_parser("Extract fragments",

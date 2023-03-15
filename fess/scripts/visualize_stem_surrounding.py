@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, os
 import random as rand
 from optparse import OptionParser
@@ -20,6 +22,7 @@ import borgy.visual.pymol as cvp
 
 import matplotlib.pyplot as plt
 import pandas as pa
+from six.moves import range
 
 def main():
     usage = """
@@ -37,12 +40,12 @@ usage: %prog [options] data_file
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
-        print >>sys.stderr, "Lack of data_file argument."
+        print("Lack of data_file argument.", file=sys.stderr)
         parser.print_help()
         sys.exit(1)
 
     if len(args) > 3:
-        print >>sys.stderr, "Too many files. At most 3 can be displayed at once."
+        print("Too many files. At most 3 can be displayed at once.", file=sys.stderr)
         sys.exit(1)
 
 
@@ -71,14 +74,14 @@ usage: %prog [options] data_file
             res = 2.
 
             cud.pv('points.shape')
-            min_dims = np.array([min(points[:,j]) for j in xrange(points.shape[1])])
-            max_dims = np.array([max(points[:,j]) for j in xrange(points.shape[1])])
+            min_dims = np.array([min(points[:,j]) for j in range(points.shape[1])])
+            max_dims = np.array([max(points[:,j]) for j in range(points.shape[1])])
 
             n_points = [int((max_dims[j] - min_dims[j]) / float(res)) + 1 for j in range(points.shape[1])]
 
             img = np.zeros(n_points)
             for p in points:
-                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                ixs = [int((p[j] - min_dims[j]) / res) for j in range(points.shape[1])]
                 img[ixs[0],ixs[1],ixs[2]] += 1
             img = sn.gaussian_filter(img, (2,2,2))
             img_sets += [img]
@@ -97,8 +100,8 @@ usage: %prog [options] data_file
             vals = []
             points = point_sets[0]
             for p in points:
-                ixs[0] = [int((p[j] - min_dims_set[0][j]) / res) for j in xrange(points.shape[1])]
-                ixs[1] = [int((p[j] - min_dims_set[1][j]) / res) for j in xrange(points.shape[1])]
+                ixs[0] = [int((p[j] - min_dims_set[0][j]) / res) for j in range(points.shape[1])]
+                ixs[1] = [int((p[j] - min_dims_set[1][j]) / res) for j in range(points.shape[1])]
                 #cud.pv('ixs')
                 try:
                     vals += [cbe.my_log(img_sets[0][ixs[0][0], ixs[0][1], ixs[0][2]]) - cbe.my_log(img_sets[1][ixs[1][0], ixs[1][1], ixs[1][2] ])]
@@ -111,7 +114,7 @@ usage: %prog [options] data_file
             vals = []
             points = point_sets[0]
             for p in points:
-                ixs = [int((p[j] - min_dims[j]) / res) for j in xrange(points.shape[1])]
+                ixs = [int((p[j] - min_dims[j]) / res) for j in range(points.shape[1])]
                 vals += [np.log(img_sets[0][ixs[0], ixs[1], ixs[2]])]
         else:
             vals = np.log(kernel_sets[0](point_sets[0]))

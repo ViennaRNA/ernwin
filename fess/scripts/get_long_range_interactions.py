@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 from Bio.PDB import *
 import os, sys
 
@@ -8,9 +10,9 @@ from borgy.utilities.mcannotate import iterate_over_interactions, get_interactin
 
 def main():
     if len(sys.argv) < 3:
-        print "Usage: ./get-long-range-interactions.py file.graph file.mcannotate"
-        print 
-        print "Print which graph elements interact with which others"
+        print("Usage: ./get-long-range-interactions.py file.graph file.mcannotate")
+        print() 
+        print("Print which graph elements interact with which others")
         exit
 
     bg = BulgeGraph(sys.argv[1])

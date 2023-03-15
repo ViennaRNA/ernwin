@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import string
 import sys
 from sys import argv,stderr,exit,stdout
@@ -7,6 +9,7 @@ from os import popen,system
 from os.path import exists,dirname,basename,abspath
 from optparse import OptionParser
 import os
+from six.moves import range
 
 longer_names={'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D',
               'CYS': 'C', 'GLU': 'E', 'GLN': 'Q', 'GLY': 'G',
@@ -136,7 +139,7 @@ def convert_pdb_to_rosetta_pdb(lines, chainids, ignore_chain, removechain):
                     else:
                         if longname not in goodnames:    continue
 
-                    if longer_names.has_key(longname):
+                    if longname in longer_names:
                         out_fasta += longer_names[longname]
                     else:
                         out_fasta += 'X'
@@ -180,9 +183,9 @@ def get_option_parser():
 
 def main():
     if len(argv) < 2:
-        print "Usage: ./make_rna_rosetta_ready.py pdb_file1 [chain_id1] [chain_id2]"
-        print 
-        print "Convert a file to the rosetta pdb format"
+        print("Usage: ./make_rna_rosetta_ready.py pdb_file1 [chain_id1] [chain_id2]")
+        print() 
+        print("Convert a file to the rosetta pdb format")
 
         exit(1)
 
@@ -191,7 +194,7 @@ def main():
     #print "args:", args
 
     if options.out_pdb and options.batch:
-        print >>sys.stderr, "Incompatible options --out-pdb and --batch"
+        print("Incompatible options --out-pdb and --batch", file=sys.stderr)
         exit(1)
 
     chainids = []
@@ -226,7 +229,7 @@ def main():
             outid = open(options.out_fasta, 'w')
 
         if not exists( pdbname ) and pdbname != '-':
-            print >>stderr, 'DOES NOT EXIST: ', netpdbname
+            print('DOES NOT EXIST: ', netpdbname, file=stderr)
             exit(1)
 
             

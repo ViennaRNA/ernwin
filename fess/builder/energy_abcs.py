@@ -18,6 +18,8 @@ from commandline_parsable import parsable_base
 from logging_exceptions import log_to_exception
 
 from ..utils import get_version_string
+from six.moves import map
+import six
 
 
 log = logging.getLogger(__name__)

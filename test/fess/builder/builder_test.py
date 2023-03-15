@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import absolute_import
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       map, next, oct, pow, range, round,
                       str, super, zip)
@@ -15,6 +16,7 @@ from fess.builder import stat_container
 
 import forgi.threedee.model.similarity as ftmsim
 import forgi.threedee.model.coarse_grain as ftmc
+from six.moves import range
 
 RAND_REPETITION = 100
 

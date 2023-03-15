@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pa

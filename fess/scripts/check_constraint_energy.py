@@ -12,6 +12,7 @@ import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.model.stats as ftms
 import forgi.threedee.utilities.graph_pdb as ftug
 from fess import data_file
+from six.moves import range
 def generateParser():
     parser=argparse.ArgumentParser( description="For all stats from which we can sample, "
                                                 "make sure they fulfill the energy")  

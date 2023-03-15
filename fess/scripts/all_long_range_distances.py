@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 
 from borgy.graph.bulge_graph import BulgeGraph
@@ -13,10 +15,10 @@ def output_all_distances(bg):
                     point1 = bg.get_point(key1)
                     point2 = bg.get_point(key2)
 
-                    print "%s %s %f" % (key1, key2, vec_distance(point1, point2))
+                    print("%s %s %f" % (key1, key2, vec_distance(point1, point2)))
 def main():
     if len(sys.argv) < 2:
-        print >>sys.stderr, "Usage: ./long_range_distances.py temp.comp"
+        print("Usage: ./long_range_distances.py temp.comp", file=sys.stderr)
         sys.exit(1)
 
     bg = BulgeGraph(sys.argv[1])

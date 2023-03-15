@@ -31,6 +31,7 @@ import fess.builder.sampling as fbs
 from fess.utils import get_version_string
 
 import logging
+from six.moves import range
 
 log=logging.getLogger("ernwin.__main__")
 

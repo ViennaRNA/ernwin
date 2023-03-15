@@ -1,9 +1,11 @@
+from __future__ import absolute_import
 import random
 import fess.builder.energy as fbe
 import networkx as nx
 import logging
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as ftuv
+from six.moves import map
 
 NUM_STATS_PER_ELEM=75
 

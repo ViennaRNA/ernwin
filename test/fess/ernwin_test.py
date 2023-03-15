@@ -1,10 +1,12 @@
 from __future__ import print_function, division
+from __future__ import absolute_import
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       map, next, oct, pow, range, round,
                       str, super, zip)
 
 import os.path as op
 import unittest, copy, warnings, sys
+from six.moves import range
 try:
     from io import StringIO
 except ImportError:

@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import numpy as np
 import timeit, sys
 
@@ -76,8 +78,8 @@ theta = nr.random()
 axis = nr.random(3)
 """
 
-    print timeit.repeat("rotation_matrix_cython(axis, theta, mat1)", setup=setup, number=100000)
-    print timeit.repeat("rotation_matrix_weave(axis, theta, mat1)", setup=setup, number=100000)
+    print(timeit.repeat("rotation_matrix_cython(axis, theta, mat1)", setup=setup, number=100000))
+    print(timeit.repeat("rotation_matrix_weave(axis, theta, mat1)", setup=setup, number=100000))
     sys.exit(1)
 
-    print timeit.repeat("rotation_matrix_numpy(axis, theta)", setup=setup, number=100000)
+    print(timeit.repeat("rotation_matrix_numpy(axis, theta)", setup=setup, number=100000))

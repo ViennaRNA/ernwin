@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 from optparse import OptionParser
 import sys, pickle
 
@@ -15,10 +17,11 @@ import borgy.graph.graph_pdb as cgg
 import borgy.utilities.debug as cud
 import borgy.utilities.vector as cuv
 import borgy.utilities.average_stem_vres_atom_positions as cua
+from six.moves import range
 
 def main():
     if len(sys.argv) < 2:
-        print "Usage: ./coordinates_to_pymol temp.coordinates"
+        print("Usage: ./coordinates_to_pymol temp.coordinates")
         sys.exit(1)
 
     parser = OptionParser()
@@ -218,8 +221,8 @@ def main():
         pymol_printer.output_pymol_file()
 
         if options.include_pdb:
-            print 'cmd.load("%s", "sxs%s", state=%d)' % (args[i] + ".pdb", pymol_printer.prev_obj_name, pymol_printer.state-1)
-            print 'cmd.color("grey50", "all")'
+            print('cmd.load("%s", "sxs%s", state=%d)' % (args[i] + ".pdb", pymol_printer.prev_obj_name, pymol_printer.state-1))
+            print('cmd.color("grey50", "all")')
 
     
 

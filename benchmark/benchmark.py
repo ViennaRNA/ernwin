@@ -7,6 +7,8 @@ from future.builtins.disabled import (apply, cmp, coerce, execfile,
                              file, long, raw_input, reduce, reload,
                              unicode, xrange, StandardError)
 import matplotlib as mpl
+import six
+from six.moves import range
 mpl.use('Agg')
 import logging    
 logging.basicConfig(level=logging.INFO)

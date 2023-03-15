@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -7,16 +9,17 @@ import forgi.threedee.model.coarse_grain as ttmc
 import borgy.graph.graph_pdb as cgg
 
 import itertools as it
+from six.moves import map
 
 def stem_stem_orientations(bg):
     for (s1, s2) in it.permutations(bg.stem_iterator(), r=2):
         if not bg.are_adjacent_stems(s1, s2):
-            print " ".join(map(str, cgg.stem_stem_orientation(bg, s1, s2)))
+            print(" ".join(map(str, cgg.stem_stem_orientation(bg, s1, s2))))
 
 def loop_loop_orientations(bg):
     for (l1, l2) in it.permutations(bg.loops(), r=2):
         if l1 != l2:
-            print " ".join(map(str, cgg.stem_stem_orientation(bg, l1, l2)))
+            print(" ".join(map(str, cgg.stem_stem_orientation(bg, l1, l2))))
 
 def main():
     usage = './stem_stem_orientations.py temp.comp'

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import fess.builder.energy as fbe
 import fess.utils as fau
 import matplotlib.pyplot as plt
@@ -9,6 +11,7 @@ import argparse
 from collections import defaultdict
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.utilities.commandline_utils as fuc
+from six.moves import range
 
 fr3d_query_string="""
       pdb = 1ffk
@@ -113,8 +116,8 @@ if __name__=="__main__":
     old = np.genfromtxt(fbe.load_local_data(fbe.AMinorEnergy.real_stats_fn), delimiter=' ')
     new = pd.read_csv(fbe.load_local_data(args.ame_target_file), delimiter=' ', comment = "#")
     print(new)
-    print(new.columns)
-    print(new[u"rna_length"].dtype)
+    print((new.columns))
+    print((new[u"rna_length"].dtype))
     new = new.as_matrix([u"rna_length", u"total_prob"])
     print(new)
     ax.scatter(old[:,0], old[:,2], label = "old")

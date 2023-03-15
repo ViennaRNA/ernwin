@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from borgy.graph.bulge_graph import BulgeGraph
 from borgy.utilities.vector import vec_distance
@@ -26,7 +28,7 @@ def print_bulge_distances(bg):
                 loop_length = abs(int(bg.defines[key][0]) - int(bg.defines[key][1]))
                 distance = vec_distance(bg.coords[key][0], bg.coords[key][1])
 
-                print "loop %d 0 %f" % ( loop_length, distance)
+                print("loop %d 0 %f" % ( loop_length, distance))
 
             elif len(bg.edges[key]) == 2:
                 define = bg.defines[key]
@@ -37,13 +39,13 @@ def print_bulge_distances(bg):
 
                 shortest_dist = vec_distance(bg.coords[key][0], bg.coords[key][1])
                 lengths.sort()
-                print "bulge_mid %d %d %f" % (lengths[0], lengths[1], shortest_dist)
+                print("bulge_mid %d %d %f" % (lengths[0], lengths[1], shortest_dist))
                 
 def main():
     if len(sys.argv) < 2:
-        print "Usage: ./graph_to_distances.py temp.comp"
-        print
-        print "Traverse the bulge graph and print statistics on the distances between atoms"
+        print("Usage: ./graph_to_distances.py temp.comp")
+        print()
+        print("Traverse the bulge graph and print statistics on the distances between atoms")
         sys.exit(1)
 
     bg = BulgeGraph(sys.argv[1])

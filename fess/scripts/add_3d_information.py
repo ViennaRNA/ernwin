@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, math
 import warnings
 from Bio.PDB import *
@@ -15,7 +17,7 @@ def newest_output_graph(bg, chain):
 
 def main():
     if len(sys.argv) < 3:
-        print "Usage: ./graph_to_simplified_pymol.py struct.graph pdb_file"
+        print("Usage: ./graph_to_simplified_pymol.py struct.graph pdb_file")
         sys.exit(1)
 
     pdb_name = sys.argv[2]

@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
+from six.moves import map
+from six.moves import range
 """builder.py: This file contains classes, which take a spatial model without any 3D information
 and add 3D information to it."""
 
@@ -293,7 +295,7 @@ class RelaxationBuilder(Builder):
 
     def _build_with_energies_core(self, sm, warn=False):
         # Using the original junction energy
-        bad_bulges = self._get_bad_ml_segments(sm, sm.bg.defines.keys())
+        bad_bulges = self._get_bad_ml_segments(sm, list(sm.bg.defines.keys()))
         sm.constraint_energy.eval_energy(sm.bg)
         clash_pairs = list(map(tuple, sm.constraint_energy.bad_bulges))
         if warn and (bad_bulges or clash_pairs):

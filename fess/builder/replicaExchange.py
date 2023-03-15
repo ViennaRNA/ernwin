@@ -9,6 +9,8 @@ import fess.builder.models as fbm
 import forgi.threedee.model.coarse_grain as ftmc
 from fess.builder.sampling import NoopRevertWarning
 import logging
+from six.moves import range
+from six.moves import zip
 log = logging.getLogger(__name__)
 import os
 import numpy as np

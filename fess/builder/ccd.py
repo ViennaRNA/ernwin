@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -13,6 +15,7 @@ import numpy as np
 
 from math import pi, sqrt, atan2
 from scipy import weave
+from six.moves import range
 
 def make_random_chain(n=12):
     """
@@ -181,8 +184,8 @@ def ccd(moving, fixed, iterations=10, print_d=True):
     moving = moving1
     rot_mat = np.eye(3,3)
 
-    for k in xrange(iterations):
-        for i in xrange(1, len(moving) - 3):
+    for k in range(iterations):
+        for i in range(1, len(moving) - 3):
             TH = (moving[i] - moving[i-1])
 
             rot_mat = get_closer_rotation_matrix(TH, array(moving[i-1]), array(moving[-3:]), fixed, rot_mat)
@@ -228,9 +231,9 @@ def ccd(moving, fixed, iterations=10, print_d=True):
 
         if print_d:
             rmsd = calc_rmsd(moving[-3:], fixed)
-            print "iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed) 
+            print("iteration:", k, "rmsd:", calc_rmsd(moving[-3:], fixed)) 
 
-    print "counter:", counter
+    print("counter:", counter)
     return moving
 
 def main():

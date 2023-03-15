@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 from builtins import zip
 
 import random
@@ -6,6 +8,7 @@ import copy
 import logging
 
 from .move import Mover
+from six.moves import range
 
 log=logging.getLogger(__name__)
 
@@ -204,7 +207,7 @@ class WholeMLMover(Mover):
         if not self._prev_stats:
             return True
         if any(key[0]=="m" for key in self._prev_stats):
-            log.info("_has_incomplete_ml: m in prev_stats {}".format(self._prev_stats.keys()))
+            log.info("_has_incomplete_ml: m in prev_stats {}".format(list(self._prev_stats.keys())))
             return self._get_missing_ml_nodes(sm)
         else:
             return False

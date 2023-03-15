@@ -8,6 +8,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input,
 import unittest
 import sys
 import random
+from six.moves import range
 try:
     from unittest.mock import Mock #python3
 except:
@@ -99,7 +100,7 @@ class TestClashEnergy(unittest.TestCase):
         for i,cg in enumerate([self.cg, self.cg_clash, self.cg2]):
             e=self.energy.eval_energy(cg)
             for l in range(10,len(cg.defines),2):
-                nodes=random.sample(cg.defines.keys(),l)
+                nodes=random.sample(list(cg.defines.keys()),l)
                 try:
                     e_nodes=self.energy.eval_energy(cg, nodes=nodes)
                 except ValueError: #No stem in nodes

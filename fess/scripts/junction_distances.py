@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -39,7 +41,7 @@ def main():
                                                    bg.coords[s2][1])
 
         closest_distance = cuv.magnitude(closest_points[1] - closest_points[0])
-        print "junc", closest_distance, s1, s2
+        print("junc", closest_distance, s1, s2)
 
                         
 if __name__ == '__main__':

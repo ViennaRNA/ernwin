@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -41,7 +43,7 @@ def main():
         sys.exit(1)
 
     pdb_file = args[0]
-    print >>sys.stderr, "pdb_file", pdb_file
+    print("pdb_file", pdb_file, file=sys.stderr)
     print_base_normals(pdb_file)
 
 if __name__ == '__main__':

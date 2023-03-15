@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 from optparse import OptionParser
 
 import numpy as np
@@ -15,6 +17,7 @@ import forgi.threedee.utilities.graph_pdb as cgg
 import forgi.threedee.utilities.vector as cuv
 import forgi.utilities.debug as cud
 import forgi.utilities.stuff as fus
+from six.moves import range
 
 def get_random_stem_stats():
     '''
@@ -25,7 +28,7 @@ def get_random_stem_stats():
     # pick a length for the stem
     stem_stats = cbs.get_stem_stats()
 
-    l = rand.choice(stem_stats.keys())
+    l = rand.choice(list(stem_stats.keys()))
     return rand.choice(stem_stats[l])
 
 def get_random_angle_stat(min_len=0., max_len=100.):
@@ -154,7 +157,7 @@ def main():
     else:
         output = sys.stdout
 
-    for k in xrange(start_len, options.num_nucleotides+1):
+    for k in range(start_len, options.num_nucleotides+1):
         min_len = 0. + 3. * k
         max_len = 12. + 7. * k
 
@@ -175,8 +178,8 @@ def main():
             except IndexError as ie:
                 # This can be caused by trying to sample a junction region
                 # which is too long and we don't have statistics for
-                print >>sys.stderr, "Index error in cbm.SpatialModel(bg)"
-                print >>sys.stderr, ie
+                print("Index error in cbm.SpatialModel(bg)", file=sys.stderr)
+                print(ie, file=sys.stderr)
                 continue
 
             # Indiciate which statistics to use for the 3D model construction
@@ -196,11 +199,11 @@ def main():
             except IOError as ie:
                 # Sometimes we'll be missing a fragment
                 # Just issue a warning and keep on truckin'
-                print >>sys.stderr, "Missing fragment..."
-                print >>sys.stderr, ie
+                print("Missing fragment...", file=sys.stderr)
+                print(ie, file=sys.stderr)
             except KeyError as ke:
-                print >>sys.stderr, "KeyError in reconstructing stems..."
-                print >>sys.stderr, ke
+                print("KeyError in reconstructing stems...", file=sys.stderr)
+                print(ke, file=sys.stderr)
 
             try:
                 ((a,b,i1,i2), best_loop_chain, min_dist) = cbr.reconstruct_loop(chain, sm, 'm0', side=0, samples=3, 
@@ -216,7 +219,7 @@ def main():
                 output.flush()
                 #print k, dist1, dist2, dist3, min_dist
             except Exception as e:
-                print >>sys.stderr, e
+                print(e, file=sys.stderr)
 
 if __name__ == "__main__":
     main()

@@ -32,6 +32,8 @@ import fess.builder.reconstructor as fbr
 from . import config as conf
 from . import energy as fbe
 from ..SortedCollection import SortedCollection
+from six.moves import map
+from six.moves import range
 
 log = logging.getLogger(__name__)
 __metaclass__ = type
@@ -970,7 +972,7 @@ class SamplingStatistics:
         if self.reconstructor is not None and self.step % self.options["reconstruct_n"] == 0:
             try:
                 chains = self.reconstructor.reconstruct(sm)
-                ftup.output_multiple_chains(chains.values(),
+                ftup.output_multiple_chains(list(chains.values()),
                                             os.path.join(self.out_dir,
                                                          'step{:06d}.reconstr.pdb'.format(self.step)))
             except:

@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
+from six.moves import map
+from six.moves import range
 __metaclass__=object
 
 from collections import defaultdict, Counter
@@ -644,7 +646,7 @@ class StemVirtualResClashEnergy(EnergyFunction):
         energy = 0.
 
         if nodes is None:
-            nodes = cg.defines.keys()
+            nodes = list(cg.defines.keys())
 
         self.log.debug("%s stems: %s", len([stem for stem in nodes if stem[0]=="s"]), nodes)
         if len([stem for stem in nodes if stem[0]=="s"])<2:
@@ -723,7 +725,7 @@ class RoughJunctionClosureEnergy(EnergyFunction):
     def eval_energy(self, cg, background=True, nodes=None, **kwargs):
         log.debug("Evaluating junction closure energy")
         if nodes == None:
-            nodes = cg.defines.keys()
+            nodes = list(cg.defines.keys())
 
         self.bad_bulges = []
         all_bulges = set([d for d in nodes if (d[0] == 'm' and d in nodes)])
@@ -868,7 +870,7 @@ class FragmentBasedJunctionClosureEnergy(EnergyFunction):
             return 0.
         best_deviation = float('inf')
         if sampled_stats is not None and self.element in sampled_stats and not self._always_search:
-            log.debug("FJC using sampled stat from %s!", sampled_stats.keys())
+            log.debug("FJC using sampled stat from %s!", list(sampled_stats.keys()))
             self.used_stat = sampled_stats[self.element]
             best_deviation = self._stat_deviation(cg, sampled_stats[self.element])
         else:

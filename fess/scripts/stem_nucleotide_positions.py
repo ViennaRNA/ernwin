@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, os
 from optparse import OptionParser
 
@@ -12,6 +14,8 @@ import borgy.builder.config as cbc
 
 import borgy.utilities.debug as cud
 import borgy.utilities.vector as cuv
+from six.moves import map
+from six.moves import range
 
 def connected_stems(bg, s1, s2):
     for edge in bg.edges[s1]:
@@ -40,7 +44,7 @@ usage: %prog [options] temp.comp
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
-        print >>sys.stderr, "Missing graph file."
+        print("Missing graph file.", file=sys.stderr)
         parser.print_help()
         sys.exit(1)
 
@@ -104,7 +108,7 @@ usage: %prog [options] temp.comp
                     #if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > s1_start[0] and r2_spos[0] < s1_end[0]:
                     #if cuv.magnitude(r2_spos) < 400. and r2_spos[0] > -3. and r2_spos[0] < 3.:
                     if True:
-                        print r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l
+                        print(r1_type, cuv.magnitude(r2_spos), " ".join(map(str, r2_spos)), bg.name, stems[i], k, stems[j], l)
 
 
 if __name__ == '__main__':

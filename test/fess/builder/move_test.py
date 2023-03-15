@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
+from six.moves import range
 __metaclass__=type
 
 import unittest

@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -11,7 +13,7 @@ def main():
     (options, args) = parser.parse_args()
 
     if len(args) < 2:
-        print >> sys.stderr, "Usage: ./add_sequence.py struct.graph seq_file"
+        print("Usage: ./add_sequence.py struct.graph seq_file", file=sys.stderr)
         sys.exit(1)
 
     bg = BulgeGraph(args[0])

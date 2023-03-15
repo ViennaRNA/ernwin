@@ -3,6 +3,10 @@ Code from
 http://code.activestate.com/recipes/577197-sortedcollection/
 written by Raymond Hettinger and licensed under the MIT license.
 """
+from __future__ import absolute_import
+from __future__ import print_function
+from six.moves import map
+from six.moves import range
 __author__ = "Raymond Hettinger"
 __license__ = "MIT"
 
@@ -122,4 +126,4 @@ def test_sorted_collection():
 
     import doctest
     from operator import itemgetter
-    print(doctest.testmod())
+    print((doctest.testmod()))

@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 
+from __future__ import absolute_import
 import itertools as it
 import random
 import os.path as op
@@ -31,6 +32,7 @@ import forgi.utilities.debug as fud
 import fess.builder.config as cbc
 import fess.builder.energy as fbe # Used for commandline-parsing
 from fess.builder._commandline_helper import replica_substring
+from six.moves import range
 
 
 log = logging.getLogger(__name__)
@@ -365,7 +367,7 @@ class SpatialModel:
         region as from there we can just randomly orient the first stem.
         '''
 
-        edge = self.bg.sorted_stem_iterator().next()
+        edge = next(self.bg.sorted_stem_iterator())
         define = 'start'
         return (edge, define, StemModel(edge))
 
@@ -888,7 +890,7 @@ class SpatialModel:
     def fulfills_junction_energy(self):
         for mloop in self.bg.find_mlonly_multiloops():
             for loop in mloop:
-                log.debug("Trying junction constraint energy for %s. Energies are %s", mloop, self.junction_constraint_energy.keys())
+                log.debug("Trying junction constraint energy for %s. Energies are %s", mloop, list(self.junction_constraint_energy.keys()))
                 if loop not in self.bg.get_mst() and loop in self.junction_constraint_energy:
                     log.debug("Evaluating junction constraint energy %s", self.junction_constraint_energy[loop].shortname)
                     if self.junction_constraint_energy[loop].eval_energy(self.bg, nodes=mloop, sampled_stats=self.elem_defs)>0:

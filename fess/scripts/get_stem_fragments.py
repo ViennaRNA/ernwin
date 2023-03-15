@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import collections as c
 import itertools as it
 import pdb
@@ -15,6 +17,8 @@ import os
 
 import sys
 from optparse import OptionParser
+from six.moves import map
+from six.moves import range
 
 def output_stem_fragment(define, s, out_file):
     class StemSelect(Select):
@@ -78,7 +82,7 @@ def main():
                 s = PDBParser().get_structure('t', os.path.join(fbc.Configuration.data_base_dir, "%s/temp.pdb" % (ss.pdb_name)))
                 prev_pdb_name = ss.pdb_name
 
-            print out_file, ss.define
+            print(out_file, ss.define)
             output_stem_fragment(ss.define, s, out_file)
 
 

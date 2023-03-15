@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
 import sys
 import random
 from optparse import OptionParser
+from six.moves import range
 
 def main():
     usage = './random_rna_sequence.py [length]'

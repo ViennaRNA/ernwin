@@ -20,6 +20,8 @@ import forgi.threedee.model.stats as ftmstats
 from fess import data_file
 from fess.builder import config
 import fess.motif.annotate as fma
+from six.moves import range
+from six.moves import zip
 
 log = logging.getLogger(__name__)
 try:

@@ -1,7 +1,10 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, math
 from borgy.graph.bulge_graph import BulgeGraph
+from six.moves import range
 
 def print_neato(bg):
     stems = bg.get_bulged_stem_names()
@@ -26,9 +29,9 @@ def print_neato(bg):
     connection_lines = ''
     fancy = True
 
-    print "graph G {"
-    print "\tgraph [overlap=scale];"
-    print "\tnode [shape=box];"
+    print("graph G {")
+    print("\tgraph [overlap=scale];")
+    print("\tnode [shape=box];")
 
     if fancy:
         for key2 in bg.defines.keys():
@@ -88,18 +91,18 @@ def print_neato(bg):
         for key2 in bg.longrange[key1]:
             connection_lines += "\t%s -- %s [style=dashed]" % (key1, key2)
 
-    print node_lines
-    print connection_lines
-    print "}"
+    print(node_lines)
+    print(connection_lines)
+    print("}")
 
 
     #print bg.get_named_define
 
 def main():
     if len(sys.argv) < 2:
-        print "Usage: ./graph_to_angles.py struct.graph"
-        print
-        print "Traverse a structure and output the stems that are connected by a bulge"
+        print("Usage: ./graph_to_angles.py struct.graph")
+        print()
+        print("Traverse a structure and output the stems that are connected by a bulge")
         sys.exit(1)
 
     bg = BulgeGraph(sys.argv[1])

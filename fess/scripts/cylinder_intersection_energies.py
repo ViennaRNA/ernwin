@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -26,7 +28,7 @@ def main():
         in_cyl_fractions = cie.calculate_intersection_coverages(bg)
         
         for (key,val) in in_cyl_fractions.items():
-            print key, val
+            print(key, val)
 
 if __name__ == '__main__':
     main()

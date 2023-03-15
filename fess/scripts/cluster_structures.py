@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from __future__ import print_function, division
 
+from __future__ import absolute_import
 import collections as col
 import itertools as it
 import numpy as np
@@ -23,6 +24,8 @@ import copy
 #import Pycluster as pc
 
 import scipy.cluster.vq as scv
+from six.moves import range
+from six.moves import zip
 
 def cluster_hierarchical(coords, matrix=None, use_heuristic=True):
     # scipy hierarchical is explained in: 
@@ -164,7 +167,7 @@ def cluster_kmeans(coords, names, topn=0, num_clusters=8):
     labels, error, nfound = cluster_kmeans_core(coords, num_clusters)
     c = col.Counter(labels)
 
-    sorted_labels = sorted(c.keys(), key=lambda x: -c[x])
+    sorted_labels = sorted(list(c.keys()), key=lambda x: -c[x])
     #print c
 
     for l, n in zip(labels, names):

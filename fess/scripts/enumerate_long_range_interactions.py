@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import collections as c
 import numpy as np
 import sys
@@ -7,10 +9,11 @@ import sys
 from optparse import OptionParser
 
 import forgi.threedee.model.coarse_grain as ftmc
+from six.moves import range
 
 def create_heatmap(xvals, yvals, zcalculator, filename=None):
-    x = np.array(range(0, len(xvals)+1))
-    y = np.array(range(0, len(yvals)+1))
+    x = np.array(list(range(0, len(xvals)+1)))
+    y = np.array(list(range(0, len(yvals)+1)))
 
     X,Y = np.meshgrid(x, y)
     Z = zcalculator(X,Y)
@@ -93,8 +96,8 @@ def main():
     for p in sorted_pdbs:
         out_str += " %s" % (p)
 
-    interaction_keys = sorted(interactions.keys(), key=lambda x: len(interactions[x]))
-    print out_str
+    interaction_keys = sorted(list(interactions.keys()), key=lambda x: len(interactions[x]))
+    print(out_str)
 
     for i in interaction_keys:
         out_str = "%s:" % (i)
@@ -103,7 +106,7 @@ def main():
                 out_str += " ****"
             else:
                 out_str += "     "
-        print out_str
+        print(out_str)
 
 
     # Create a heatmap
@@ -119,7 +122,7 @@ def main():
             return 0.
 
     create_heatmap(sorted_pdbs, interaction_keys, interaction_exists, options.filename)
-    print len(interaction_keys)
+    print(len(interaction_keys))
 
 if __name__ == '__main__':
     main()

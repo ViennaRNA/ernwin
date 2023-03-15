@@ -1,10 +1,13 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
 import borgy.utilities.pdb as cup
 import Bio.PDB as bp
+from six.moves import map
 
 def main():
     usage = './noncovalent_distances.py pdb_file'
@@ -24,7 +27,7 @@ def main():
 
     s = bp.PDBParser().get_structure('temp', args[0])
     distances = cup.noncovalent_distances(list(s.get_chains())[0], options.cutoff)
-    print "\n".join(map(str,distances))
+    print("\n".join(map(str,distances)))
 
 if __name__ == '__main__':
     main()

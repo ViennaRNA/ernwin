@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install future
                       int, map, next, oct, open, pow, range, round,
                       str, super, zip)
+from six.moves import map
+from six.moves import range
 __metaclass__=type
 import itertools as it
 import random
@@ -323,7 +325,7 @@ class EnergeticJunctionMover(Mover):
             except KeyError: # We use the JDIST energy
                 broken_stat = None
         log.debug("sm has junction-energy for %s. Elem is %s",
-                  sm.junction_constraint_energy.keys(), elems[-1])
+                  list(sm.junction_constraint_energy.keys()), elems[-1])
         energy = sm.junction_constraint_energy[elems[-1]].eval_energy(sm.bg,
                                                             nodes=built_nodes+[elems[-1]],
                                                             sampled_stats={elems[-1]:broken_stat})

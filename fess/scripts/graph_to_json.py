@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 
 import tess.threedee.model.coarse_grain as ttmc
@@ -16,12 +18,12 @@ def main():
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
-        print >>sys.stderr, "./graph_to_json temp.graph"
+        print("./graph_to_json temp.graph", file=sys.stderr)
         sys.exit(1)
 
     bg = ttmc.CoarseGrainRNA(args[0])
     json_str = cvf.convert_graph_to_fancy_json(bg)
-    print json_str
+    print(json_str)
 
 if __name__ == '__main__':
     main()

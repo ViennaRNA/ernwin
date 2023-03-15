@@ -1,11 +1,14 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, os
 
 import borgy.utilities.debug as cud
+from six.moves import range
 
 def error_exit(message):
-    print >>sys.stderr, message
+    print(message, file=sys.stderr)
     sys.exit(1)
 
 # A wrapper for a simple dictionary addition
@@ -115,8 +118,8 @@ def create_stem_graph(stems, bulge_counter):
                                     stem_stems_set.add(j)
                                 stem_stems[i] = stem_stems_set
     #print >>sys.stderr, "stem_stems:", stem_stems
-    print define_text
-    print connect_text
+    print(define_text)
+    print(connect_text)
 
     return stem_stems
 
@@ -132,7 +135,7 @@ def print_bulge_graph(graph):
         stem_str = "connect s%d" % (key)
         for item in graph[key]:
             stem_str += " b%d" % (item)
-        print stem_str
+        print(stem_str)
 
 def print_stems(stems):
     '''
@@ -149,7 +152,7 @@ def print_stems(stems):
         se1 = stems[i][1][0]+1
         se2 = stems[i][1][1]+1
 
-        print "define s%d 0 %d %d %d %d" % (i, min(ss1,se1), max(ss1,se1), min(ss2,se2), max(ss2,se2))
+        print("define s%d 0 %d %d %d %d" % (i, min(ss1,se1), max(ss1,se1), min(ss2,se2), max(ss2,se2)))
 
 def print_bulges(bulges):
     '''
@@ -164,7 +167,7 @@ def print_bulges(bulges):
         bulge = bulges[i]
         #print >>sys.stderr, "bulge:", bulge
         bulge_str += " %d %d" % (bulge[0]+1, bulge[1]+1)
-        print bulge_str
+        print(bulge_str)
 
 def condense_stem_pairs(stem_pairs):
     '''
@@ -209,7 +212,7 @@ def print_brackets(brackets):
     '''
     numbers = [chr(ord('0') + i % 10) for i in range(len(brackets))]
     tens = [chr(ord('0') + i / 10) for i in range(len(brackets))]
-    print "brackets:\n", brackets, "\n", "".join(tens), "\n" ,"".join(numbers)
+    print("brackets:\n", brackets, "\n", "".join(tens), "\n" ,"".join(numbers))
 
 def find_bulges_and_stems(brackets):
     '''
@@ -305,7 +308,7 @@ def find_bulges_and_stems(brackets):
         dots_end = i
         bulges = add_bulge(bulges, (dots_start-1, dots_end), context, "7")
     elif prev == '(':
-        print >>sys.stderr, "Unmatched bracket at the end"
+        print("Unmatched bracket at the end", file=sys.stderr)
         sys.exit(1)
     """
     elif prev == ')':
@@ -329,11 +332,11 @@ def find_bulges_and_stems(brackets):
     return (finished_bulges, stems)
 
 def print_name(filename):
-    print "name", os.path.splitext(filename)[0]
+    print("name", os.path.splitext(filename)[0])
 
 def main():
     if len(sys.argv) < 2:
-        print """
+        print("""
         Usage: ./create_bulge_graph.py file.dotbracket [name]"
         
         Creates a graph of the paired and unpaired regions within a
@@ -375,7 +378,7 @@ def main():
 
 
         The results are printed to standard out.
-        """
+        """)
         sys.exit(1)
     if sys.argv[1] == '-':
         f = sys.stdin
@@ -385,8 +388,8 @@ def main():
         #print "stems:", stems
 
     if len(sys.argv) == 3:
-        print "name", sys.argv[2]
-        print "length", len(brackets)
+        print("name", sys.argv[2])
+        print("length", len(brackets))
 
     (bulges, stems) = find_bulges_and_stems(brackets)
 

@@ -1,11 +1,15 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
 import fess.builder.energy as fbe
 import forgi.threedee.model.coarse_grain as ftmc
 import forgi.utilities.debug as cud
+from six.moves import map
+from six.moves import range
 
 def main():
     usage = """
@@ -35,7 +39,7 @@ def main():
             total_length = sum([len(list(cg.define_residue_num_iterator(d))) for d in sg])                                   
             cylinder_intersections = cie.calculate_intersection_coverages(csg)
 
-            print total_length, " ".join(map("{:.2f}".format, cylinder_intersections.values()))
+            print(total_length, " ".join(map("{:.2f}".format, list(cylinder_intersections.values()))))
 
 if __name__ == '__main__':
     main()

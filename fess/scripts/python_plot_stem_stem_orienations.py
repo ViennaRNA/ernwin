@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pa
@@ -66,12 +68,12 @@ def main():
     sampled_kde = ss.gaussian_kde(sampled_angles, bw_method=sampled_kde1.factor / 4.)
     sampled_out_kde = ss.gaussian_kde(sampled_out_angles, bw_method=sampled_kde1.factor / 4.)
 
-    print len(real_angles), len(sampled_angles)
+    print(len(real_angles), len(sampled_angles))
 
     num_points = 200
     x_axis = np.linspace(0, 3.14, num_points)
 
-    print sum(real_kde(x_axis)), sum(sampled_kde(x_axis))
+    print(sum(real_kde(x_axis)), sum(sampled_kde(x_axis)))
 
     #ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
     dims = (4,2)

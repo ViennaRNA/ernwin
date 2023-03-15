@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, os
 import os.path as op
 import random as rand
@@ -7,6 +9,7 @@ import subprocess as sp
 import tempfile
 
 from optparse import OptionParser
+from six.moves import range
 
 rosetta_base = '/scr/plastilin/pkerp/apps/rosetta/latest/'
 rosetta_db = op.join(rosetta_base, 'rosetta_database')
@@ -45,11 +48,11 @@ def create_helix_using_fiber(seq, stem_length):
     command += ['-rna']
     command += [filename]
 
-    print " ".join(command)
+    print(" ".join(command))
     sp.call(command)
 
     command = ['sed', '-i', 's/ B/ A/g', filename]
-    print " ".join(command)
+    print(" ".join(command))
     sp.call(command)
 
     command = ['fess/scripts/make_rna_rosetta_ready.py', filename]
@@ -108,7 +111,7 @@ def main():
         seq = create_seq_fasta_file(stem_length, use_comp = False)
         create_helix_using_fiber(seq, stem_length)
 
-    print 
+    print() 
 
 if __name__ == '__main__':
     main()

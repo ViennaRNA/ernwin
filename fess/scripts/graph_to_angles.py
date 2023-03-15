@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import os.path as op
 import sys
 
@@ -9,6 +11,7 @@ import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.utilities.debug as fud
 
 from optparse import OptionParser
+from six.moves import map
 
 def print_new_bulge_angles(bg):
     '''
@@ -80,9 +83,9 @@ def print_3prime_unpaired(bg):
 
 def main():
     if len(sys.argv) < 2:
-        print >>sys.stderr, "Usage: ./graph_to_angles.py temp.comp"
-        print
-        print >>sys.stderr, "Traverse a structure and output the stems that are connected by a bulge"
+        print("Usage: ./graph_to_angles.py temp.comp", file=sys.stderr)
+        print()
+        print("Traverse a structure and output the stems that are connected by a bulge", file=sys.stderr)
         run_tests()
         sys.exit(1)
 
@@ -112,7 +115,7 @@ def main():
         with open(op.join(dirname, 'temp.angles'), 'w') as f:
             f.write(out_str)
     else:
-        print out_str
+        print(out_str)
 
 if __name__=="__main__":
     main()

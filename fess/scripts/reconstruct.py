@@ -1,6 +1,7 @@
 #!python
 from __future__ import print_function
 
+from __future__ import absolute_import
 import forgi.utilities.commandline_utils as fuc
 import forgi.threedee.utilities.pdb as ftup
 
@@ -66,7 +67,7 @@ def reconstruct(cg, fn, args, rec):
     chains = rec.reconstruct(sm)
     print("Writing", fn+".reconstr.pdb")
     chains = ftup.rename_chains_for_pdb(chains)
-    ftup.output_multiple_chains(chains.values(), fn+".reconstr.pdb")
+    ftup.output_multiple_chains(list(chains.values()), fn+".reconstr.pdb")
 
 
 

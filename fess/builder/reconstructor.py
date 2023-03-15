@@ -4,6 +4,7 @@ Convert a bulge graph to the pdb-format.
 '''
 
 
+from __future__ import absolute_import
 import multiprocessing as mp
 import warnings
 import glob
@@ -20,6 +21,8 @@ import forgi.threedee.model.coarse_grain as ftmc
 import forgi.threedee.utilities.pdb as ftup
 import forgi.threedee.utilities.graph_pdb as ftug
 import forgi.threedee.utilities.vector as cuv
+from six.moves import map
+from six.moves import range
 ftuv = cuv
 import forgi.utilities.debug as fud
 import forgi.utilities.stuff as fus
@@ -153,7 +156,7 @@ class Reconstructor(object):
                 log.debug("Storing newly-created fragment for %s", key)
                 import distutils.dir_util
                 distutils.dir_util.mkpath(op.join(self.library_directory, key[2:4]))
-                ftup.output_multiple_chains(fragment.values(),
+                ftup.output_multiple_chains(list(fragment.values()),
                                             op.join(self.library_directory, key[2:4], key+".cif"), "cif")
         return cg, elem, fragment
 
@@ -520,7 +523,7 @@ def insert_element(cg_to, cg_from, elem_to, elem_from,
         with log_to_exception(log, e):
             log.error("Could not extract fragment %s from pdb: "
                       " At least one of the seq_ids %s not found."
-                      " Chains are %s", elem_from, seq_ids_a_from, chains_from.keys())
+                      " Chains are %s", elem_from, seq_ids_a_from, list(chains_from.keys()))
         raise
 
     # A list of tuples (seq_id_from, seq_id_to) for the nucleotides
@@ -716,7 +719,7 @@ def mend_breakpoints(chains, gap):
         return chains
     mod_models = {}
     with fus.make_temp_directory() as tmpdir:
-        log.info("Writing chains %s", chains.values())
+        log.info("Writing chains %s", list(chains.values()))
 
         #ftup.output_multiple_chains(chains.values(), op.join(tmpdir, "tmp.pdb"))
         for g in gap:
@@ -836,7 +839,7 @@ def _compare_cg_chains_partial(cg, chains):
             try:
                 cg_coords = virt_a["C1'"]
             except KeyError:
-                log.error("virtual atom coordinates for %s only for %s", resid, virt_a.keys())
+                log.error("virtual atom coordinates for %s only for %s", resid, list(virt_a.keys()))
                 raise
             if ftuv.magnitude(pdb_coords-cg_coords)>4:
                 log.warning("Residue %s, C1' coords %s do not "

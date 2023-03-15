@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import itertools as it
 
@@ -39,14 +41,14 @@ def output_long_range_distances(bg):
                 seq2 = bg.get_seq(key2)
             '''
 
-            print "%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
+            print("%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
                                          key1[0], 
                                          bg.get_length(key1),
                                          key2, 
                                          key2[0],
                                          bg.get_length(key2),
                                          cuv.magnitude(i2-i1),
-                                         seq1, seq2, "Y", v)
+                                         seq1, seq2, "Y", v))
 
 def output_all_distances(bg):
     for (key1, key2) in it.permutations(bg.defines.keys(), 2):
@@ -95,14 +97,14 @@ def output_all_distances(bg):
             receptor_angle = cgg.receptor_angle(bg, key1, key2)
         '''
 
-        print "%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
+        print("%s %s %d %s %s %d %f %s %s %s %f" % (key1, 
                                      key1[0], 
                                      bg.get_length(key1),
                                      key2, 
                                      key2[0],
                                      bg.get_length(key2),
                                      cuv.magnitude(i2-i1),
-                                     seq1, seq2, longrange, v)
+                                     seq1, seq2, longrange, v))
 def main():
     parser = OptionParser()
 
@@ -111,7 +113,7 @@ def main():
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
-        print >>sys.stderr, "Usage: ./long_range_distances.py temp.comp"
+        print("Usage: ./long_range_distances.py temp.comp", file=sys.stderr)
         sys.exit(1)
 
     bg = ftmc.CoarseGrainRNA(args[0])
