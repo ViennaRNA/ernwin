@@ -17,7 +17,7 @@ setup(
          "numpy",
          "scipy",
          "biopython",
-         "deepdiff<3.3.1",
+         "deepdiff",
          "networkx",
          "future",
          "forgi>=2.1.2",
@@ -25,7 +25,8 @@ setup(
          "commandline_parsable",
          "scikit-learn",
          "matplotlib",
-         "contextlib2"
+         "contextlib2",
+         "bitarray"
       ],
       package_data={'fess': ['stats/all_nr3.36.stats',
                              'stats/cylinder_intersections*.csv',

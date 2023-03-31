@@ -5,7 +5,7 @@ from builtins import (ascii, bytes, chr, dict, filter, hex, input, #pip install 
 __metaclass__=object
 
 try:
-    from colelctions.abc import Set
+    from collections.abc import Set
 except ImportError:
     from collections import Set
 

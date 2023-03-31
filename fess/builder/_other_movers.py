@@ -39,6 +39,9 @@ class MSTchangingMover(Mover):
                 old_elem = elem
                 # Now change the MST
                 elem = sm.set_multiloop_break_segment(elem)
+                if elem is None:
+                    # The element was already broken => call super
+                    return super(MSTchangingMover, self).move(sm)
                 assert elem.startswith("m")
                 new_stat = self.stat_source.sample_for(sm.bg, elem)
                 sm.elem_defs[elem]=new_stat
@@ -51,9 +54,9 @@ class MSTchangingMover(Mover):
         if self._prev_mst is not None:
             # Reset MST
             log.info("Reverting MST")
-            sm.change_mst(self._prev_mst)
+            sm.change_mst(self._prev_mst, self.stat_source)
         else:
-            log.info("Nothing to revert")
+            log.info("MST does not need to be revert")
         self._prev_mst = None
         super(MSTchangingMover, self).revert(sm)
 
@@ -88,7 +91,6 @@ class ExhaustiveMover(Mover):
         super(ExhaustiveMover, self).__init__(stat_source)
         if isinstance(elems_of_interest, str):
             elems_of_interest = elems_of_interest.split(",")
-        print(elems_of_interest)
         self._element_names = elems_of_interest
         self._move_iterator = self._iter_moves(sm)
 
@@ -98,7 +100,7 @@ class ExhaustiveMover(Mover):
             iterables[elem]=self.stat_source.iterate_stats_for(sm.bg, elem)
         while True:
             if not iterables:
-                raise StopIteration
+                return
             for elem in list(iterables.keys()):
                 try:
                     stat = next(iterables[elem])

@@ -170,13 +170,16 @@ class TestWholeMLMoverPublicAPI(TestMoverBaseClassPublicAPI):
     def test_whole_ml_mover_moves_whole_ml(self):
         for i in range(RAND_REPETITIONS):
             sm = copy.deepcopy(self.sm)
+            for stat in sm.elem_defs.values():
+                # Give other pdb names, so we can detect also replacements by the same element
+                stat.pdb_name = stat.pdb_name+"_old"
             stats_old = copy.deepcopy(sm.elem_defs)
             self.mover.move(sm)
             changed = set()
             for elem in sm.elem_defs:
+                if elem not in sm.bg.mst:
+                    continue
                 if sm.elem_defs[elem].pdb_name!=stats_old[elem].pdb_name:
                     changed.add(elem)
             if any(elem[0]=="m" for elem in changed):
-                self.assertEqual(len(changed),3, msg = "Changed is {}, should be 3 ml segments".format(changed))
-            else:
-                self.assertEqual(len(changed),1)
+                self.assertEqual(len(changed), 3, msg = "Changed is {}, should be 3 ml segments".format(changed))

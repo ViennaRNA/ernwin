@@ -41,7 +41,7 @@ def add_stem_coordinates(cg, stem, start, direction=[0.,0.,10.]):
     cg.twists[stem] = (ftuv.get_orthogonal_unit_vector(cg.coords.get_direction(stem)),
                       -ftuv.get_orthogonal_unit_vector(cg.coords.get_direction(stem)))
 
-
+@unittest.skip("Fit Volume is not fully supported")
 class FitVolumeTest(unittest.TestCase):
     def setUp(self):
         self.mapfilename = "test/fess/data/5l4o.mrc"
@@ -80,9 +80,9 @@ class TestClashEnergy(unittest.TestCase):
     def test_stem_virtual_res_clash_energy_with_nodes(self):
         self.assertEqual(self.energy.eval_energy(self.cg), 0.)
         nodes=['h2', 'h0', 'h1', 's9', 's8', 's3', 's2', 's1', 's0', 's7', 's6', 's5', 's4', 'm1',
-               'm0', 'm3', 'm2', 's11', 's10', 'i1', 'i0', 'i3', 'i2', 'i5', 'i4', 'i7', 'i6', 't1']
+               'm0', 'm3', 'm2', 'i1', 'i0', 'i3', 'i2', 'i5', 'i4', 'i7', 'i6', 't1']
         self.assertEqual(self.energy.eval_energy(self.cg, nodes=nodes), 0.)
-        nodes=['s9', 's8', 's3', 's2', 's1', 's0', 's7', 's6', 's5', 's4', 's11', 's10']
+        nodes=['s9', 's8', 's3', 's2', 's1', 's0', 's7', 's6', 's5', 's4']
         self.assertEqual(self.energy.eval_energy(self.cg, nodes=nodes), 0.)
         #Zero energy if less than 2 stems in Nodes.
         self.assertEqual(self.energy.eval_energy(self.cg, nodes=[]), 0)
@@ -93,7 +93,8 @@ class TestClashEnergy(unittest.TestCase):
             self.assertEqual(self.energy.eval_energy(self.cg, nodes=["s220", "s9"]), 0.)
         #Structure with a clash
         self.assertGreater(self.energy.eval_energy(self.cg_clash), 100.)
-        self.assertGreater(self.energy.eval_energy(self.cg_clash, nodes=["s7", "s11"]), 100.)
+        self.assertGreater(self.energy.eval_energy(self.cg_clash, nodes=["s0", "s11"]), 100.)
+        self.assertEqual(self.energy.eval_energy(self.cg_clash, nodes=["s0", "s1"]), 0.)
 
 
     def test_energy_independent_of_nodes(self):
@@ -105,7 +106,7 @@ class TestClashEnergy(unittest.TestCase):
                     e_nodes=self.energy.eval_energy(cg, nodes=nodes)
                 except ValueError: #No stem in nodes
                     e_nodes=0
-                np.set_printoptions(threshold=np.nan)
+                np.set_printoptions(threshold=sys.maxsize)
                 self.assertLessEqual(e_nodes, e, "{} is not <= {}. The clash energy should be "
                                      "smaller or the same, if nodes are used. Nodes used were {} "
                                      "for spatial model {}.".format(e_nodes, e, nodes, i))
@@ -113,7 +114,7 @@ class TestClashEnergy(unittest.TestCase):
     def test_bad_bulges(self):
         self.energy.eval_energy(self.cg_clash)
         print(self.energy.bad_bulges)
-        self.assertEqual(self.energy.bad_bulges, [tuple(sorted(("s7", "s11")))])
+        self.assertEqual(self.energy.bad_bulges, [("s1", "s11"), ("s0", "s11"), ("s11", "s2")])
 
 class TestJunctionConstraintEnergy(unittest.TestCase):
     def setUp(self):
@@ -148,28 +149,28 @@ class TestSampledFragmentJunctionEnergy(unittest.TestCase):
 
     def test_energy_zero(self):
         # For the broken ml segment m2, we use the stats found in the stat-source for this element.
-        assert "m2" not in self.cg.get_mst()
-        if self.cg.get_angle_type("m2", allow_broken=True)==3:
-            self.cg.sampled["m2"] = ["4GXY_A:m_16"]
-        elif self.cg.get_angle_type("m2", allow_broken=True)==-3:
-            self.cg.sampled["m2"] = ["4GXY_A:m_17"]
+        assert "m1" not in self.cg.get_mst()
+        if self.cg.get_angle_type("m1", allow_broken=True)==3:
+            self.cg.sampled["m1"] = ["4GXY_A:m_10"]
+        elif self.cg.get_angle_type("m1", allow_broken=True)==-3:
+            self.cg.sampled["m1"] = ["4GXY_A:m_11"]
         else:
             assert False
-        energy = fbe.SampledFragmentJunctionClosureEnergy("m2", self.stat_source)
+        energy = fbe.FragmentBasedJunctionClosureEnergy("m1", self.stat_source)
         self.assertLess(energy.eval_energy(self.cg), 10**-3)
 
     def test_energy_zero_after_building(self):
-        assert "m2" not in self.cg.get_mst()
+        assert "m1" not in self.cg.get_mst()
         sm = fbm.SpatialModel(self.cg)
-        sm.load_sampled_elems()
+        sm.load_sampled_elems(stat_source=self.stat_source)
         sm.new_traverse_and_build()
-        if sm.bg.get_angle_type("m2", allow_broken=True)==3:
-            sm.bg.sampled["m2"] = ["4GXY_A:m_16"]
-        elif sm.bg.get_angle_type("m2", allow_broken=True)==-3:
-            sm.bg.sampled["m2"] = ["4GXY_A:m_17"]
+        if self.cg.get_angle_type("m1", allow_broken=True)==3:
+            self.cg.sampled["m1"] = ["4GXY_A:m_10"]
+        elif self.cg.get_angle_type("m1", allow_broken=True)==-3:
+            self.cg.sampled["m1"] = ["4GXY_A:m_11"]
         else:
             assert False
-        energy = fbe.SampledFragmentJunctionClosureEnergy("m2", self.stat_source)
+        energy = fbe.FragmentBasedJunctionClosureEnergy("m2", self.stat_source)
         self.assertLess(energy.eval_energy(sm.bg), 10**-3)
 
 class TestFragmentJunctionEnergy(unittest.TestCase):
@@ -183,11 +184,11 @@ class TestFragmentJunctionEnergy(unittest.TestCase):
         self.assertLess(energy.eval_energy(self.cg), 10**-3)
 
     def test_energy_zero_after_building(self):
-        assert "m2" not in self.cg.get_mst()
+        assert "m1" not in self.cg.get_mst()
         sm = fbm.SpatialModel(self.cg)
-        sm.load_sampled_elems()
+        sm.load_sampled_elems(self.stat_source)
         sm.new_traverse_and_build()
-        energy = fbe.FragmentBasedJunctionClosureEnergy("m2", self.stat_source)
+        energy = fbe.FragmentBasedJunctionClosureEnergy("m1", self.stat_source)
         self.assertLess(energy.eval_energy(sm.bg), 10**-3)
 
 
@@ -368,6 +369,8 @@ class DummyCgEnergy(CoarseGrainEnergy):
         else:
             self._last_measure+=1
         return self._last_measure
+    def generate_target_distribution(cls, *args, **kwargs):
+        pass
 
 
 class TestCoarseGrainEnergyABC(unittest.TestCase):

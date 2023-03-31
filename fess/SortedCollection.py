@@ -85,7 +85,7 @@ class SortedCollection(object):
     def __init__(self, iterable=(), key=None, maxlen=None):
         self._given_key = key
         _key = (lambda x: x) if key is None else key
-        decorated = sorted((key(item), item) for item in iterable)
+        decorated = sorted((_key(item), item) for item in iterable)
         if maxlen is not None:
             decorated = decorated[:maxlen]
         self._maxlen=maxlen

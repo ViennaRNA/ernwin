@@ -72,8 +72,8 @@ for module in [fbstat, fess.directory_utils, fbe, fbmov, fbm, fbb, fbmodel]:
     module.update_parser(parser)
 
 
-def main():
-    args = parser.parse_args()
+def main(args):
+    args = parser.parse_args(args)
 
     cg, = fuc.cgs_from_args(args, rna_type="cg",
                             enable_logging=True) # Set log-level as a sideeffect
@@ -90,7 +90,7 @@ def main():
             try:
                 nt = int(pos)
             except Exception:
-                d = cg.defines[elem] #Might raise a KeyError, but that is fine
+                d = cg.defines[pos] #Might raise a KeyError, but that is fine
                 if d:
                     nts.append(d[0])
                 else:
@@ -233,4 +233,4 @@ def setup_rng(args):
 
 
 if __name__ == "__main__":
-    main()
+    main(args=sys.argv[1:])

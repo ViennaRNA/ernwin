@@ -131,8 +131,12 @@ class TestMoverBaseClassPublicAPI(unittest.TestCase):
         self.sm.new_traverse_and_build()
         self.mover = fbmov.Mover(self.stat_source_real)
     def test_move_changes_sm(self):
+        """A move should either change coordinates or the broken ML segment"""
         coords_old = copy.deepcopy(self.sm.bg.coords)
-        log.info(self.mover.move(self.sm))
+        while True:
+            info = self.mover.move(self.sm)
+            if info.partition(":")[0] in self.sm.bg.mst:
+                break
         self.assertNotEqual(self.sm.bg.coords, coords_old, msg="At least one coordinate should have changed significantly.")
     def test_move_and_reset(self):
         for i in range(10):

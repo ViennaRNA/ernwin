@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from builtins import (ascii, bytes, chr, dict, filter, hex, input,
                       int, map, next, oct, open, pow, range, round,
-                      str, super, zip) #future package
+                      str, super, zip)  # future package
 import sys
 import random
 import math
@@ -218,7 +218,6 @@ class StatStorage(object):
             if i>=len(self._sources):
                 self._sources.append(read_stats_file(self.fallbacks[i-1]))
             yield self._sources[i]
-        raise StopIteration
 
     @lru_cache(maxsize = 128)
     def _possible_stats(self, stat_type, key, min_entries=100, strict=False, enable_logging=True):
@@ -340,34 +339,35 @@ class StatStorage(object):
         all_stats = list(self.iterate_stats(stat_type, key, min_entries, False))
         return ContinuouseStatSampler(all_stats, key)
 
-    def iterate_stats(self, stat_type, key, min_entries = 100, cycle = False):
+    def iterate_stats(self, stat_type, key, min_entries=100, cycle=False):
         weights, stats = self._possible_stats(stat_type, key, min_entries)
         stat_samples = []
         for i, w in enumerate(weights):
             r = random.random()
-            if r<=w:
+            if r <= w:
                 stat_samples.append(stats[i])
         while True:
             for stat in stat_samples:
                 yield stat
             if not cycle:
-                break #Exhaust the generator
+                break  # Exhaust the generator
 
     def load_stat_by_name(self, bg, elem, name):
         key = self.key_from_bg_and_elem(bg, elem)
-        
-        _, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries=float('inf'), enable_logging=False)
-        found=None
+
+        _, stats = self._possible_stats(letter_to_stat_type[elem[0]], key, min_entries=float('inf'),
+                                        enable_logging=False)
+        found = None
         for stat in stats:
             if stat.pdb_name == name:
                 assert found is None
-                found=stat
+                found = stat
         if not found:
-            raise RuntimeError("Cannot load stat %s for elem %s. Maybe a different stat file or different cg was used?")
+            raise RuntimeError("Cannot load stat {} for elem {}. Maybe a different stat file "
+                               "or different cg was used?".format(name, elem))
         return found
 
-
-    def iterate_stats_for(self, bg, elem, min_entries = 100, cycle = False):
+    def iterate_stats_for(self, bg, elem, min_entries=100, cycle=False):
         """
         Iterate over all stats for the given element.
 

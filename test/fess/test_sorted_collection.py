@@ -10,7 +10,7 @@ from six.moves import range
 __author__ = "Raymond Hettinger"
 __license__ = "MIT"
 
-from fess import SortedCollection
+from fess.SortedCollection import SortedCollection
 
 # ---------------------------  Simple demo and tests  -------------------------
 def test_sorted_collection():
@@ -91,7 +91,7 @@ def test_sorted_collection():
     assert sd._keys == ['brown', 'fox', 'jumped', 'quick', 'the']
     assert sd._items == ['Brown', 'Fox', 'jumped', 'quick', 'The']
     assert sd._key == str.lower
-    assert repr(sd) == "SortedCollection(['Brown', 'Fox', 'jumped', 'quick', 'The'], key=lower)"
+    assert repr(sd) == "SortedCollection(['Brown', 'Fox', 'jumped', 'quick', 'The'], key=lower, maxlen=None)", repr(sd)
     sd.key = str.upper
     assert sd._key == str.upper
     assert len(sd) == 5

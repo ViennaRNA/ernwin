@@ -23,17 +23,17 @@ import logging
 log = logging.getLogger(__name__)
 class ParseFileTests(unittest.TestCase):
     def test_parse_empty_line(self):
-        filecontent = StringIO("\nstem test:s_0 5 10.388 2.43294047108")
+        filecontent = StringIO("\nstem test:s_0 5 10.388 2.43294047108 1 5 21 25 CCCGG CCGGG")
         stats = fbstat.parse_stats_file(filecontent)
         self.assertEqual(len(stats["stem"]), 1)
         self.assertEqual(len(stats["angle"]), 0)
         self.assertEqual(stats["stem"][5][0].bp_length, 5)
 
     def test_parse_line_with_comments(self):
-        filecontent = StringIO("\nstem test:s_0 5 10.388 2.43294047108\n"
+        filecontent = StringIO("\nstem test:s_0 5 10.388 2.43294047108 1 5 21 25 CCCGG CCGGG\n"
                                         " # Das ist ein comment\n"
-                                        "angle test:i_0 5 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1\n"
-                                        "angle test:i_1 4 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1 #Another # comment")
+                                        "angle test:i_0 5 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1 15 19 25 26 AAAAAAA&UAAU\n"
+                                        "angle test:i_1 4 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1 10 13 30 31 UAAAAU&UAAU #Another # comment")
         stats = fbstat.parse_stats_file(filecontent)
         self.assertEqual(len(stats["stem"]), 1)
         self.assertEqual(len(stats["angle"]), 2)
@@ -49,19 +49,20 @@ class ReadFileTests(unittest.TestCase):
         stats = fbstat.read_stats_file("test/fess/data/test1.stats")
         log.info(stats)
         self.assertEqual(len(stats["stem"]), 1)
-        self.assertEqual(len(stats["angle"]), 3)
+        self.assertEqual(len(stats["angle"]), 2)
         self.assertEqual(len(stats["loop"]), 2)
         self.assertEqual(len(stats["3prime"]), 1)
         self.assertEqual(len(stats["5prime"]), 1)
 
         self.assertEqual(stats["stem"][5],
-                         [ftmstats.StemStat("stem test:s_0 5 10.388 2.43294047108 1 5 10 15 GCAUG UGCAU")])
+                         [ftmstats.StemStat("stem test:s_0 5 10.208 2.44697849523 47 51 59 63 UCCGG CCGG")])
         a_stat = ftmstats.AngleStat()
-        a_stat.parse_line("angle test:i_0 5 2 2.203691 2.099941 0.586450 17.134279 1.191397 1.274896 1")
+        a_stat.parse_line(
+            "angle test:i_0 5 2 1.646226 0.283332 1.578879 8.347591 1.470635 0.155521 1 5 9 21 22 GGGGGGC&GUAC")
         self.assertEqual(stats["angle"][(5, 2, 1)],
                          [a_stat])
-        a_stat.parse_line("angle test:m_0 4 1000 0.985166 -1.185545 -2.000463 13.701389 0.982669 0.267821 -4")
-        self.assertEqual(stats["angle"][(4, 1000, 6)], # We patched ang_type to use 6 for all ml-segments. -6<=>-3, but -6<=>+4
+        a_stat.parse_line("angle test:m_0 1 1000 1.582537 0.413265 1.097785 7.037972 1.702520 0.331291 4 25 25 UAG 3.22820058 5.93806025 -4.96969799  vbase 1.8800 4.9549 -2.2471  vsugar 4.9039 5.9004 -5.7115  vbackbone 4.9006 2.1672 -7.7304")
+        self.assertEqual(stats["angle"][(1, 1000, 6)], # We patched ang_type to use 6 for all ml-segments. -6<=>-3, but -6<=>+4
                          [a_stat])
         self.assertEqual(stats["loop"][6],
                          [ftmstats.LoopStat("loop test:h_0 6  15.2401560955 0.269833051418 0.731484795668")])

@@ -132,7 +132,7 @@ class CheatingEnergy(EnergyFunction):
 
 class FitVolume(EnergyFunction):
     _shortname = "VOL"
-    HELPTEXT = "Fit volumetric data"
+    HELPTEXT = "Fit volumetric data. Experimental"
     def __init__(self, filename, cutoff, prefactor=None, adjustment=None):
         import mrcfile #https://doi.org/10.1107/S2059798317007859
         with mrcfile.open(filename) as mrc:
@@ -1285,7 +1285,7 @@ class _PDD_Mixin(object):
             else:
                 fraction = (dist-dist_low)/(dist_high-dist_low)
                 value = values[index_low]+fraction*(values[index_high]-values[index_low])
-                self.log.error("Linear interpolation: bin%s: dist %s between %s and %s: %s (%s-%s)",
+                self.log.debug("Linear interpolation: bin%s: dist %s between %s and %s: %s (%s-%s)",
                                        bin_no, dist, dist_high, dist_low, value, values[index_high], values[index_low])
 
             _target_pdd[bin_no] = value
@@ -1313,8 +1313,6 @@ class _PDD_Mixin(object):
         return _target_pdd
 
     def check_target_pdd(self, distances, values, log=True, normalize=True):
-        print(distances)
-        print(distances.iloc[-1])
         experimental_stepsize = distances.iloc[-1]/len(distances)
         self.log.warning("exp_stepwidth: %s, self._stepwidth: %s, factor: %s",
                     experimental_stepsize, self._stepwidth, self._stepwidth/experimental_stepsize)
