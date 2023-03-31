@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+Release Version 1.1
+-------------------
+
+Python3 Support. Tested with Python 3.10
+
 Release Version 1.0
 -------------------
 
