@@ -6,7 +6,7 @@ Since release 1.1 , ernwin supports python3
 Installation
 ------------
 
-Ernwin can be installed from the python package index using pip::
+Ernwin can be installed from the python package index using pip:
     
     pip install ernwin
 
@@ -30,21 +30,21 @@ a knowledge base of existing pdb structures has to be downloaded.
 This can be done using the following steps (tested using a bash terminal on Linux -
 please use the equivalent commands if you are on a different operating system):
 
-#. Create a folder where you will put your ernwin data::
+1. Create a folder where you will put your ernwin data:
 
-    mkdir ernwin_data 
+    ```mkdir ernwin_data```
 
-#. Download  and extract the coarse grained representation of the PDB structure 
-   knowledge base into this folder (as an alternative you could clone the repository)::
+2. Download  and extract the coarse grained representation of the PDB structure
+   knowledge base into this folder (as an alternative you could clone the repository):
 
-    cd ernwin_data
+    ```cd ernwin_data
     wget https://github.com/ViennaRNA/ernwin/raw/master/RESOURCES/CGS.tar.gz
-    tar -xzf CGS.tar.gz
+    tar -xzf CGS.tar.gz```
 
-#. To download the corresponding PDB files in MMCIF format directly from RCSB, 
-   you can use a bash script available in the ernwin git repository::
+3. To download the corresponding PDB files in MMCIF format directly from RCSB,
+   you can use a bash script available in the ernwin git repository:
 
-    wget https://github.com/ViennaRNA/ernwin/raw/master/RESOURCES/download_pdb_files_for_cg_files.sh
+    ```wget https://github.com/ViennaRNA/ernwin/raw/master/RESOURCES/download_pdb_files_for_cg_files.sh
     chmod +x download_pdb_files_for_cg_files.sh
     # In the following command, "CGS" is the folder you have downloaded and extracted before
     # This assumes you are still in the ernwin_data folder.
@@ -52,7 +52,7 @@ please use the equivalent commands if you are on a different operating system):
     # You will see the output of wget displayed while it is in progress.
     ./download_pdb_files_for_cg_files.sh CGS
     # Finally, unzip all downloaded files:
-    gunzip *.gz
+    gunzip *.gz```
 
 After this set-up, you should have over 2000 PDB files in the folder `ernwin_data` and corresponding files
 in the ernwin (and forgi) coarse grain format inside `ernwin_data/CGS`.
@@ -60,12 +60,12 @@ in the ernwin (and forgi) coarse grain format inside `ernwin_data/CGS`.
 Running your first simulation
 -----------------------------
 
-Without all-atom resonstruction::
+Without all-atom resonstruction:
  
     ernwin.py INPUT.fa
 
 To enable all-atom resonstruction, you need to give the paths to the ernwin_data folder 
-and the ernwin_data/CGS folder (see post-installation set-up)::
+and the ernwin_data/CGS folder (see post-installation set-up):
 
     ernwin.py INPUT.fa --reconstruct-every-n 10 --source-pdb-dir <PATH>/ernwin_data --source-cg-dir <PATH>/ernwin_data/CGS
 
@@ -73,11 +73,11 @@ To speed-up all-atom reconstruction, you can allow ernwin to store fragments ext
 PDB files in ernwin_data into a new folder. 
 This uses disk space but provides a significant speed-up 
 as it avoids re-opening huge PDB files multiple times.
-Do this by adding the option::
+Do this by adding the option:
 
     --reconstruction-cache-dir ~/.cache/ernwin
 
-To specify the number of iterations, add::
+To specify the number of iterations, add:
 
     --iter 100
 
