@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+Release Version 1.2
+-------------------
+
+Additional fixes. Tested with Python 3.11
+
 Release Version 1.1
 -------------------
 

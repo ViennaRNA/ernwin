@@ -10,7 +10,7 @@ Ernwin can be installed from the python package index using pip:
     
     pip install ernwin
 
-On most Linux distribution this will work out of the box.  
+On most Linux distribution this will work out of the box. 
 If you get an error complaining about an unknown extension "pyx", try 
 installing Cython first and then re-try the pip installation of ernwin.
 Cython can either be installed using `pip install Cython`, 
@@ -19,6 +19,12 @@ or via your operating system's package manager.
 If you experience any problems with the installation of ernwin, 
 please open an issue at github.
 
+Optional dependency
+-------------------
+
+To visualize sampled structures in the ernwin format with the `visualize_rna.py` script, 
+PyMOL <https://pymol.org/> is required (tested with PyMOL 2.5.0).
+
 Post-installation set-up
 ------------------------
 
@@ -26,7 +32,7 @@ If you just want to sample coarse-grained structures in the ernwin format,
 ernwin can be used directly after installation.
 But in order to perform all-atom reconstruction 
 and generate PDB files which can be used by other tools, 
-a knowledge base of existing pdb structures has to be downloaded.
+a knowledge base of existing pdb structures has to be downloaded (can take up to an hour).
 This can be done using the following steps (tested using a bash terminal on Linux -
 please use the equivalent commands if you are on a different operating system):
 
@@ -108,5 +114,5 @@ Ensemble based energy (publications describing the difference to the PDD energy 
 Other documentations
 --------------------
 
-The slightly outdated documentation of the python2 version can be found at 
+Also see the tutorial at 
 http://www.tbi.univie.ac.at/~thiel/ernwin
