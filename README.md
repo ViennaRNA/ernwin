@@ -91,9 +91,12 @@ Running a simulation with SAXS data
 -----------------------------------
 
 To guide the simulation using SAXS data, you need to give the pair distance distribution function 
-as CSV file or as GNOM output file using the following option::
+as CSV file (Angstrom) or as GNOM output file (nm) using the following option::
 
     --pdd-file PDDFILE.out 
+    
+[!WARNING]
+Make sure that the distances in the PDD file are in the correct unit. For GNOM files ernwin assumes nm, for csv files it assumes Angstrom.
 
 And you *must* specify an energy that uses this PDD file:
 
