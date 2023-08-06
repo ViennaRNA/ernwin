@@ -1232,7 +1232,7 @@ class LoopLoopInteractionEnergy(InteractionEnergy):
 
 def read_gnom_out(filename):
     block_found=False
-    data={"count":[], "distance":[]}
+    data={"count":[], "distance":[], "error": []}
     with open (filename) as f:
         for line in f:
             if block_found:
@@ -1242,13 +1242,15 @@ def read_gnom_out(filename):
                 fields=list(map(float, line.split()))
                 if fields[1]<0:
                     break
-                data["distance"].append(fields[0])
+                data["distance"].append(fields[0] * 10)
                 data["count"].append(fields[1])
+                data["error"].append(fields[2])
             elif line=="      R          P(R)      ERROR\n":
                 block_found=True
     df = pd.DataFrame(data)
-    df["error"]=sum(df["count"]/2000)
+    #df["error"]=sum(df["count"]/2000)
     log.info("PDD read: %s", df)
+    log.warning("GNOM output file read. Maximal distance (D_max) in the experimental data is {} Angstrom".format(data["distance"][-1]))
     return df
 
 class _PDD_Mixin(object):
@@ -1674,7 +1676,13 @@ class Ensemble_PDD_Energy(_PDD_Mixin, CoarseGrainEnergy):
         self.log.debug("Adj: %s, error*adj=%s", self.adjustment, error/self.normalization_factor*self.adjustment)
         self.log.debug("Setting target_distribution with shapes mu: %s, sig:%s", np.shape(self.target_values), np.shape(error))
         self.target_distribution = gaussian(self.target_values, error/self.normalization_factor*self.adjustment)
-
+        if False:  # This would plot the target PDD together with two lines for the errors (sigma)
+            import matplotlib.pyplot as plt
+            plt.plot(np.arange(len(self.target_values)), self.target_values, label="target")
+            plt.plot(np.arange(len(self.target_values)), self.target_values + error/self.normalization_factor*self.adjustment, label="mu + sig")
+            plt.plot(np.arange(len(self.target_values)), self.target_values - error/self.normalization_factor*self.adjustment, label="mu - sig")
+            plt.legend()
+            plt.show()
         self.log.debug("target_distr(target)=\n%s", self.target_distribution(self.target_values))
         self.log.debug("target_distr(target+0.005)=\n%s", self.target_distribution(self.target_values+0.005))
         self.log.debug("target_distr(target+0.01)=\n%s", self.target_distribution(self.target_values+0.01))

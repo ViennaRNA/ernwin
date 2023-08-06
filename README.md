@@ -110,7 +110,7 @@ Simple PDD energy plus long range interactions::
 
 Ensemble based energy (publications describing the difference to the PDD energy are in preparation) plus long range interactions::
 
-    --energy EPD[R],LLI,AME
+    --energy EPD50[R],LLI,AME
 
 
 
