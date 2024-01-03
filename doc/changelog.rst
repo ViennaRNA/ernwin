@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+Release Version 1.3
+-------------------
+
+Re-running the same simulation with the same seed on the same python version should now be deterministic, 
+at least for the most common options. 
+As sets and dictionaries have arbitrary order, this was not the case previously.
+
+
 Release Version 1.2
 -------------------
 

@@ -1,5 +1,5 @@
-ernwin 1.1
-==========
+ernwin 1.3 README /  Quickstart
+===============================
 
 Since release 1.1 , ernwin supports python3
 
@@ -38,19 +38,24 @@ please use the equivalent commands if you are on a different operating system):
 
 1. Create a folder where you will put your ernwin data:
 
-    ```mkdir ernwin_data```
+    ```
+    mkdir ernwin_data
+    ```
 
 2. Download  and extract the coarse grained representation of the PDB structure
    knowledge base into this folder (as an alternative you could clone the repository):
 
-    ```cd ernwin_data
+    ```
+    cd ernwin_data
     wget https://github.com/ViennaRNA/ernwin/raw/master/RESOURCES/CGS.tar.gz
-    tar -xzf CGS.tar.gz```
+    tar -xzf CGS.tar.gz
+    ```
 
 3. To download the corresponding PDB files in MMCIF format directly from RCSB,
    you can use a bash script available in the ernwin git repository:
 
-    ```wget https://github.com/ViennaRNA/ernwin/raw/master/RESOURCES/download_pdb_files_for_cg_files.sh
+    ```
+    wget https://github.com/ViennaRNA/ernwin/raw/master/RESOURCES/download_pdb_files_for_cg_files.sh
     chmod +x download_pdb_files_for_cg_files.sh
     # In the following command, "CGS" is the folder you have downloaded and extracted before
     # This assumes you are still in the ernwin_data folder.
@@ -58,7 +63,9 @@ please use the equivalent commands if you are on a different operating system):
     # You will see the output of wget displayed while it is in progress.
     ./download_pdb_files_for_cg_files.sh CGS
     # Finally, unzip all downloaded files:
-    gunzip *.gz```
+    gunzip *.gz
+    ```
+
 
 After this set-up, you should have over 2000 PDB files in the folder `ernwin_data` and corresponding files
 in the ernwin (and forgi) coarse grain format inside `ernwin_data/CGS`.
@@ -113,6 +120,7 @@ Ensemble based energy (publications describing the difference to the PDD energy 
     --energy EPD50[R],LLI,AME
 
 
+    
 
 Other documentations
 --------------------

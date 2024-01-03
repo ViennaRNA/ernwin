@@ -2,7 +2,7 @@
 Modelling a long noncoding RNA with ERNWIN
 ==========================================
 
-To reproduce the results shown in the paper "Zinc-finger protein CNBP alters the 3-D structure of lncRNA Braveheart in solution" :ref:`[1]<_ref_bvht>`, additional resources are needed: 
+To reproduce the results shown in the paper "Zinc-finger protein CNBP alters the 3-D structure of lncRNA Braveheart in solution" :ref:`[1]<ref_bvht>`, additional resources are needed: 
 Over 50000 short artificial structures were generated  :ref:`[2] <ref2>` mostly with Rosetta :ref:`[3] <ref3>` (with some additional structures generated with SimRNA :ref:`[4] <ref4>`  or iFoldRNA :ref:`[5] <ref5>`) and used as fallback fragments, when less than 100 examples of a secondary structure element could be found in the PDB. This was especially the case for larger exterior loop segments and other large unpaired loops, which are underrepresented in the PDB due to their flexibility. These artificial PDB structures can be downloaded from www.tbi.univie.ac.at/~thiel/fallback_pdbs.tar.gz (Only needed for all-atom reconstruction). The corresponding forgi files are at www.tbi.univie.ac.at/~thiel/fallback_cgs.tar.gz . For reconstruction to work, put the files into your folders PDB_DIR and CGS respectively.
 
 To use them in sampling, the file fallback.stats from the folder RESOURCES in this repository has to be used with the following commandline argument::
