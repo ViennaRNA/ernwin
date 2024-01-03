@@ -63,8 +63,11 @@ class Mover:
         self._prev_stats = None
 
     def _get_elem(self, sm):
-        possible_elements = set(sm.bg.defines.keys()) - sm.frozen_elements
-        return random.choice(list(possible_elements))
+        possible_elements = list(set(sm.bg.defines.keys()) - sm.frozen_elements)
+        # We need to sort here, so using the same seed yields reproducible results
+        # TODO: Think about caching the possible elements
+        possible_elements.sort()
+        return random.choice(possible_elements)
 
     def _get_elem_and_stat(self, sm):
         elem = self._get_elem(sm)
@@ -162,10 +165,12 @@ class MoveAndRelaxer(Mover):
 
 class MoveAndRelaxML(MoveAndRelaxer):
     def _get_elem(self, sm):
-        possible_elements = set(sm.bg.mloop_iterator()) - sm.frozen_elements
+        possible_elements = list(set(sm.bg.mloop_iterator()) - sm.frozen_elements)
         if not possible_elements:
             raise UnsuitableMover("No ML in structure")
-        return random.choice(list(possible_elements))
+        # We need to sort here, so using the same seed yields reproducible results
+        possible_elements.sort()
+        return random.choice(possible_elements)
 
 class MoverNoRegularML(Mover):
     def _get_elem(self, sm):
