@@ -1230,7 +1230,7 @@ class LoopLoopInteractionEnergy(InteractionEnergy):
     def reset_distributions(self, rna_length):
         self.reference_interactions = [0.13] * self.knowledge_weight
 
-def read_gnom_out(filename):
+def read_gnom_out(filename, in_angstrom=False):
     block_found=False
     data={"count":[], "distance":[], "error": []}
     with open (filename) as f:
@@ -1242,7 +1242,10 @@ def read_gnom_out(filename):
                 fields=list(map(float, line.split()))
                 if fields[1]<0:
                     break
-                data["distance"].append(fields[0] * 10)
+                if in_angstrom:
+                    data["distance"].append(fields[0])
+                else:
+                    data["distance"].append(fields[0] * 10)
                 data["count"].append(fields[1])
                 data["error"].append(fields[2])
             elif line=="      R          P(R)      ERROR\n":
@@ -1251,6 +1254,9 @@ def read_gnom_out(filename):
     #df["error"]=sum(df["count"]/2000)
     log.info("PDD read: %s", df)
     log.warning("GNOM output file read. Maximal distance (D_max) in the experimental data is {} Angstrom".format(data["distance"][-1]))
+    if data["distance"][-1] > 1000 and not in_angstrom:
+      log.error("The maximal distane in the GNOM .out file (interpreted as nm) is above 100 nm."
+                " If your file is in Angstrom, use the '--gnom-unit A' commandline option.")
     return df
 
 class _PDD_Mixin(object):
@@ -1379,8 +1385,9 @@ class _PDD_Mixin(object):
         return ftuv.pair_distance_distribution(points, stepsize)
 
     @classmethod
-    def from_cg(cls, prefactor, adjustment, level, cg, pdd_target,**kwargs):
+    def from_cg(cls, prefactor, adjustment, level, cg, pdd_target, **kwargs):
         logger = logging.getLogger(cls.__module__+"."+cls.__name__)
+        gnom_unit = kwargs["gnom_unit"]
         if "reference_cg" in kwargs and kwargs["reference_cg"] is not None:
             cg=kwargs["reference_cg"]
         if pdd_target=="__cg__":
@@ -1398,7 +1405,7 @@ class _PDD_Mixin(object):
                 target_pdd = pd.read_csv(pdd_target, comment="#", sep=",", skipinitialspace=True,
                                     dtype={'distance': float, 'count': float, 'error':float} )
             else:
-                target_pdd = read_gnom_out(pdd_target)
+                target_pdd = read_gnom_out(pdd_target, gnom_unit=="A")
             logger.info("Read PDD: %s", target_pdd)
 
         if "pdd_stepsize" not in kwargs or kwargs["pdd_stepsize"] is None:
@@ -2079,7 +2086,11 @@ def update_parser(parser):
                                      "distribution from the SAX experiment.")
     energy_options.add_argument('--pdd-stepsize', type=float,
                                 help="If given, rescale the PDD to this stepsize.")
-
+    energy_options.add_argument('--gnom-unit', type=str, choices=["A", "nm"],
+                                help="By default, ernwin assumes that a GNOM output file "
+                                     "given via --pdd-file has distances in nm. "
+                                     "Set this option to A, if"
+                                     "your GNOM output file uses Angstrom instead.")
 def from_args(args, cg, stat_source, replica=None, reference_cg=None):
     energy_string = replica_substring(args.energy, replica)
     energies = EnergyFunction.from_string(energy_string,
@@ -2087,5 +2098,6 @@ def from_args(args, cg, stat_source, replica=None, reference_cg=None):
                                           stat_source=stat_source,
                                           pdd_target=args.pdd_file,
                                           pdd_stepsize=args.pdd_stepsize,
-                                          reference_cg=reference_cg)
+                                          reference_cg=reference_cg,
+                                          gnom_unit=args.gnom_unit)
     return CombinedEnergy(energies)

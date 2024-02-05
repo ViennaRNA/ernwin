@@ -180,7 +180,11 @@ class Reconstructor(object):
                 with open(pdb_filename): pass
             except IOError:
                 pdb_filename = pdb_filename.rstrip(".pdb")+".cif"
-                with open(pdb_filename): pass
+                try:
+                    with open(pdb_filename): pass
+                except:
+                    pdb_filename = pdb_filename.lower()
+                    with open(pdb_filename): pass
             with open(cg_filename): pass
         except Exception as e:
             with log_to_exception(log, e):
