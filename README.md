@@ -140,8 +140,8 @@ If your use of ernwin results in a scientific publication, please cite
 **Sampling globally and locally correct RNA 3D structures using ERNWIN, SPQR and experimental SAXS data**
 bioRxiv 2022.07.02.498583; doi: https://doi.org/10.1101/2022.07.02.498583 
 
-Other documentations
---------------------
+Tutorial and examples
+---------------------
 
-Also see the tutorial at 
+A tutorial can be found in the doc folder of the ernwin git repository and at 
 http://www.tbi.univie.ac.at/~thiel/ernwin
