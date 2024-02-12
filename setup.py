@@ -6,7 +6,7 @@ import os
 
 setup(
       name='ernwin',
-      version='1.2.0',
+      version='1.3.0',
       description='Coarse Grain 3D RNA Structure Modelling',
       author='Bernhard Thiel, Peter Kerpedjiev',
       author_email='thiel@tbi.univie.ac.at, pkerp@tbi.univie.ac.at',
