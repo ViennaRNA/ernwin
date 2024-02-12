@@ -72,6 +72,23 @@ identical to starting from a fasta file, wherein the argument to
 To create a cg file from a pdb file, see the example in the previous section
 or the relevant documentation for the `forgi package <https://viennarna.github.io/forgi/threedee_tutorial.html#creating-a-coarse-grain-3d-representation-of-an-rna-molecule>`_.
 
+Sampling with all-atom reconstruction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Often, you will need all-atom PDB files tu further analyze the results or put them into other 
+tools for further refinement/ evaluation.
+
+To run the above simulation with all-atom reconstruction every 100 steps, use the following command::
+
+    ernwin.py 2mis.fa --iter 1000 --reconstruct-every-n 100 --reconstruction-pdb-dir ernwin_data/PDBs --reconstruction-cg-dir ernwin_data/CGs
+    
+and optionally (for speed-up) add `--reconstruction-cache-dir ~/.cache/ernwin`
+    
+The two directories you have to give have to contain the correct files, as described in the previous section.
+
+In addition to the coord files, this will also create 10 pdb files along the sampling trajectory. 
+As these PDB files are created by sticking fragments together, they can contain clashes or gaps between residues.
+SPQR can be used to mend these gaps, as described in :ref:`[1]<ref_spqr>`.
 
 The Log File
 ~~~~~~~~~~~~
@@ -80,4 +97,13 @@ As ernwin runs, it outputs diagnostic information about the sampling procedure.
 The same information can be found in the output folder in the ``out.log`` file
 
 
+
+References
+----------
+
+.. _ref_spqr:
+
+[1] *Thiel, B.C., Bussi, G., Poblete S and Hofacker, I.L.*
+**Sampling globally and locally correct RNA 3D structures using ERNWIN, SPQR and experimental SAXS data**
+bioRxiv 2022.07.02.498583; doi: https://doi.org/10.1101/2022.07.02.498583 
 

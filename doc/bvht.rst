@@ -69,7 +69,7 @@ You can download and unzip these files either manually or via the command line::
 
   wget www.tbi.univie.ac.at/~thiel/fallback_cgs.tar.gz
   tar -xzf fallback_cgs.tar.gz  
-  mv fallback_cgs/*.cg /path/to/ernwin_data/CGs/
+  mv fallback_cgs/*.cg /path/to/ernwin_data/CGS/
   wget www.tbi.univie.ac.at/~thiel/fallback_pdbs.tar.gz
   tar -xzf fallback_pdbs.tar.gz
   mv fallback_pdbs/*.pdb /path/to/ernwin_data/PDBs/
@@ -134,7 +134,8 @@ The frequency of all-atom reconstruction can be controlled with the `--reconstru
 Additionally, construction of the initial model takes several minutes. 
 Thus, the first all-atom structure after 100 sampling steps was available after roughly 15 minutes runtime.
 
-Some structures generated with this run are available in the RESOURCES folder of the ernwin git repository.
+Some structures generated with this run are available in 
+the folder RESOURCES/bvht_output of the ernwin git repository.
 
 Using Crysol from the ATSAS package, you can evaluate the Chi^2 of the sampled structures. 
 In this run, the first reconstructed structure (after 100 steps) had a Chi^2 of 12.8, 
@@ -144,8 +145,9 @@ If you reach Chi^2 values in this range for RNA molecules with several 100 nucle
 then this shows that Ernwin is installed correctly, correctly uses the pair distance distribution
 as energy potential (correct unit etc) 
 and the secondary structure is at least roughly compatible with the SAXS profile.
-By running multiple simulations and increading the number of steps per simulation, 
-it is often possible to find even better fitting structures (e.g. with Chi^2 of 1.7 to 2.6 for bvht, 
+By running multiple simulations, tweaking the parameters of the energy function 
+and increasing the number of steps per simulation, it is often possible to find even 
+better fitting structures (e.g. with Chi^2 of 1.7 to 2.6 for bvht, 
 as we reported in :ref:`[1]<ref_bvht>`).
 
 
