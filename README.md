@@ -102,8 +102,7 @@ as CSV file (Angstrom) or as GNOM output file (nm) using the following option::
 
     --pdd-file PDDFILE.out 
     
-[!WARNING]
-Make sure that the distances in the PDD file are in the correct unit. For GNOM files ernwin assumes nm, for csv files it assumes Angstrom.
+:warning: Make sure that the distances in the PDD file are in the correct unit. For GNOM files ernwin assumes nm, for csv files it assumes Angstrom.
 
 And you *must* specify an energy that uses this PDD file:
 

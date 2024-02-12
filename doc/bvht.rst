@@ -1,6 +1,6 @@
 
-Modelling a long noncoding RNA with ERNWIN
-==========================================
+Modelling a long noncoding RNA with ERNWIN using experimental SAXS data
+=======================================================================
 
 As a last, more complex example, this section will show how to sample 3D structures of the long 
 non-coding RNA Braveheart (bvht) using experimental SAXS data, as we did in the paper 
@@ -46,7 +46,7 @@ If you want to create your own artificial fallback structures
    Either let it auto-detect the secondary structure, or enforce a secondary structure using the `--pdb-secondary-structure` option.
 #. Create a stats file from the forgi files, using the `create_stats.py` script from the ernwin repository. Assuming all forgi files from the previous step are in the current directory and have the `.cg` file ending, the command would look something like this::
 
-  python3 fess/scripts/create_stats.py *.cg 2>/dev/null >../my_fallback.stats
+    python3 fess/scripts/create_stats.py *.cg 2>/dev/null >../my_fallback.stats
 
 In this tutorial, you can continue with just downloading these fallback files, 
 as described in the next section.
@@ -58,7 +58,8 @@ The bvht secondary structure is included in the RESOURCES folder of the ernwin r
 
   wget https://raw.githubusercontent.com/ViennaRNA/ernwin/master/RESOURCES/bvht.fa
   
-To enrich the library of known structures with artificial structures, we have to download 3 files:
+To use our fallback fragments to enrich the library of known structures with artificial structures, 
+you have to download 3 files:
 The artificial structures `in PDB format <www.tbi.univie.ac.at/~thiel/fallback_pdbs.tar.gz>`_ 
 and `in cg format <www.tbi.univie.ac.at/~thiel/fallback_cgs.tar.gz>`_ 
 and a `stats file <www.tbi.univie.ac.at/~thiel/fallback.stats.gz>`_ where the fragments of the 
@@ -84,16 +85,16 @@ via the comman line::
 Additionally, for all atom reconstruction, you have to place the cg and pdb files in the directories
 which ernwin uses for reconstruction (the `--source-cg-dir` and `--source-pdb-dir` options). 
 In these directories, the artificial structures will be next to the real structures 
-that you put there in the previous section.
+that you put there when following the quick start section of the tutorial.
 
 
 Finally, to sample against experimental SAXS data, obtain the SAXS file from SASBDB:
 
-wget https://www.sasbdb.org/media/p_of_R_files/SASDHE3.out
+wget https://www.sasbdb.org/media/p_of_R_files/SASDHE3.out --no-check-certificate
 
 Note that the p(r) in this file has a value of 260, which is clearly in angstrom. 
 As ernwin by default assumes nm for GNOM output files, we will have to tell ernwin 
-the correct unit via a separate command line argument.
+the correct unit via a separate command line argument (`--gnom-unit A`).
 
 Modelling with experimental SAXS data
 -------------------------------------
@@ -123,9 +124,29 @@ It is often possible to speed this up using an experimental building mechanism (
 Putting it all together
 -----------------------
 
-Assuming you have obtained all needed files as described above, the following command can be used:
+Assuming you have obtained all needed files as described above, the following command can be used::
 
+  ernwin.py bvht.fa --iter 5000 --reconstruct-every-n 100 --source-pdb-dir ernwin_data/PDBs --source-cg-dir ernwin_data/CGS --fallback-stats-files ffallback/fallback.stats --pdd-file SASDHE3.out --gnom-unit A --energy PDD[R],LLI,AME --constraint-energy-per-ml JDIST --relaxation-builder --seed 999 --reconstruction-cache-dir ~/.cache/ernwin 
 
+With this command and seed 999, on our Linux machine running python 3.11, the command took 7 hours for sampling 5000 steps, 
+a large part of which is spent on all-atom reconstruction. 
+The frequency of all-atom reconstruction can be controlled with the `--reconstruct-every-n` option. 
+Additionally, construction of the initial model takes several minutes. 
+Thus, the first all-atom structure after 100 sampling steps was available after roughly 15 minutes runtime.
+
+Some structures generated with this run are available in the RESOURCES folder of the ernwin git repository.
+
+Using Crysol from the ATSAS package, you can evaluate the Chi^2 of the sampled structures. 
+In this run, the first reconstructed structure (after 100 steps) had a Chi^2 of 12.8, 
+the structure after 2700 steps had the lowest Chi^2 of the trajectory with a value of 6.05, 
+and the last structure (after 5000) steps had a value of 9.750.
+If you reach Chi^2 values in this range for RNA molecules with several 100 nucleotides, 
+then this shows that Ernwin is installed correctly, correctly uses the pair distance distribution
+as energy potential (correct unit etc) 
+and the secondary structure is at least roughly compatible with the SAXS profile.
+By running multiple simulations and increading the number of steps per simulation, 
+it is often possible to find even better fitting structures (e.g. with Chi^2 of 1.7 to 2.6 for bvht, 
+as we reported in :ref:`[1]<ref_bvht>`).
 
 
 
